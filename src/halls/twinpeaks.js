@@ -5,8 +5,10 @@
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, chevronTexture, curtain, neonSign,
-  smokeLayer, dustField, standPlaque, circleBounds, pineGeometryMaterial
+  smokeLayer, dustField, standPlaque, quotePlaque, vitrine,
+  zoneTrigger, circleBounds, pineGeometryMaterial
 } from './kit.js';
+import { quoteById } from '../data/essays.js';
 
 export const meta = {
   id: 'twinpeaks',
@@ -17,9 +19,11 @@ export const meta = {
 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio } = ctx;
+  const { hotspots, ui, goTo, audio, player, teleport } = ctx;
   const group = new THREE.Group();
   const updaters = [];
+  const timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
   // 林地
   const groundTex = canvasTexture(512, (g, s) => {
@@ -198,13 +202,102 @@ export function build(ctx) {
     }
   });
 
-  // 地表雾 + 萤火
+  // 地表雾 + 萤火（彩蛋发生时会凝固在半空）
   const fogLayer = smokeLayer(110, { x: 60, z: 60 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
   const fireflies = dustField(90, { x: 40, y: 3, z: 40 }, { color: 0xbfffa8, size: 0.09, opacity: 0.8 });
   group.add(fireflies);
-  updaters.push(fireflies.userData.update);
+  const freeze = { on: false };
+  updaters.push((dt, t) => { if (!freeze.on) fireflies.userData.update(dt, t); });
+
+  // ---------- 彩蛋：环形石阵（走进去的人会被移动） ----------
+  // 深入林子背面——帷幕之门的正对侧，藏着一圈立石与一汪黑水。
+  const grove = new THREE.Group();
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x11141a, roughness: 0.9 });
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const h = 0.8 + Math.random() * 0.7;
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.32), stoneMat);
+    stone.position.set(Math.cos(a) * 2.4, h / 2, Math.sin(a) * 2.4);
+    stone.rotation.y = a + Math.random() * 0.5;
+    stone.rotation.z = (Math.random() - 0.5) * 0.16;
+    grove.add(stone);
+  }
+  const pool = new THREE.Mesh(
+    new THREE.CircleGeometry(1.5, 28),
+    new THREE.MeshStandardMaterial({ color: 0x02030a, roughness: 0.06, metalness: 0.9, envMapIntensity: 1.8 })
+  );
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.y = 0.015;
+  grove.add(pool);
+  grove.position.set(15, 0, 11);
+  group.add(grove);
+
+  const groveEgg = () => {
+    freeze.on = true;           // 萤火凝固
+    audio.duck(2.2, 0.02, 3.0); // 风声被抽走
+    audio.sfx('stonechime', 0.9);
+    later(() => {
+      glowPlane.material.emissiveIntensity = 2.6; // 远处的帷幕之门骤亮
+      gateLight.intensity = 60;
+    }, 900);
+    later(() => ui.fade(true), 1700);
+    later(() => {
+      // 空间错位：你没有走向帷幕，是帷幕走向了你
+      teleport(0, -3.4, 0); // 直接站在帷幕之门前，面对它
+      ui.fade(false);
+      freeze.on = false;
+      glowPlane.material.emissiveIntensity = 0.5;
+      gateLight.intensity = 16;
+      audio.sfx('owl', 0.8);
+      ui.caption('你没有走向帷幕。是帷幕走向了你。石阵还留在原地，替你数着秒。', 6600);
+    }, 2400);
+  };
+  const groveTrig = zoneTrigger({ x: 15, z: 11, r: 2.1 }, groveEgg, { cooldown: 60 });
+  updaters.push((dt) => groveTrig.update(player, dt));
+
+  // ---------- 博物馆化：引语展签 + 展柜 ----------
+  const q1 = quotePlaque(quoteById('darkness'), '#3fae6a');
+  q1.position.set(-4.6, 0, 8.4);
+  q1.rotation.y = 0.9;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showEssay('velvet')
+  });
+  // 展柜：一段圆木（小镇的沉默证人；原创抽象，不含角色形象）
+  const logCase = vitrine('一段圆木', 'THE SILENT WITNESS', '#3fae6a');
+  logCase.position.set(-6.2, 0, 1.8);
+  logCase.rotation.y = 1.2;
+  group.add(logCase);
+  const log = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.12, 0.42, 12),
+    new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#3a2814';
+        g.fillRect(0, 0, s, s);
+        for (let i = 0; i < 20; i++) {
+          g.strokeStyle = `rgba(${20 + Math.random() * 30},${14 + Math.random() * 20},8,0.6)`;
+          g.beginPath();
+          g.moveTo(0, Math.random() * s);
+          g.lineTo(s, Math.random() * s);
+          g.stroke();
+        }
+      }),
+      roughness: 0.95
+    })
+  );
+  log.rotation.z = Math.PI / 2;
+  log.position.y = 0.12;
+  logCase.userData.slot.add(log);
+  hotspots.add(logCase.userData.label, {
+    hint: 'E — 它看见了一切',
+    onActivate: () => {
+      audio.sfx('owl', 0.6);
+      ui.caption('展签：这段木头什么都看见了，但它只对愿意弯下腰的人开口。今晚它选择沉默。', 6200);
+    }
+  });
 
   // 掠过夜空的猫头鹰剪影
   const owls = [];
@@ -243,6 +336,8 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 7.5, yaw: 0 },
     bounds: circleBounds(24),
-    update: (dt, t) => { for (const u of updaters) u(dt, t); }
+    update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    eggs: { 'stone-circle': groveTrig },
+    onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
 }

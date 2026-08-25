@@ -5,8 +5,10 @@
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, floorMesh, doorway, curtain, neonSign, micStand,
-  smokeLayer, dustField, lightCone, standPlaque, rectBounds
+  smokeLayer, dustField, lightCone, standPlaque, quotePlaque, vitrine,
+  velvetMaterial, zoneTrigger, rectBounds
 } from './kit.js';
+import { quoteById } from '../data/essays.js';
 
 export const meta = {
   id: 'bluevelvet',
@@ -20,7 +22,7 @@ const W = 19;
 const D = 15;
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio } = ctx;
+  const { hotspots, ui, goTo, audio, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -168,14 +170,92 @@ export function build(ctx) {
   });
 
   // 展签：帷幕意象
-  const s1 = standPlaque('红色天鹅绒', 'THE CURTAIN MOTIF', '#4f74ff');
+  const s1 = standPlaque('帷幕与凝视', 'THE CURTAIN MOTIF', '#4f74ff');
   s1.position.set(5.6, 0, 2.6);
   s1.rotation.y = -1.1;
   group.add(s1);
   hotspots.add(s1.userData.board, {
-    hint: 'E — 阅读《红色天鹅绒：帷幕意象》',
+    hint: 'E — 阅读《帷幕与凝视》',
     onActivate: () => ui.showEssay('velvet')
   });
+
+  // 引语展签（林奇原话：家）
+  const q1 = quotePlaque(quoteById('home'), '#4f74ff');
+  q1.position.set(-6.4, 0, 3.6);
+  q1.rotation.y = 1.15;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showEssay('velvet')
+  });
+
+  // ---------- 博物馆化：展柜（天鹅绒样本） ----------
+  const swatchCase = vitrine('天鹅绒样本', 'TEXTURE STUDY', '#4f74ff');
+  swatchCase.position.set(6.8, 0, -1.6);
+  swatchCase.rotation.y = -0.9;
+  group.add(swatchCase);
+  const swatch = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.5, 24, 4), velvetMaterial(0x101c40));
+  const sp = swatch.geometry.attributes.position;
+  for (let i = 0; i < sp.count; i++) {
+    sp.setZ(i, Math.sin(sp.getX(i) * 26) * 0.03);
+  }
+  swatch.geometry.computeVertexNormals();
+  swatch.position.y = 0.12;
+  swatch.rotation.x = -0.3;
+  swatchCase.userData.slot.add(swatch);
+  hotspots.add(swatchCase.userData.label, {
+    hint: 'E — 布料的两面',
+    onActivate: () => {
+      audio.sfx('chime');
+      ui.caption('展签：天鹅绒的绒面向着光，底布向着墙。每一块布都同时活在两个世界里。', 6000);
+    }
+  });
+
+  // ---------- 彩蛋：衣柜的暗侧 ----------
+  // 房间深处立着一只旧衣柜。绕到它和墙壁的夹缝里——你就成了躲起来的那个人。
+  const closetMat = new THREE.MeshStandardMaterial({ color: 0x17100c, roughness: 0.8 });
+  const closet = new THREE.Group();
+  const closetBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.4, 0.7), closetMat);
+  closetBody.position.y = 1.2;
+  // 百叶门板条
+  const slats = [];
+  for (let i = 0; i < 8; i++) {
+    const slat = new THREE.Mesh(
+      new THREE.BoxGeometry(0.94, 0.09, 0.03),
+      new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.7, emissive: 0xd4243c, emissiveIntensity: 0 })
+    );
+    slat.position.set(0, 0.75 + i * 0.17, 0.36);
+    slat.rotation.x = 0.5;
+    closet.add(slat);
+    slats.push(slat);
+  }
+  closet.add(closetBody);
+  closet.position.set(6.9, 0, 5.0);
+  closet.rotation.y = Math.PI + 0.35;
+  group.add(closet);
+
+  let closetTimers = [];
+  const closetEgg = () => {
+    for (const id of closetTimers) clearTimeout(id);
+    closetTimers = [];
+    // 全场熄灯——你在夹缝里，透过板条看房间
+    const prevWarm = dimState.warm;
+    dimState.warm = 0.04;
+    audio.duck(1.8, 0.03, 2.6);
+    audio.sfx('breath', 0.9);
+    closetTimers.push(setTimeout(() => {
+      for (const s of slats) s.material.emissiveIntensity = 1.4; // 板条透出红光
+      audio.sfx('thud', 0.6);
+      ui.caption('你躲进了看不见的一侧。房间里，有什么东西正在找你。别出声。', 6200);
+    }, 1400));
+    closetTimers.push(setTimeout(() => {
+      for (const s of slats) s.material.emissiveIntensity = 0;
+      dimState.warm = prevWarm > 0.5 ? 1 : prevWarm;
+      audio.sfx('chime', 0.4);
+    }, 6800));
+  };
+  const closetTrig = zoneTrigger({ x: 7.6, z: 5.6, r: 1.25 }, closetEgg, { cooldown: 45 });
+  updaters.push((dt) => closetTrig.update(player, dt));
 
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
@@ -198,6 +278,7 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 5.4, yaw: 0 },
     bounds: rectBounds(-W / 2 + 1.2, W / 2 - 1.2, -D / 2 + 3.2, D / 2 - 1.3),
-    update: (dt, t) => { for (const u of updaters) u(dt, t); }
+    update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    eggs: { 'closet-side': closetTrig }
   };
 }

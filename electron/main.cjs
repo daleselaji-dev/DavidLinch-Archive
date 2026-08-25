@@ -40,7 +40,7 @@ function createWindow() {
 
   if (SMOKE) {
     // 依次巡检全部展厅，任何一个装载失败/超时即失败退出
-    const queue = ['archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'mulholland'];
+    const queue = ['archive', 'eraserhead', 'bluevelvet', 'studio', 'twinpeaks', 'mulholland'];
     const deadline = setTimeout(() => {
       console.error('[smoke] 超时：展厅巡检未完成');
       app.exit(1);
@@ -70,28 +70,49 @@ function createWindow() {
           })()`, true
         ).then((s) => console.log(`[smoke] 场景统计 ${hall}: ${s}`)).catch(() => {});
         const proceed = () => {
+          // 彩蛋触发冒烟：每厅引爆其隐藏彩蛋，校验触发链不抛错（在截屏之后，避免熄灯污染画面存档）
+          win.webContents.executeJavaScript(
+            'window.__SV__.triggerEggs().join(",") || "none"', true
+          ).then((names) => console.log(`[smoke] 彩蛋触发 ${hall}: ${names}`)).catch((err) => {
+            console.error(`[smoke] 彩蛋触发失败 ${hall}`, err);
+            app.exit(1);
+          });
           const next = queue.shift();
           if (next) {
             win.webContents.executeJavaScript(`window.__SV__.goTo('${next}')`, true).catch(() => {});
           } else {
-            // 六厅巡检完毕 → UI 交互冒烟（面板/年表/留言墙/合规页/发帖闭环）
+            // 七厅巡检完毕 → UI 交互冒烟（面板/年表/留言墙/合规页/发帖闭环/旁白模式循环）
             const uiScript = `(() => {
               const u = window.__SV__.ui;
               u.openTimeline(); u.closeModal('timeline');
               u.openGuestbook(); u.closeModal('guestbook');
               u.openLegal(); u.closeModal('legal');
               u.openHelp(); u.closeModal('help');
-              u.showFilm('mulholland-drive'); u.showEssay('method'); u.showArtist(); u.closeAll();
+              u.showFilm('mulholland-drive'); u.showEssay('method'); u.showEssay('world'); u.showArtist(); u.closeAll();
               const s = window.__SV__.store;
               const p = s.addPost('冒烟机器人', '运行时冒烟测试留言');
               s.toggleLike(p.id); s.reply(p.id, '机器人', '自动回复');
               if (!s.list().find((x) => x.id === p.id).replies.length) throw new Error('留言闭环失败');
-              return 'ui-ok';
+              // 旁白模式全循环：letters → jazz(爵士层启动) → voice → off → letters
+              const n = window.__SV__.narration;
+              const seen = [];
+              for (let i = 0; i < 4; i++) seen.push(n.cycleMode().id);
+              if (!seen.includes('jazz') || !seen.includes('voice') || !seen.includes('off')) {
+                throw new Error('旁白模式循环缺项: ' + seen.join(','));
+              }
+              n.setMode('jazz');
+              if (!n.jazz.playing) throw new Error('爵士氛围层未启动');
+              n.setMode('letters');
+              if (n.jazz.playing) throw new Error('爵士氛围层未随模式关闭');
+              n.speak('字母显现冒烟测试。');
+              if (!n.letters.active) throw new Error('字母显现未激活');
+              n.stop();
+              return 'ui-ok narration-modes=' + seen.join(',');
             })()`;
             win.webContents.executeJavaScript(uiScript, true).then((r) => {
               clearTimeout(deadline);
               console.log(`[smoke] UI 交互冒烟: ${r}`);
-              console.log('[smoke] 运行时冒烟通过：启动 → 六厅装载 → UI 交互全部完成');
+              console.log('[smoke] 运行时冒烟通过：启动 → 七厅装载 → 彩蛋触发 → UI/旁白交互全部完成');
               app.exit(0);
             }).catch((err) => {
               clearTimeout(deadline);

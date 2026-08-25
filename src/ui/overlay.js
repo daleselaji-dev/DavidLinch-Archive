@@ -64,10 +64,11 @@ export class UI {
       b.firstChild.textContent = muted ? '声音 关' : '声音 开';
       b.classList.toggle('active', muted);
     });
-    this.btnNarr = mkBtn('旁白 开', 'V', (b) => {
-      const on = this.o.onToggleNarration();
-      b.firstChild.textContent = on ? '旁白 开' : '旁白 关';
-      b.classList.toggle('active', !on);
+    this.btnNarr = mkBtn('旁白 字母', 'V', (b) => {
+      const mode = this.o.onCycleNarration();
+      b.firstChild.textContent = mode.label;
+      b.classList.toggle('active', mode.id === 'off');
+      this.caption(`旁白模式 → ${mode.desc}`, 2600);
     });
     this.btnQuality = mkBtn('画质 高', 'Q', (b) => {
       const q = this.o.onToggleQuality();
@@ -412,7 +413,7 @@ export class UI {
       ['G', '留言墙'],
       ['C', '版权合规'],
       ['M', '静音开关'],
-      ['V', '旁白开关'],
+      ['V', '旁白模式：字母显现 → 爵士+字母 → 语音+字母 → 关'],
       ['Q', '画质高/低'],
       ['F', 'FPS 显示'],
       ['Esc', '关闭面板 / 解锁鼠标']
@@ -422,5 +423,6 @@ export class UI {
     }
     body.append(grid);
     body.append(el('p', 'quiet', '发光的物体大多可以对话。帷幕后面没有答案，只有更多的帷幕。'));
+    body.append(el('p', 'quiet', '每个展厅都有一件不在导览图上的东西。想遇到它，就得绕到不该去的地方。'));
   }
 }

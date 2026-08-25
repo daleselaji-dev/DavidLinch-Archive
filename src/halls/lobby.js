@@ -5,8 +5,10 @@
 import * as THREE from 'three';
 import {
   PALETTE, chevronTexture, curtainRing, floorMesh, neonSign, doorway,
-  smokeLayer, dustField, lightCone, hangingBulb, makeFlicker, standPlaque, circleBounds
+  smokeLayer, dustField, lightCone, hangingBulb, makeFlicker, standPlaque,
+  quotePlaque, vitrine, zoneTrigger, circleBounds
 } from './kit.js';
+import { quoteById } from '../data/essays.js';
 
 export const meta = {
   id: 'lobby',
@@ -19,7 +21,7 @@ export const meta = {
 const R = 14.5;
 
 export function build(ctx) {
-  const { hotspots, ui, goTo } = ctx;
+  const { hotspots, ui, goTo, audio, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -81,13 +83,14 @@ export function build(ctx) {
     title.userData.flicker(t, 3);
   });
 
-  // 五扇门
+  // 六扇门
   const doors = [
     { id: 'archive', label: 'THE ARCHIVE', labelZh: '档 案 长 廊', color: '#c9a35c', angle: -Math.PI / 2 },
-    { id: 'eraserhead', label: 'ERASERHEAD', labelZh: '橡 皮 头 · 1977', color: '#b8c4cf', angle: -Math.PI / 2 + (Math.PI * 2) / 5 },
-    { id: 'bluevelvet', label: 'BLUE VELVET', labelZh: '蓝 丝 绒 · 1986', color: '#4f74ff', angle: -Math.PI / 2 + (Math.PI * 4) / 5 },
-    { id: 'twinpeaks', label: 'TWIN PEAKS', labelZh: '双 峰 · 1990', color: '#3fae6a', angle: -Math.PI / 2 + (Math.PI * 6) / 5 },
-    { id: 'mulholland', label: 'MULHOLLAND DR.', labelZh: '穆 赫 兰 道 · 2001', color: '#3ec5ff', angle: -Math.PI / 2 + (Math.PI * 8) / 5 }
+    { id: 'eraserhead', label: 'ERASERHEAD', labelZh: '橡 皮 头 · 1977', color: '#b8c4cf', angle: -Math.PI / 2 + (Math.PI * 2) / 6 },
+    { id: 'bluevelvet', label: 'BLUE VELVET', labelZh: '蓝 丝 绒 · 1986', color: '#4f74ff', angle: -Math.PI / 2 + (Math.PI * 4) / 6 },
+    { id: 'studio', label: 'HIS ROOM', labelZh: '林 奇 的 房 间', color: '#ffb25e', angle: -Math.PI / 2 + (Math.PI * 6) / 6 },
+    { id: 'twinpeaks', label: 'TWIN PEAKS', labelZh: '双 峰 · 1990', color: '#3fae6a', angle: -Math.PI / 2 + (Math.PI * 8) / 6 },
+    { id: 'mulholland', label: 'MULHOLLAND DR.', labelZh: '穆 赫 兰 道 · 2001', color: '#3ec5ff', angle: -Math.PI / 2 + (Math.PI * 10) / 6 }
   ];
   for (const d of doors) {
     const door = doorway({ label: d.label, labelZh: d.labelZh, color: d.color });
@@ -114,13 +117,93 @@ export function build(ctx) {
   });
 
   // 吊灯环 + 电灯颤动
+  const bulbs = [];
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + 0.3;
     const bulb = hangingBulb(0xffd9b0, 2.6);
     bulb.position.set(Math.cos(a) * 7.4, 8.4, Math.sin(a) * 7.4);
     group.add(bulb);
+    bulbs.push(bulb);
     updaters.push(makeFlicker(bulb.userData.light, bulb.userData.bulb.material, 5, i * 3.1));
   }
+
+  // ---------- 彩蛋：帷幕后的窃语 ----------
+  // 绕到中央碑石背后、贴近北侧帷幕的人才会遇到。
+  const eggLight = new THREE.PointLight(0xd4243c, 0, 18, 1.5);
+  eggLight.position.set(0, 2.4, -R + 1.2);
+  group.add(eggLight);
+  const blackout = { v: 0 };
+  // 在灯光颤动器之后运行——熄灯时强行压平所有光
+  updaters.push(() => {
+    if (blackout.v > 0) {
+      for (const b of bulbs) {
+        b.userData.light.intensity *= (1 - blackout.v);
+        b.userData.bulb.material.emissiveIntensity *= (1 - blackout.v);
+      }
+    }
+  });
+  let eggTimers = [];
+  const whisperEgg = () => {
+    for (const id of eggTimers) clearTimeout(id);
+    eggTimers = [];
+    blackout.v = 1;
+    audio.duck(1.4, 0.03, 2.2);
+    audio.sfx('whisper', 0.9);
+    eggTimers.push(setTimeout(() => {
+      eggLight.intensity = 26; // 帷幕后猛然透出的红
+      audio.sfx('thud', 0.8);
+    }, 900));
+    eggTimers.push(setTimeout(() => {
+      ui.caption('帷幕在你背后合拢了一次。刚才那句话，不是说给你听的。', 6000);
+    }, 1500));
+    eggTimers.push(setTimeout(() => {
+      blackout.v = 0;
+      eggLight.intensity = 0;
+      audio.sfx('chime', 0.4);
+    }, 3400));
+  };
+  const whisperTrig = zoneTrigger({ x: 0, z: -10.6, r: 2.4 }, whisperEgg, { cooldown: 40 });
+  updaters.push((dt) => whisperTrig.update(player, dt));
+
+  // ---------- 博物馆化：展柜与引语 ----------
+  // 展柜：一卷空白胶片——他没来得及拍的那部电影
+  const reelCase = vitrine('空白胶片', 'THE UNMADE FILM', '#c9a35c');
+  reelCase.position.set(-3.8, 0, 3.0);
+  reelCase.rotation.y = 0.9;
+  group.add(reelCase);
+  const reelMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 0.25, metalness: 0.9, envMapIntensity: 1.3 });
+  const reel = new THREE.Group();
+  const reelDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.02, 24), reelMat);
+  reelDisc.rotation.x = Math.PI / 2;
+  const reelHub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 12), reelMat);
+  reelHub.rotation.x = Math.PI / 2;
+  for (let i = 0; i < 4; i++) {
+    const hole = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.012, 6, 12), reelMat);
+    const a = (i / 4) * Math.PI * 2;
+    hole.position.set(Math.cos(a) * 0.095, Math.sin(a) * 0.095, 0);
+    reel.add(hole);
+  }
+  reel.add(reelDisc, reelHub);
+  reel.position.y = 0.12;
+  reelCase.userData.slot.add(reel);
+  updaters.push((dt, t) => { reel.rotation.z = t * 0.4; });
+  hotspots.add(reelCase.userData.label, {
+    hint: 'E — 那部没来得及拍的电影',
+    onActivate: () => {
+      audio.sfx('chime');
+      ui.caption('展签：一卷空白胶片。他离开时，深水里还有没捞上来的鱼。这个展柜替它们留着位置。', 6400);
+    }
+  });
+
+  // 引语展签（林奇原话）
+  const q1 = quotePlaque(quoteById('meaning'), '#c9a35c');
+  q1.position.set(-4.4, 0, -2.4);
+  q1.rotation.y = 1.9;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showEssay('method')
+  });
 
   // 氛围: 地面烟雾 + 光尘
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
@@ -142,6 +225,7 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 8.6, yaw: 0 },
     bounds: circleBounds(R - 2.4),
-    update: (dt, t) => { for (const u of updaters) u(dt, t); }
+    update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    eggs: { 'curtain-whisper': whisperTrig }
   };
 }

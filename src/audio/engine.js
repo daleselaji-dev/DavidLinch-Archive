@@ -36,6 +36,21 @@ export class AudioEngine {
     this.master.gain.linearRampToValueAtTime(m ? 0 : 0.9, t + 0.25);
   }
 
+  /**
+   * duck — 突兀静默/闪避：整体音量瞬间压低再缓慢恢复。
+   * 用于字母旁白的"林奇式静默拍"与彩蛋惊吓前的抽真空。
+   */
+  duck(holdSec = 0.6, floor = 0.04, releaseSec = 1.4) {
+    if (!this.ctx || !this.master || this.muted) return;
+    const t = this.ctx.currentTime;
+    const g = this.master.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(floor, t + 0.045);
+    g.setValueAtTime(floor, t + 0.045 + holdSec);
+    g.linearRampToValueAtTime(0.9, t + 0.045 + holdSec + releaseSec);
+  }
+
   _noiseBuffer(type) {
     if (this._buffers[type]) return this._buffers[type];
     const len = this.ctx.sampleRate * 2.5;
@@ -231,6 +246,74 @@ export class AudioEngine {
       case 'sip':
         noise('pink', 0.3, 'bandpass', 900, 3, 0.09);
         tone('sine', 190, 240, 0.24, 0.03, 0.05);
+        break;
+      case 'type': // 字母显现: 打字机单击
+        noise('white', 0.03, 'bandpass', 2600 + Math.random() * 1400, 5, 0.05);
+        tone('square', 130 + Math.random() * 60, 90, 0.025, 0.02);
+        break;
+      case 'typebell': // 字幕段落结束的小铃
+        tone('sine', 1560, 1548, 0.7, 0.03);
+        tone('sine', 2340, 2330, 0.5, 0.015, 0.02);
+        break;
+      case 'heartbeat': // 惊吓前奏: 两记闷响
+        tone('sine', 58, 34, 0.22, 0.3);
+        tone('sine', 52, 30, 0.26, 0.34, 0.42);
+        break;
+      case 'scare': { // 惊吓主体: 失谐锯齿簇 + 噪声墙 + 次声坠落
+        for (const f of [92, 97, 184, 189, 371]) {
+          tone('sawtooth', f, f * 0.42, 1.15, 0.11);
+        }
+        noise('white', 1.05, 'bandpass', 1500, 0.8, 0.42, 0, 0.02);
+        noise('brown', 1.5, 'lowpass', 130, 1, 0.5, 0, 0.02);
+        tone('sine', 34, 22, 1.5, 0.4);
+        break;
+      }
+      case 'whisper': // 帷幕后的窃语: 成形滤波噪声一呼一吸
+        noise('pink', 0.85, 'bandpass', 1900, 7, 0.11, 0, 0.3);
+        noise('pink', 0.9, 'bandpass', 1450, 8, 0.09, 1.0, 0.35);
+        noise('pink', 0.7, 'bandpass', 2300, 9, 0.07, 2.1, 0.3);
+        break;
+      case 'breath': // 衣柜里的呼吸
+        noise('pink', 1.3, 'lowpass', 420, 0.8, 0.12, 0, 0.55);
+        noise('pink', 1.1, 'lowpass', 360, 0.8, 0.1, 1.7, 0.5);
+        break;
+      case 'radio': // 收音机: 调谐噪声 + 载波哨
+        noise('white', 0.8, 'bandpass', 1200, 2.5, 0.09, 0, 0.1);
+        tone('sine', 720, 1560, 0.5, 0.02, 0.1);
+        noise('crackle', 1.6, 'highpass', 900, 1, 0.14, 0.3);
+        break;
+      case 'strike': // 火柴/打火机
+        noise('white', 0.12, 'highpass', 2600, 1, 0.16);
+        noise('pink', 0.7, 'bandpass', 620, 2, 0.05, 0.1, 0.2);
+        break;
+      case 'lampon':
+        tone('sine', 880, 870, 0.06, 0.05);
+        noise('white', 0.04, 'highpass', 3600, 2, 0.04);
+        break;
+      case 'lampoff':
+        tone('sine', 620, 300, 0.09, 0.05);
+        break;
+      case 'curtain': // 布幔滑动
+        noise('pink', 0.9, 'bandpass', 800, 1.2, 0.14, 0, 0.25);
+        break;
+      case 'om': { // 冥想低音钟
+        tone('sine', 111, 110.4, 4.5, 0.16);
+        tone('sine', 222, 221, 3.6, 0.05, 0.05);
+        tone('sine', 333, 332, 2.8, 0.025, 0.1);
+        break;
+      }
+      case 'lullaby': { // 暖气炉深处的小小摇篮曲（原创五音短句）
+        const seq = [523.25, 466.16, 392.0, 349.23, 392.0];
+        for (const [i, f] of seq.entries()) {
+          tone('sine', f, f * 0.995, 0.62, 0.045, i * 0.55);
+          tone('sine', f * 2, f * 1.99, 0.4, 0.012, i * 0.55);
+        }
+        noise('pink', 3.2, 'bandpass', 1200, 3, 0.02, 0, 1.2);
+        break;
+      }
+      case 'stonechime': // 林间石阵的低鸣
+        tone('sine', 174, 172, 2.2, 0.07);
+        tone('sine', 261, 258, 1.8, 0.04, 0.3);
         break;
       default:
         tone('sine', 660, 660, 0.08, 0.04);

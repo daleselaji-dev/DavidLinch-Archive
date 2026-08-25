@@ -33,11 +33,12 @@ check('dist/index.html 存在且包含标题与免责声明', () => {
   if (!html.includes('SMOKE')) throw new Error('缺少标题');
   if (!html.includes('非官方')) throw new Error('缺少免责声明');
 });
-check('展厅懒加载分包 ≥ 5 个（资源按需加载）', () => {
+check('展厅懒加载分包 ≥ 6 个（含新厅 studio，资源按需加载）', () => {
   const assets = fs.readdirSync(path.join(dist, 'assets'));
   const hallChunks = assets.filter((f) =>
-    /(lobby|archive|eraserhead|bluevelvet|twinpeaks|mulholland)-.*\.js$/.test(f));
-  if (hallChunks.length < 5) throw new Error(`只找到 ${hallChunks.length} 个: ${hallChunks.join(', ')}`);
+    /(lobby|archive|eraserhead|bluevelvet|twinpeaks|mulholland|studio)-.*\.js$/.test(f));
+  if (hallChunks.length < 6) throw new Error(`只找到 ${hallChunks.length} 个: ${hallChunks.join(', ')}`);
+  if (!hallChunks.some((f) => f.startsWith('studio-'))) throw new Error('缺少 studio 分包');
 });
 check('CSS 产物存在（统一视觉语言样式表）', () => {
   const assets = fs.readdirSync(path.join(dist, 'assets'));

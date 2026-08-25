@@ -94,6 +94,14 @@ export class Engine {
     return this._fps.value;
   }
 
+  /** 惊吓冲击：瞬间抬升 uShock/uFlash，主循环内自动衰减 */
+  shock(amount = 1, flash = 0.85, flashColor = null) {
+    const u = this.lynchPass.uniforms;
+    u.uShock.value = Math.min(1, Math.max(u.uShock.value, amount));
+    u.uFlash.value = Math.min(1, Math.max(u.uFlash.value, flash));
+    if (flashColor !== null) u.uFlashColor.value.set(flashColor);
+  }
+
   start() {
     if (this._running) return;
     this._running = true;
@@ -104,6 +112,10 @@ export class Engine {
       const dt = Math.min(this.clock.getDelta(), 0.1);
       const t = this.clock.elapsedTime;
       this.lynchPass.uniforms.uTime.value = t;
+      // 冲击/闪光衰减
+      const u = this.lynchPass.uniforms;
+      if (u.uShock.value > 0.0005) u.uShock.value *= Math.exp(-dt * 2.0); else u.uShock.value = 0;
+      if (u.uFlash.value > 0.0005) u.uFlash.value *= Math.exp(-dt * 7.5); else u.uFlash.value = 0;
       for (const fn of this.updaters) fn(dt, t);
       this.composer.render();
       this._fps.frames++;

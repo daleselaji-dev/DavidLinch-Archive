@@ -76,5 +76,19 @@ export const DRONES = {
     noises: [{ type: 'brown', gain: 0.04, filter: { type: 'lowpass', freq: 420, q: 0.9 } }],
     lfo: { freq: 0.04, depth: 0.6 },
     events: [{ sfx: 'swell', minGap: 14, maxGap: 30 }]
+  },
+  studio: {
+    // 林奇的房间: 台灯电流的温暖嗡鸣 + 木屋般的低频呼吸 + 远处城市脉搏
+    oscs: [
+      { type: 'sine', freq: 50, gain: 0.045 },
+      { type: 'sine', freq: 100.4, gain: 0.012 },
+      { type: 'triangle', freq: 150.1, gain: 0.006 }
+    ],
+    noises: [
+      { type: 'brown', gain: 0.045, filter: { type: 'lowpass', freq: 260, q: 0.8 } },
+      { type: 'pink', gain: 0.008, filter: { type: 'bandpass', freq: 2600, q: 2.5 } }
+    ],
+    lfo: { freq: 0.06, depth: 0.45 },
+    events: [{ sfx: 'steamfar', minGap: 18, maxGap: 40 }]
   }
 };

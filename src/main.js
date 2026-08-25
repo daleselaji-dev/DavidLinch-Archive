@@ -16,7 +16,8 @@ const HALLS = {
   eraserhead: () => import('./halls/eraserhead.js'),
   bluevelvet: () => import('./halls/bluevelvet.js'),
   twinpeaks: () => import('./halls/twinpeaks.js'),
-  mulholland: () => import('./halls/mulholland.js')
+  mulholland: () => import('./halls/mulholland.js'),
+  studio: () => import('./halls/studio.js')
 };
 
 const bootEl = document.getElementById('boot');
@@ -59,16 +60,13 @@ const ui = new UI({
     audio.setMuted(!audio.muted);
     return audio.muted;
   },
-  onToggleNarration: () => {
-    narration.setEnabled(!narration.enabled);
-    return narration.enabled;
-  },
+  onCycleNarration: () => narration.cycleMode(),
   onToggleQuality: () => {
     engine.setQuality(engine.quality === 'high' ? 'low' : 'high');
     return engine.quality;
   }
 });
-narration = new Narration(ui);
+narration = new Narration(ui, audio);
 const hotspots = new Hotspots(engine.camera, ui, audio);
 
 document.getElementById('hud').hidden = false;
@@ -103,7 +101,12 @@ async function goTo(id) {
   }
 
   const mod = await loadHallModule(id);
-  const built = mod.build({ engine, audio, ui, hotspots, goTo });
+  const built = mod.build({
+    engine, audio, ui, hotspots, goTo,
+    narration, store,
+    player: controls.yawObject.position,
+    teleport: (x, z, yaw) => controls.teleport(x, z, yaw)
+  });
   engine.scene.add(built.group);
   engine.setLook(mod.meta.look);
   controls.setBounds(built.bounds);
@@ -190,6 +193,7 @@ bootBtn.addEventListener('click', async () => {
   entered = true;
   audio.unlock();
   audio.sfx('whoosh');
+  narration.applyMode(); // 音频解锁后同步爵士层等模式副作用
   bootEl.classList.add('gone');
   setTimeout(() => bootEl.remove(), 1600);
   engine.start();
@@ -198,4 +202,18 @@ bootBtn.addEventListener('click', async () => {
 });
 
 // 调试/冒烟钩子
-window.__SV__ = { engine, goTo, audio, store, ui, version: '1.0.0' };
+window.__SV__ = {
+  engine, goTo, audio, store, ui,
+  narration,
+  /** 冒烟测试：引爆当前展厅的全部彩蛋，返回名字列表 */
+  triggerEggs: () => {
+    if (!current || !current.built.eggs) return [];
+    const names = [];
+    for (const [name, trig] of Object.entries(current.built.eggs)) {
+      trig.force();
+      names.push(name);
+    }
+    return names;
+  },
+  version: '1.1.0'
+};

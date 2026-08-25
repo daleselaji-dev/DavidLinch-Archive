@@ -17,6 +17,9 @@ export const LynchShader = {
     uSaturation: { value: 1.0 },
     uTintColor: { value: new THREE.Color(1, 1, 1) },
     uInvert: { value: 0.0 },
+    uShock: { value: 0.0 },
+    uFlash: { value: 0.0 },
+    uFlashColor: { value: new THREE.Color(1, 0.96, 0.9) },
     uResolution: { value: new THREE.Vector2(1920, 1080) }
   },
   vertexShader: /* glsl */ `
@@ -37,6 +40,9 @@ export const LynchShader = {
     uniform float uSaturation;
     uniform vec3 uTintColor;
     uniform float uInvert;
+    uniform float uShock;
+    uniform float uFlash;
+    uniform vec3 uFlashColor;
     uniform vec2 uResolution;
     varying vec2 vUv;
 
@@ -51,20 +57,28 @@ export const LynchShader = {
       vec2 centered = uv - 0.5;
       float r2 = dot(centered, centered);
 
+      // 冲击(彩蛋惊吓): 画面猛烈抽搐 + 撕裂
+      if (uShock > 0.001) {
+        float jx = (hash(vec2(floor(uTime * 90.0), 1.3)) - 0.5) * 0.05 * uShock;
+        float jy = (hash(vec2(floor(uTime * 90.0), 8.6)) - 0.5) * 0.035 * uShock;
+        centered += vec2(jx, jy);
+        centered *= 1.0 - 0.08 * uShock; // 向内猛拉(变焦冲击)
+      }
+
       // 轻微桶形畸变 —— 老镜头感
       vec2 warped = centered * (1.0 + 0.045 * r2);
       uv = warped + 0.5;
 
-      // 径向色差
-      float ab = uAberration * (0.35 + r2 * 3.2);
+      // 径向色差（冲击时暴涨）
+      float ab = uAberration * (0.35 + r2 * 3.2) * (1.0 + uShock * 14.0);
       vec3 col;
       col.r = texture2D(tDiffuse, uv + centered * ab).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - centered * ab).b;
 
-      // 胶片颗粒（时变）
+      // 胶片颗粒（时变；冲击时颗粒风暴）
       float g = hash(uv * uResolution.xy * 0.75 + fract(uTime) * 731.7);
-      col += (g - 0.5) * uGrain * (0.55 + 0.45 * (1.0 - dot(col, vec3(0.333))));
+      col += (g - 0.5) * uGrain * (1.0 + uShock * 7.0) * (0.55 + 0.45 * (1.0 - dot(col, vec3(0.333))));
 
       // 扫描线
       float sl = sin((uv.y * uResolution.y) * 3.14159) * 0.5 + 0.5;
@@ -79,12 +93,15 @@ export const LynchShader = {
       float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
       col = mix(vec3(lum), col, uSaturation) * uTintColor;
 
-      // 暗角
-      float vig = smoothstep(0.92, 0.22, r2 * uVignette);
+      // 暗角（冲击时收紧成隧道）
+      float vig = smoothstep(0.92, 0.22, r2 * (uVignette + uShock * 1.7));
       col *= mix(0.32, 1.0, vig);
 
       // 梦境反色（穆赫兰道展厅交互）
       col = mix(col, 1.0 - col, clamp(uInvert, 0.0, 1.0));
+
+      // 闪光帧（惊吓瞬间的过曝白/红）
+      col = mix(col, uFlashColor * 1.6, clamp(uFlash, 0.0, 1.0));
 
       gl_FragColor = vec4(col, 1.0);
     }

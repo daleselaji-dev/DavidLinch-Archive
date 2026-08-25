@@ -4,9 +4,10 @@
 // ============================================================
 import * as THREE from 'three';
 import { filmsSorted } from '../data/filmography.js';
+import { quoteById } from '../data/essays.js';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
-  smokeLayer, dustField, standPlaque, rectBounds
+  smokeLayer, dustField, standPlaque, quotePlaque, zoneTrigger, rectBounds
 } from './kit.js';
 
 export const meta = {
@@ -21,7 +22,7 @@ const W = 9;
 const L = 48;
 
 export function build(ctx) {
-  const { hotspots, ui, goTo } = ctx;
+  const { hotspots, ui, goTo, audio, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -57,7 +58,7 @@ export function build(ctx) {
   ceil.position.y = 5.4;
   group.add(ceil);
 
-  // 荧光灯管（顺序闪烁）
+  // 荧光灯管（顺序闪烁；彩蛋时逐管熄灭）
   const tubes = [];
   for (let i = 0; i < 7; i++) {
     const z = -L / 2 + 6 + i * 6;
@@ -69,13 +70,13 @@ export function build(ctx) {
     const lp = new THREE.PointLight(0xdfe8ff, 9, 12, 1.7);
     lp.position.set(0, 4.9, z);
     group.add(tube, lp);
-    tubes.push({ tube, lp, seed: i * 7.3 });
+    tubes.push({ tube, lp, seed: i * 7.3, dead: 0 });
   }
   updaters.push((dt, t) => {
-    for (const { tube, lp, seed } of tubes) {
+    for (const { tube, lp, seed, dead } of tubes) {
       const n = Math.sin(t * 11 + seed) * Math.sin(t * 4.7 + seed * 2.1);
-      const f = n > 0.93 ? 0.15 : 1;
-      tube.material.emissiveIntensity = 2.6 * f;
+      const f = (n > 0.93 ? 0.15 : 1) * (1 - dead);
+      tube.material.emissiveIntensity = 2.6 * Math.max(0.02, f);
       lp.intensity = 9 * f;
     }
   });
@@ -160,14 +161,99 @@ export function build(ctx) {
   group.add(table, memLight);
 
   // 展签：数字转向
-  const stand = standPlaque('像素与直觉', 'THE DIGITAL TURN', '#3ec5ff');
+  const stand = standPlaque('轻的机器', 'THE DIGITAL TURN', '#3ec5ff');
   stand.position.set(2.6, 0, -L / 2 + 6);
   stand.rotation.y = -0.7;
   group.add(stand);
   hotspots.add(stand.userData.board, {
-    hint: 'E — 阅读《像素与直觉：数字转向》',
+    hint: 'E — 阅读《轻的机器》',
     onActivate: () => ui.showEssay('digital')
   });
+
+  // 引语展签（林奇原话）
+  const q1 = quotePlaque(quoteById('voice'), '#c9a35c');
+  q1.position.set(-2.8, 0, -L / 2 + 9);
+  q1.rotation.y = 0.8;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showEssay('method')
+  });
+
+  // ---------- 彩蛋：不在年表上的心跳 ----------
+  // 走到纪念墙跟前的人，会看见身后出现一块不存在的年代灯牌。
+  const ghostTex = canvasTexture(512, (g, s) => {
+    g.fillStyle = '#0c0709';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#d4243c';
+    g.font = '400 120px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillText('20\u25a1\u25a1', s / 2, 168);
+    g.fillStyle = '#f2e9dc';
+    g.font = '400 44px Georgia, serif';
+    g.fillText('THE UNSEEN ONE', s / 2, 268, s - 60);
+    g.font = '36px "Songti SC","SimSun",serif';
+    g.fillStyle = 'rgba(242,233,220,0.85)';
+    g.fillText('未 被 看 见 的 那 部', s / 2, 336, s - 60);
+    g.strokeStyle = '#d4243c';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(90, 388); g.lineTo(s - 90, 388);
+    g.stroke();
+    g.fillStyle = 'rgba(242,233,220,0.45)';
+    g.font = '26px "Courier New", monospace';
+    g.fillText('NOT IN THE TIMELINE', s / 2, 440);
+  });
+  const ghostPlaque = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 1.5, 0.08),
+    new THREE.MeshStandardMaterial({
+      map: ghostTex, roughness: 0.55,
+      emissive: 0xffffff, emissiveMap: ghostTex, emissiveIntensity: 0.7
+    })
+  );
+  // 挂在走廊中段、平时没有灯牌的一段空墙上
+  ghostPlaque.position.set(-(W / 2 - 0.28), 2.05, 8.2);
+  ghostPlaque.rotation.y = Math.PI / 2;
+  ghostPlaque.visible = false;
+  group.add(ghostPlaque);
+
+  let ghostTimers = [];
+  const ghostState = { active: false };
+  const showGhost = () => {
+    if (ghostState.active) return;
+    ghostState.active = true;
+    for (const id of ghostTimers) clearTimeout(id);
+    ghostTimers = [];
+    audio.duck(1.0, 0.05, 2.0);
+    // 灯管从远到近逐管熄灭
+    tubes.forEach((tb, i) => {
+      ghostTimers.push(setTimeout(() => {
+        tb.dead = 1;
+        audio.sfx('fluor', 0.5);
+      }, i * 190));
+    });
+    ghostTimers.push(setTimeout(() => {
+      ghostPlaque.visible = true;
+      audio.sfx('whisper', 0.8);
+      ui.caption('身后的墙上，多了一块灯牌。刚才那里什么都没有。', 5600);
+    }, 1500));
+    // 灯管逐一回魂
+    tubes.forEach((tb, i) => {
+      ghostTimers.push(setTimeout(() => { tb.dead = 0; }, 3400 + i * 160));
+    });
+  };
+  const ghostTrig = zoneTrigger({ x: 0, z: -L / 2 + 3.2, r: 2.6 }, showGhost, { cooldown: 50 });
+  updaters.push((dt) => ghostTrig.update(player, dt));
+  // 第二段：走近它，它就熄灭消失
+  const vanishTrig = zoneTrigger({ x: -(W / 2 - 1.6), z: 8.2, r: 2.2 }, () => {
+    if (!ghostPlaque.visible) return;
+    ghostPlaque.visible = false;
+    ghostState.active = false;
+    audio.sfx('fluor', 0.9);
+    audio.sfx('thud', 0.5);
+    ui.caption('灯牌熄灭了。年表恢复了整齐。有些作品只放映给黑暗看。', 6000);
+  }, { cooldown: 8 });
+  updaters.push((dt) => vanishTrig.update(player, dt));
 
   // 回大厅之门
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
@@ -190,6 +276,7 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: L / 2 - 4, yaw: 0 },
     bounds: rectBounds(-W / 2 + 1, W / 2 - 1, -L / 2 + 1.9, L / 2 - 1.6),
-    update: (dt, t) => { for (const u of updaters) u(dt, t); }
+    update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    eggs: { 'ghost-plaque': ghostTrig }
   };
 }

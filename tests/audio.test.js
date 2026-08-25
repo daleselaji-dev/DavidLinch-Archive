@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DRONES } from '../src/audio/drones.js';
 
-const HALLS = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'mulholland'];
+const HALLS = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'mulholland', 'studio'];
 const OSC_TYPES = ['sine', 'triangle', 'square', 'sawtooth'];
 const NOISE_TYPES = ['white', 'brown', 'pink', 'crackle'];
 const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass'];

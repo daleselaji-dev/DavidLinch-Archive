@@ -1,12 +1,15 @@
 // ============================================================
 // 《穆赫兰道》展厅 —— NIGHT ROAD & THE ILLUSION THEATER
 // 夜路 + 路灯 + 剧场 + 蓝色立方体 (梦境反转交互)
+// 彩蛋：绕到剧场后面的人，会遇到那个东西。（WINKIES 致敬，原创程序化惊吓）
 // ============================================================
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, neonSign, micStand, doorway,
-  smokeLayer, dustField, lightCone, standPlaque
+  smokeLayer, dustField, lightCone, standPlaque, quotePlaque, vitrine,
+  darkFigure, zoneTrigger
 } from './kit.js';
+import { quoteById } from '../data/essays.js';
 
 export const meta = {
   id: 'mulholland',
@@ -16,10 +19,13 @@ export const meta = {
   look: { saturation: 0.96, tint: 0xf5eee6, fogColor: 0x0a0705, fogDensity: 0.04, bg: 0x030204, exposure: 1.0, bloom: 0.9 }
 };
 
-// 场地: 夜路区 z∈[-13.5, 19]，剧场内部 z∈[-26, -14]
+// 场地: 夜路区 + 剧场内部 + 右侧暗巷 + 剧场背后的空地（彩蛋区）
 const ROAD = { minX: -4.6, maxX: 4.6, minZ: -13.6, maxZ: 19 };
 const ROOM = { minX: -7.2, maxX: 7.2, minZ: -25.6, maxZ: -14.2 };
 const DOOR = { minX: -1.35, maxX: 1.35, minZ: -14.9, maxZ: -13.2 };
+const SHOULDER = { minX: 4.6, maxX: 11.0, minZ: 6.5, maxZ: 12.5 };  // 路肩缺口
+const ALLEY = { minX: 8.4, maxX: 11.0, minZ: -31.5, maxZ: 6.5 };    // 暗巷
+const BACKLOT = { minX: -10.5, maxX: 11.0, minZ: -33.0, maxZ: -27.6 }; // 背后空地
 
 function multiRectClamp(rects) {
   const inside = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
@@ -38,9 +44,11 @@ function multiRectClamp(rects) {
 }
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, engine } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, teleport } = ctx;
   const group = new THREE.Group();
   const updaters = [];
+  const timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
   // ---------- 夜路 ----------
   const roadTex = canvasTexture(256, (g, s) => {
@@ -62,9 +70,9 @@ export function build(ctx) {
   road.position.z = 1;
   group.add(road);
 
-  // 路肩土地
+  // 路肩土地（扩大到背巷区域）
   const dirt = new THREE.Mesh(
-    new THREE.CircleGeometry(60, 40),
+    new THREE.CircleGeometry(70, 40),
     new THREE.MeshStandardMaterial({ color: 0x0a0810, roughness: 1 })
   );
   dirt.rotation.x = -Math.PI / 2;
@@ -76,7 +84,6 @@ export function build(ctx) {
     new THREE.SphereGeometry(120, 32, 14),
     new THREE.MeshBasicMaterial({
       map: canvasTexture(256, (g, s) => {
-        // 洛杉矶式夜空: 地平线是城市光污染的暗橙, 向上沉入蓝黑
         const grad = g.createLinearGradient(0, s, 0, 0);
         grad.addColorStop(0, '#38200e');
         grad.addColorStop(0.16, '#160d0a');
@@ -195,16 +202,209 @@ export function build(ctx) {
     marquee2.userData.flicker(t, 9.1);
   });
 
+  // ---------- 剧场外壳（侧墙/后墙——暗巷贴着它走） ----------
+  const shellTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#191216';
+    g.fillRect(0, 0, s, s);
+    const bh = s / 12;
+    for (let r = 0; r < 12; r++) {
+      for (let c = -1; c < 7; c++) {
+        const off = r % 2 ? s / 12 : 0;
+        g.fillStyle = `rgb(${24 + Math.random() * 12},${18 + Math.random() * 8},${22 + Math.random() * 10})`;
+        g.fillRect(c * (s / 6) + off + 1, r * bh + 1, s / 6 - 2, bh - 2);
+      }
+    }
+  }, 5, 3);
+  const shellMat = new THREE.MeshStandardMaterial({ map: shellTex, roughness: 0.9, bumpMap: shellTex, bumpScale: 0.35 });
+  const mkShell = (w, h, x, z, ry) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), shellMat);
+    m.position.set(x, h / 2, z);
+    m.rotation.y = ry;
+    group.add(m);
+  };
+  mkShell(13.2, 8.2, 8.05, -20.2, -Math.PI / 2);  // 右侧外墙（暗巷内壁）
+  mkShell(13.2, 8.2, -8.05, -20.2, Math.PI / 2);  // 左侧外墙
+  mkShell(16.4, 8.2, 0, -26.6, Math.PI);          // 剧场后墙（空地内壁）
+
+  // 空地围墙（挡住世界尽头）
+  const fenceMat = new THREE.MeshStandardMaterial({ color: 0x0c0a10, roughness: 0.95 });
+  const fence = new THREE.Mesh(new THREE.PlaneGeometry(24, 3.2), fenceMat);
+  fence.position.set(0, 1.6, -33.6);
+  group.add(fence);
+  const fenceR = new THREE.Mesh(new THREE.PlaneGeometry(42, 3.2), fenceMat);
+  fenceR.position.set(11.6, 1.6, -13);
+  fenceR.rotation.y = -Math.PI / 2;
+  group.add(fenceR);
+
+  // ---------- 暗巷与背后空地（彩蛋区） ----------
+  // 巷口一盏将熄的壁灯
+  const alleyLamp = new THREE.PointLight(0xffc98a, 3.5, 9, 1.8);
+  alleyLamp.position.set(9.6, 3.4, -6);
+  const alleyBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.4 })
+  );
+  alleyBulb.position.copy(alleyLamp.position);
+  group.add(alleyLamp, alleyBulb);
+  updaters.push((dt, t) => {
+    const f = Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1;
+    alleyLamp.intensity = 3.5 * f;
+    alleyBulb.material.emissiveIntensity = 2.4 * f;
+  });
+
+  // 后门 + 门上的看护灯（惊吓时熄灭）
+  const backDoor = new THREE.Mesh(
+    new THREE.BoxGeometry(1.4, 2.4, 0.12),
+    new THREE.MeshStandardMaterial({ color: 0x201418, roughness: 0.7, metalness: 0.3 })
+  );
+  backDoor.position.set(-2.5, 1.2, -26.5);
+  group.add(backDoor);
+  const backLampLight = new THREE.PointLight(0xd8fff2, 4, 10, 1.8);
+  backLampLight.position.set(-2.5, 3.1, -27.4);
+  const backLampBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.08, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xd8fff2, emissiveIntensity: 2.6 })
+  );
+  backLampBulb.position.copy(backLampLight.position);
+  group.add(backLampLight, backLampBulb);
+  const backLampState = { on: 1 };
+  updaters.push((dt, t) => {
+    const flick = Math.sin(t * 13.7) > 0.88 ? 0.35 : 1;
+    backLampLight.intensity = 4 * flick * backLampState.on;
+    backLampBulb.material.emissiveIntensity = 2.6 * flick * backLampState.on;
+  });
+
+  // 大垃圾箱（那个东西住在它后面）
+  const dumpMat = new THREE.MeshStandardMaterial({ color: 0x14231c, roughness: 0.8, metalness: 0.4 });
+  const dumpster = new THREE.Group();
+  const dumpBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.35, 1.3), dumpMat);
+  dumpBody.position.y = 0.75;
+  const dumpLid = new THREE.Mesh(new THREE.BoxGeometry(2.66, 0.1, 1.36), dumpMat);
+  dumpLid.position.set(0, 1.47, -0.1);
+  dumpLid.rotation.x = -0.18;
+  dumpster.add(dumpBody, dumpLid);
+  dumpster.position.set(4.2, 0, -31.6);
+  dumpster.rotation.y = 0.16;
+  group.add(dumpster);
+  // 垃圾袋
+  for (const [x, z, s] of [[2.4, -31.9, 0.42], [5.9, -31.3, 0.36], [6.5, -31.8, 0.3]]) {
+    const bagGeo = new THREE.SphereGeometry(s, 7, 6);
+    const bp = bagGeo.attributes.position;
+    for (let i = 0; i < bp.count; i++) {
+      bp.setY(i, bp.getY(i) * 0.72 + (Math.random() - 0.5) * 0.05);
+    }
+    bagGeo.computeVertexNormals();
+    const bag = new THREE.Mesh(bagGeo, new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.5, metalness: 0.1 }));
+    bag.position.set(x, s * 0.6, z);
+    group.add(bag);
+  }
+  // 蒸汽口
+  const ventSteam = smokeLayer(24, { x: 1.2, z: 1.2 }, { opacity: 0.06, size: 3.4, yBase: 0.2, ySpread: 2.2, color: 0xb8bcc4 });
+  ventSteam.position.set(-6.5, 0, -30.5);
+  group.add(ventSteam);
+  updaters.push(ventSteam.userData.update);
+
+  // 巷内电话亭（不通向任何地方的电话）
+  const boothMat = new THREE.MeshStandardMaterial({ color: 0x101a24, roughness: 0.5, metalness: 0.5 });
+  const booth = new THREE.Group();
+  const boothBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.3, 0.9), boothMat);
+  boothBody.position.y = 1.15;
+  const boothGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.7, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x0a0a0a, emissive: 0x88c8ff, emissiveIntensity: 0.8 })
+  );
+  boothGlow.position.set(0, 1.9, 0.46);
+  booth.add(boothBody, boothGlow);
+  booth.position.set(10.2, 0, -18);
+  booth.rotation.y = -Math.PI / 2;
+  group.add(booth);
+  hotspots.add(boothGlow, {
+    hint: 'E — 听筒还挂着微温',
+    onActivate: () => {
+      audio.sfx('radio', 0.6);
+      ui.caption('电话没有拨号音。只有很远的地方，有人在慢慢地呼吸。', 5200);
+    }
+  });
+
+  // ---------- 惊吓彩蛋：THE THING BEHIND ----------
+  const figure = darkFigure(2.3);
+  figure.visible = false;
+  group.add(figure);
+  const scare = { phase: 0, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
+
+  const doScare = () => {
+    if (scare.phase !== 0) return;
+    scare.phase = 1;
+    scare.t = 0;
+    // 世界的声音被抽走；后门灯熄灭
+    audio.duck(1.6, 0.02, 3.2);
+    backLampState.on = 0;
+    later(() => audio.sfx('heartbeat', 0.9), 220);
+    later(() => {
+      // 形体从垃圾箱后面扑出——滑向玩家面前 1.1 米处
+      scare.phase = 2;
+      scare.t = 0;
+      scare.from.set(dumpster.position.x + 0.6, 0, dumpster.position.z - 0.4);
+      const dir = new THREE.Vector3(player.x - scare.from.x, 0, player.z - scare.from.z).normalize();
+      scare.to.set(player.x - dir.x * 1.1, 0, player.z - dir.z * 1.1);
+      figure.position.copy(scare.from);
+      figure.visible = true;
+      audio.sfx('scare');
+      engine.shock(1, 0.9, 0x1a0000);
+    }, 1500);
+    later(() => {
+      // 黑幕 + 空间错位：醒来时你已回到巷口
+      figure.visible = false;
+      ui.fade(true);
+    }, 2350);
+    later(() => {
+      teleport(9.7, 9.5, Math.PI); // 巷口，背对来路
+      ui.fade(false);
+      backLampState.on = 1;
+      audio.sfx('whisper', 0.7);
+      ui.caption('你梦见过这个地方。现在，它也梦见了你。', 6000);
+      scare.phase = 0; // 允许再次触发（zoneTrigger 冷却控制频率）
+    }, 3100);
+  };
+  updaters.push((dt) => {
+    if (scare.phase === 2) {
+      scare.t += dt;
+      const k = Math.min(1, scare.t / 0.26); // 0.26s 内扑到面前
+      figure.position.lerpVectors(scare.from, scare.to, k * k);
+      figure.lookAt(player.x, 1.4, player.z);
+      figure.rotation.z = Math.sin(scare.t * 60) * 0.1; // 高频痉挛
+    }
+  });
+  const scareTrig = zoneTrigger({ x: 2.0, z: -30.3, r: 3.4 }, doScare, { cooldown: 45 });
+  updaters.push((dt) => scareTrig.update(player, dt));
+
+  // 空地上唯一的提示——半掩的粉笔字
+  const chalkTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = 'rgba(0,0,0,0)';
+    g.clearRect(0, 0, s, s);
+    g.fillStyle = 'rgba(220,220,230,0.5)';
+    g.font = 'italic 44px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillText('he\u2019s the one', s / 2, s / 2 - 12);
+    g.font = 'italic 30px "Songti SC","SimSun",serif';
+    g.fillText('就 是 他', s / 2, s / 2 + 40);
+  });
+  const chalk = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.8, 1.8),
+    new THREE.MeshBasicMaterial({ map: chalkTex, transparent: true, opacity: 0.55, depthWrite: false })
+  );
+  chalk.rotation.x = -Math.PI / 2;
+  chalk.position.set(-1.5, 0.012, -30.2);
+  group.add(chalk);
+
   // ---------- 剧场内部 ----------
   const inner = new THREE.Group();
-  // 地板
   const innerFloor = new THREE.Mesh(
     new THREE.PlaneGeometry(15, 12),
     new THREE.MeshStandardMaterial({ color: 0x120a0e, roughness: 0.4, metalness: 0.15, envMapIntensity: 0.7 })
   );
   innerFloor.rotation.x = -Math.PI / 2;
   inner.add(innerFloor);
-  // 三面红帷幕
   const cw = [
     { w: 15, x: 0, z: -6, ry: 0 },
     { w: 12, x: -7.5, z: 0, ry: Math.PI / 2 },
@@ -284,7 +484,6 @@ export function build(ctx) {
     cube.rotation.y = t * 0.6;
     cube.rotation.x = Math.sin(t * 0.4) * 0.3;
     cube.material.emissiveIntensity = 0.7 + Math.sin(t * 2.2) * 0.3;
-    // 反色缓动
     invertState.v += (invertState.target - invertState.v) * Math.min(1, dt * 3);
     engine.lynchPass.uniforms.uInvert.value = invertState.v;
     if (invertState.target === 1 && invertState.v > 0.96) invertState.target = 0;
@@ -298,13 +497,50 @@ export function build(ctx) {
     }
   });
 
-  // 展签：梦逻辑（门外）与 数字直觉（此处放梦逻辑）
+  // 展柜：一把蓝色钥匙（原创抽象道具研究）
+  const keyCase = vitrine('蓝色钥匙', 'PROP STUDY · 原创致敬', '#3ec5ff');
+  keyCase.position.set(-4.4, 0, -4.0);
+  keyCase.rotation.y = 0.5;
+  inner.add(keyCase);
+  const keyMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1c55, roughness: 0.2, metalness: 0.7,
+    emissive: 0x2244ff, emissiveIntensity: 0.7, envMapIntensity: 1.4
+  });
+  const keyRing = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.024, 8, 20), keyMat);
+  const keyShaft = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.2, 0.02), keyMat);
+  keyShaft.position.y = -0.15;
+  const keyTooth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.02), keyMat);
+  keyTooth.position.set(0.02, -0.22, 0);
+  const key = new THREE.Group();
+  key.add(keyRing, keyShaft, keyTooth);
+  key.position.y = 0.1;
+  keyCase.userData.slot.add(key);
+  updaters.push((dt, t) => { key.rotation.y = t * 0.8; key.position.y = 0.1 + Math.sin(t * 1.4) * 0.02; });
+  hotspots.add(keyCase.userData.label, {
+    hint: 'E — 它打开的不是锁',
+    onActivate: () => {
+      audio.sfx('chime');
+      ui.caption('展签：一把不属于任何一扇门的钥匙。等它被使用的那天，梦就结束了。', 5600);
+    }
+  });
+
+  // 引语展签（林奇原话）
+  const q1 = quotePlaque(quoteById('sense'), '#3ec5ff');
+  q1.position.set(-3.9, 0, -11.6);
+  q1.rotation.y = 0.55;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showEssay('dream')
+  });
+
+  // 展签：梦逻辑
   const s1 = standPlaque('梦的逻辑', 'DREAM NARRATIVE', '#3ec5ff');
   s1.position.set(3.4, 0, -11.4);
   s1.rotation.y = -0.6;
   group.add(s1);
   hotspots.add(s1.userData.board, {
-    hint: 'E — 阅读《梦的逻辑：叙事错位》',
+    hint: 'E — 阅读《讲不通，但成立》',
     onActivate: () => ui.showEssay('dream')
   });
 
@@ -338,8 +574,12 @@ export function build(ctx) {
   return {
     group,
     spawn: { x: 0, z: 15.5, yaw: 0 },
-    bounds: multiRectClamp([ROAD, ROOM, DOOR]),
+    bounds: multiRectClamp([ROAD, ROOM, DOOR, SHOULDER, ALLEY, BACKLOT]),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    onLeave: () => { engine.lynchPass.uniforms.uInvert.value = 0; }
+    eggs: { 'winkies-scare': scareTrig },
+    onLeave: () => {
+      engine.lynchPass.uniforms.uInvert.value = 0;
+      for (const id of timers) clearTimeout(id);
+    }
   };
 }

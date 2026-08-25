@@ -5,8 +5,10 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
-  smokeLayer, dustField, standPlaque, makeFlicker, rectBounds
+  smokeLayer, dustField, standPlaque, quotePlaque, vitrine, darkFigure,
+  zoneTrigger, makeFlicker, rectBounds
 } from './kit.js';
+import { quoteById } from '../data/essays.js';
 
 export const meta = {
   id: 'eraserhead',
@@ -19,7 +21,7 @@ export const meta = {
 const S = 17; // 房间边长
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio } = ctx;
+  const { hotspots, ui, goTo, audio, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -108,10 +110,13 @@ export function build(ctx) {
   machine.position.set(-4.6, 0, -4.9);
   machine.rotation.y = 0.5;
   group.add(machine);
-  updaters.push((dt, t) => {
-    wheel.rotation.z = t * 1.7;
-    spokes.rotation.x = t * 1.7;
-    piston.position.y = 2.6 + Math.sin(t * 3.4) * 0.32;
+  const machineState = { run: 1, angle: 0, phase: 0 };
+  updaters.push((dt) => {
+    machineState.angle += dt * 1.7 * machineState.run;
+    machineState.phase += dt * 3.4 * machineState.run;
+    wheel.rotation.z = machineState.angle;
+    spokes.rotation.x = machineState.angle;
+    piston.position.y = 2.6 + Math.sin(machineState.phase) * 0.32;
   });
 
   // 蒸汽（拉杆触发时喷发）
@@ -176,6 +181,7 @@ export function build(ctx) {
   });
 
   // 铁笼吊灯
+  const cageLights = [];
   for (const [x, z, seed] of [[0, 0, 1], [4.5, 3.5, 7], [-4.5, 4, 13]]) {
     const cage = new THREE.Group();
     const bulb = new THREE.Mesh(
@@ -195,8 +201,100 @@ export function build(ctx) {
     cage.add(bulb, wire, cageMesh, light);
     cage.position.set(x, H - 1.7, z);
     group.add(cage);
+    cageLights.push({ light, bulb });
     updaters.push(makeFlicker(light, bulb.material, 6, seed));
   }
+
+  // ---------- 彩蛋：暖气炉里的小舞台 ----------
+  // 绕到大机器背后的死角，整个房间会为你熄灯——除了暖气炉。
+  const stageGlow = new THREE.PointLight(0xfff9ec, 0, 12, 1.6);
+  stageGlow.position.set(5.2, 1.2, -S / 2 + 1.4);
+  group.add(stageGlow);
+  const tinyFigure = darkFigure(0.5);
+  tinyFigure.position.set(5.2, 0.35, -S / 2 + 0.85);
+  tinyFigure.visible = false;
+  group.add(tinyFigure);
+  const blackout = { v: 0 };
+  updaters.push((dt, t) => {
+    if (blackout.v > 0) {
+      for (const c of cageLights) {
+        c.light.intensity *= (1 - blackout.v);
+        c.bulb.material.emissiveIntensity *= (1 - blackout.v);
+      }
+    }
+    if (tinyFigure.visible) {
+      tinyFigure.rotation.z = Math.sin(t * 2.1) * 0.28; // 缓慢摇摆
+      tinyFigure.position.y = 0.35 + Math.sin(t * 4.2) * 0.02;
+    }
+  });
+  let stageTimers = [];
+  const radiatorEgg = () => {
+    for (const id of stageTimers) clearTimeout(id);
+    stageTimers = [];
+    blackout.v = 1;
+    machineState.run = 0; // 机器停了——这比噪音更可怕
+    audio.duck(1.2, 0.04, 2.4);
+    stageTimers.push(setTimeout(() => {
+      stageGlow.intensity = 14;
+      tinyFigure.visible = true;
+      audio.sfx('lullaby', 0.8);
+      ui.caption('机器停了。暖气炉的深处亮起一盏小小的台口灯。那支歌不是唱给你听的。', 6600);
+    }, 1100));
+    stageTimers.push(setTimeout(() => {
+      stageGlow.intensity = 0;
+      tinyFigure.visible = false;
+      blackout.v = 0;
+      machineState.run = 1;
+      audio.sfx('clank', 0.7);
+    }, 6200));
+  };
+  const radiatorTrig = zoneTrigger({ x: -6.4, z: -6.2, r: 1.8 }, radiatorEgg, { cooldown: 45 });
+  updaters.push((dt) => radiatorTrig.update(player, dt));
+
+  // ---------- 博物馆化：展柜与引语 ----------
+  // 展柜：一支铅笔——片名的由来（原创致敬，不含角色形象）
+  const pencilCase = vitrine('一支铅笔', 'WHY THE TITLE', '#9fb4c7');
+  pencilCase.position.set(3.2, 0, 5.0);
+  pencilCase.rotation.y = -2.4;
+  group.add(pencilCase);
+  const pencil = new THREE.Group();
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6),
+    new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.6 })
+  );
+  const tip = new THREE.Mesh(
+    new THREE.ConeGeometry(0.02, 0.06, 6),
+    new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.8 })
+  );
+  tip.position.y = -0.28;
+  tip.rotation.x = Math.PI;
+  const eraser = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.021, 0.021, 0.05, 8),
+    new THREE.MeshStandardMaterial({ color: 0xd88a94, roughness: 0.9 })
+  );
+  eraser.position.y = 0.275;
+  pencil.add(shaft, tip, eraser);
+  pencil.rotation.z = 0.5;
+  pencil.position.y = 0.1;
+  pencilCase.userData.slot.add(pencil);
+  updaters.push((dt, t) => { pencil.rotation.y = t * 0.5; });
+  hotspots.add(pencilCase.userData.label, {
+    hint: 'E — 为什么叫「橡皮头」',
+    onActivate: () => {
+      audio.sfx('chime');
+      ui.caption('展签：铅笔尾端的橡皮，能擦掉写错的字。这部电影问的是——擦掉之后，纸上留下的是什么？', 6600);
+    }
+  });
+
+  // 引语展签（林奇原话：费城）
+  const q1 = quotePlaque(quoteById('philly'), '#9fb4c7');
+  q1.position.set(-5.6, 0, 2.2);
+  q1.rotation.y = 1.35;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showEssay('industry')
+  });
 
   // 展签
   const s1 = standPlaque('工业的摇篮曲', 'ERASERHEAD · 1977', '#9fb4c7');
@@ -237,6 +335,7 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 6.4, yaw: 0 },
     bounds: rectBounds(-S / 2 + 1.1, S / 2 - 1.1, -S / 2 + 1.6, S / 2 - 1.4),
-    update: (dt, t) => { for (const u of updaters) u(dt, t); }
+    update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    eggs: { 'radiator-stage': radiatorTrig }
   };
 }

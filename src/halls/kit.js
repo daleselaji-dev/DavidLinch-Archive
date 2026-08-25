@@ -357,6 +357,216 @@ export function archivePlaque(film) {
   return mesh;
 }
 
+// ---------- 博物馆化构件 ----------
+
+/** canvas 中文换行 */
+function wrapText(g, text, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    if (g.measureText(line + ch).width > maxWidth && line) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line += ch;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/**
+ * 引语展签 —— 博物馆说明牌，以林奇原话为主体。
+ * quote: { zh, en, source }
+ */
+export function quotePlaque(quote, accent = '#c9a35c') {
+  const group = new THREE.Group();
+  const tex = canvasTexture(1024, (g, s) => {
+    g.fillStyle = '#0e0709';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = accent;
+    g.lineWidth = 4;
+    g.strokeRect(30, 30, s - 60, s - 60);
+    g.strokeStyle = 'rgba(242,233,220,0.14)';
+    g.lineWidth = 2;
+    g.strokeRect(44, 44, s - 88, s - 88);
+    // 大引号
+    g.fillStyle = accent;
+    g.font = '400 170px Georgia, serif';
+    g.fillText('\u201c', 72, 210);
+    // 中文引语
+    g.fillStyle = '#f2e9dc';
+    g.font = '400 62px "Songti SC","SimSun",Georgia,serif';
+    g.textAlign = 'left';
+    const zhLines = wrapText(g, quote.zh, s - 220);
+    let y = 300;
+    for (const line of zhLines) {
+      g.fillText(line, 110, y);
+      y += 92;
+    }
+    // 英文原文
+    g.fillStyle = 'rgba(242,233,220,0.6)';
+    g.font = 'italic 34px Georgia, serif';
+    const enLines = wrapText(g, quote.en, s - 220);
+    y += 26;
+    for (const line of enLines) {
+      g.fillText(line, 110, y);
+      y += 48;
+    }
+    // 出处
+    g.fillStyle = accent;
+    g.font = '28px "Courier New", monospace';
+    g.textAlign = 'right';
+    g.fillText('— DAVID LYNCH · ' + quote.source, s - 90, s - 84);
+  });
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(1.7, 1.7, 0.05),
+    new THREE.MeshStandardMaterial({
+      map: tex, roughness: 0.6,
+      emissive: 0xf2e9dc, emissiveMap: tex, emissiveIntensity: 0.42
+    })
+  );
+  board.position.y = 1.55;
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x14090c, roughness: 0.5, metalness: 0.7 });
+  const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 1.55, 8), postMat);
+  postL.position.set(-0.6, 0.77, 0);
+  const postR = postL.clone();
+  postR.position.x = 0.6;
+  group.add(board, postL, postR);
+  group.userData.board = board;
+  return group;
+}
+
+/**
+ * 玻璃展柜 —— 展台 + 透明罩 + 顶光 + 标签牌。
+ * 内容物请加到 group.userData.slot（位于台面中心上方）。
+ */
+export function vitrine(labelTitle, labelSub, accent = '#c9a35c') {
+  const group = new THREE.Group();
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0x130b0e, roughness: 0.35, metalness: 0.3, envMapIntensity: 0.8 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.02, 0.85), baseMat);
+  base.position.y = 0.51;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.05, 0.95), baseMat);
+  top.position.y = 1.045;
+  // 玻璃罩
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(0.78, 0.72, 0.78),
+    new THREE.MeshStandardMaterial({
+      color: 0xcfe4ff, transparent: true, opacity: 0.09,
+      roughness: 0.05, metalness: 0.1, envMapIntensity: 1.6, depthWrite: false
+    })
+  );
+  glass.position.y = 1.43;
+  // 玻璃棱边
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(glass.geometry),
+    new THREE.LineBasicMaterial({ color: 0x8fb8d8, transparent: true, opacity: 0.35 })
+  );
+  edges.position.copy(glass.position);
+  // 顶光
+  const light = new THREE.PointLight(0xfff2dd, 2.2, 3.2, 2);
+  light.position.y = 1.9;
+  // 标签牌（斜面小铭牌）
+  const labelTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#100a0d';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = accent;
+    g.lineWidth = 3;
+    g.strokeRect(8, 8, s - 16, s - 16);
+    g.fillStyle = '#f2e9dc';
+    g.textAlign = 'center';
+    g.font = '400 40px "Songti SC","SimSun",serif';
+    g.fillText(labelTitle, s / 2, s / 2 - 12, s - 40);
+    g.fillStyle = accent;
+    g.font = '22px "Courier New", monospace';
+    g.fillText(labelSub, s / 2, s / 2 + 42, s - 40);
+  });
+  const label = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.28, 0.02),
+    new THREE.MeshStandardMaterial({
+      map: labelTex, roughness: 0.6,
+      emissive: 0xf2e9dc, emissiveMap: labelTex, emissiveIntensity: 0.4
+    })
+  );
+  label.position.set(0, 1.02, 0.52);
+  label.rotation.x = -0.45;
+  // 内容物挂点
+  const slot = new THREE.Group();
+  slot.position.y = 1.28;
+  group.add(base, top, glass, edges, light, label, slot);
+  group.userData.slot = slot;
+  group.userData.label = label;
+  return group;
+}
+
+/**
+ * 黑影人形 —— 抽象的、无面目的煤黑色形体（彩蛋惊吓用）。
+ * 顶点噪声位移让它看起来"不对劲"；不复刻任何受版权保护的角色形象。
+ */
+export function darkFigure(height = 2.1) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x060404, roughness: 0.95, metalness: 0,
+    emissive: 0x1a0303, emissiveIntensity: 0.35
+  });
+  const bodyGeo = new THREE.CylinderGeometry(0.26, 0.42, height * 0.78, 10, 8);
+  const bp = bodyGeo.attributes.position;
+  for (let i = 0; i < bp.count; i++) {
+    const y = bp.getY(i);
+    const n = Math.sin(y * 7.3 + bp.getX(i) * 11) * 0.06 + (Math.random() - 0.5) * 0.05;
+    bp.setX(i, bp.getX(i) * (1 + n));
+    bp.setZ(i, bp.getZ(i) * (1 + n));
+  }
+  bodyGeo.computeVertexNormals();
+  const body = new THREE.Mesh(bodyGeo, mat);
+  body.position.y = height * 0.39;
+  const headGeo = new THREE.SphereGeometry(0.2, 10, 8);
+  const hp = headGeo.attributes.position;
+  for (let i = 0; i < hp.count; i++) {
+    const s = 1 + (Math.random() - 0.5) * 0.24;
+    hp.setXYZ(i, hp.getX(i) * s, hp.getY(i) * s * 1.2, hp.getZ(i) * s);
+  }
+  headGeo.computeVertexNormals();
+  const head = new THREE.Mesh(headGeo, mat);
+  head.position.y = height * 0.86;
+  head.rotation.z = 0.14; // 微微歪头——最不对劲的细节
+  group.add(body, head);
+  return group;
+}
+
+/**
+ * 区域触发器 —— 玩家走进圆形区域时触发（彩蛋核心机制）。
+ * 返回 update(playerPos) 供每帧调用。
+ * opts: { cooldown 秒（默认可重复触发的冷却）, once 只触发一次 }
+ */
+export function zoneTrigger({ x, z, r }, onEnter, { cooldown = 20, once = false } = {}) {
+  let inside = false;
+  let fired = false;
+  let coolT = 0;
+  const r2 = r * r;
+  const trig = {
+    update(playerPos, dt = 0.016) {
+      if (coolT > 0) coolT -= dt;
+      const dx = playerPos.x - x;
+      const dz = playerPos.z - z;
+      const inNow = dx * dx + dz * dz < r2;
+      if (inNow && !inside && coolT <= 0 && !(once && fired)) {
+        fired = true;
+        coolT = cooldown;
+        onEnter();
+      }
+      inside = inNow;
+    },
+    /** 冒烟测试直接引爆 */
+    force() {
+      fired = true;
+      coolT = cooldown;
+      onEnter();
+    }
+  };
+  return trig;
+}
+
 /** 立式话筒（抽象原创造型） */
 export function micStand() {
   const g = new THREE.Group();
