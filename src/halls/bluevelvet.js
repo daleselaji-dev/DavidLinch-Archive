@@ -337,6 +337,39 @@ export function build(ctx) {
   bar.add(mergedMesh(stPoleGeos, new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(), color: 0xa8a8a8, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4
   })));
+  // 吊坠灯 ×3：长杆珐琅锥罩垂到吧台上方——乐队醒着时收暗（歌厅暗场规矩）
+  const pendantShadeGeo = new THREE.LatheGeometry([
+    new THREE.Vector2(0.16, 0), new THREE.Vector2(0.148, 0.008), new THREE.Vector2(0.125, 0.06),
+    new THREE.Vector2(0.05, 0.2), new THREE.Vector2(0.022, 0.24), new THREE.Vector2(0.02, 0.31)
+  ], 18);
+  const pendantRodGeo = new THREE.CylinderGeometry(0.012, 0.012, 3.42, 8);
+  const pendantGeos = [];
+  const pendantBulbGeos = [];
+  const pendantBulbGeo = new THREE.SphereGeometry(0.035, 10, 8);
+  const pendantLights = [];
+  const pendantCones = [];
+  for (const z of [-1.2, 0.8, 2.8]) {
+    pendantGeos.push(xform(pendantShadeGeo, -W / 2 + 1.7, 2.28, z));
+    pendantGeos.push(xform(pendantRodGeo, -W / 2 + 1.7, 4.29, z));
+    pendantBulbGeos.push(xform(pendantBulbGeo, -W / 2 + 1.7, 2.33, z));
+    const pl = new THREE.PointLight(0xffc98a, 2.6, 3.8, 2);
+    pl.position.set(-W / 2 + 1.7, 2.15, z);
+    bar.add(pl);
+    pendantLights.push(pl);
+    const cone = lightCone(0.06, 0.55, 1.5, 0xffc98a, 0.05);
+    cone.position.set(-W / 2 + 1.7, 1.53, z);
+    bar.add(cone);
+    pendantCones.push(cone);
+  }
+  pendantShadeGeo.dispose(); pendantRodGeo.dispose(); pendantBulbGeo.dispose();
+  bar.add(mergedMesh(pendantGeos, new THREE.MeshStandardMaterial({
+    color: 0x101014, roughness: 0.35, metalness: 0.6, envMapIntensity: 1.1, side: THREE.DoubleSide
+  })));
+  const pendantBulbMat = new THREE.MeshStandardMaterial({
+    color: 0x241a10, emissive: 0xffd9a0, emissiveIntensity: 2.6, roughness: 0.4
+  });
+  bar.add(mergedMesh(pendantBulbGeos, pendantBulbMat));
+
   // 吧台壁挂电话 —— 拿起听筒：只有拨号音，然后一阵没人接的响铃
   const barPhone = wallPhone({ mats: M });
   barPhone.position.set(-W / 2 + 0.12, 1.5, 5.1);
@@ -493,7 +526,8 @@ export function build(ctx) {
       }
     }
   });
-  // 连锁：乐队醒着时，台口脚灯洗亮、聚光缓慢呼吸——整个舞台在等一个歌手
+  // 连锁：乐队醒着时，台口脚灯洗亮、聚光缓慢呼吸——整个舞台在等一个歌手；
+  // 吧台吊灯同时收暗（歌厅暗场规矩），停机全部复原
   updaters.push((dt, t) => {
     const k = Math.min(1, dt * 1.6);
     footWash.intensity += ((jukeState.on ? 7 : 3) - footWash.intensity) * k;
@@ -501,6 +535,9 @@ export function build(ctx) {
       ((jukeState.on ? 3.8 : 2.4) - footLights.material.emissiveIntensity) * k;
     const breathe = jukeState.on ? 1 + Math.sin(t * 0.9) * 0.16 : 1;
     spot.intensity += ((jukeState.on ? 82 : 60) * breathe - spot.intensity) * k;
+    for (const pl of pendantLights) pl.intensity += ((jukeState.on ? 1.0 : 2.6) - pl.intensity) * k;
+    pendantBulbMat.emissiveIntensity += ((jukeState.on ? 1.0 : 2.6) - pendantBulbMat.emissiveIntensity) * k;
+    for (const c of pendantCones) c.material.opacity += ((jukeState.on ? 0.028 : 0.05) - c.material.opacity) * k;
   });
 
   // 引语展签（本厅唯一文字展签）
