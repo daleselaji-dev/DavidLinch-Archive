@@ -227,7 +227,7 @@ export function build(ctx) {
       const first = gramoState.wind <= 0;
       gramoState.wind = 46;
       if (first) {
-        audio.sfx('chime', 0.5);
+        audio.sfxAt('crank', 4.6, 2.4, 0.9);
         narration.jazz.setEnabled(true);
         ui.caption('黄铜喇叭醒了。', 3200);
       }
@@ -301,7 +301,8 @@ export function build(ctx) {
     onActivate: () => {
       const prev = dim.stops[dim.idx];
       dim.idx = (dim.idx + 1) % dim.stops.length;
-      audio.sfx(dim.stops[dim.idx] < prev ? 'lampoff' : 'lampon', 0.55);
+      audio.sfx('switch', 0.6);
+      audio.sfx(dim.stops[dim.idx] < prev ? 'lampoff' : 'lampon', 0.3);
     }
   });
 
@@ -323,8 +324,7 @@ export function build(ctx) {
     hint: 'E — 迎宾铃',
     onActivate: () => {
       bellPulse.t = 1.6;
-      audio.sfx('typebell', 0.8);
-      audio.sfx('chime', 0.5);
+      audio.sfxAt('bell', -4.9, 5.4, 1.0);
     }
   });
   updaters.push((dt) => {
@@ -383,7 +383,7 @@ export function build(ctx) {
     onActivate: () => {
       ropeSway.v = 1;
       ropeSway.t = 0;
-      audio.sfx('thud', 0.22);
+      audio.sfx('creak', 0.35);
     }
   });
   updaters.push((dt) => {

@@ -1,8 +1,21 @@
 // ============================================================
 // AudioEngine — 全程序化 WebAudio 合成。
-// 环境底噪(每厅配方) + 交互音效。绝无采样素材。
+// 环境底噪(每厅配方) + 交互音效（支持立体声定位 sfxAt）。绝无采样素材。
 // ============================================================
 import { DRONES } from './drones.js';
+
+/**
+ * 立体声定位的纯几何计算（供单测）：
+ * 世界系位移 (dx,dz) + 听者朝向 yaw → { pan 声像, att 距离衰减, dist }。
+ * three.js 约定：yaw=0 时视线朝 -z，+x 为右手侧。
+ */
+export function spatialParams(dx, dz, yaw, ref = 3) {
+  const dist = Math.hypot(dx, dz);
+  const lx = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+  const pan = dist < 0.001 ? 0 : Math.max(-1, Math.min(1, (lx / dist) * 0.85));
+  const att = (Math.min(1, ref / Math.max(ref, dist))) ** 1.6;
+  return { pan, att, dist };
+}
 
 export class AudioEngine {
   constructor() {
@@ -12,6 +25,20 @@ export class AudioEngine {
     this._amb = null;
     this._ambTimers = [];
     this._buffers = {};
+    this._listener = null;
+  }
+
+  /** 注册听者位姿回调：() => ({ x, z, yaw })，供 sfxAt 计算声像与衰减 */
+  setListener(fn) { this._listener = fn; }
+
+  /** 位置化音效：按世界坐标计算声像 + 距离衰减后播放 */
+  sfxAt(name, x, z, vol = 1, ref = 3) {
+    if (!this.ctx || this.muted) return;
+    const L = this._listener && this._listener();
+    if (!L) { this.sfx(name, vol); return; }
+    const { pan, att } = spatialParams(x - L.x, z - L.z, L.yaw, ref);
+    if (vol * att < 0.015) return; // 听不见就不占混音
+    this.sfx(name, vol * att, pan);
   }
 
   unlock() {
@@ -157,12 +184,19 @@ export class AudioEngine {
   }
 
   // ---------- 交互音效 ----------
-  sfx(name, vol = 1) {
+  sfx(name, vol = 1, pan = 0) {
     if (!this.ctx || this.muted) return;
     const t = this.ctx.currentTime;
     const out = this.ctx.createGain();
     out.gain.value = vol;
-    out.connect(this.master);
+    if (pan && this.ctx.createStereoPanner) {
+      const p = this.ctx.createStereoPanner();
+      p.pan.value = pan;
+      out.connect(p);
+      p.connect(this.master);
+    } else {
+      out.connect(this.master);
+    }
 
     const tone = (type, f0, f1, dur, peak, delay = 0) => {
       const o = this.ctx.createOscillator();
@@ -315,6 +349,40 @@ export class AudioEngine {
         tone('sine', 174, 172, 2.2, 0.07);
         tone('sine', 261, 258, 1.8, 0.04, 0.3);
         break;
+      case 'bell': // 服务台迎宾铃：明亮铜质非谐分音 + 敲击瞬态
+        tone('sine', 1568, 1560, 1.3, 0.07);
+        tone('sine', 2093, 2086, 1.0, 0.05, 0.004);
+        tone('sine', 2793, 2778, 0.6, 0.03, 0.008);
+        tone('sine', 4186, 4158, 0.25, 0.018, 0.01);
+        noise('white', 0.03, 'highpass', 5200, 1, 0.05);
+        break;
+      case 'ratchet': { // 转盘拨号弹簧回位：一串棘轮嗒嗒
+        for (let i = 0; i < 9; i++) {
+          noise('white', 0.018, 'bandpass', 2900 + (i % 3) * 500, 6, 0.05, 0.05 + i * 0.052);
+          tone('square', 210, 190, 0.014, 0.016, 0.05 + i * 0.052);
+        }
+        break;
+      }
+      case 'creak': { // 木/革吱呀：窄带下滑 + 低频晃动
+        const f = noise('pink', 0.5, 'bandpass', 950, 9, 0.11, 0, 0.09);
+        f.frequency.linearRampToValueAtTime(420, t + 0.45);
+        tone('sine', 88, 60, 0.4, 0.05);
+        break;
+      }
+      case 'switch': // 重型拨杆：先簧压后落座
+        tone('square', 300, 260, 0.02, 0.05);
+        noise('white', 0.03, 'highpass', 2000, 1, 0.06);
+        tone('sine', 120, 70, 0.1, 0.14, 0.045);
+        noise('brown', 0.08, 'lowpass', 400, 1, 0.1, 0.045);
+        break;
+      case 'crank': { // 留声机上发条：三圈弹簧绞紧 + 黑胶苏醒
+        for (let i = 0; i < 3; i++) {
+          noise('pink', 0.22, 'bandpass', 640 + i * 90, 4, 0.09, i * 0.34, 0.06);
+          tone('sine', 150 + i * 24, 130 + i * 24, 0.18, 0.028, i * 0.34);
+        }
+        noise('crackle', 1.4, 'highpass', 1600, 1, 0.08, 0.9);
+        break;
+      }
       default:
         tone('sine', 660, 660, 0.08, 0.04);
     }

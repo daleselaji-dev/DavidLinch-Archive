@@ -314,7 +314,8 @@ export function build(ctx) {
     hint: 'E — 墙上的电灯开关',
     onActivate: () => {
       ceilState.on = ceilState.on ? 0 : 1;
-      audio.sfx(ceilState.on ? 'lampon' : 'lampoff');
+      audio.sfx('switch', 0.5);
+      audio.sfx(ceilState.on ? 'lampon' : 'lampoff', 0.4);
       ui.caption(ceilState.on ? '顶灯回来了。' : '只剩台灯了。', 2400);
     }
   });

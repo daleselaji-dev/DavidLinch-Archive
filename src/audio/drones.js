@@ -53,7 +53,8 @@ export const DRONES = {
     ],
     noises: [{ type: 'crackle', gain: 0.05, filter: { type: 'highpass', freq: 1400, q: 0.6 } }],
     lfo: { freq: 0.09, depth: 0.35 },
-    events: []
+    // 空座间偶尔有一声极轻的杯盏碰响——没人的酒馆自己在喝
+    events: [{ sfx: 'sip', minGap: 19, maxGap: 42 }]
   },
   twinpeaks: {
     // 黑松林: 风 + 极低垫音 + 远处猫头鹰

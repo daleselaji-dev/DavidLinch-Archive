@@ -345,7 +345,7 @@ export function build(ctx) {
     hint: 'E — 转一转吧凳',
     onActivate: () => {
       stoolSpin.w = 9;
-      audio.sfx('thud', 0.3);
+      audio.sfx('creak', 0.5);
     }
   });
   // 吧台上的威士忌杯

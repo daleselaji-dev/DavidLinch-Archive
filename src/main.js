@@ -43,6 +43,12 @@ try {
 const audio = new AudioEngine();
 const controls = new FirstPersonControls(engine.camera, canvas);
 engine.scene.add(controls.yawObject);
+// 位置化音效的听者位姿（sfxAt 用它算声像与距离衰减）
+audio.setListener(() => ({
+  x: controls.yawObject.position.x,
+  z: controls.yawObject.position.z,
+  yaw: controls.yawObject.rotation.y
+}));
 const store = new GuestbookStore(window.localStorage);
 
 let narration; // 在 UI 之后构造（相互引用）
@@ -219,5 +225,17 @@ window.__SV__ = {
   /** 冒烟测试：当前展厅非导航可交互物件数（门禁 20：nav 门户不计入） */
   countInteractives: () =>
     hotspots.items.filter((m) => !(m.userData.hotspot && m.userData.hotspot.nav)).length,
+  /** 冒烟测试：逐一激活当前展厅全部非导航交互（onActivate 链不得抛错），返回激活数 */
+  activateAll: () => {
+    let n = 0;
+    for (const m of hotspots.items) {
+      const h = m.userData.hotspot;
+      if (!h || h.nav) continue;
+      h.onActivate();
+      n += 1;
+    }
+    ui.closeAll();
+    return n;
+  },
   version: '1.2.0'
 };

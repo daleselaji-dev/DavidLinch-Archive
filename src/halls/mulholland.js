@@ -343,9 +343,7 @@ export function build(ctx) {
     onActivate: () => {
       dialState.t = 1.2;
       audio.sfx('clank', 0.22);
-      later(() => audio.sfx('type', 0.5), 620);
-      later(() => audio.sfx('type', 0.42), 800);
-      later(() => audio.sfx('type', 0.35), 950);
+      later(() => audio.sfxAt('ratchet', 10.2, -18, 0.85), 580);
     }
   });
 
@@ -507,7 +505,8 @@ export function build(ctx) {
       onActivate: () => {
         const down = sitState.target < 0.5;
         sitState.target = down ? 1 : 0;
-        audio.sfx('thud', 0.5);
+        audio.sfx('creak', 0.5);
+        setTimeout(() => audio.sfx('thud', 0.4), 260);
         if (down) {
           // 连锁反应：台口灯亮起一拍，仿佛等你入座已久
           stageSpot.intensity = 90;
@@ -545,7 +544,8 @@ export function build(ctx) {
     hint: 'E — 走道排灯',
     onActivate: () => {
       aisleState.on = aisleState.on ? 0 : 1;
-      audio.sfx(aisleState.on ? 'lampon' : 'lampoff', 0.6);
+      audio.sfx('switch', 0.55);
+      audio.sfx(aisleState.on ? 'lampon' : 'lampoff', 0.3);
     }
   });
 

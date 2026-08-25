@@ -193,7 +193,7 @@ export function build(ctx) {
       steamBurst = 4.2;
       machineState.run = 2.4;
       audio.sfx('clank', 0.5);
-      setTimeout(() => audio.sfx('steam', 0.95), 180);
+      setTimeout(() => audio.sfxAt('steam', -3.2, -5.4, 1.0, 4), 180);
       setTimeout(() => audio.sfx('steamfar', 0.7), 900);
     }
   });
@@ -215,7 +215,7 @@ export function build(ctx) {
     onActivate: () => {
       swing.e = 1;
       swing.t = 0;
-      audio.sfx('thud', 0.3);
+      audio.sfx('creak', 0.4);
     }
   });
 
@@ -460,7 +460,7 @@ export function build(ctx) {
       fuseState.cut = cutting ? 5 : 0.01;
       midLever.rotation.z = cutting ? -0.5 : 0.5;
       fusebox.userData.levers.forEach((lv, i) => { if (i !== 1) lv.rotation.z = cutting ? -0.5 : 0.5; });
-      audio.sfx('thud', 0.9);
+      audio.sfx('switch', 0.9);
       if (cutting) ui.caption('整层楼安静了一档。', 3600);
     }
   });

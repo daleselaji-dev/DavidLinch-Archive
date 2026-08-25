@@ -82,12 +82,13 @@ function createWindow() {
             app.exit(1);
           }
         }).catch(() => {});
-        // 交互密度门禁（QUALITY_GATES 20）：每厅非导航可交互物 ≥ 阈值
+        // 交互密度门禁（QUALITY_GATES 20）：每厅非导航可交互物 ≥ 阈值，
+        // 且逐一激活（onActivate 全链无异常）后才放行去下一厅
         const INTERACTIVE_MIN = {
           lobby: 8, archive: 8, eraserhead: 8, bluevelvet: 8,
           twinpeaks: 10, mulholland: 8, studio: 10
         };
-        win.webContents.executeJavaScript(
+        const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
         ).then((n) => {
           const min = INTERACTIVE_MIN[hall] ?? 8;
@@ -96,8 +97,11 @@ function createWindow() {
             console.error(`[smoke] 交互密度不足 ${hall}: ${n} < ${min}`);
             app.exit(1);
           }
+          return win.webContents.executeJavaScript('window.__SV__.activateAll()', true);
+        }).then((n) => {
+          console.log(`[smoke] 交互激活 ${hall}: ${n} 个 onActivate 全部无异常`);
         }).catch((err) => {
-          console.error(`[smoke] countInteractives 失败 ${hall}: ${err && err.message}`);
+          console.error(`[smoke] 交互检查失败 ${hall}: ${err && err.message}`);
           app.exit(1);
         });
         const proceed = () => {
@@ -157,21 +161,24 @@ function createWindow() {
         };
         // SV_SHOT_DIR: 可选，装载后为每厅截屏（视觉自检用）
         // SV_SHOT_DELAY: 截屏前等待毫秒数（软件渲染合成器有延迟时调大）
+        // 顺序：交互密度检查 + 全量激活 → （截屏）→ 彩蛋 + 下一厅
         const shotDir = process.env.SV_SHOT_DIR;
-        if (shotDir) {
-          setTimeout(async () => {
-            try {
-              const img = await win.webContents.capturePage();
-              require('fs').writeFileSync(require('path').join(shotDir, `${hall}.png`), img.toPNG());
-              console.log(`[smoke] 截屏: ${hall}.png`);
-            } catch (err) {
-              console.error('[smoke] 截屏失败', err);
-            }
+        interactiveCheck.then(() => {
+          if (shotDir) {
+            setTimeout(async () => {
+              try {
+                const img = await win.webContents.capturePage();
+                require('fs').writeFileSync(require('path').join(shotDir, `${hall}.png`), img.toPNG());
+                console.log(`[smoke] 截屏: ${hall}.png`);
+              } catch (err) {
+                console.error('[smoke] 截屏失败', err);
+              }
+              proceed();
+            }, Number(process.env.SV_SHOT_DELAY || 3500));
+          } else {
             proceed();
-          }, Number(process.env.SV_SHOT_DELAY || 3500));
-        } else {
-          proceed();
-        }
+          }
+        });
       }
       if (message.includes('[sv] webgl-failed') || message.toLowerCase().includes('uncaught')) {
         clearTimeout(deadline);

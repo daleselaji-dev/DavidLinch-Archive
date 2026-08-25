@@ -395,7 +395,7 @@ export function build(ctx) {
       sigState.phase = (sigState.phase + 1) % 3;
       signal.userData.setPhase(sigState.phase);
       signal.userData.light.intensity = 3;
-      audio.sfx('click', 0.6);
+      audio.sfxAt('switch', 21.5, -4.2, 0.8, 4);
       setTimeout(() => { sigState.blink = true; sigState.t = 0; }, 6000);
     }
   });
@@ -682,7 +682,7 @@ export function build(ctx) {
     hint: 'E — 转动观景镜',
     onActivate: () => {
       scopeState.target = (scopeState.target + 1) % 2;
-      audio.sfx('click', 0.8);
+      audio.sfx('creak', 0.55);
       ui.caption(scopeState.target === 0 ? '瀑布不停。' : '锯木厂睡着了。', 3000);
     }
   });
