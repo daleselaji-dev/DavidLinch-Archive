@@ -819,24 +819,7 @@ export function makeFlicker(light, bulbMat, baseIntensity, seed = 0) {
 // ---------- v1.2 新构件 ----------
 
 /** 木栏杆：上下横杆 + 立柱，合并为单 mesh */
-export function railing(length, { height = 1.05, gap = 0.22, color = 0x241708, radius = 0.032 } = {}) {
-  const geos = [];
-  const railGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
-  geos.push(xform(railGeo, 0, height, 0, 0, 0, Math.PI / 2));
-  geos.push(xform(railGeo, 0, height * 0.42, 0, 0, 0, Math.PI / 2));
-  const n = Math.max(2, Math.round(length / gap));
-  const balGeo = new THREE.CylinderGeometry(radius * 0.55, radius * 0.62, height, 6);
-  for (let i = 0; i <= n; i++) {
-    geos.push(xform(balGeo, -length / 2 + (i / n) * length, height / 2, 0));
-  }
-  railGeo.dispose();
-  balGeo.dispose();
-  const mat = new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [30, 18, 9], planks: 2, size: 128 }),
-    color, roughness: 0.72, metalness: 0.05
-  });
-  return mergedMesh(geos, mat);
-}
+// (v1.3 艺术三遍：通用圆杆 railing 已被 props.overlookRail / props.pipeRail 取代并删除)
 
 /** 凹槽立柱：柱础 + 柱身 + 柱头，合并为单 mesh */
 export function column(height = 6, radius = 0.32, colorHex = 0x1a1013) {

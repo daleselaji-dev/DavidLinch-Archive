@@ -8,10 +8,10 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
   smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
-  mergedMesh, xform, roundedBoxMesh, railing, brushedMetalTexture,
+  mergedMesh, xform, roundedBoxMesh, brushedMetalTexture,
   concreteMat, brickMat, hangingBulb, rng
 } from './kit.js';
-import { propMats, fireboxDoor, valveWheel, fuseBox } from './props.js';
+import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -457,10 +457,8 @@ export function build(ctx) {
   );
   catwalk.position.set(-S / 2 - 1.6, 0.05, 0);
   boilerRoom.add(catwalk);
-  const rail = railing(5.0, { height: 1.0, radius: 0.028, color: 0x2a2a30 });
-  rail.material.map = brushedMetalTexture();
-  rail.material.metalness = 0.85;
-  rail.material.roughness = 0.4;
+  // 管式扶手 v2（立杆球接头 + 地法兰 + 双横管——不再借用木栏杆轮廓）
+  const rail = pipeRail(5.0, { mats: M });
   rail.position.set(-S / 2 - 0.8, 0.08, 0);
   rail.rotation.y = Math.PI / 2;
   boilerRoom.add(rail);

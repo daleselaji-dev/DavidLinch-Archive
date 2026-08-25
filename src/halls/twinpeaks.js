@@ -11,13 +11,13 @@ import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
   zoneTrigger, zonesBounds, pineGeometryMaterial,
-  roundedBoxMesh, mergedMesh, xform, railing, rockMesh,
+  roundedBoxMesh, mergedMesh, xform, rockMesh,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
   chevronMat, asphaltMat, woodMat, waterMat
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
-  counterClutter, ceilingFan, viewScope, clubChair
+  counterClutter, ceilingFan, viewScope, clubChair, overlookRail
 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
@@ -778,12 +778,13 @@ export function build(ctx) {
   );
   deck.position.set(11, 0.08, -25.7);
   overlook.add(deck);
-  const rail1 = railing(12, { height: 1.05 });
+  // 风雨木栏杆 v2（方柱坡顶帽 + 宽手板 + 立缘中板 + 踢脚板——公园栈道做法）
+  const rail1 = overlookRail(12);
   rail1.position.set(11, 0.16, -28.8);
-  const rail2 = railing(6.3, { height: 1.05 });
+  const rail2 = overlookRail(6.3);
   rail2.position.set(4.9, 0.16, -25.7);
   rail2.rotation.y = Math.PI / 2;
-  const rail3 = railing(6.3, { height: 1.05 });
+  const rail3 = overlookRail(6.3);
   rail3.position.set(17.1, 0.16, -25.7);
   rail3.rotation.y = Math.PI / 2;
   overlook.add(rail1, rail2, rail3);

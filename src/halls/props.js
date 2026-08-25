@@ -1827,3 +1827,42 @@ export function dressingMirror({ mats } = {}) {
   g.userData.hitbox = hitbox;
   return g;
 }
+
+/**
+ * 眺望台风雨木栏杆：方柱（四棱坡顶帽）+ 宽扁手板微出挑 + 立缘中板 + 踢脚板。
+ * 国家公园栈道做法，与室内车削栏杆彻底区分。单 mesh。
+ */
+export function overlookRail(length) {
+  const geos = [];
+  const n = Math.max(2, Math.round(length / 1.5));
+  for (let i = 0; i <= n; i++) {
+    const x = -length / 2 + (i / n) * length;
+    geos.push(xform(new THREE.BoxGeometry(0.09, 1.02, 0.09), x, 0.51, 0));
+    geos.push(xform(new THREE.CylinderGeometry(0.012, 0.075, 0.06, 4), x, 1.05, 0, 0, Math.PI / 4, 0));
+  }
+  geos.push(xform(new THREE.BoxGeometry(length + 0.14, 0.045, 0.17), 0, 1.0, 0)); // 手板
+  geos.push(xform(new THREE.BoxGeometry(length, 0.1, 0.028), 0, 0.6, 0));         // 中板（立缘）
+  geos.push(xform(new THREE.BoxGeometry(length, 0.12, 0.024), 0, 0.1, 0));        // 踢脚板
+  return mergedMesh(geos, woodMat({ base: [34, 24, 15], planks: 1, size: 128, seed: 47, gloss: 0.25 }));
+}
+
+/**
+ * 工业管式扶手：立杆（地法兰盘 + 球形接头×2）+ 双道横管。
+ * 锅炉房检修步道用——金属管件语言，不再借用木栏杆轮廓。单 mesh。
+ */
+export function pipeRail(length, { mats } = {}) {
+  const M = mats || propMats();
+  const geos = [];
+  const n = Math.max(2, Math.round(length / 1.2));
+  for (let i = 0; i <= n; i++) {
+    const x = -length / 2 + (i / n) * length;
+    geos.push(xform(new THREE.CylinderGeometry(0.024, 0.024, 1.0, 10), x, 0.5, 0));
+    geos.push(xform(new THREE.CylinderGeometry(0.07, 0.085, 0.03, 12), x, 0.015, 0)); // 地法兰
+    geos.push(xform(new THREE.SphereGeometry(0.038, 10, 8), x, 0.98, 0));             // 顶球接头
+    geos.push(xform(new THREE.SphereGeometry(0.034, 10, 8), x, 0.55, 0));             // 中球接头
+  }
+  const railGeo = new THREE.CylinderGeometry(0.02, 0.02, length, 10);
+  geos.push(xform(railGeo, 0, 0.98, 0, 0, 0, Math.PI / 2));
+  geos.push(xform(railGeo, 0, 0.55, 0, 0, 0, Math.PI / 2));
+  return mergedMesh(geos, M.iron);
+}
