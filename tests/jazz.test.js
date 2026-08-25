@@ -48,4 +48,13 @@ describe('程序化深夜爵士氛围层（配方校验）', () => {
     expect(JAZZ.level).toBeGreaterThan(0);
     expect(JAZZ.level).toBeLessThanOrEqual(0.3);
   });
+
+  it('回转填充音阶：中高音区严格下行（v1.3 抛光）', () => {
+    expect(JAZZ.fillScale.length).toBeGreaterThanOrEqual(3);
+    for (let i = 0; i < JAZZ.fillScale.length; i++) {
+      expect(JAZZ.fillScale[i]).toBeGreaterThan(300);
+      expect(JAZZ.fillScale[i]).toBeLessThan(1100);
+      if (i > 0) expect(JAZZ.fillScale[i]).toBeLessThan(JAZZ.fillScale[i - 1]);
+    }
+  });
 });

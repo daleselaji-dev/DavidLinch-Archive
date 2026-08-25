@@ -35,6 +35,7 @@ export const JAZZ = {
   // 爵士 ride 骨架（以拍为单位，含摇摆后八分）
   ridePattern: [0, 1, 1.66, 2, 3, 3.66],
   hornScale: [293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25],
+  fillScale: [523.25, 493.88, 440.0, 392.0], // 回转小填充：C5→G4 下行（钢琴手抬手前顺手一笔）
   level: 0.16 // 总线混音电平（压在底噪之下）
 };
 
@@ -67,6 +68,14 @@ export class JazzLayer {
     this._tone.frequency.value = 3400;
     this._bus.connect(this._tone);
     this._tone.connect(a.master);
+    // 低通极慢呼吸（约 22s 一周）：乐队像在隔壁忽远忽近
+    this._lfo = ctx.createOscillator();
+    this._lfo.frequency.value = 0.045;
+    this._lfoG = ctx.createGain();
+    this._lfoG.gain.value = 520;
+    this._lfo.connect(this._lfoG);
+    this._lfoG.connect(this._tone.frequency);
+    this._lfo.start();
 
     // 黑胶炒豆底噪
     this._crackle = ctx.createBufferSource();
@@ -99,9 +108,14 @@ export class JazzLayer {
       const bus = this._bus;
       const tone = this._tone;
       const crackle = this._crackle;
+      const lfo = this._lfo;
+      const lfoG = this._lfoG;
       setTimeout(() => {
         try { crackle.stop(); } catch { /* stopped */ }
         try { crackle.disconnect(); } catch { /* ok */ }
+        try { lfo.stop(); } catch { /* stopped */ }
+        try { lfo.disconnect(); } catch { /* ok */ }
+        try { lfoG.disconnect(); } catch { /* ok */ }
         try { bus.disconnect(); } catch { /* ok */ }
         try { tone.disconnect(); } catch { /* ok */ }
       }, 1400);
@@ -146,6 +160,31 @@ export class JazzLayer {
     // 弱音铜管：约每 8-16 小节一个 2-4 音短句
     if (beatInBar === 0 && bar % 8 === 5 && Math.random() < 0.6) {
       this._hornPhrase(t, beatDur);
+    }
+
+    // 四小节回转：末小节第 4 拍的下行双音小填充
+    if (beatInBar === 3 && bar % 4 === 3 && Math.random() < 0.7) {
+      this._fill(t + beatDur * JAZZ.swing, beatDur);
+    }
+  }
+
+  _fill(t, beatDur) {
+    const ctx = this.audio.ctx;
+    const start = Math.floor(Math.random() * (JAZZ.fillScale.length - 1));
+    for (let i = 0; i < 2; i++) {
+      const fr = JAZZ.fillScale[Math.min(start + i, JAZZ.fillScale.length - 1)];
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = fr;
+      const g = ctx.createGain();
+      const dt = t + i * beatDur * 0.5 * JAZZ.swing;
+      g.gain.setValueAtTime(0.0001, dt);
+      g.gain.exponentialRampToValueAtTime(0.03, dt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, dt + beatDur * 0.9);
+      o.connect(g);
+      g.connect(this._bus);
+      o.start(dt);
+      o.stop(dt + beatDur);
     }
   }
 
