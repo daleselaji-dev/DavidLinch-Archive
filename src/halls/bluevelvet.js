@@ -264,34 +264,47 @@ export function build(ctx) {
     new THREE.MeshStandardMaterial({ map: woodTexture({ base: [20, 12, 14], planks: 3, vertical: true, size: 256 }), roughness: 0.6 }));
   backbar.position.set(-W / 2 + 0.4, 1.3, 0.8);
   bar.add(backbar);
+  // 修正：层板/酒瓶/背光全部置于背柜前脸之外（此前埋进柜体不可见）
   const shelfGeos = [
-    xform(new THREE.BoxGeometry(0.3, 0.03, 6.0), -W / 2 + 0.42, 1.5, 0.8),
-    xform(new THREE.BoxGeometry(0.3, 0.03, 6.0), -W / 2 + 0.42, 2.1, 0.8)
+    xform(new THREE.BoxGeometry(0.3, 0.03, 6.0), -W / 2 + 0.74, 1.5, 0.8),
+    xform(new THREE.BoxGeometry(0.3, 0.03, 6.0), -W / 2 + 0.74, 2.1, 0.8)
   ];
   bar.add(mergedMesh(shelfGeos, brassMat));
-  const bottleGeos = [];
+  // 酒瓶墙 v2：三种车削剖面（圆肩/溜肩高瓶/矮墩瓶）× 三色玻璃（蓝/绿/琥珀）
+  const bottleProfiles = [
+    [[0.001, 0], [0.042, 0.004], [0.045, 0.16], [0.03, 0.22], [0.014, 0.26], [0.013, 0.34], [0.018, 0.35]],
+    [[0.001, 0], [0.038, 0.004], [0.04, 0.2], [0.02, 0.3], [0.012, 0.32], [0.011, 0.4], [0.016, 0.41]],
+    [[0.001, 0], [0.05, 0.004], [0.046, 0.12], [0.024, 0.17], [0.012, 0.2], [0.011, 0.26], [0.015, 0.27]]
+  ];
+  const bottleTints = [
+    { color: 0x1a3a55, emissive: 0x2a5a88 },  // 钴蓝
+    { color: 0x14382a, emissive: 0x2a7a55 },  // 墨绿
+    { color: 0x46280f, emissive: 0x8a5220 }   // 琥珀
+  ];
+  const bottleGeoSets = [[], [], []];
   for (let shelf = 0; shelf < 2; shelf++) {
     for (let i = 0; i < 12; i++) {
-      const bh = 0.26 + Math.random() * 0.16;
-      const geo = new THREE.CylinderGeometry(0.035, 0.045, bh, 8);
-      bottleGeos.push(xform(geo, -W / 2 + 0.42, 1.52 + shelf * 0.6 + bh / 2, -1.9 + i * 0.46 + Math.random() * 0.05));
+      const kind = (i + shelf * 2) % 3;
+      const geo = new THREE.LatheGeometry(
+        bottleProfiles[kind].map(([r, y]) => new THREE.Vector2(r, y)), 10
+      );
+      bottleGeoSets[(i * 7 + shelf * 5) % 3].push(
+        xform(geo, -W / 2 + 0.74, 1.52 + shelf * 0.6, -1.9 + i * 0.46 + Math.random() * 0.04)
+      );
       geo.dispose();
-      const neck = new THREE.CylinderGeometry(0.012, 0.02, 0.1, 6);
-      bottleGeos.push(xform(neck, -W / 2 + 0.42, 1.52 + shelf * 0.6 + bh + 0.05, -1.9 + i * 0.46));
-      neck.dispose();
     }
   }
-  const bottles = mergedMesh(bottleGeos, new THREE.MeshPhysicalMaterial({
-    color: 0x1a3a55, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.82,
-    emissive: 0x2a5a88, emissiveIntensity: 0.5, envMapIntensity: 1.5
-  }));
-  bar.add(bottles);
+  const bottleMeshes = bottleGeoSets.map((geos, k) => mergedMesh(geos, new THREE.MeshPhysicalMaterial({
+    color: bottleTints[k].color, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.85,
+    emissive: bottleTints[k].emissive, emissiveIntensity: 0.5, envMapIntensity: 1.6
+  })));
+  for (const m of bottleMeshes) bar.add(m);
   // 背光条
   const barGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(6.2, 1.4),
     new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: 0x3ec5ff, emissiveIntensity: 0.55 })
   );
-  barGlow.position.set(-W / 2 + 0.28, 1.9, 0.8);
+  barGlow.position.set(-W / 2 + 0.58, 1.9, 0.8);
   barGlow.rotation.y = Math.PI / 2;
   bar.add(barGlow);
   const barLight = new THREE.PointLight(0x66aaff, 4, 8, 1.8);
@@ -299,7 +312,9 @@ export function build(ctx) {
   bar.add(barLight);
   updaters.push((dt, t) => {
     barGlow.material.emissiveIntensity = 0.5 + Math.sin(t * 1.9) * 0.12;
-    bottles.material.emissiveIntensity = 0.42 + Math.sin(t * 1.9 + 1) * 0.14;
+    bottleMeshes.forEach((m, k) => {
+      m.material.emissiveIntensity = 0.42 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.14;
+    });
   });
   // 吧凳 ×3（软包 + 铬柱，合并两组）
   const stSeatGeos = [];
