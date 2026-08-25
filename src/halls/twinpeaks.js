@@ -327,6 +327,45 @@ export function build(ctx) {
       audio.sfx(rrState.warm ? 'lampon' : 'lampoff');
     }
   });
+  // 两椅之间的独脚小圆桌 + 一杯没主的咖啡
+  const rrPedestal = new THREE.LatheGeometry([
+    new THREE.Vector2(0.24, 0), new THREE.Vector2(0.22, 0.02), new THREE.Vector2(0.09, 0.06),
+    new THREE.Vector2(0.045, 0.14), new THREE.Vector2(0.06, 0.3), new THREE.Vector2(0.04, 0.46),
+    new THREE.Vector2(0.13, 0.58), new THREE.Vector2(0.14, 0.61)
+  ], 16);
+  const rrTableGeos = [
+    xform(rrPedestal, 0.05, 0, 0.1),
+    xform(new THREE.CylinderGeometry(0.31, 0.29, 0.03, 22), 0.05, 0.625, 0.1),
+    xform(new THREE.TorusGeometry(0.3, 0.014, 6, 26), 0.05, 0.64, 0.1, Math.PI / 2, 0, 0)
+  ];
+  redRoom.add(mergedMesh(rrTableGeos, new THREE.MeshStandardMaterial({
+    color: 0x120b0e, roughness: 0.3, metalness: 0.1, envMapIntensity: 1.3
+  })));
+  rrPedestal.dispose();
+  const rrCupGeos = [
+    xform(new THREE.CylinderGeometry(0.075, 0.09, 0.012, 14), 0.05, 0.648, 0.1),
+    xform(new THREE.CylinderGeometry(0.046, 0.038, 0.07, 12), 0.05, 0.684, 0.1),
+    xform(new THREE.TorusGeometry(0.03, 0.009, 6, 12), 0.105, 0.684, 0.1)
+  ];
+  const rrCup = mergedMesh(rrCupGeos, new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.28 }));
+  redRoom.add(rrCup);
+  const rrSteam = smokeLayer(4, { x: 0.1, z: 0.1 }, { opacity: 0, size: 0.26, yBase: 0, ySpread: 0.34, color: 0xd8dee4 });
+  rrSteam.position.set(0.05, 0.72, 0.1);
+  redRoom.add(rrSteam);
+  updaters.push(rrSteam.userData.update);
+  const rrCupState = { warm: 0 };
+  updaters.push((dt) => {
+    if (rrCupState.warm > 0) rrCupState.warm -= dt * 0.3;
+    rrSteam.material.opacity = Math.max(0, Math.min(rrCupState.warm, 1)) * 0.32;
+  });
+  hotspots.add(rrCup, {
+    hint: 'E — 桌上的咖啡',
+    onActivate: () => {
+      rrCupState.warm = 1.5;
+      audio.sfxAt('sip', -19.95, -15.9, 0.6, 3);
+      ui.caption('不知道是谁的。还热。', 3600);
+    }
+  });
   group.add(redRoom);
 
   // ============================================================
