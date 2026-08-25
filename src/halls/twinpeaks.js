@@ -446,17 +446,71 @@ export function build(ctx) {
   fwTop.position.set(27.3, 3.7, -7.9);
   fwTop.rotation.y = -Math.PI / 2;
   facade.add(fw1, fw2, fwTop);
-  // 大玻璃窗（暖光溢出）
+  // 大玻璃窗（暖光溢出）—— 自发光贴图：中挺分格 + 半帘 + 柜台剪影，不再是一块平色
+  const windowTex = canvasTexture(256, (g, s) => {
+    const grad = g.createLinearGradient(0, 0, 0, s);
+    grad.addColorStop(0, '#6a4a20');
+    grad.addColorStop(0.45, '#c89050');
+    grad.addColorStop(1, '#e8b068');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+    // 玻璃内侧的模糊物影（吊灯球 + 柜台横带 + 人形暗柱）
+    g.fillStyle = 'rgba(60,36,14,0.55)';
+    g.fillRect(0, s * 0.72, s, s * 0.1);
+    g.beginPath();
+    g.arc(s * 0.3, s * 0.3, s * 0.055, 0, 7);
+    g.arc(s * 0.72, s * 0.32, s * 0.05, 0, 7);
+    g.fillStyle = 'rgba(255,238,200,0.8)';
+    g.fill();
+    g.fillStyle = 'rgba(50,30,12,0.4)';
+    g.fillRect(s * 0.55, s * 0.4, s * 0.09, s * 0.34);
+    // 半帘（下半格子布帘影）
+    g.fillStyle = 'rgba(30,16,8,0.5)';
+    for (let i = 0; i < 9; i++) {
+      g.fillRect(i * (s / 9) + 2, s * 0.82, s / 9 - 4, s * 0.18);
+    }
+    // 中挺分格（一横两竖近黑条）
+    g.fillStyle = '#0c0906';
+    g.fillRect(0, s * 0.46, s, s * 0.035);
+    g.fillRect(s * 0.32, 0, s * 0.022, s);
+    g.fillRect(s * 0.66, 0, s * 0.022, s);
+    g.strokeStyle = '#0c0906';
+    g.lineWidth = 6;
+    g.strokeRect(3, 3, s - 6, s - 6);
+  });
   const windowGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(3.2, 1.9),
-    new THREE.MeshStandardMaterial({ color: 0x0c0a06, emissive: 0xffca7a, emissiveIntensity: 0.9 })
+    new THREE.MeshStandardMaterial({
+      color: 0x0c0a06, emissive: 0xffffff, emissiveMap: windowTex, emissiveIntensity: 0.85
+    })
   );
   windowGlow.position.set(27.24, 2.0, -10.6);
   windowGlow.rotation.y = -Math.PI / 2;
   facade.add(windowGlow);
+  // 窗台板 + 滴水檐
+  const trimGeos = [
+    xform(new THREE.BoxGeometry(0.14, 0.08, 3.4), 27.2, 1.0, -10.6),
+    xform(new THREE.BoxGeometry(0.1, 0.06, 3.36), 27.22, 3.0, -10.6)
+  ];
+  facade.add(mergedMesh(trimGeos, new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.8 })));
   const windowLight = new THREE.PointLight(0xffca7a, 6, 9, 1.8);
   windowLight.position.set(26.4, 2.0, -10.6);
   facade.add(windowLight);
+  // 右半立面：拉了百叶的暗窗（打破整面空砖墙）
+  const darkWinGeos = [
+    xform(new THREE.BoxGeometry(0.06, 1.2, 0.08), 27.26, 2.0, -5.2),
+    xform(new THREE.BoxGeometry(0.06, 1.2, 0.08), 27.26, 2.0, -3.6),
+    xform(new THREE.BoxGeometry(0.06, 0.08, 1.68), 27.26, 2.62, -4.4),
+    xform(new THREE.BoxGeometry(0.06, 0.08, 1.68), 27.26, 1.38, -4.4)
+  ];
+  facade.add(mergedMesh(darkWinGeos, new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.8 })));
+  const darkSlatGeos = [];
+  for (let i = 0; i < 8; i++) {
+    darkSlatGeos.push(xform(new THREE.BoxGeometry(0.03, 0.02, 1.56), 27.28, 1.46 + i * 0.155, -4.4, 0, 0, -0.5));
+  }
+  facade.add(mergedMesh(darkSlatGeos, new THREE.MeshStandardMaterial({
+    color: 0x3a3830, roughness: 0.75, emissive: 0x141a22, emissiveIntensity: 0.5
+  })));
   const dinerSign = neonSign('DINER', { color: '#ff2e88', size: 0.72 });
   dinerSign.position.set(27.0, 5.2, -7.9);
   dinerSign.rotation.y = -Math.PI / 2;

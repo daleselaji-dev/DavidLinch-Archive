@@ -173,10 +173,17 @@ function createWindow() {
             if (pos.length === 3 && pos.every((v) => Number.isFinite(v))) {
               win.webContents.executeJavaScript(
                 `window.__SV__.teleport(${pos[0]}, ${pos[1]}, ${pos[2]})`, true
-              ).catch(() => {});
+              ).then(
+                () => console.log(`[smoke] 瞬移 ${hall}: ${pos.join(',')}`),
+                (err) => console.error(`[smoke] 瞬移失败 ${hall}:`, err && err.message ? err.message : err)
+              );
             }
             setTimeout(async () => {
               try {
+                const at = await win.webContents.executeJavaScript(
+                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+                ).catch(() => '?');
+                console.log(`[smoke] 截屏机位 ${hall}: ${at}`);
                 const img = await win.webContents.capturePage();
                 require('fs').mkdirSync(shotDir, { recursive: true });
                 require('fs').writeFileSync(require('path').join(shotDir, `${hall}.png`), img.toPNG());

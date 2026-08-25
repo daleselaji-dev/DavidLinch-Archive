@@ -305,6 +305,8 @@ window.__SV__ = {
     hotspots.items.filter((m) => !(m.userData.hotspot && m.userData.hotspot.nav)).length,
   /** 冒烟/截屏：瞬移到指定位置（视觉复核各分区用） */
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
+  /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹） */
+  player: () => ({ x: controls.yawObject.position.x, z: controls.yawObject.position.z }),
   /** 冒烟测试：逐一激活当前展厅全部非导航交互（onActivate 链不得抛错），返回激活数 */
   activateAll: () => {
     let n = 0;
