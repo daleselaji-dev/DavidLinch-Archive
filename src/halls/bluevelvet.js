@@ -486,8 +486,21 @@ export function build(ctx) {
       juke.userData.setOn(jukeState.on);
       audio.sfx(jukeState.on ? 'chime' : 'thud', 0.6);
       narration.jazz.setEnabled(jukeState.on);
-      if (jukeState.on) ui.caption('隔壁房间的乐队醒了。', 3600);
+      if (jukeState.on) {
+        ui.caption('隔壁房间的乐队醒了。', 3600);
+        curtainShudder.t = 0;
+        curtainShudder.e = Math.max(curtainShudder.e, 0.4); // 后幕轻轻应一下
+      }
     }
+  });
+  // 连锁：乐队醒着时，台口脚灯洗亮、聚光缓慢呼吸——整个舞台在等一个歌手
+  updaters.push((dt, t) => {
+    const k = Math.min(1, dt * 1.6);
+    footWash.intensity += ((jukeState.on ? 7 : 3) - footWash.intensity) * k;
+    footLights.material.emissiveIntensity +=
+      ((jukeState.on ? 3.8 : 2.4) - footLights.material.emissiveIntensity) * k;
+    const breathe = jukeState.on ? 1 + Math.sin(t * 0.9) * 0.16 : 1;
+    spot.intensity += ((jukeState.on ? 82 : 60) * breathe - spot.intensity) * k;
   });
 
   // 引语展签（本厅唯一文字展签）
