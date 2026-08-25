@@ -456,6 +456,16 @@ export class AudioEngine {
         }
         break;
       }
+      case 'gurgle': { // 地漏下的咕噜：低位噪声床 + 一串下坠的水泡音
+        noise('brown', 1.3, 'lowpass', 220, 1.2, 0.07, 0, 0.35);
+        const blips = 5 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < blips; i++) {
+          const f = 150 + Math.random() * 110;
+          tone('sine', f, f * 0.55, 0.07, 0.05 + Math.random() * 0.03,
+            0.1 + i * (0.12 + Math.random() * 0.08));
+        }
+        break;
+      }
       case 'vinyl': { // 黑胶底噪一小段：尘埃嘶声 + 两三粒离散爆点
         noise('crackle', 1.5, 'highpass', 2800, 0.8, 0.028, 0, 0.3);
         const pops = 2 + Math.floor(Math.random() * 2);

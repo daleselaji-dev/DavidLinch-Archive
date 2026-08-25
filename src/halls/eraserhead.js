@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, railing, brushedMetalTexture,
-  concreteMat, brickMat, hangingBulb
+  concreteMat, brickMat, hangingBulb, rng
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -37,6 +37,93 @@ export function build(ctx) {
   const M = propMats();
   const floorConcrete = concreteMat({ base: [40, 40, 42], seed: 13, repX: 3, repY: 3, env: 0.6 });
   group.add(floorMesh(S, S, floorConcrete));
+
+  // ---------- 地面细节：铸铁地漏 + 油渍（大片水泥不能是干净的一整块） ----------
+  const drain = new THREE.Group();
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.55, metalness: 0.7 });
+  const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 28), ironMat);
+  drainRing.rotation.x = -Math.PI / 2;
+  drainRing.position.y = 0.012;
+  drain.add(drainRing);
+  // 平行格栅条（弦长随位置收短，嵌进外环）
+  const drainBars = [];
+  for (let i = -3; i <= 3; i++) {
+    const half = Math.sqrt(Math.max(0.3 ** 2 - (i * 0.085) ** 2, 0.015));
+    drainBars.push(xform(new THREE.BoxGeometry(0.045, 0.02, half * 2), i * 0.085, 0.01, 0));
+  }
+  drain.add(mergedMesh(drainBars, ironMat));
+  // 格栅缝下的黑
+  const drainPit = new THREE.Mesh(new THREE.CircleGeometry(0.31, 24),
+    new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  drainPit.rotation.x = -Math.PI / 2;
+  drainPit.position.y = 0.004;
+  drain.add(drainPit);
+  // 周围一圈洇湿渍（径向渐变 alpha，低粗糙度＝湿反光）
+  const wetTex = canvasTexture(128, (g, s) => {
+    const rg = g.createRadialGradient(s / 2, s / 2, s * 0.08, s / 2, s / 2, s * 0.5);
+    rg.addColorStop(0, 'rgba(8,10,12,0.8)');
+    rg.addColorStop(0.55, 'rgba(10,12,14,0.42)');
+    rg.addColorStop(1, 'rgba(10,12,14,0)');
+    g.fillStyle = rg;
+    g.fillRect(0, 0, s, s);
+  });
+  const wetRing = new THREE.Mesh(
+    new THREE.CircleGeometry(1.05, 26),
+    new THREE.MeshStandardMaterial({
+      map: wetTex, transparent: true, depthWrite: false,
+      roughness: 0.14, envMapIntensity: 1.2,
+      polygonOffset: true, polygonOffsetFactor: -1
+    })
+  );
+  wetRing.rotation.x = -Math.PI / 2;
+  wetRing.position.y = 0.006;
+  drain.add(wetRing);
+  drain.position.set(1.4, 0, 1.2);
+  group.add(drain);
+  hotspots.add(drainRing, {
+    hint: 'E — 地漏',
+    onActivate: () => {
+      audio.sfxAt('gurgle', 1.4, 1.2, 0.85, 4);
+      ui.caption('楼下还有楼下。', 3600);
+    }
+  });
+  // 油渍两片（可复现随机泼溅轮廓；比水渍更黑更油亮）
+  const stainMesh = (seed, radius) => {
+    const r = rng(seed);
+    const tex = canvasTexture(128, (g, s) => {
+      g.fillStyle = 'rgba(0,0,0,0)';
+      g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 26; i++) {
+        const a = r() * Math.PI * 2;
+        const d = r() * s * 0.3;
+        const br = s * (0.05 + r() * 0.16);
+        const rg = g.createRadialGradient(
+          s / 2 + Math.cos(a) * d, s / 2 + Math.sin(a) * d, br * 0.2,
+          s / 2 + Math.cos(a) * d, s / 2 + Math.sin(a) * d, br
+        );
+        rg.addColorStop(0, 'rgba(6,7,8,0.72)');
+        rg.addColorStop(1, 'rgba(6,7,8,0)');
+        g.fillStyle = rg;
+        g.fillRect(0, 0, s, s);
+      }
+    });
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 22),
+      new THREE.MeshStandardMaterial({
+        map: tex, transparent: true, depthWrite: false,
+        roughness: 0.22, envMapIntensity: 0.9,
+        polygonOffset: true, polygonOffsetFactor: -1
+      })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.007;
+    return m;
+  };
+  const stainA = stainMesh(41, 1.35);
+  stainA.position.set(-2.9, 0.007, -3.2); // 大机器脚下渗出
+  const stainB = stainMesh(87, 0.95);
+  stainB.position.set(3.4, 0.007, -5.0);  // 北墙管道下方滴痕
+  group.add(stainA, stainB);
 
   // 砖墙（v1.3 三通道：砖缝法线 + 逐砖粗糙度；西墙留出锅炉房门洞）
   const wallMat = brickMat({ tint: [36, 34, 38], seed: 11, repX: 4, repY: 2 });
