@@ -22,6 +22,7 @@ export const meta = {
   name: 'THE VELVET FOYER · 天鹅绒大厅',
   ambience: 'lobby',
   narration: 'lobby',
+  space: 'hall',
   floorSfx: 'wood',
   look: { saturation: 1.04, tint: 0xfff4ee, fogColor: 0x0a0406, fogDensity: 0.05, bg: 0x080304, exposure: 1.05, bloom: 0.9 }
 };

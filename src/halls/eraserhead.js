@@ -19,6 +19,7 @@ export const meta = {
   name: 'ERASERHEAD · 工业摇篮曲 (1977)',
   ambience: 'eraserhead',
   narration: 'eraserhead',
+  space: 'tiled',
   floorSfx: 'concrete',
   look: { saturation: 0.09, tint: 0xe9edf2, fogColor: 0x050507, fogDensity: 0.052, bg: 0x030304, exposure: 0.88, bloom: 0.62 }
 };

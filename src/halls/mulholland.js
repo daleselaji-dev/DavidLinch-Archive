@@ -20,6 +20,7 @@ export const meta = {
   name: 'MULHOLLAND DR. · 梦境错位 (2001)',
   ambience: 'mulholland',
   narration: 'mulholland',
+  space: 'outdoor',
   floorSfx: 'asphalt',
   look: { saturation: 0.96, tint: 0xf5eee6, fogColor: 0x0a0705, fogDensity: 0.04, bg: 0x030204, exposure: 1.0, bloom: 0.9 }
 };
@@ -768,6 +769,11 @@ export function build(ctx) {
     surfaceAt: (x, z) => {
       if (z <= DOOR.maxZ && x >= ROOM.minX && x <= ROOM.maxX && z >= ROOM.minZ) return 'carpet';
       return 'asphalt';
+    },
+    // 混响分区：剧场厅内=绒面房间尾音；夜路/巷/空地=干外景
+    spaceAt: (x, z) => {
+      if (z <= DOOR.maxZ && x >= ROOM.minX && x <= ROOM.maxX && z >= ROOM.minZ) return 'room';
+      return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'backlot-scare': scareTrig },

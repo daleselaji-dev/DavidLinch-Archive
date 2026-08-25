@@ -100,6 +100,14 @@ concreteMat / asphaltMat(wet) / brickMat / glassMat / waterMat` ——
 - **空间感**：新增 `sfxAt(name, x, z)` 位置化通道（实现定稿：StereoPanner 声像 +
   幂率距离衰减 `spatialParams`，比 HRTF PannerNode 更省且立体感足够；纯几何部分可单测）；
   听者位姿经 `setListener` 每次播放时取自相机 yawObject；
+- **脚步系统（阶段 7 增补落地）**：7 种程序化地面音色（wood/concrete/tile/carpet/
+  asphalt/dirt/metal），按步幅 0.82m 触发、左右交替微声像、每步频率抖动、传送保护；
+  逐厅 `meta.floorSfx` + 混合厅 `surfaceAt(x,z)` 分区映射（夜街沥青→diner 瓷砖、
+  剧场地毯、锅炉步道钢格栅、圆毯绒面……走过材质边界脚下即换声）；
+- **空间混响（阶段 7 增补落地）**：交互音发送总线接程序化 IR 卷积（指数衰减噪声 +
+  单极点高频阻尼，左右去相关，零采样），四种空间预设（hall 高挑长尾 / room 绒面短促 /
+  tiled 瓷砖亮尾 / outdoor 近干声），逐厅 `meta.space` + 混合厅 `spaceAt(x,z)` 分区
+  （走进 diner/剧场/红房间，尾音立刻收拢）；预设参数表 `SPACES` 可单测；
 - **闪避**：`duck()` 保留——旁白/惊吓前抽真空；
 - **零采样版权策略**：一切声音由振荡器+噪声+滤波实时合成（合规扫描单测已有，保持全绿）。
 

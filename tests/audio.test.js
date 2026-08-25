@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { DRONES } from '../src/audio/drones.js';
-import { spatialParams } from '../src/audio/engine.js';
+import { spatialParams, SPACES } from '../src/audio/engine.js';
 
 const HALLS = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'mulholland', 'studio'];
 const OSC_TYPES = ['sine', 'triangle', 'square', 'sawtooth'];
@@ -141,6 +141,42 @@ describe('v1.3 脚步系统（七种地面材质 + 逐厅映射）', () => {
     for (const h of ['twinpeaks', 'mulholland', 'studio', 'eraserhead']) {
       const hallSrc = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
       expect(hallSrc, `${h} 缺 surfaceAt`).toContain('surfaceAt:');
+    }
+  });
+});
+
+describe('v1.3 空间混响（程序化 IR 预设 + 逐厅映射）', () => {
+  it('四种空间预设参数合理（尾长/阻尼/湿度均在安全域）', () => {
+    for (const name of ['hall', 'room', 'tiled', 'outdoor']) {
+      const p = SPACES[name];
+      expect(p, `缺预设 ${name}`).toBeTruthy();
+      expect(p.seconds).toBeGreaterThan(0.2);
+      expect(p.seconds).toBeLessThanOrEqual(3);       // 不许无限尾音
+      expect(p.damp).toBeGreaterThanOrEqual(0);
+      expect(p.damp).toBeLessThan(1);
+      expect(p.wet).toBeGreaterThan(0);
+      expect(p.wet).toBeLessThanOrEqual(0.25);        // 湿度不许盖过直达声
+    }
+  });
+
+  it('外景最干、大厅最长（预设间相对关系）', () => {
+    expect(SPACES.outdoor.wet).toBeLessThan(SPACES.hall.wet);
+    expect(SPACES.outdoor.seconds).toBeLessThan(SPACES.room.seconds);
+    expect(SPACES.hall.seconds).toBeGreaterThan(SPACES.room.seconds);
+    expect(SPACES.tiled.damp).toBeLessThan(SPACES.room.damp); // 瓷砖比绒面亮
+  });
+
+  it('引擎具备 setSpace / 发送总线；每厅 meta 声明 space；混合厅有 spaceAt', () => {
+    const engineSrc = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+    expect(engineSrc).toContain('setSpace(name)');
+    expect(engineSrc).toContain('createConvolver');
+    for (const h of HALLS) {
+      const hallSrc = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hallSrc, `${h} 缺 space`).toContain('space:');
+    }
+    for (const h of ['twinpeaks', 'mulholland']) {
+      const hallSrc = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hallSrc, `${h} 缺 spaceAt`).toContain('spaceAt:');
     }
   });
 });

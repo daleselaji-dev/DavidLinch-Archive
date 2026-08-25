@@ -26,6 +26,7 @@ export const meta = {
   name: 'TWIN PEAKS · 黑松林 (1990)',
   ambience: 'twinpeaks',
   narration: 'twinpeaks',
+  space: 'outdoor',
   floorSfx: 'dirt',
   look: { saturation: 0.82, tint: 0xdcecdf, fogColor: 0x030805, fogDensity: 0.028, bg: 0x02040a, exposure: 0.95, bloom: 0.8 }
 };
@@ -886,6 +887,12 @@ export function build(ctx) {
       if (Math.hypot(x + 20, z + 16) <= 6.0) return 'tile';                       // 红房间折线地板
       if (x >= 5 && x <= 17 && z >= -29 && z <= -22.5) return 'wood';             // 瀑布眺望台
       return 'dirt';
+    },
+    // 混响分区：diner 小木屋 / 红房间帷幕围合 = 房间尾音；林地与夜街 = 干外景
+    spaceAt: (x, z) => {
+      if (x >= 27.6 && x <= 31.6 && z >= -12 && z <= -3.6) return 'room';
+      if (Math.hypot(x + 20, z + 16) <= 6.0) return 'room';
+      return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'stone-circle': groveTrig },

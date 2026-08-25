@@ -17,6 +17,17 @@ export function spatialParams(dx, dz, yaw, ref = 3) {
   return { pan, att, dist };
 }
 
+/**
+ * 空间混响预设（程序化脉冲响应参数，零采样；供单测）：
+ * seconds 尾音长度 / damp 高频阻尼(0-1，越大越闷) / wet 湿度电平。
+ */
+export const SPACES = {
+  hall: { seconds: 2.1, damp: 0.35, wet: 0.16 },   // 大厅/长廊：石木高挑空间
+  room: { seconds: 0.8, damp: 0.72, wet: 0.1 },    // 绒面小房间：短促吸声
+  tiled: { seconds: 1.5, damp: 0.18, wet: 0.17 },  // 瓷砖/水泥机房：亮尾
+  outdoor: { seconds: 0.45, damp: 0.55, wet: 0.06 } // 夜外景：几乎干声
+};
+
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -51,8 +62,44 @@ export class AudioEngine {
       this.master.gain.value = 0.9;
       this.master.connect(comp);
       comp.connect(this.ctx.destination);
+      // 交互音混响发送总线（程序化 IR，按厅切换空间感）
+      this.reverb = this.ctx.createConvolver();
+      this.reverbWet = this.ctx.createGain();
+      this.reverbWet.gain.value = 0;
+      this.reverb.connect(this.reverbWet);
+      this.reverbWet.connect(this.master);
+      if (this._pendingSpace) this.setSpace(this._pendingSpace);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+
+  /**
+   * 按厅切换空间混响：程序化生成立体声脉冲响应（指数衰减噪声 + 单极点
+   * 高频阻尼，左右去相关），交互音经发送总线获得空间尾音。零采样。
+   */
+  setSpace(name) {
+    if (!this.ctx || !this.reverb) { this._pendingSpace = name; return; }
+    const p = SPACES[name] || SPACES.room;
+    const sr = this.ctx.sampleRate;
+    const len = Math.max(1, Math.floor(sr * p.seconds));
+    const ir = this.ctx.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      let lp = 0;
+      for (let i = 0; i < len; i++) {
+        const env = Math.exp(-3.2 * (i / len));
+        const w = (Math.random() * 2 - 1) * env;
+        lp += (w - lp) * (1 - p.damp); // 高频阻尼：单极点低通
+        d[i] = lp;
+      }
+      // 前 5ms 淡入避免与直达声梳状
+      const fade = Math.floor(sr * 0.005);
+      for (let i = 0; i < fade && i < len; i++) d[i] *= i / fade;
+    }
+    this.reverb.buffer = ir;
+    const t = this.ctx.currentTime;
+    this.reverbWet.gain.cancelScheduledValues(t);
+    this.reverbWet.gain.linearRampToValueAtTime(p.wet, t + 0.8);
   }
 
   setMuted(m) {
@@ -197,6 +244,7 @@ export class AudioEngine {
     } else {
       out.connect(this.master);
     }
+    if (this.reverb && this.reverb.buffer) out.connect(this.reverb); // 空间感发送
 
     const tone = (type, f0, f1, dur, peak, delay = 0) => {
       const o = this.ctx.createOscillator();

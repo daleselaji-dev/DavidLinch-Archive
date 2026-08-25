@@ -119,10 +119,15 @@ async function goTo(id) {
   controls.setBounds(built.bounds);
   controls.teleport(built.spawn.x, built.spawn.z, built.spawn.yaw);
   const unsubUpdate = engine.onUpdate(built.update);
-  current = { id, built, unsubUpdate, floorSfx: mod.meta.floorSfx || 'wood' };
+  current = {
+    id, built, unsubUpdate,
+    floorSfx: mod.meta.floorSfx || 'wood',
+    space: mod.meta.space || 'room'
+  };
 
   ui.setHall(mod.meta.name);
   audio.startAmbience(mod.meta.ambience);
+  spaceState.cur = null; // 强制下个采样拍刷新混响空间
   ui.fade(false);
   console.log(`[sv] hall-loaded ${id}`);
 
@@ -172,6 +177,22 @@ document.addEventListener('keydown', (e) => {
 engine.onUpdate((dt) => {
   controls.update(dt);
   if (!ui.anyOpen) hotspots.update(dt);
+});
+
+// 空间混响：每 0.5s 采样一次所在分区（built.spaceAt 若有）→ meta.space，
+// 变化时重生成程序化 IR（室内外/瓷砖机房/绒面房间的尾音差异）
+const spaceState = { cur: null, t: 0 };
+engine.onUpdate((dt) => {
+  if (!current) return;
+  spaceState.t += dt;
+  if (spaceState.t < 0.5) return;
+  spaceState.t = 0;
+  const p = controls.yawObject.position;
+  const want = (current.built.spaceAt && current.built.spaceAt(p.x, p.z)) || current.space;
+  if (want !== spaceState.cur) {
+    spaceState.cur = want;
+    audio.setSpace(want);
+  }
 });
 
 // 脚步声：按步幅距离触发，左右交替微声像；

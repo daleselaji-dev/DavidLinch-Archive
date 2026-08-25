@@ -21,6 +21,7 @@ export const meta = {
   name: 'HIS ROOM · 林奇的房间',
   ambience: 'studio',
   narration: 'studio',
+  space: 'room',
   floorSfx: 'wood',
   look: { saturation: 1.02, tint: 0xffeeda, fogColor: 0x0d0806, fogDensity: 0.042, bg: 0x070403, exposure: 1.05, bloom: 0.75 }
 };

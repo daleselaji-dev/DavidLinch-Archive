@@ -19,6 +19,7 @@ export const meta = {
   name: 'THE ARCHIVE · 档案长廊',
   ambience: 'archive',
   narration: 'archive',
+  space: 'hall',
   floorSfx: 'wood',
   look: { saturation: 0.82, tint: 0xe8f0ff, fogColor: 0x05060a, fogDensity: 0.055, bg: 0x030407, exposure: 1.0, bloom: 0.75 }
 };
