@@ -222,6 +222,51 @@ export function build(ctx) {
     }
   });
 
+  // 漏汽接头 —— 北墙低管一段旧布缠补丁，咝咝往外漏白汽；拧紧只安静五秒
+  const leakWrap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.115, 0.115, 0.34, 12),
+    new THREE.MeshStandardMaterial({
+      color: 0x56504a, roughness: 0.96,
+      bumpMap: noiseCanvasTexture(64, 120, 60, 6), bumpScale: 0.5
+    })
+  );
+  leakWrap.rotation.z = Math.PI / 2;
+  leakWrap.position.set(3.6, 1.7, -S / 2 + 0.35);
+  group.add(leakWrap);
+  const bindGeo = new THREE.TorusGeometry(0.125, 0.012, 6, 14);
+  group.add(mergedMesh([
+    xform(bindGeo, 3.48, 1.7, -S / 2 + 0.35, 0, Math.PI / 2, 0),
+    xform(bindGeo, 3.74, 1.7, -S / 2 + 0.35, 0, Math.PI / 2, 0)
+  ], pipeMat));
+  bindGeo.dispose();
+  const leakSteam = smokeLayer(10, { x: 0.4, z: 0.4 }, {
+    opacity: 0.12, size: 1.1, yBase: 0.05, ySpread: 1.0, color: 0xd8dde2
+  });
+  leakSteam.position.set(3.6, 1.8, -S / 2 + 0.5);
+  group.add(leakSteam);
+  updaters.push(leakSteam.userData.update);
+  const leak = { calm: 0, puff: 0 };
+  updaters.push((dt, t) => {
+    if (leak.calm > 0) leak.calm -= dt;
+    if (leak.puff > 0) leak.puff -= dt;
+    const base = leak.calm > 0 ? 0.015 : 0.11 + Math.sin(t * 2.3) * 0.03;
+    leakSteam.material.opacity = base + Math.max(0, Math.min(leak.puff, 1)) * 0.26;
+  });
+  hotspots.add(leakWrap, {
+    hint: 'E — 拧紧漏汽的接头',
+    onActivate: () => {
+      leak.calm = 5;
+      leak.puff = 0;
+      audio.sfxAt('creak', 3.6, -S / 2 + 0.35, 0.7);
+      audio.sfx('switch', 0.3);
+      ui.caption('安静了。数到五。', 2600);
+      setTimeout(() => {
+        leak.puff = 2.4;
+        audio.sfxAt('steam', 3.6, -S / 2 + 0.35, 0.75, 3);
+      }, 5200);
+    }
+  });
+
   // 裸吊灯 —— 推一下就荡起来，光影跟着晃
   const swingBulb = hangingBulb(0xffe2b8, 2.5);
   swingBulb.position.set(1.9, H, -3.1);
