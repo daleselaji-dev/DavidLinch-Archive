@@ -244,6 +244,8 @@ window.__SV__ = {
   /** 冒烟测试：当前展厅非导航可交互物件数（门禁 20：nav 门户不计入） */
   countInteractives: () =>
     hotspots.items.filter((m) => !(m.userData.hotspot && m.userData.hotspot.nav)).length,
+  /** 冒烟/截屏：瞬移到指定位置（视觉复核各分区用） */
+  teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
   /** 冒烟测试：逐一激活当前展厅全部非导航交互（onActivate 链不得抛错），返回激活数 */
   activateAll: () => {
     let n = 0;

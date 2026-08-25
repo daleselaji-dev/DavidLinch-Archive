@@ -164,10 +164,17 @@ function createWindow() {
         };
         // SV_SHOT_DIR: 可选，装载后为每厅截屏（视觉自检用）
         // SV_SHOT_DELAY: 截屏前等待毫秒数（软件渲染合成器有延迟时调大）
-        // 顺序：交互密度检查 + 全量激活 → （截屏）→ 彩蛋 + 下一厅
+        // SV_SHOT_POS: 可选 "x,z,yaw" —— 截屏前瞬移（复核厅内分区）
+        // 顺序：交互密度检查 → （瞬移 + 截屏）→ 全量激活 + 彩蛋 → 下一厅
         const shotDir = process.env.SV_SHOT_DIR;
         interactiveCheck.then(() => {
           if (shotDir) {
+            const pos = (process.env.SV_SHOT_POS || '').split(',').map(Number);
+            if (pos.length === 3 && pos.every((v) => Number.isFinite(v))) {
+              win.webContents.executeJavaScript(
+                `window.__SV__.teleport(${pos[0]}, ${pos[1]}, ${pos[2]})`, true
+              ).catch(() => {});
+            }
             setTimeout(async () => {
               try {
                 const img = await win.webContents.capturePage();
