@@ -227,8 +227,32 @@ export function build(ctx) {
   mkShell(13.2, 8.2, -8.05, -20.2, Math.PI / 2);  // 左侧外墙
   mkShell(16.4, 8.2, 0, -26.6, Math.PI);          // 剧场后墙（空地内壁）
 
-  // 空地围墙（挡住世界尽头）
-  const fenceMat = new THREE.MeshStandardMaterial({ color: 0x0c0a10, roughness: 0.95 });
+  // 空地围墙（挡住世界尽头）—— 瓦楞铁皮：竖向波纹 + 锈迹流挂 + 接板缝
+  const corrTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#131118';
+    g.fillRect(0, 0, s, s);
+    for (let x = 0; x < s; x += 8) {
+      const shade = 14 + Math.abs(Math.sin(x * 0.9)) * 22;
+      g.fillStyle = `rgb(${shade},${shade - 2},${shade + 4})`;
+      g.fillRect(x, 0, 4, s);
+    }
+    // 接板缝（每 64px 一条）+ 螺栓点
+    for (let x = 0; x < s; x += 64) {
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      g.fillRect(x, 0, 2, s);
+      g.fillStyle = '#2e2c34';
+      for (let y = 10; y < s; y += 42) g.fillRect(x - 2, y, 5, 5);
+    }
+    // 锈迹流挂
+    for (let i = 0; i < 14; i++) {
+      const x = Math.random() * s;
+      g.fillStyle = 'rgba(52,30,20,0.28)';
+      g.fillRect(x, Math.random() * s * 0.3, 3 + Math.random() * 5, s * (0.2 + Math.random() * 0.6));
+    }
+  }, 6, 1);
+  const fenceMat = new THREE.MeshStandardMaterial({
+    map: corrTex, roughness: 0.72, metalness: 0.55, bumpMap: corrTex, bumpScale: 0.5
+  });
   const fence = new THREE.Mesh(new THREE.PlaneGeometry(24, 3.2), fenceMat);
   fence.position.set(0, 1.6, -33.6);
   group.add(fence);
@@ -252,6 +276,61 @@ export function build(ctx) {
     alleyLamp.intensity = 3.5 * f;
     alleyBulb.material.emissiveIntensity = 2.4 * f;
   });
+  // 巷中段第二盏壁灯（不同相位的将熄闪烁）+ 灯下杂物：板条箱堆 / 垃圾桶 / 积水
+  const alleyLamp2 = new THREE.PointLight(0xffc98a, 3.0, 8, 1.8);
+  alleyLamp2.position.set(8.35, 3.2, -19);
+  const alleyBulb2 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.2 })
+  );
+  alleyBulb2.position.copy(alleyLamp2.position);
+  group.add(alleyLamp2, alleyBulb2);
+  updaters.push((dt, t) => {
+    const f = Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1;
+    alleyLamp2.intensity = 3.0 * f;
+    alleyBulb2.material.emissiveIntensity = 2.2 * f;
+  });
+  // 板条箱堆（三只错位叠放，板条纹木箱）
+  const crateMat = new THREE.MeshStandardMaterial({
+    map: canvasTexture(128, (g, s) => {
+      g.fillStyle = '#241812';
+      g.fillRect(0, 0, s, s);
+      g.strokeStyle = '#3a2a1c';
+      g.lineWidth = 6;
+      for (let i = 0; i <= 4; i++) {
+        g.beginPath(); g.moveTo(0, (i / 4) * s); g.lineTo(s, (i / 4) * s); g.stroke();
+      }
+      g.strokeRect(3, 3, s - 6, s - 6);
+    }),
+    roughness: 0.85
+  });
+  const crates = mergedMesh([
+    xform(new THREE.BoxGeometry(0.72, 0.5, 0.72), 10.5, 0.25, -14.6, 0, 0.12, 0),
+    xform(new THREE.BoxGeometry(0.72, 0.5, 0.72), 10.45, 0.25, -15.45, 0, -0.2, 0),
+    xform(new THREE.BoxGeometry(0.62, 0.44, 0.62), 10.48, 0.72, -15.0, 0, 0.5, 0)
+  ], crateMat);
+  group.add(crates);
+  // 垃圾桶（皱褶铁皮 + 歪靠的盖）
+  const canMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x3c3c40, roughness: 0.55, metalness: 0.8
+  });
+  const trashCan = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.26, 0.78, 14), canMat);
+  trashCan.position.set(10.55, 0.39, -22.6);
+  const trashLid = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.05, 14), canMat);
+  trashLid.position.set(10.2, 0.06, -23.3);
+  trashLid.rotation.set(0.12, 0, 1.45);
+  group.add(trashCan, trashLid);
+  // 巷面积水（暗镜面长条，映出将熄壁灯）
+  const puddle = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.8, 5.2),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x05060a, roughness: 0.06, metalness: 0.1, envMapIntensity: 2.2,
+      clearcoat: 1, clearcoatRoughness: 0.08
+    })
+  );
+  puddle.rotation.x = -Math.PI / 2;
+  puddle.position.set(9.5, 0.006, -18.2);
+  group.add(puddle);
 
   // 后门 + 门上的看护灯（惊吓时熄灭）
   const backDoor = new THREE.Mesh(
