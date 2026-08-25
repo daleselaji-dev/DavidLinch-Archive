@@ -1,0 +1,8 @@
+node_modules/
+dist/
+release/*
+!release/*.exe
+!release/SHA256SUMS.txt
+.vite/
+*.log
+.DS_Store

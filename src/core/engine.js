@@ -1,0 +1,135 @@
+// ============================================================
+// Engine — 渲染器 / 场景 / 相机 / 后处理链 / 主循环 / 画质档位
+// ============================================================
+import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { LynchShader } from './post.js';
+
+export class Engine {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: false,
+      powerPreference: 'high-performance',
+      stencil: false
+    });
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x050307);
+
+    this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 220);
+
+    // 程序化环境贴图 —— 让 PBR 材质有反射依据（无外部资源）
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.22;
+    pmrem.dispose();
+
+    // 后处理链: 渲染 → Bloom → 色调输出 → 林奇式胶片处理
+    this.composer = new EffectComposer(this.renderer);
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1280, 720), 0.85, 0.55, 0.62);
+    this.outputPass = new OutputPass();
+    this.lynchPass = new ShaderPass(LynchShader);
+    this.composer.addPass(this.renderPass);
+    this.composer.addPass(this.bloomPass);
+    this.composer.addPass(this.outputPass);
+    this.composer.addPass(this.lynchPass);
+
+    this.clock = new THREE.Clock();
+    this.updaters = new Set();
+    this.quality = 'high';
+    this._fps = { frames: 0, acc: 0, value: 60 };
+    this._running = false;
+
+    window.addEventListener('resize', () => this.resize());
+    this.resize();
+  }
+
+  setQuality(q) {
+    this.quality = q;
+    this.bloomPass.enabled = q === 'high';
+    this.resize();
+  }
+
+  resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cap = this.quality === 'high' ? 1.5 : 1.0;
+    const pr = Math.min(window.devicePixelRatio || 1, cap);
+    this.renderer.setPixelRatio(pr);
+    this.renderer.setSize(w, h);
+    this.composer.setPixelRatio(pr);
+    this.composer.setSize(w, h);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.lynchPass.uniforms.uResolution.value.set(w * pr, h * pr);
+  }
+
+  /** 每帧回调注册（返回注销函数） */
+  onUpdate(fn) {
+    this.updaters.add(fn);
+    return () => this.updaters.delete(fn);
+  }
+
+  /** 展厅画面基调: 饱和度 / 色调 / 雾 */
+  setLook({ saturation = 1, tint = 0xffffff, fogColor = 0x050307, fogDensity = 0.03, bg = fogColor, exposure = 1.05, bloom = 0.85 } = {}) {
+    this.lynchPass.uniforms.uSaturation.value = saturation;
+    this.lynchPass.uniforms.uTintColor.value.set(tint);
+    this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
+    this.scene.background = new THREE.Color(bg);
+    this.renderer.toneMappingExposure = exposure;
+    this.bloomPass.strength = bloom;
+  }
+
+  get fps() {
+    return this._fps.value;
+  }
+
+  start() {
+    if (this._running) return;
+    this._running = true;
+    this.clock.start();
+    const loop = () => {
+      if (!this._running) return;
+      requestAnimationFrame(loop);
+      const dt = Math.min(this.clock.getDelta(), 0.1);
+      const t = this.clock.elapsedTime;
+      this.lynchPass.uniforms.uTime.value = t;
+      for (const fn of this.updaters) fn(dt, t);
+      this.composer.render();
+      this._fps.frames++;
+      this._fps.acc += dt;
+      if (this._fps.acc >= 0.5) {
+        this._fps.value = Math.round(this._fps.frames / this._fps.acc);
+        this._fps.frames = 0;
+        this._fps.acc = 0;
+      }
+    };
+    loop();
+  }
+
+  /** 深度释放一个场景子树的 GPU 资源 */
+  disposeGroup(root) {
+    root.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose();
+      const mats = Array.isArray(obj.material) ? obj.material : obj.material ? [obj.material] : [];
+      for (const m of mats) {
+        for (const key of Object.keys(m)) {
+          const v = m[key];
+          if (v && v.isTexture) v.dispose();
+        }
+        m.dispose();
+      }
+    });
+    if (root.parent) root.parent.remove(root);
+  }
+}
