@@ -9,8 +9,10 @@ import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
   smokeLayer, dustField, lightCone, quotePlaque, vitrine,
   darkFigure, zoneTrigger, multiRectBounds,
-  mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, weaveTexture, velvetMaterial
+  mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
+  asphaltMat, woodMat
 } from './kit.js';
+import { propMats, theaterSeats, phoneBooth, streetLampV2 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -36,21 +38,11 @@ export function build(ctx) {
   const timers = [];
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
-  // ---------- 夜路 ----------
-  const roadTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#131317';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 500; i++) {
-      g.fillStyle = `rgba(${20 + Math.random() * 30},${20 + Math.random() * 30},${24 + Math.random() * 30},0.35)`;
-      g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
-    }
-    // 黄色中线虚线
-    g.fillStyle = '#c9a24a';
-    g.fillRect(s / 2 - 5, 10, 10, s / 2 - 30);
-  }, 1, 10);
+  // ---------- 夜路（v1.3 三通道：湿沥青 + 骨料法线 + 虚线中线） ----------
+  const M = propMats();
   const road = new THREE.Mesh(
     new THREE.PlaneGeometry(8, 38),
-    new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.65, metalness: 0.1 })
+    asphaltMat({ seed: 27, repX: 1, repY: 10, wet: 0.65 })
   );
   road.rotation.x = -Math.PI / 2;
   road.position.z = 1;
@@ -104,27 +96,20 @@ export function build(ctx) {
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   group.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xaebdff, size: 0.5, transparent: true, opacity: 0.7, fog: false })));
 
-  // 路灯（一盏坏了，嗡嗡作响地闪）
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.5, metalness: 0.7 });
+  // 路灯 v2（凹槽柱 + 泪滴灯头；一盏坏了，嗡嗡作响地闪）
   const lampData = [];
   for (let i = 0; i < 5; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     const z = 14 - i * 6.5;
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 4.6, 8), poleMat);
-    pole.position.set(side * 3.9, 2.3, z);
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.08), poleMat);
-    arm.position.set(side * 3.35, 4.55, z);
-    const bulb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a8, emissiveIntensity: 3 })
-    );
-    bulb.position.set(side * 2.9, 4.48, z);
-    const light = new THREE.PointLight(0xffd9a8, 7, 13, 1.6);
-    light.position.set(side * 2.9, 4.4, z);
+    const lamp = streetLampV2({ mats: M });
+    lamp.position.set(side * 3.9, 0, z);
+    lamp.rotation.y = side < 0 ? 0 : Math.PI; // 灯头朝向路面
+    group.add(lamp);
+    const headWorldX = side * (3.9 - lamp.userData.headX);
     const cone = lightCone(0.3, 2.1, 4.3, 0xffd9a8, 0.05);
-    cone.position.set(side * 2.9, 2.3, z);
-    group.add(pole, arm, bulb, light, cone);
-    lampData.push({ bulb, light, cone, broken: i === 2 });
+    cone.position.set(headWorldX, 2.15, z);
+    group.add(cone);
+    lampData.push({ bulbMat: lamp.userData.bulbMat, light: lamp.userData.light, cone, broken: i === 2 });
   }
   updaters.push((dt, t) => {
     for (const [i, L] of lampData.entries()) {
@@ -133,7 +118,7 @@ export function build(ctx) {
         f = Math.sin(t * 23 + i) * Math.sin(t * 7.7) > 0.2 ? (Math.random() < 0.08 ? 0.05 : 0.9) : 0.12;
       }
       L.light.intensity = 7 * f;
-      L.bulb.material.emissiveIntensity = 3 * f;
+      L.bulbMat.emissiveIntensity = 3 * f;
       L.cone.material.opacity = 0.05 * f;
     }
   });
@@ -154,7 +139,7 @@ export function build(ctx) {
     new THREE.MeshStandardMaterial({ map: signTex, transparent: true, roughness: 0.5, emissive: 0xffffff, emissiveMap: signTex, emissiveIntensity: 0.25 }));
   roadSign.position.set(-3.6, 2.1, 12);
   roadSign.rotation.y = 0.9;
-  const signPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.4, 10), poleMat);
+  const signPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.4, 10), M.iron);
   signPole.position.set(-3.6, 1.2, 12);
   group.add(roadSign, signPole);
   hotspots.add(roadSign, {
@@ -319,21 +304,26 @@ export function build(ctx) {
   group.add(ventSteam);
   updaters.push(ventSteam.userData.update);
 
-  // 巷内电话亭（不通向任何地方的电话）
-  const boothMat = new THREE.MeshStandardMaterial({ color: 0x101a24, roughness: 0.5, metalness: 0.5 });
-  const booth = new THREE.Group();
-  const boothBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.3, 0.9), boothMat);
-  boothBody.position.y = 1.15;
-  const boothGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.7, 0.5),
-    new THREE.MeshStandardMaterial({ color: 0x0a0a0a, emissive: 0x88c8ff, emissiveIntensity: 0.8 })
-  );
-  boothGlow.position.set(0, 1.9, 0.46);
-  booth.add(boothBody, boothGlow);
+  // 巷内电话亭 v2（立柱框架 + 玻璃 + 折门 + 螺旋话线；不通向任何地方）
+  const booth = phoneBooth({ mats: M });
   booth.position.set(10.2, 0, -18);
   booth.rotation.y = -Math.PI / 2;
   group.add(booth);
-  hotspots.add(boothGlow, {
+  const boothState = { open: 0, target: 0 };
+  updaters.push((dt, t) => {
+    boothState.open += (boothState.target - boothState.open) * Math.min(1, dt * 4);
+    booth.userData.door.rotation.y = boothState.open * -1.15;
+    booth.userData.topSignMat.emissiveIntensity =
+      0.9 * (Math.sin(t * 15.3) > 0.92 ? 0.3 : 1);
+  });
+  hotspots.add(booth.userData.door.children[0].children[0], {
+    hint: 'E — 折门',
+    onActivate: () => {
+      boothState.target = boothState.target > 0.5 ? 0 : 1;
+      audio.sfx('clank', 0.4);
+    }
+  });
+  hotspots.add(booth.userData.handset, {
     hint: 'E — 听筒还挂着微温',
     onActivate: () => {
       audio.sfx('radio', 0.6);
@@ -456,9 +446,9 @@ export function build(ctx) {
   innerCeil.rotation.x = Math.PI / 2;
   innerCeil.position.y = 6.4;
   inner.add(innerCeil);
-  // 舞台（圆角 + 黄铜包边）+ 话筒
+  // 舞台（深色蜡面台板 + 黄铜包边）+ 话筒
   const stage = roundedBoxMesh(8, 0.6, 3, 0.06,
-    new THREE.MeshStandardMaterial({ color: 0x140d11, roughness: 0.35, metalness: 0.2 }));
+    woodMat({ base: [22, 13, 16], planks: 6, size: 256, seed: 28, gloss: 0.8, env: 0.8 }));
   stage.position.set(0, 0.3, -4.2);
   const stageTrim = new THREE.Mesh(
     new THREE.BoxGeometry(8, 0.03, 0.05),
@@ -483,35 +473,33 @@ export function build(ctx) {
     }
   });
 
-  // 排椅（圆角软包 + 扶手，全部合并为两个 mesh）
-  const seatMat = new THREE.MeshPhysicalMaterial({
-    map: weaveTexture('#30060e', '#42101c'), color: 0x3d0a14, roughness: 0.85,
-    sheen: 0.6, sheenColor: new THREE.Color(0xa04a5c), sheenRoughness: 0.6
+  // 折座排椅 v2（铸铁端架 + 皮面翻座 + 排灯；一把翻起的椅子可以坐下）
+  const seats = theaterSeats({ rows: 3, cols: 6, dx: 0.86, dz: 1.05, mats: M });
+  seats.position.set(0, 0, -0.6);
+  inner.add(seats);
+  const special = seats.userData.specialSeat;
+  const sitState = { down: 0, target: 0 };
+  updaters.push((dt) => {
+    sitState.down += (sitState.target - sitState.down) * Math.min(1, dt * 5);
+    if (special) special.userData.seat.rotation.x = -1.25 + sitState.down * 1.18;
   });
-  const seatGeos = [];
-  const armGeos = [];
-  const cushGeo = new THREE.CylinderGeometry(0.31, 0.31, 0.5, 4, 1); // 占位不用
-  cushGeo.dispose();
-  for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < 6; c++) {
-      const x = -2.2 + c * 0.86;
-      const z = -0.6 + r * 1.05;
-      const seatG = new THREE.SphereGeometry(0.31, 8, 6);
-      seatGeos.push(xform(seatG, x, 0.42, z, 0, 0, 0, 1));
-      seatG.dispose();
-      const backG = new THREE.CapsuleGeometry(0.3, 0.45, 4, 8);
-      seatGeos.push(xform(backG, x, 0.72, z + 0.3, -0.24, 0, 0, 1));
-      backG.dispose();
-      const armG = new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6);
-      armGeos.push(xform(armG, x - 0.36, 0.55, z, Math.PI / 2, 0, 0));
-      if (c === 5) armGeos.push(xform(armG, x + 0.36, 0.55, z, Math.PI / 2, 0, 0));
-      armG.dispose();
-    }
+  if (special) {
+    hotspots.add(special.userData.seat, {
+      hint: 'E — 放下这把椅子',
+      onActivate: () => {
+        const down = sitState.target < 0.5;
+        sitState.target = down ? 1 : 0;
+        audio.sfx('thud', 0.5);
+        if (down) {
+          // 连锁反应：台口灯亮起一拍，仿佛等你入座已久
+          stageSpot.intensity = 90;
+          audio.sfx('swell', 0.7);
+          setTimeout(() => { stageSpot.intensity = 46; }, 2600);
+          ui.caption('这个位子一直空着。', 3600);
+        }
+      }
+    });
   }
-  inner.add(mergedMesh(seatGeos, seatMat));
-  inner.add(mergedMesh(armGeos, new THREE.MeshStandardMaterial({
-    map: brushedMetalTexture(), color: 0x584124, roughness: 0.35, metalness: 0.85
-  })));
 
   // 蓝色立方体 —— 梦境反转
   const pedestal = roundedBoxMesh(0.6, 1.15, 0.6, 0.04,

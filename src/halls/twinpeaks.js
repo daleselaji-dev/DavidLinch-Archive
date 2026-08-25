@@ -8,12 +8,17 @@
 // ============================================================
 import * as THREE from 'three';
 import {
-  PALETTE, canvasTexture, chevronTexture, curtain, curtainRing, neonSign,
+  PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
   zoneTrigger, zonesBounds, pineGeometryMaterial,
-  roundedBoxMesh, roundedBoxGeo, mergedMesh, xform, railing, rockMesh, armchair,
-  groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone
+  roundedBoxMesh, mergedMesh, xform, railing, rockMesh, armchair,
+  groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
+  chevronMat, asphaltMat, woodMat, waterMat
 } from './kit.js';
+import {
+  propMats, sedanCar, streetLampV2, trafficLight, pieCase,
+  counterClutter, ceilingFan, viewScope
+} from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -157,10 +162,11 @@ export function build(ctx) {
   // ============================================================
   // ① 林间空地 —— 红帷幕之门
   // ============================================================
+  const M = propMats();
   const gate = new THREE.Group();
   const pad = new THREE.Mesh(
     new THREE.CircleGeometry(3.6, 40),
-    new THREE.MeshStandardMaterial({ map: chevronTexture('#0b0b0d', '#ded7c8', 4), roughness: 0.35, metalness: 0.1 })
+    chevronMat('#0b0b0d', '#ded7c8', { repeat: 4, seed: 33 })
   );
   pad.rotation.x = -Math.PI / 2;
   pad.position.y = 0.02;
@@ -271,7 +277,7 @@ export function build(ctx) {
   redRoom.position.set(-20, 0, -16);
   const rrFloor = new THREE.Mesh(
     new THREE.CircleGeometry(6.0, 44),
-    new THREE.MeshStandardMaterial({ map: chevronTexture('#0b0b0d', '#ded7c8', 5), roughness: 0.3, metalness: 0.12, envMapIntensity: 0.9 })
+    chevronMat('#0b0b0d', '#ded7c8', { repeat: 5, seed: 34 })
   );
   rrFloor.rotation.x = -Math.PI / 2;
   rrFloor.position.y = 0.015;
@@ -324,21 +330,10 @@ export function build(ctx) {
   // ③ 小镇夜街 + DINER 柜台一角
   // ============================================================
   const town = new THREE.Group();
-  // 沥青街道
-  const asphaltTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#101014';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 420; i++) {
-      const v = 16 + Math.random() * 26;
-      g.fillStyle = `rgba(${v},${v},${v + 4},0.5)`;
-      g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
-    }
-    g.fillStyle = '#b8a24a';
-    g.fillRect(s / 2 - 4, 0, 8, s * 0.42);
-  }, 1, 6);
+  // 沥青街道（v1.3 三通道：雨后微湿 —— 车辙低粗糙度反光 + 骨料法线）
   const street = new THREE.Mesh(
     new THREE.PlaneGeometry(7.5, 20),
-    new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.7, metalness: 0.06 })
+    asphaltMat({ seed: 17, repX: 1, repY: 6, wet: 0.75 })
   );
   street.rotation.x = -Math.PI / 2;
   street.position.set(21.5, 0.015, -7);
@@ -349,57 +344,76 @@ export function build(ctx) {
   sidewalk.position.set(26.2, 0.06, -7);
   town.add(sidewalk);
 
-  // 路灯 ×2（暖光）
-  const lampPoleMat = new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x15151a, roughness: 0.45, metalness: 0.8 });
+  // 路灯 v2 ×2（凹槽柱 + 曲臂 + 泪滴灯头）
   const townLamps = [];
   for (const [x, z] of [[18.5, -1], [18.5, -12]]) {
-    const pole = mergedMesh([
-      xform(new THREE.CylinderGeometry(0.06, 0.09, 4.6, 10), 0, 2.3, 0),
-      xform(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 8), 0.5, 4.55, 0, 0, 0, Math.PI / 2),
-      xform(new THREE.CylinderGeometry(0.16, 0.2, 0.1, 12), 0, 0.05, 0)
-    ], lampPoleMat);
-    pole.position.set(x, 0, z);
-    const bulb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 10, 8),
-      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a8, emissiveIntensity: 3 })
-    );
-    bulb.position.set(x + 0.95, 4.5, z);
-    const light = new THREE.PointLight(0xffd9a8, 8, 14, 1.6);
-    light.position.set(x + 0.95, 4.4, z);
+    const lamp = streetLampV2({ mats: M });
+    lamp.position.set(x, 0, z);
+    town.add(lamp);
     const cone = lightCone(0.3, 2.1, 4.2, 0xffd9a8, 0.05);
-    cone.position.set(x + 0.95, 2.3, z);
-    town.add(pole, bulb, light, cone);
-    townLamps.push({ bulb, light });
+    cone.position.set(x + lamp.userData.headX, 2.15, z);
+    town.add(cone);
+    townLamps.push({ bulbMat: lamp.userData.bulbMat, light: lamp.userData.light });
   }
   updaters.push((dt, t) => {
     for (const [i, L] of townLamps.entries()) {
       const f = Math.sin(t * 14 + i * 5) > 0.94 ? 0.3 : 1;
       L.light.intensity = 8 * f;
-      L.bulb.material.emissiveIntensity = 3 * f;
+      L.bulbMat.emissiveIntensity = 3 * f;
     }
   });
 
-  // 老轿车剪影（原创抽象，无品牌）
-  const carBodyMat = new THREE.MeshStandardMaterial({ color: 0x0d1218, roughness: 0.32, metalness: 0.5, envMapIntensity: 1.1 });
-  const carBody = mergedMesh([
-    xform(roundedBoxGeo(4.1, 0.75, 1.7, 0.22), 0, 0.75, 0),
-    xform(roundedBoxGeo(2.2, 0.62, 1.5, 0.24), -0.25, 1.35, 0)
-  ], carBodyMat);
-  const wheelGeo = new THREE.TorusGeometry(0.32, 0.13, 10, 18);
-  const wheels = mergedMesh([
-    xform(wheelGeo, -1.3, 0.34, 0.85), xform(wheelGeo, 1.3, 0.34, 0.85),
-    xform(wheelGeo, -1.3, 0.34, -0.85), xform(wheelGeo, 1.3, 0.34, -0.85)
-  ], new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.9 }));
-  wheelGeo.dispose();
-  const bumper = mergedMesh([
-    xform(new THREE.CylinderGeometry(0.06, 0.06, 1.75, 10), 2.06, 0.52, 0, Math.PI / 2, 0, 0),
-    xform(new THREE.CylinderGeometry(0.06, 0.06, 1.75, 10), -2.06, 0.52, 0, Math.PI / 2, 0, 0)
-  ], new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x9a9a9a, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4 }));
-  const car = new THREE.Group();
-  car.add(carBody, wheels, bumper);
+  // 悬挂信号灯（吊索横跨街道；夜间闪黄模式，可用 E 换灯）
+  const cable = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.014, 8.2, 6),
+    new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 })
+  );
+  cable.rotation.z = Math.PI / 2;
+  cable.position.set(21.9, 5.0, -4.2);
+  town.add(cable);
+  const signal = trafficLight({ mats: M });
+  signal.position.set(21.5, 4.55, -4.2);
+  signal.rotation.y = Math.PI / 2;
+  town.add(signal);
+  const sigState = { blink: true, t: 0, phase: 1 };
+  updaters.push((dt) => {
+    if (!sigState.blink) return;
+    sigState.t += dt;
+    // 深夜闪黄：亮 0.7s / 灭 0.7s
+    const on = Math.floor(sigState.t / 0.7) % 2 === 0;
+    signal.userData.lampMats.forEach((m, k) => {
+      m.emissiveIntensity = k === 1 && on ? 2.2 : 0.12;
+    });
+    signal.userData.light.color.set(signal.userData.lampCols[1]);
+    signal.userData.light.intensity = on ? 3 : 0.2;
+  });
+  hotspots.add(signal.userData.box, {
+    hint: 'E — 信号灯',
+    onActivate: () => {
+      sigState.blink = false;
+      sigState.phase = (sigState.phase + 1) % 3;
+      signal.userData.setPhase(sigState.phase);
+      signal.userData.light.intensity = 3;
+      audio.sfx('click', 0.6);
+      setTimeout(() => { sigState.blink = true; sigState.t = 0; }, 6000);
+    }
+  });
+
+  // 40 年代轿车 v2（翼子板/镀铬格栅/白圈胎；车头灯可点亮）
+  const car = sedanCar({ color: 0x11161c, mats: M });
   car.position.set(20.2, 0, -13.5);
-  car.rotation.y = 0.06;
+  car.rotation.y = Math.PI / 2 + 0.06;
   town.add(car);
+  const carState = { on: false };
+  hotspots.add(car.userData.heads, {
+    hint: 'E — 车头灯',
+    onActivate: () => {
+      carState.on = !carState.on;
+      car.userData.setLights(carState.on);
+      audio.sfx(carState.on ? 'click' : 'thud', 0.6);
+      if (carState.on) ui.caption('灯光洗过湿路。', 3200);
+    }
+  });
 
   // DINER 外立面
   const facadeMat = new THREE.MeshStandardMaterial({
@@ -451,7 +465,7 @@ export function build(ctx) {
   const dinerInner = new THREE.Group();
   const dFloor = new THREE.Mesh(
     new THREE.PlaneGeometry(4.6, 9),
-    new THREE.MeshStandardMaterial({ map: chevronTexture('#101013', '#cfc7b8', 3), roughness: 0.4 })
+    chevronMat('#101013', '#cfc7b8', { repeat: 3, seed: 35 })
   );
   dFloor.rotation.x = -Math.PI / 2;
   dFloor.position.set(29.6, 0.02, -7.8);
@@ -472,9 +486,9 @@ export function build(ctx) {
   dCeil.rotation.x = Math.PI / 2;
   dCeil.position.set(29.6, 3.6, -7.8);
   dinerInner.add(dw1, dw2, dw3, dCeil);
-  // 柜台（圆角木台面 + 金属包边踢脚）
+  // 柜台（高蜡面木台 + 金属包边踢脚）
   const counterTop = roundedBoxMesh(1.1, 0.1, 6.4, 0.04,
-    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [58, 34, 16], planks: 2 }), roughness: 0.35, envMapIntensity: 0.8 }));
+    woodMat({ base: [58, 34, 16], planks: 2, size: 256, seed: 36, gloss: 0.85, env: 1.0 }));
   counterTop.position.set(30.7, 1.06, -7.8);
   const counterBody = roundedBoxMesh(0.95, 1.0, 6.3, 0.04,
     new THREE.MeshStandardMaterial({ color: 0x321820, roughness: 0.55 }));
@@ -552,6 +566,45 @@ export function build(ctx) {
       ui.caption('续了一杯。', 2600);
     }
   });
+  // 旋转派柜（三层瓷盘；E → 转架）
+  const pcase = pieCase({ mats: M });
+  pcase.position.set(30.7, 1.12, -10.4);
+  dinerInner.add(pcase);
+  const pcaseState = { spin: 0 };
+  updaters.push((dt) => {
+    pcase.userData.rack.rotation.y += dt * (0.15 + Math.max(0, Math.min(pcaseState.spin, 1)) * 2.4);
+    if (pcaseState.spin > 0) pcaseState.spin -= dt;
+  });
+  hotspots.add(pcase.userData.glass, {
+    hint: 'E — 转一转派柜',
+    onActivate: () => {
+      pcaseState.spin = 2.2;
+      audio.sfx('chime', 0.5);
+    }
+  });
+
+  // 柜台杂物组（纸巾盒/番茄酱/糖罐/菜单牌）
+  const clutter = counterClutter({ mats: M });
+  clutter.position.set(30.7, 1.11, -8.4);
+  clutter.rotation.y = -Math.PI / 2;
+  dinerInner.add(clutter);
+
+  // 吊扇（拉链开关 → 转/停）
+  const fan = ceilingFan({ mats: M });
+  fan.position.set(29.6, 3.6, -7.8);
+  dinerInner.add(fan);
+  const fanState = { speed: 1 };
+  updaters.push((dt) => {
+    fan.userData.bladeHub.rotation.y += dt * fanState.speed * 3.4;
+  });
+  hotspots.add(fan.userData.pull, {
+    hint: 'E — 吊扇拉链',
+    onActivate: () => {
+      fanState.speed = fanState.speed > 0.5 ? 0.05 : 1;
+      audio.sfx('click', 0.7);
+    }
+  });
+
   // 吊灯 ×2
   for (const z of [-9.5, -6.1]) {
     const dl = new THREE.PointLight(0xffca7a, 4.5, 6, 1.8);
@@ -606,14 +659,32 @@ export function build(ctx) {
   falls.position.set(12, 6.5, -41.5);
   overlook.add(falls);
   updaters.push((dt) => { fallsTex.offset.y -= dt * 0.32; });
-  // 瀑底水潭 + 水雾
-  const plunge = new THREE.Mesh(
-    new THREE.CircleGeometry(6, 26),
-    new THREE.MeshStandardMaterial({ color: 0x04121c, roughness: 0.05, metalness: 0.85, envMapIntensity: 1.7 })
-  );
+  // 瀑底水潭（v1.3 静水：微波纹法线缓慢流动）+ 水雾
+  const plungeMat = waterMat(0x04121c, { seed: 31, repX: 3, repY: 3 });
+  const plunge = new THREE.Mesh(new THREE.CircleGeometry(6, 26), plungeMat);
   plunge.rotation.x = -Math.PI / 2;
   plunge.position.set(12, 0.01, -38.5);
   overlook.add(plunge);
+  updaters.push(plungeMat.userData.update);
+
+  // 投币观景镜（可转动镜头对准瀑布/锯木厂）
+  const scope = viewScope({ mats: M });
+  scope.position.set(11, 0.16, -27.6);
+  overlook.add(scope);
+  const scopeState = { target: 0, yaw: 0.2 };
+  const SCOPE_YAWS = [0.2, -0.55];
+  updaters.push((dt) => {
+    scopeState.yaw += (SCOPE_YAWS[scopeState.target] - scopeState.yaw) * Math.min(1, dt * 3);
+    scope.userData.head.rotation.y = scopeState.yaw;
+  });
+  hotspots.add(scope.userData.scope, {
+    hint: 'E — 转动观景镜',
+    onActivate: () => {
+      scopeState.target = (scopeState.target + 1) % 2;
+      audio.sfx('click', 0.8);
+      ui.caption(scopeState.target === 0 ? '瀑布不停。' : '锯木厂睡着了。', 3000);
+    }
+  });
   const mist = smokeLayer(36, { x: 9, z: 5 }, { opacity: 0.08, size: 6, yBase: 0.5, ySpread: 3.5, color: 0xc8dce8 });
   mist.position.set(12, 0, -39);
   overlook.add(mist);
@@ -648,13 +719,12 @@ export function build(ctx) {
     ));
   }
   grove.add(mergedMesh(stoneGeos, new THREE.MeshStandardMaterial({ color: 0x11141a, roughness: 0.9 })));
-  const pool = new THREE.Mesh(
-    new THREE.CircleGeometry(1.5, 28),
-    new THREE.MeshStandardMaterial({ color: 0x02030a, roughness: 0.06, metalness: 0.9, envMapIntensity: 1.8 })
-  );
+  const poolMat = waterMat(0x02030a, { seed: 32, repX: 1.5, repY: 1.5, env: 1.8 });
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(1.5, 28), poolMat);
   pool.rotation.x = -Math.PI / 2;
   pool.position.y = 0.015;
   grove.add(pool);
+  updaters.push(poolMat.userData.update);
   grove.position.set(14, 0, 10.5);
   group.add(grove);
 

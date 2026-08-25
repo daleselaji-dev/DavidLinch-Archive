@@ -40,11 +40,15 @@ function createWindow() {
 
   if (SMOKE) {
     // 依次巡检全部展厅，任何一个装载失败/超时即失败退出
-    const queue = ['archive', 'eraserhead', 'bluevelvet', 'studio', 'twinpeaks', 'mulholland'];
+    // SV_SMOKE_QUEUE=a,b,c 可覆盖巡检顺序（调试单厅用）
+    const queue = process.env.SV_SMOKE_QUEUE
+      ? process.env.SV_SMOKE_QUEUE.split(',')
+      : ['archive', 'eraserhead', 'bluevelvet', 'studio', 'twinpeaks', 'mulholland'];
+    // v1.3 三通道程序纹理生成 + swiftshader 软渲染较慢，巡检上限放宽
     const deadline = setTimeout(() => {
       console.error('[smoke] 超时：展厅巡检未完成');
       app.exit(1);
-    }, 150000);
+    }, 300000);
     win.webContents.on('console-message', (_e, _level, message) => {
       if (message.includes('[sv] boot-ready')) {
         win.webContents.executeJavaScript(
@@ -88,7 +92,10 @@ function createWindow() {
           });
           const next = queue.shift();
           if (next) {
-            win.webContents.executeJavaScript(`window.__SV__.goTo('${next}')`, true).catch(() => {});
+            win.webContents.executeJavaScript(`window.__SV__.goTo('${next}')`, true).catch((err) => {
+              console.error(`[smoke] 展厅装载异常 ${next}:`, err && err.message ? err.message : err);
+              app.exit(1);
+            });
           } else {
             // 七厅巡检完毕 → UI 交互冒烟（面板/年表/留言墙/合规页/发帖闭环/旁白模式循环）
             const uiScript = `(() => {

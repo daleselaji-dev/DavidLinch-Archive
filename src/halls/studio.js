@@ -10,8 +10,10 @@ import * as THREE from 'three';
 import {
   canvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
-  mergedMesh, xform, roundedBoxMesh, woodTexture, weaveTexture, brushedMetalTexture, armchair
+  mergedMesh, xform, roundedBoxMesh, armchair,
+  woodMat as woodPbr, fabricMat
 } from './kit.js';
+import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -29,47 +31,25 @@ const MAIN = { minX: -W / 2 + 0.9, maxX: W / 2 - 0.9, minZ: -D / 2 + 0.9, maxZ: 
 const ALCOVE = { minX: 2.7, maxX: 6.3, minZ: -9.2, maxZ: -D / 2 + 0.9 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, engine, player, store } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, store, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
   const timers = [];
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
   // ---------- 房间外壳 ----------
-  // 拼木地板
-  const floorTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#191007';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 8; i++) {
-      const v = Math.random() * 10;
-      g.fillStyle = `rgb(${42 + v},${28 + v * 0.65},${14 + v * 0.4})`;
-      g.fillRect(0, i * (s / 8), s, s / 8 - 2);
-    }
-    // 木纹细线
-    for (let i = 0; i < 60; i++) {
-      g.strokeStyle = 'rgba(12,8,4,0.35)';
-      g.beginPath();
-      const y = Math.random() * s;
-      g.moveTo(0, y);
-      g.lineTo(s, y + (Math.random() - 0.5) * 6);
-      g.stroke();
-    }
-  }, 5, 4);
-  group.add(floorMesh(W, D, new THREE.MeshStandardMaterial({
-    map: floorTex, roughness: 0.45, metalness: 0.06, envMapIntensity: 0.7
+  // 拼木地板（v1.3 三通道：板缝法线 + 起居磨损）
+  const M = propMats();
+  group.add(floorMesh(W, D, woodPbr({
+    base: [42, 28, 14], planks: 8, size: 512, seed: 45, repX: 5, repY: 4,
+    worn: 0.65, gloss: 0.5, env: 0.7
   })));
 
-  // 深色木墙板
-  const wallTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#171009';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 6; i++) {
-      const v = Math.random() * 8;
-      g.fillStyle = `rgb(${32 + v},${22 + v * 0.6},${11 + v * 0.35})`;
-      g.fillRect(i * (s / 6), 0, s / 6 - 3, s);
-    }
-  }, 4, 1);
-  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.8, bumpMap: wallTex, bumpScale: 0.3 });
+  // 深色木墙板（竖板三通道）
+  const wallMat = woodPbr({
+    base: [32, 22, 11], planks: 6, vertical: true, size: 256, seed: 46,
+    repX: 4, repY: 1, gloss: 0.35, env: 0.5
+  });
   const H = 4.6;
   const mkWall = (w, x, z, ry) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallMat);
@@ -121,30 +101,40 @@ export function build(ctx) {
   group.add(nookCeil);
 
   // ---------- 工作桌（西墙，圆角桌板 + 车削桌腿） ----------
-  const woodMat = new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [44, 28, 15], planks: 2, size: 256 }), roughness: 0.55
-  });
+  const caseWood = woodPbr({ base: [44, 28, 15], planks: 2, size: 256, seed: 47, gloss: 0.5 });
   const desk = new THREE.Group();
-  const deskTop = roundedBoxMesh(3.4, 0.09, 1.3, 0.03, woodMat);
+  const deskTop = roundedBoxMesh(3.4, 0.09, 1.3, 0.03, caseWood);
   deskTop.position.y = 0.86;
   const legGeo = new THREE.CylinderGeometry(0.045, 0.06, 0.86, 10);
   const deskLegs = mergedMesh([
     xform(legGeo, -1.55, 0.43, -0.5), xform(legGeo, 1.55, 0.43, -0.5),
     xform(legGeo, -1.55, 0.43, 0.5), xform(legGeo, 1.55, 0.43, 0.5)
-  ], woodMat);
+  ], caseWood);
   legGeo.dispose();
   desk.add(deskTop, deskLegs);
   desk.position.set(-6.4, 0, -1.4);
   desk.rotation.y = Math.PI / 2;
   group.add(desk);
 
-  // 地毯（编织纹 + sheen）
+  // 打字机（桌上；E → 敲一行）
+  const tw = typewriter({ mats: M });
+  tw.position.set(-6.45, 0.905, -1.6);
+  tw.rotation.y = Math.PI / 2;
+  group.add(tw);
+  hotspots.add(tw.userData.body, {
+    hint: 'E — 打字机',
+    onActivate: () => {
+      audio.sfx('type', 0.8);
+      setTimeout(() => audio.sfx('type', 0.7), 190);
+      setTimeout(() => audio.sfx('typebell', 0.6), 900);
+      ui.caption('纸上只有一行。', 3000);
+    }
+  });
+
+  // 地毯（织纹三通道 + sheen）
   const rug = new THREE.Mesh(
     new THREE.CircleGeometry(2.6, 34),
-    new THREE.MeshPhysicalMaterial({
-      map: weaveTexture('#2a1410', '#3a1c16'), roughness: 0.95,
-      sheen: 0.5, sheenColor: new THREE.Color(0xb08060), sheenRoughness: 0.7
-    })
+    fabricMat('#2a1410', '#3a1c16', { seed: 48, repX: 5, repY: 5, sheenColor: 0xb08060 })
   );
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(-1.5, 0.012, -0.5);
@@ -156,7 +146,7 @@ export function build(ctx) {
   chair.rotation.y = -0.7;
   group.add(chair);
   const shelfUnit = new THREE.Group();
-  const shelfFrame = roundedBoxMesh(1.7, 2.5, 0.34, 0.03, woodMat);
+  const shelfFrame = roundedBoxMesh(1.7, 2.5, 0.34, 0.03, caseWood);
   shelfFrame.position.y = 1.25;
   shelfUnit.add(shelfFrame);
   const bookGeos = [];
@@ -186,9 +176,47 @@ export function build(ctx) {
   shelfUnit.rotation.y = Math.PI;
   group.add(shelfUnit);
 
+  // 唱机矮柜 + 唱机（E → 放一张唱片：唱臂摆入 + 黑胶转 + 深夜爵士）
+  const ttConsole = roundedBoxMesh(1.2, 0.55, 0.5, 0.03, caseWood);
+  ttConsole.position.set(2.8, 0.275, 6.1);
+  group.add(ttConsole);
+  const tt = turntable({ mats: M });
+  tt.position.set(2.8, 0.55, 6.05);
+  tt.rotation.y = Math.PI;
+  group.add(tt);
+  const ttState = { playing: false, armIn: 0 };
+  updaters.push((dt) => {
+    ttState.armIn += ((ttState.playing ? 1 : 0) - ttState.armIn) * Math.min(1, dt * 2.4);
+    tt.userData.arm.rotation.y = ttState.armIn * -0.5;
+    if (ttState.playing) tt.userData.record.rotation.y -= dt * 3.5;
+  });
+  hotspots.add(tt.userData.record, {
+    hint: 'E — 放一张唱片',
+    onActivate: () => {
+      ttState.playing = !ttState.playing;
+      narration.jazz.setEnabled(ttState.playing);
+      audio.sfx(ttState.playing ? 'chime' : 'thud', 0.5);
+      if (ttState.playing) ui.caption('针尖落进沟槽。', 3000);
+    }
+  });
+
+  // 吊扇（拉链 → 转/停）
+  const fan = ceilingFan({ mats: M });
+  fan.position.set(0.4, H, 0.8);
+  group.add(fan);
+  const fanState = { speed: 0.6 };
+  updaters.push((dt) => { fan.userData.bladeHub.rotation.y += dt * fanState.speed * 3.2; });
+  hotspots.add(fan.userData.pull, {
+    hint: 'E — 吊扇拉链',
+    onActivate: () => {
+      fanState.speed = fanState.speed > 0.3 ? 0.03 : 0.6;
+      audio.sfx('click', 0.7);
+    }
+  });
+
   // 窗（百叶 + 夜光，东墙）
   const windowGroup = new THREE.Group();
-  const winFrame = roundedBoxMesh(0.1, 1.7, 1.5, 0.02, woodMat);
+  const winFrame = roundedBoxMesh(0.1, 1.7, 1.5, 0.02, caseWood);
   winFrame.position.set(W / 2 - 0.05, 2.1, -3.4);
   const winGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(1.3, 1.5),
@@ -236,34 +264,18 @@ export function build(ctx) {
     group.add(art);
   }
 
-  // 台灯（可开关 — 交互①）
+  // 工作台灯 v2（重底座 + 弹簧臂 + 绿铝罩；可开关 — 交互①）
   const lampState = { on: 1 };
-  const lampArmMat = new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 0.4, metalness: 0.8 });
-  const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.04, 14), lampArmMat);
-  lampBase.position.set(-6.7, 0.93, -2.3);
-  const lampArm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.55, 8), lampArmMat);
-  lampArm.position.set(-6.7, 1.2, -2.3);
-  lampArm.rotation.z = 0.4;
-  const lampShade = new THREE.Mesh(
-    new THREE.ConeGeometry(0.17, 0.2, 14, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0x1c4232, roughness: 0.5, metalness: 0.5, side: THREE.DoubleSide })
-  );
-  lampShade.position.set(-6.58, 1.44, -2.3);
-  lampShade.rotation.z = 0.5;
-  const lampBulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.05, 10, 8),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a0, emissiveIntensity: 3 })
-  );
-  lampBulb.position.set(-6.52, 1.38, -2.3);
-  const lampLight = new THREE.PointLight(0xffd9a0, 5, 8, 1.8);
-  lampLight.position.set(-6.4, 1.42, -2.3);
-  group.add(lampBase, lampArm, lampShade, lampBulb, lampLight);
+  const lamp = angleLamp({ shadeColor: 0x1c4232, mats: M });
+  lamp.position.set(-6.55, 0.905, -2.35);
+  lamp.rotation.y = Math.PI / 2 + 0.6;
+  group.add(lamp);
   updaters.push((dt, t) => {
     const f = (1 + Math.sin(t * 7.2) * 0.05) * lampState.on;
-    lampLight.intensity = 5 * f;
-    lampBulb.material.emissiveIntensity = 3 * Math.max(0.03, f);
+    lamp.userData.light.intensity = 5 * f;
+    lamp.userData.bulbMat.emissiveIntensity = 3 * Math.max(0.03, f);
   });
-  hotspots.add(lampShade, {
+  hotspots.add(lamp.userData.shade, {
     hint: 'E — 台灯（他的绿罩台灯）',
     onActivate: () => {
       lampState.on = lampState.on ? 0 : 1;
@@ -430,31 +442,18 @@ export function build(ctx) {
     '阴，偶有小雨。去喝杯咖啡。'
   ];
   const radioState = { on: 0, idx: 0 };
-  const radio = new THREE.Group();
-  const radioBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 0.36, 0.24),
-    new THREE.MeshStandardMaterial({ color: 0x3a2214, roughness: 0.55 })
-  );
-  radioBody.position.y = 0.18;
-  const dial = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.34, 0.12),
-    new THREE.MeshStandardMaterial({ color: 0x0a0a0a, emissive: 0xffc264, emissiveIntensity: 0.25 })
-  );
-  dial.position.set(0, 0.22, 0.125);
-  const knob = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.035, 0.035, 0.03, 10),
-    new THREE.MeshStandardMaterial({ color: 0xc9a35c, roughness: 0.3, metalness: 0.7 })
-  );
-  knob.rotation.x = Math.PI / 2;
-  knob.position.set(0.2, 0.1, 0.13);
-  radio.add(radioBody, dial, knob);
+  // 木壳电子管收音机 v2（格栅 + 布网 + 表盘 + 双旋钮）
+  const radio = radioCabinet({ mats: M });
+  const radioBody = radio.userData.body;
   // 木架
-  const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 0.4), woodMat);
+  const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 0.4), caseWood);
   shelf.position.set(1.8, 1.28, -6.28);
-  radio.position.set(1.8, 1.31, -6.28);
+  radio.position.set(1.8, 1.305, -6.28);
   group.add(shelf, radio);
   updaters.push((dt, t) => {
-    dial.material.emissiveIntensity = radioState.on ? 0.9 + Math.sin(t * 3) * 0.15 : 0.18;
+    radio.userData.dialMat.emissiveIntensity = radioState.on ? 0.9 + Math.sin(t * 3) * 0.15 : 0.18;
+    // 开机时指针缓慢搜台
+    if (radioState.on) radio.userData.needle.position.x = 0.14 + Math.sin(t * 0.7) * 0.07;
   });
   hotspots.add(radioBody, {
     hint: 'E — 旧收音机（今日天气）',

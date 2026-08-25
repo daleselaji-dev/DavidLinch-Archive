@@ -317,6 +317,7 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
   }
   const heads = mergedMesh(headGeos, headMat);
   g.add(heads);
+  g.userData.heads = heads;
   // 尾灯
   const tail = mergedMesh([
     xform(new THREE.BoxGeometry(0.03, 0.07, 0.12), -2.16, 0.92, 0.55),
@@ -832,6 +833,7 @@ export function pieCase({ mats } = {}) {
   const knob = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), M.chrome);
   knob.position.y = 0.545;
   g.add(base, glass, lid, knob);
+  g.userData.glass = glass;
   // 内部旋转架：中轴 + 三层盘 + 派
   const rack = new THREE.Group();
   const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.44, 8), M.chrome);
@@ -938,6 +940,7 @@ export function trafficLight({ mats } = {}) {
   g.userData.lampMats = lampMats;
   g.userData.light = light;
   g.userData.lampCols = lampCols;
+  g.userData.box = box;
   /** 切换到某一窗（0红 1黄 2绿） */
   g.userData.setPhase = (i) => {
     lampMats.forEach((m, k) => { m.emissiveIntensity = k === i ? 2.2 : 0.12; });
