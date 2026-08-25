@@ -134,6 +134,6 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.2.0.exe` 双击直接运行（免安装）
-- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.2.0.exe` 一键安装后可启动
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.3.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.3.0.exe` 一键安装后可启动
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常
