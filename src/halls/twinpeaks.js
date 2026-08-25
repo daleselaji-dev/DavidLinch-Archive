@@ -757,7 +757,59 @@ export function build(ctx) {
   );
   falls.position.set(12, 6.5, -41.5);
   overlook.add(falls);
-  updaters.push((dt) => { fallsTex.offset.y -= dt * 0.32; });
+  // 前层水幕（慢速低透明，叠出水体厚度视差）
+  const fallsTex2 = fallsTex.clone();
+  fallsTex2.needsUpdate = true;
+  const falls2 = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.1, 15),
+    new THREE.MeshBasicMaterial({
+      map: fallsTex2, transparent: true, opacity: 0.32, toneMapped: false,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  falls2.position.set(12, 6.4, -41.2);
+  overlook.add(falls2);
+  // 上缘白沿（水离崖那一线）+ 底部翻涌泡沫带
+  const brink = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.6, 0.55),
+    new THREE.MeshBasicMaterial({
+      color: 0xdfeef2, transparent: true, opacity: 0.42, toneMapped: false,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  brink.position.set(12, 13.85, -41.15);
+  overlook.add(brink);
+  const foamTex = canvasTexture(128, (g, s) => {
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * s;
+      const y = Math.random() * s;
+      const r = 2 + Math.random() * 7;
+      const grad = g.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, 'rgba(226,242,248,0.7)');
+      grad.addColorStop(1, 'rgba(226,242,248,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(x, y, r, 0, 7);
+      g.fill();
+    }
+  });
+  foamTex.repeat.set(4, 1);
+  const foam = new THREE.Mesh(
+    new THREE.PlaneGeometry(8.6, 1.2),
+    new THREE.MeshBasicMaterial({
+      map: foamTex, transparent: true, opacity: 0.5, toneMapped: false,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  foam.position.set(12, 0.72, -40.85);
+  overlook.add(foam);
+  updaters.push((dt, t) => {
+    fallsTex.offset.y -= dt * 0.32;
+    fallsTex2.offset.y -= dt * 0.19;
+    foamTex.offset.x += dt * 0.05;
+    brink.material.opacity = 0.4 + Math.sin(t * 7.3) * 0.07 + Math.sin(t * 16.7) * 0.05;
+    foam.material.opacity = 0.45 + Math.sin(t * 4.9) * 0.1 + Math.sin(t * 11.3) * 0.06;
+  });
   // 瀑底水潭（v1.3 静水：微波纹法线缓慢流动）+ 水雾
   const plungeMat = waterMat(0x04121c, { seed: 31, repX: 3, repY: 3 });
   const plunge = new THREE.Mesh(new THREE.CircleGeometry(6, 26), plungeMat);
