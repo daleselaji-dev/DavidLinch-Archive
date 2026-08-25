@@ -131,6 +131,7 @@ function createWindow() {
           }
         };
         // SV_SHOT_DIR: 可选，装载后为每厅截屏（视觉自检用）
+        // SV_SHOT_DELAY: 截屏前等待毫秒数（软件渲染合成器有延迟时调大）
         const shotDir = process.env.SV_SHOT_DIR;
         if (shotDir) {
           setTimeout(async () => {
@@ -142,7 +143,7 @@ function createWindow() {
               console.error('[smoke] 截屏失败', err);
             }
             proceed();
-          }, 3500);
+          }, Number(process.env.SV_SHOT_DELAY || 3500));
         } else {
           proceed();
         }
