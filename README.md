@@ -61,6 +61,7 @@ npm run dist:win   # 打包 Windows x64 exe → release/
 
 ## 文档
 
+- [`CHANGELOG.md`](CHANGELOG.md) — 版本史（v1.0 → v1.3）
 - [`QUALITY_GATES.md`](QUALITY_GATES.md) — 质量门禁与自检结果
 - [`BUILD.md`](BUILD.md) — Windows exe 一键构建说明
 - [`TESTING.md`](TESTING.md) — 自动化与手动测试清单
