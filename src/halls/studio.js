@@ -8,10 +8,10 @@
 // ============================================================
 import * as THREE from 'three';
 import {
-  canvasTexture, floorMesh, doorway, smokeLayer, dustField,
+  canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, armchair,
-  woodMat as woodPbr, fabricMat
+  woodMat as woodPbr
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -131,10 +131,63 @@ export function build(ctx) {
     }
   });
 
-  // 地毯（织纹三通道 + sheen）
+  // 地毯 v2：设计纹样（双圈镶边 + 菱形点环 + 中心章 + 磨损）+ 绒面 sheen
+  const rugTex = canvasTexture(256, (g, s) => {
+    const c = s / 2;
+    g.fillStyle = '#33160f';
+    g.fillRect(0, 0, s, s);
+    // 绒面杂色
+    for (let i = 0; i < 1600; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * c;
+      g.fillStyle = Math.random() < 0.5 ? 'rgba(20,8,5,0.35)' : 'rgba(90,40,26,0.25)';
+      g.fillRect(c + Math.cos(a) * r, c + Math.sin(a) * r, 2, 2);
+    }
+    const ring = (radius, width, style) => {
+      g.strokeStyle = style;
+      g.lineWidth = width;
+      g.beginPath(); g.arc(c, c, radius, 0, Math.PI * 2); g.stroke();
+    };
+    // 外圈深色镶边 + 双细线
+    ring(c * 0.94, s * 0.055, '#1c0c07');
+    ring(c * 0.885, 2, '#8a6a4a');
+    ring(c * 0.99, 2, '#8a6a4a');
+    // 菱形点环
+    g.fillStyle = '#7a5236';
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const x = c + Math.cos(a) * c * 0.74;
+      const y = c + Math.sin(a) * c * 0.74;
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.moveTo(0, -5); g.lineTo(4, 0); g.lineTo(0, 5); g.lineTo(-4, 0); g.closePath(); g.fill();
+      g.restore();
+    }
+    ring(c * 0.62, 1.6, '#5c3a24');
+    // 中心章：同心菱形
+    g.strokeStyle = '#8a6a4a';
+    g.lineWidth = 2;
+    for (const k of [0.3, 0.2, 0.1]) {
+      g.beginPath();
+      g.moveTo(c, c - c * k); g.lineTo(c + c * k, c); g.lineTo(c, c + c * k); g.lineTo(c - c * k, c);
+      g.closePath(); g.stroke();
+    }
+    // 磨损亮斑（脚踩处）
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * c * 0.5;
+      const grd = g.createRadialGradient(c + Math.cos(a) * r, c + Math.sin(a) * r, 2, c + Math.cos(a) * r, c + Math.sin(a) * r, 22);
+      grd.addColorStop(0, 'rgba(140,90,60,0.16)');
+      grd.addColorStop(1, 'rgba(140,90,60,0)');
+      g.fillStyle = grd;
+      g.fillRect(0, 0, s, s);
+    }
+  });
   const rug = new THREE.Mesh(
     new THREE.CircleGeometry(2.6, 34),
-    fabricMat('#2a1410', '#3a1c16', { seed: 48, repX: 5, repY: 5, sheenColor: 0xb08060 })
+    new THREE.MeshPhysicalMaterial({
+      map: rugTex, roughness: 0.92, sheen: 0.55, sheenColor: new THREE.Color(0xb08060),
+      sheenRoughness: 0.8, bumpMap: noiseCanvasTexture(64, 120, 60, 8), bumpScale: 0.35
+    })
   );
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(-1.5, 0.012, -0.5);
