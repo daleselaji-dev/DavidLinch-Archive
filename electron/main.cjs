@@ -89,8 +89,8 @@ function createWindow() {
         // 且逐一激活（onActivate 全链无异常）后才放行去下一厅
         // v1.3 终版普查：10/18/12/11/13/12/11 —— 阈值锁在普查值 -1，防回退
         const INTERACTIVE_MIN = {
-          lobby: 9, archive: 17, eraserhead: 11, bluevelvet: 10,
-          twinpeaks: 11, mulholland: 10, studio: 12
+          lobby: 9, archive: 18, eraserhead: 11, bluevelvet: 10,
+          twinpeaks: 12, mulholland: 10, studio: 13
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
