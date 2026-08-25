@@ -68,6 +68,7 @@ const ui = new UI({
   },
   onCycleNarration: () => narration.cycleMode(),
   onToggleQuality: () => {
+    autoQ.locked = true; // 玩家手动选择后，自动降档退位
     engine.setQuality(engine.quality === 'high' ? 'low' : 'high');
     return engine.quality;
   }
@@ -171,6 +172,24 @@ document.addEventListener('keydown', (e) => {
 engine.onUpdate((dt) => {
   controls.update(dt);
   if (!ui.anyOpen) hotspots.update(dt);
+});
+
+// 自动降档保帧（G9）：高档下持续 5s 低于 32fps → 自动切低画质；
+// 玩家手动按过 Q 即锁定，尊重玩家的选择
+const autoQ = { locked: false, below: 0 };
+engine.onUpdate((dt) => {
+  if (autoQ.locked || engine.quality !== 'high' || !entered) return;
+  if (engine.fps < 32) {
+    autoQ.below += dt;
+    if (autoQ.below > 5) {
+      autoQ.locked = true;
+      engine.setQuality('low');
+      ui.syncQuality('low');
+      ui.caption('帧率偏低，画质已自动降档（Q 可切回）。', 4200);
+    }
+  } else {
+    autoQ.below = Math.max(0, autoQ.below - dt * 0.5);
+  }
 });
 let fpsAcc = 0;
 engine.onUpdate((dt) => {

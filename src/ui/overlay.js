@@ -127,6 +127,8 @@ export class UI {
   setCrosshairHot(hot) { this.crosshair.classList.toggle('hot', hot); }
   setFps(v) { this.fpsBar.textContent = `FPS ${v}`; }
   toggleFps() { this.fpsBar.classList.toggle('on'); }
+  /** 外部（自动降档）改变画质后同步按钮文案 */
+  syncQuality(q) { this.btnQuality.firstChild.textContent = q === 'high' ? '画质 高' : '画质 低'; }
 
   caption(text, ms = 5000) {
     clearTimeout(this._captionTimer);

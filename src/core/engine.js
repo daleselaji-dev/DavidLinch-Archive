@@ -46,6 +46,12 @@ export class Engine {
 
     this.clock = new THREE.Clock();
     this.updaters = new Set();
+    // 记录后处理出厂强度（低画质档按比例回退，见 setQuality）
+    this._postBase = {
+      grain: this.lynchPass.uniforms.uGrain.value,
+      scanline: this.lynchPass.uniforms.uScanline.value,
+      aberration: this.lynchPass.uniforms.uAberration.value
+    };
     this.quality = 'high';
     this._fps = { frames: 0, acc: 0, value: 60 };
     this._running = false;
@@ -57,6 +63,13 @@ export class Engine {
   setQuality(q) {
     this.quality = q;
     this.bloomPass.enabled = q === 'high';
+    // 低画质档（PRODUCTION_PLAN G9）：胶片颗粒/扫描线/色差减半——
+    // 省全屏噪声哈希与偏移三采样的带宽，同时保住"胶片感"的底色
+    const k = q === 'high' ? 1 : 0.5;
+    const u = this.lynchPass.uniforms;
+    u.uGrain.value = this._postBase.grain * k;
+    u.uScanline.value = this._postBase.scanline * k;
+    u.uAberration.value = this._postBase.aberration * k;
     this.resize();
   }
 

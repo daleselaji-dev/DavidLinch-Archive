@@ -58,12 +58,14 @@ function createWindow() {
       if (message.includes('[sv] hall-loaded')) {
         const hall = message.split(' ').pop();
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
-        // 输出场景统计并校验性能预算（QUALITY_GATES: meshes ≤ 状态预算 / tris ≤ 预算）
-        const MESH_BUDGET = 260;
-        const TRI_BUDGET = 400000;
+        // 输出场景统计并校验性能预算（QUALITY_GATES 22，v1.3 收紧：
+        // meshes ≤ 220 / tris ≤ 200k / 动态光源 ≤ 40）
+        const MESH_BUDGET = 220;
+        const TRI_BUDGET = 200000;
+        const LIGHT_BUDGET = 40;
         win.webContents.executeJavaScript(
           `(() => {
-            let meshes = 0, tris = 0;
+            let meshes = 0, tris = 0, lights = 0;
             window.__SV__.engine.scene.traverse((o) => {
               if (o.isMesh || o.isPoints) {
                 meshes++;
@@ -71,14 +73,15 @@ function createWindow() {
                 const c = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
                 tris += o.isInstancedMesh ? c * o.count : c;
               }
+              if (o.isLight && !o.isAmbientLight) lights++;
             });
-            return 'meshes=' + meshes + ' tris=' + Math.round(tris);
+            return 'meshes=' + meshes + ' tris=' + Math.round(tris) + ' lights=' + lights;
           })()`, true
         ).then((s) => {
           console.log(`[smoke] 场景统计 ${hall}: ${s}`);
-          const m = /meshes=(\d+) tris=(\d+)/.exec(s);
-          if (m && (Number(m[1]) > MESH_BUDGET || Number(m[2]) > TRI_BUDGET)) {
-            console.error(`[smoke] 性能预算超标 ${hall}: ${s} (预算 meshes≤${MESH_BUDGET} tris≤${TRI_BUDGET})`);
+          const m = /meshes=(\d+) tris=(\d+) lights=(\d+)/.exec(s);
+          if (m && (Number(m[1]) > MESH_BUDGET || Number(m[2]) > TRI_BUDGET || Number(m[3]) > LIGHT_BUDGET)) {
+            console.error(`[smoke] 性能预算超标 ${hall}: ${s} (预算 meshes≤${MESH_BUDGET} tris≤${TRI_BUDGET} lights≤${LIGHT_BUDGET})`);
             app.exit(1);
           }
         }).catch(() => {});
