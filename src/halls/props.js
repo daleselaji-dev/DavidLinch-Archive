@@ -1277,7 +1277,7 @@ export function memorialStele({ mats } = {}) {
     new THREE.PlaneGeometry(0.96, 0.96),
     new THREE.MeshStandardMaterial({
       map: inscTex, roughness: 0.5,
-      emissive: 0xf2e9dc, emissiveMap: inscTex, emissiveIntensity: 0.35
+      emissive: 0xf2e9dc, emissiveMap: inscTex, emissiveIntensity: 0.55
     })
   );
   insc.position.set(0, 1.35, 0.155);

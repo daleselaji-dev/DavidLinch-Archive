@@ -161,10 +161,25 @@ export function build(ctx) {
   group.add(sign);
   updaters.push((dt, t) => sign.userData.flicker(t, 11));
 
-  // 观众席小圆桌 + 桌灯
+  // 观众席小圆桌 + 桌灯（艺术二遍：车削黄铜杆 + 鼓形织物罩，去"圆锥即灯罩"观感）
   const lamps = [];
   const tableMat = new THREE.MeshStandardMaterial({
     map: woodTexture({ base: [24, 12, 15], planks: 1, size: 128 }), roughness: 0.4
+  });
+  const lampStemGeo = new THREE.LatheGeometry([
+    new THREE.Vector2(0.055, 0), new THREE.Vector2(0.05, 0.012), new THREE.Vector2(0.014, 0.03),
+    new THREE.Vector2(0.012, 0.22), new THREE.Vector2(0.028, 0.25), new THREE.Vector2(0.018, 0.275),
+    new THREE.Vector2(0.006, 0.3)
+  ], 12);
+  const lampShadeGeo = new THREE.LatheGeometry([
+    new THREE.Vector2(0.155, 0), new THREE.Vector2(0.162, 0.012), new THREE.Vector2(0.148, 0.026),
+    new THREE.Vector2(0.122, 0.175), new THREE.Vector2(0.128, 0.19), new THREE.Vector2(0.112, 0.2)
+  ], 16);
+  const lampShadeMat = new THREE.MeshPhysicalMaterial({
+    map: weaveTexture('#5c0e18', '#7a1424', 128, 24),
+    color: 0x8f0e1e, roughness: 0.7, side: THREE.DoubleSide,
+    emissive: 0xff5e3c, emissiveIntensity: 0.3,
+    sheen: 0.8, sheenColor: new THREE.Color(0xff9080), sheenRoughness: 0.5
   });
   const tablePos = [[-3.4, 1.2], [3.2, 0.8], [-1.2, 3.4], [2.6, 3.8], [-4.6, 4.4], [0.6, 5.8]];
   for (const [x, z] of tablePos) {
@@ -175,24 +190,18 @@ export function build(ctx) {
       new THREE.MeshStandardMaterial({ color: 0x0c0608, roughness: 0.5 })
     );
     leg.position.set(x, 0.39, z);
-    const shade = new THREE.Mesh(
-      new THREE.ConeGeometry(0.16, 0.18, 14, 1, true),
-      new THREE.MeshPhysicalMaterial({
-        map: weaveTexture('#5c0e18', '#7a1424', 128, 24),
-        color: 0x8f0e1e, roughness: 0.7, side: THREE.DoubleSide,
-        emissive: 0xff5e3c, emissiveIntensity: 0.25,
-        sheen: 0.8, sheenColor: new THREE.Color(0xff9080), sheenRoughness: 0.5
-      })
-    );
-    shade.position.set(x, 1.02, z);
+    const stem = new THREE.Mesh(lampStemGeo, brassMat);
+    stem.position.set(x, 0.805, z);
+    const shade = new THREE.Mesh(lampShadeGeo, lampShadeMat);
+    shade.position.set(x, 0.96, z);
     const glow = new THREE.Mesh(
       new THREE.SphereGeometry(0.045, 8, 8),
       new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc48a, emissiveIntensity: 3.4 })
     );
-    glow.position.set(x, 0.96, z);
+    glow.position.set(x, 1.04, z);
     const light = new THREE.PointLight(0xff9e5e, 2.6, 5, 2);
-    light.position.set(x, 1.1, z);
-    group.add(table, leg, shade, glow, light);
+    light.position.set(x, 1.16, z);
+    group.add(table, leg, stem, shade, glow, light);
     lamps.push({ light, glow });
 
     const wisp = smokeLayer(9, { x: 0.3, z: 0.3 }, { opacity: 0.05, size: 1.6, yBase: 1.0, ySpread: 1.5, color: 0xcdd3e0 });

@@ -174,22 +174,43 @@ export function build(ctx) {
     base: [26, 17, 11], planks: 1, size: 256, seed: 18, gloss: 0.5, env: 0.6
   })));
 
-  // 长凳 ×2（圆角软座）
+  // 长凳 ×2（艺术二遍：车削木腿 + 滚边软座 + 横枨，去"圆角盒子"观感）
+  const benchLegGeo = new THREE.LatheGeometry([
+    new THREE.Vector2(0.05, 0), new THREE.Vector2(0.042, 0.02), new THREE.Vector2(0.024, 0.06),
+    new THREE.Vector2(0.038, 0.18), new THREE.Vector2(0.022, 0.3), new THREE.Vector2(0.04, 0.4),
+    new THREE.Vector2(0.034, 0.44)
+  ], 12);
+  const benchFabric = fabricMat('#1a1216', '#241a20', { seed: 19, repX: 2, repY: 8, sheenColor: 0x907080 });
   for (const z of [-9, 9]) {
     const bench = new THREE.Group();
-    const seat = roundedBoxMesh(0.62, 0.14, 2.4, 0.05,
-      fabricMat('#1a1216', '#241a20', { seed: 19, repX: 2, repY: 8, sheenColor: 0x907080 }));
-    seat.position.y = 0.5;
-    const legGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.44, 10);
+    // 座垫（微鼓）+ 四周滚边（torus 局部近似：两条长边圆管）
+    const seat = roundedBoxMesh(0.6, 0.13, 2.36, 0.055, benchFabric);
+    seat.position.y = 0.51;
+    const pipeGeo = new THREE.CylinderGeometry(0.022, 0.022, 2.34, 8);
+    const piping = mergedMesh([
+      xform(pipeGeo, -0.29, 0.462, 0, Math.PI / 2, 0, 0),
+      xform(pipeGeo, 0.29, 0.462, 0, Math.PI / 2, 0, 0)
+    ], benchFabric);
+    pipeGeo.dispose();
+    // 木框沿 + 车削腿 + 横枨
+    const frame = roundedBoxMesh(0.64, 0.06, 2.4, 0.015,
+      woodMat({ base: [26, 17, 11], planks: 1, size: 256, seed: 33, gloss: 0.5 }));
+    frame.position.y = 0.42;
     const legs = mergedMesh([
-      xform(legGeo, -0.2, 0.22, -1.0), xform(legGeo, 0.2, 0.22, -1.0),
-      xform(legGeo, -0.2, 0.22, 1.0), xform(legGeo, 0.2, 0.22, 1.0)
-    ], new THREE.MeshStandardMaterial({ color: 0x14090c, roughness: 0.5, metalness: 0.6 }));
-    legGeo.dispose();
-    bench.add(seat, legs);
+      xform(benchLegGeo, -0.22, 0, -1.02), xform(benchLegGeo, 0.22, 0, -1.02),
+      xform(benchLegGeo, -0.22, 0, 1.02), xform(benchLegGeo, 0.22, 0, 1.02)
+    ], new THREE.MeshStandardMaterial({ color: 0x1c1008, roughness: 0.5, metalness: 0.15 }));
+    const stretcherGeo = new THREE.CylinderGeometry(0.016, 0.016, 2.0, 8);
+    const stretchers = mergedMesh([
+      xform(stretcherGeo, -0.22, 0.14, 0, Math.PI / 2, 0, 0),
+      xform(stretcherGeo, 0.22, 0.14, 0, Math.PI / 2, 0, 0)
+    ], new THREE.MeshStandardMaterial({ color: 0x1c1008, roughness: 0.5, metalness: 0.15 }));
+    stretcherGeo.dispose();
+    bench.add(seat, piping, frame, legs, stretchers);
     bench.position.set(2.9, 0, z);
     group.add(bench);
   }
+  benchLegGeo.dispose();
 
   // ---------- 西侧壁龛：原话摘录墙（他自己的话，唯一的字） ----------
   const niche = new THREE.Group();

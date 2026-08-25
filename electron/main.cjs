@@ -100,19 +100,19 @@ function createWindow() {
             console.error(`[smoke] 交互密度不足 ${hall}: ${n} < ${min}`);
             app.exit(1);
           }
-          return win.webContents.executeJavaScript('window.__SV__.activateAll()', true);
-        }).then((n) => {
-          console.log(`[smoke] 交互激活 ${hall}: ${n} 个 onActivate 全部无异常`);
         }).catch((err) => {
           console.error(`[smoke] 交互检查失败 ${hall}: ${err && err.message}`);
           app.exit(1);
         });
         const proceed = () => {
-          // 彩蛋触发冒烟：每厅引爆其隐藏彩蛋，校验触发链不抛错（在截屏之后，避免熄灯污染画面存档）
+          // 全量交互激活 → 彩蛋触发（都放在截屏之后，避免反转/熄灯污染画面存档）
           win.webContents.executeJavaScript(
-            'window.__SV__.triggerEggs().join(",") || "none"', true
-          ).then((names) => console.log(`[smoke] 彩蛋触发 ${hall}: ${names}`)).catch((err) => {
-            console.error(`[smoke] 彩蛋触发失败 ${hall}`, err);
+            'window.__SV__.activateAll()', true
+          ).then((n) => {
+            console.log(`[smoke] 交互激活 ${hall}: ${n} 个 onActivate 全部无异常`);
+            return win.webContents.executeJavaScript('window.__SV__.triggerEggs().join(",") || "none"', true);
+          }).then((names) => console.log(`[smoke] 彩蛋触发 ${hall}: ${names}`)).catch((err) => {
+            console.error(`[smoke] 交互激活/彩蛋触发失败 ${hall}`, err && err.message ? err.message : err);
             app.exit(1);
           });
           const next = queue.shift();

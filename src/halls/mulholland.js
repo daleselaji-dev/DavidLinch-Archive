@@ -274,15 +274,48 @@ export function build(ctx) {
     backLampBulb.material.emissiveIntensity = 2.6 * flick * backLampState.on;
   });
 
-  // 大垃圾箱（那个东西住在它后面）
+  // 大垃圾箱（那个东西住在它后面）——艺术二遍：
+  // 斜口箱体 + 竖向压筋 + 双开盖微错位 + 侧袋钩 + 脚轮，惊吓闪光时剪影可信
   const dumpMat = new THREE.MeshStandardMaterial({ color: 0x14231c, roughness: 0.8, metalness: 0.4 });
   const dumpster = new THREE.Group();
-  const dumpBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.35, 1.3), dumpMat);
-  dumpBody.position.y = 0.75;
-  const dumpLid = new THREE.Mesh(new THREE.BoxGeometry(2.66, 0.1, 1.36), dumpMat);
-  dumpLid.position.set(0, 1.47, -0.1);
-  dumpLid.rotation.x = -0.18;
-  dumpster.add(dumpBody, dumpLid);
+  const dumpBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.25, 1.3), dumpMat);
+  dumpBody.position.y = 0.78;
+  // 上沿外翻边
+  const dumpRim = new THREE.Mesh(new THREE.BoxGeometry(2.72, 0.07, 1.42), dumpMat);
+  dumpRim.position.y = 1.42;
+  // 竖向压筋（前后面各 5 道，合并）
+  const ribGeo = new THREE.BoxGeometry(0.07, 1.1, 0.04);
+  const ribGeos = [];
+  for (let i = 0; i < 5; i++) {
+    const x = -1.0 + i * 0.5;
+    ribGeos.push(xform(ribGeo, x, 0.76, 0.66));
+    ribGeos.push(xform(ribGeo, x, 0.76, -0.66));
+  }
+  ribGeo.dispose();
+  // 双开盖（微错位开角）+ 管状把手
+  const lidGeo = new THREE.BoxGeometry(1.3, 0.07, 1.36);
+  const lidL = new THREE.Mesh(lidGeo, dumpMat);
+  lidL.position.set(-0.66, 1.5, -0.08);
+  lidL.rotation.x = -0.14;
+  const lidR = new THREE.Mesh(lidGeo, dumpMat);
+  lidR.position.set(0.66, 1.53, -0.14);
+  lidR.rotation.x = -0.3;
+  const handleGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.5, 8);
+  const handles = mergedMesh([
+    xform(handleGeo, -0.66, 1.56, 0.55, 0, 0, Math.PI / 2),
+    xform(handleGeo, 0.66, 1.63, 0.5, 0, 0, Math.PI / 2)
+  ], dumpMat);
+  handleGeo.dispose();
+  // 脚轮 ×4
+  const wheelGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.06, 10);
+  const wheels = mergedMesh([
+    xform(wheelGeo, -1.1, 0.09, 0.5, Math.PI / 2, 0, 0),
+    xform(wheelGeo, 1.1, 0.09, 0.5, Math.PI / 2, 0, 0),
+    xform(wheelGeo, -1.1, 0.09, -0.5, Math.PI / 2, 0, 0),
+    xform(wheelGeo, 1.1, 0.09, -0.5, Math.PI / 2, 0, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.6, metalness: 0.3 }));
+  wheelGeo.dispose();
+  dumpster.add(dumpBody, dumpRim, mergedMesh(ribGeos, dumpMat), lidL, lidR, handles, wheels);
   dumpster.position.set(4.2, 0, -31.6);
   dumpster.rotation.y = 0.16;
   group.add(dumpster);

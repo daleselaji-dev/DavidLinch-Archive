@@ -144,14 +144,36 @@ export function build(ctx) {
     steam.material.opacity = 0.05 + Math.max(0, Math.min(steamBurst, 1)) * 0.3;
   });
 
-  // 拉杆热点
+  // 拉杆热点（艺术二遍：铸铁台座车削 + 螺栓环 + 扇形限位板，去"方块底座"观感）
   const lever = roundedBoxMesh(0.1, 0.85, 0.1, 0.04,
     new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x555558, roughness: 0.3, metalness: 0.9, emissive: 0x888888, emissiveIntensity: 0.12 }));
   lever.position.set(-2.4, 1.1, -5.2);
   lever.rotation.z = -0.4;
-  const leverBase = roundedBoxMesh(0.5, 0.7, 0.5, 0.06, bodyMat);
-  leverBase.position.set(-2.4, 0.35, -5.2);
-  group.add(lever, leverBase);
+  const leverBase = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.34, 0), new THREE.Vector2(0.32, 0.07), new THREE.Vector2(0.2, 0.13),
+      new THREE.Vector2(0.16, 0.5), new THREE.Vector2(0.22, 0.62), new THREE.Vector2(0.2, 0.7),
+      new THREE.Vector2(0.05, 0.72)
+    ], 14),
+    bodyMat
+  );
+  leverBase.position.set(-2.4, 0, -5.2);
+  // 底座螺栓环
+  const boltGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.03, 6);
+  const boltGeos = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    boltGeos.push(xform(boltGeo, -2.4 + Math.cos(a) * 0.27, 0.045, -5.2 + Math.sin(a) * 0.27));
+  }
+  boltGeo.dispose();
+  // 扇形限位板（拉杆行程的金属弧板）
+  const quad = new THREE.Mesh(
+    new THREE.TorusGeometry(0.42, 0.025, 6, 12, 1.0),
+    pipeMat
+  );
+  quad.position.set(-2.4, 0.72, -5.2);
+  quad.rotation.z = Math.PI / 2 - 0.5;
+  group.add(lever, leverBase, mergedMesh(boltGeos, pipeMat), quad);
   hotspots.add(lever, {
     hint: 'E — 拉动阀门（这栋楼会回应）',
     onActivate: () => {
