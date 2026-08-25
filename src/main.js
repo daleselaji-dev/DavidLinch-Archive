@@ -27,7 +27,18 @@ const setProgress = (p) => { bootBar.style.width = `${Math.round(p * 100)}%`; };
 
 // ---------- 子系统 ----------
 setProgress(0.08);
-const engine = new Engine(canvas);
+let engine;
+try {
+  engine = new Engine(canvas);
+} catch (err) {
+  console.error('[sv] webgl-failed', err);
+  bootBtn.textContent = '无法创建 WebGL 环境';
+  const note = document.createElement('p');
+  note.className = 'boot-hint';
+  note.textContent = '本展馆需要支持 WebGL 的显卡/驱动。请更新显卡驱动或更换设备后再来。';
+  bootBtn.after(note);
+  throw err;
+}
 const audio = new AudioEngine();
 const controls = new FirstPersonControls(engine.camera, canvas);
 engine.scene.add(controls.yawObject);
@@ -103,6 +114,7 @@ async function goTo(id) {
   ui.setHall(mod.meta.name);
   audio.startAmbience(mod.meta.ambience);
   ui.fade(false);
+  console.log(`[sv] hall-loaded ${id}`);
 
   if (!visited.has(id)) {
     visited.add(id);
@@ -166,6 +178,7 @@ engine.onUpdate((dt) => {
     setProgress(1);
     bootBtn.disabled = false;
     bootBtn.textContent = '掀 开 帷 幕 · ENTER';
+    console.log('[sv] boot-ready');
   } catch (err) {
     bootBtn.textContent = '加载失败，请重试';
     console.error(err);

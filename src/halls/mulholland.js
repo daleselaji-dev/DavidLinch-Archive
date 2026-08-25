@@ -13,7 +13,7 @@ export const meta = {
   name: 'MULHOLLAND DR. · 梦境错位 (2001)',
   ambience: 'mulholland',
   narration: 'mulholland',
-  look: { saturation: 0.96, tint: 0xf0ecff, fogColor: 0x040310, fogDensity: 0.042, bg: 0x02020a, exposure: 1.0, bloom: 0.9 }
+  look: { saturation: 0.96, tint: 0xf5eee6, fogColor: 0x0a0705, fogDensity: 0.04, bg: 0x030204, exposure: 1.0, bloom: 0.9 }
 };
 
 // 场地: 夜路区 z∈[-13.5, 19]，剧场内部 z∈[-26, -14]
@@ -76,10 +76,12 @@ export function build(ctx) {
     new THREE.SphereGeometry(120, 32, 14),
     new THREE.MeshBasicMaterial({
       map: canvasTexture(256, (g, s) => {
+        // 洛杉矶式夜空: 地平线是城市光污染的暗橙, 向上沉入蓝黑
         const grad = g.createLinearGradient(0, s, 0, 0);
-        grad.addColorStop(0, '#241537');
-        grad.addColorStop(0.22, '#0b0618');
-        grad.addColorStop(1, '#020208');
+        grad.addColorStop(0, '#38200e');
+        grad.addColorStop(0.16, '#160d0a');
+        grad.addColorStop(0.35, '#070710');
+        grad.addColorStop(1, '#010104');
         g.fillStyle = grad;
         g.fillRect(0, 0, s, s);
       }),

@@ -13,7 +13,7 @@ export const meta = {
   name: 'ERASERHEAD · 工业摇篮曲 (1977)',
   ambience: 'eraserhead',
   narration: 'eraserhead',
-  look: { saturation: 0.09, tint: 0xe9edf2, fogColor: 0x08080a, fogDensity: 0.085, bg: 0x050506, exposure: 0.95, bloom: 0.62 }
+  look: { saturation: 0.09, tint: 0xe9edf2, fogColor: 0x050507, fogDensity: 0.052, bg: 0x030304, exposure: 0.88, bloom: 0.62 }
 };
 
 const S = 17; // 房间边长
@@ -231,7 +231,7 @@ export function build(ctx) {
   const dust = dustField(160, { x: S, y: H, z: S }, { opacity: 0.3, size: 0.045, color: 0xd8dce0 });
   group.add(dust);
   updaters.push(dust.userData.update);
-  group.add(new THREE.AmbientLight(0x202024, 1.0));
+  group.add(new THREE.AmbientLight(0x18181c, 0.55));
 
   return {
     group,

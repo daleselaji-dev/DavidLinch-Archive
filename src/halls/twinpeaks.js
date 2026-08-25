@@ -199,7 +199,7 @@ export function build(ctx) {
   });
 
   // 地表雾 + 萤火
-  const fogLayer = smokeLayer(120, { x: 60, z: 60 }, { opacity: 0.075, size: 13, yBase: 0.2, ySpread: 1.1, color: 0x9fb4bd });
+  const fogLayer = smokeLayer(110, { x: 60, z: 60 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
   const fireflies = dustField(90, { x: 40, y: 3, z: 40 }, { color: 0xbfffa8, size: 0.09, opacity: 0.8 });
