@@ -252,10 +252,11 @@
 **验证方式**：`xvfb-run npx electron . --smoke` 输出逐厅统计且退出码 0。✅ 全绿。
 
 ### 23. 音景 / 配乐抛光（v1.3 新增）
-- [x] 新交互专属合成音 ≥10 种 —— **实际 17 种**：bell 迎宾铃 / ratchet 拨号棘轮 / creak 木革吱呀 /
+- [x] 新交互专属合成音 ≥10 种 —— **实际 18 种**：bell 迎宾铃 / ratchet 拨号棘轮 / creak 木革吱呀 /
       switch 重型拨杆 / crank 留声机发条 / projector 放映机快门 / vinyl 黑胶底噪 / doorfar 远门闷响 /
-      phonering 木盒电话双铃 / gurgle 地漏咕噜 + **脚步 7 种**（wood/concrete/tile/carpet/asphalt/
-      dirt/metal，每步频率抖动，按步幅 0.82m 触发、左右交替声像）
+      phonering 木盒电话双铃 / gurgle 地漏咕噜 / rain 雨声坡（百叶开着时叠续成雨幕）+
+      **脚步 7 种**（wood/concrete/tile/carpet/asphalt/dirt/metal，每步频率抖动，
+      按步幅 0.82m 触发、左右交替声像）
 - [x] 位置化音效通道 `sfxAt(name, x, z)`（StereoPanner + 纯几何 `spatialParams` 声像/距离衰减，
       可单测），听者位姿 `setListener` 每帧取相机；铃/蒸汽/拨号/信号灯等已位置化
 - [x] **空间混响**：ConvolverNode + 程序化立体声 IR（零采样），四预设 SPACES（hall/room/tiled/outdoor），
