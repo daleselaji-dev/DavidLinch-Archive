@@ -87,7 +87,22 @@ const visited = new Set();
 const preloaded = {};
 
 async function loadHallModule(id) {
-  if (!preloaded[id]) preloaded[id] = await HALLS[id]();
+  if (!preloaded[id]) {
+    // 动态分包在内存/IO 压力下偶发取失败（慢盘、杀软扫描、软渲染长跑），
+    // 指数退避重试三次再放弃
+    let lastErr;
+    for (let i = 0; i < 3; i++) {
+      try {
+        preloaded[id] = await HALLS[id]();
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        await sleep(300 * (i + 1) * (i + 1));
+      }
+    }
+    if (lastErr) throw lastErr;
+  }
   return preloaded[id];
 }
 
