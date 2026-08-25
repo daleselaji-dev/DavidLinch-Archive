@@ -606,6 +606,102 @@ export function build(ctx) {
     }
   });
 
+  // 柜台踏脚黄铜横杆（托架 ×3 + 端头圆帽）
+  const railGeos = [
+    xform(new THREE.CylinderGeometry(0.025, 0.025, 5.8, 10), 30.12, 0.28, -7.8, Math.PI / 2, 0, 0),
+    xform(new THREE.SphereGeometry(0.034, 10, 8), 30.12, 0.28, -10.7),
+    xform(new THREE.SphereGeometry(0.034, 10, 8), 30.12, 0.28, -4.9)
+  ];
+  for (const z of [-10.2, -7.8, -5.4]) {
+    railGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.16, 8), 30.2, 0.28, z, 0, 0, Math.PI / 2));
+    railGeos.push(xform(new THREE.CylinderGeometry(0.04, 0.05, 0.02, 10), 30.27, 0.28, z, 0, 0, Math.PI / 2));
+  }
+  dinerInner.add(mergedMesh(railGeos, M.brass));
+
+  // 靠窗卡座（对坐高背红皮长凳 + 铬柱层压桌 + 百叶暗窗 + 咖啡）
+  const boothVinyl = new THREE.MeshPhysicalMaterial({
+    color: 0x7e1220, roughness: 0.48, sheen: 0.6, sheenColor: new THREE.Color(0xff8090),
+    clearcoat: 0.45, clearcoatRoughness: 0.45
+  });
+  const benchGeos = [];
+  const plinthGeos = [];
+  for (const [bx, dir] of [[27.95, 1], [29.15, -1]]) {
+    plinthGeos.push(xform(new THREE.BoxGeometry(0.6, 0.26, 1.0), bx, 0.13, -3.95));
+    benchGeos.push(xform(new THREE.BoxGeometry(0.58, 0.13, 1.0), bx + dir * 0.03, 0.33, -3.95));
+    // 高背板：微后倾 + 三道竖向包槽
+    benchGeos.push(xform(new THREE.BoxGeometry(0.11, 0.92, 1.0), bx - dir * 0.24, 0.86, -3.95, 0, 0, dir * 0.07));
+    for (const bz of [-4.26, -3.95, -3.64]) {
+      benchGeos.push(xform(new THREE.CylinderGeometry(0.145, 0.145, 0.82, 10), bx - dir * 0.17, 0.84, bz, 0, 0, dir * 0.07));
+    }
+  }
+  dinerInner.add(mergedMesh(benchGeos, boothVinyl), mergedMesh(plinthGeos, M.darkWood));
+  // 桌：奶油层压面 + 铬包边 + 铬柱独脚
+  const laminate = new THREE.MeshStandardMaterial({
+    map: canvasTexture(128, (g, s) => {
+      g.fillStyle = '#ded4bd';
+      g.fillRect(0, 0, s, s);
+      g.fillStyle = 'rgba(120,110,90,0.5)';
+      for (let i = 0; i < 260; i++) g.fillRect(Math.random() * s, Math.random() * s, 1.4, 1.4);
+    }),
+    roughness: 0.32, envMapIntensity: 0.9
+  });
+  const boothTable = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.045, 0.92), laminate);
+  boothTable.position.set(28.55, 0.79, -3.98);
+  const tableTrim = roundedBoxMesh(0.6, 0.03, 0.96, 0.012, M.chrome);
+  tableTrim.position.set(28.55, 0.765, -3.98);
+  const tableLegGeos = [
+    xform(new THREE.CylinderGeometry(0.042, 0.042, 0.7, 12), 28.55, 0.4, -3.98),
+    xform(new THREE.CylinderGeometry(0.16, 0.21, 0.035, 14), 28.55, 0.02, -3.98)
+  ];
+  dinerInner.add(boothTable, tableTrim, mergedMesh(tableLegGeos, M.chrome));
+  // 咖啡两杯（瓷杯 + 环耳 + 碟）
+  const chinaGeos = [];
+  for (const [cx, cz] of [[28.46, -4.16], [28.65, -3.8]]) {
+    chinaGeos.push(xform(new THREE.CylinderGeometry(0.075, 0.09, 0.012, 14), cx, 0.82, cz));
+    chinaGeos.push(xform(new THREE.CylinderGeometry(0.046, 0.038, 0.07, 12), cx, 0.855, cz));
+    chinaGeos.push(xform(new THREE.TorusGeometry(0.03, 0.009, 6, 12), cx + 0.055, 0.855, cz));
+  }
+  dinerInner.add(mergedMesh(chinaGeos, new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.28 })));
+  // 暗窗：木框 + 近黑玻璃 + 微光百叶
+  const winFrameGeos = [
+    xform(new THREE.BoxGeometry(1.34, 0.06, 0.05), 28.55, 2.16, -3.43),
+    xform(new THREE.BoxGeometry(1.34, 0.06, 0.05), 28.55, 1.24, -3.43),
+    xform(new THREE.BoxGeometry(0.06, 0.98, 0.05), 27.91, 1.7, -3.43),
+    xform(new THREE.BoxGeometry(0.06, 0.98, 0.05), 29.19, 1.7, -3.43)
+  ];
+  dinerInner.add(mergedMesh(winFrameGeos, M.darkWood));
+  const winGlass = new THREE.Mesh(new THREE.PlaneGeometry(1.24, 0.88),
+    new THREE.MeshPhysicalMaterial({ color: 0x06090e, roughness: 0.08, envMapIntensity: 1.8, metalness: 0.1 }));
+  winGlass.position.set(28.55, 1.7, -3.435);
+  winGlass.rotation.y = Math.PI;
+  dinerInner.add(winGlass);
+  const slatGeos = [];
+  for (let i = 0; i < 7; i++) {
+    slatGeos.push(xform(new THREE.BoxGeometry(1.22, 0.018, 0.05), 28.55, 1.32 + i * 0.126, -3.45, -0.5, 0, 0));
+  }
+  dinerInner.add(mergedMesh(slatGeos, new THREE.MeshStandardMaterial({
+    color: 0xb9b2a2, roughness: 0.7, emissive: 0x2a3038, emissiveIntensity: 0.5
+  })));
+  // 坐进卡座 → 皮面吱呀 + 咖啡蒸汽升腾
+  const boothSteam = smokeLayer(6, { x: 0.16, z: 0.3 }, { opacity: 0.05, size: 0.32, yBase: 0, ySpread: 0.4, color: 0xd8dee4 });
+  boothSteam.position.set(28.55, 0.9, -3.98);
+  dinerInner.add(boothSteam);
+  updaters.push(boothSteam.userData.update);
+  const boothState = { warm: 0 };
+  updaters.push((dt) => {
+    if (boothState.warm > 0) boothState.warm -= dt * 0.25;
+    boothSteam.material.opacity = 0.05 + Math.max(0, Math.min(boothState.warm, 1)) * 0.3;
+  });
+  hotspots.add(boothTable, {
+    hint: 'E — 坐进卡座',
+    onActivate: () => {
+      boothState.warm = 1.6;
+      audio.sfx('creak', 0.5);
+      setTimeout(() => audio.sfx('sip', 0.7), 700);
+      ui.caption('靠窗的位置一直空着。', 3200);
+    }
+  });
+
   // 吊灯 ×2
   for (const z of [-9.5, -6.1]) {
     const dl = new THREE.PointLight(0xffca7a, 4.5, 6, 1.8);

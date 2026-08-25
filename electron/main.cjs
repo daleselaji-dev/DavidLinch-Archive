@@ -178,6 +178,7 @@ function createWindow() {
             setTimeout(async () => {
               try {
                 const img = await win.webContents.capturePage();
+                require('fs').mkdirSync(shotDir, { recursive: true });
                 require('fs').writeFileSync(require('path').join(shotDir, `${hall}.png`), img.toPNG());
                 console.log(`[smoke] 截屏: ${hall}.png`);
               } catch (err) {

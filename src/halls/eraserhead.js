@@ -345,14 +345,49 @@ export function build(ctx) {
   aCeil.position.set(-S / 2 - 2.6, H, 0);
   boilerRoom.add(aw1, aw2, aw3, aCeil);
   // 大锅炉：卧式圆筒 + 铆钉环带 + 端盖
-  const boiler = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 4.4, 22), bodyMat);
+  // 独有蒙皮：铆接钢板（纵向板缝 + 双排铆钉 + 油污流挂）—— 暗部也读得出体量
+  const boilerMat = new THREE.MeshStandardMaterial({
+    map: canvasTexture(256, (g, s) => {
+      g.fillStyle = '#454550';
+      g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 900; i++) {
+        g.fillStyle = `rgba(${20 + Math.random() * 40 | 0},${20 + Math.random() * 40 | 0},${26 + Math.random() * 40 | 0},0.18)`;
+        g.fillRect(Math.random() * s, Math.random() * s, 2 + Math.random() * 5, 1 + Math.random() * 3);
+      }
+      // 油污竖向流挂（沿 v 即罐长方向）
+      for (let i = 0; i < 12; i++) {
+        const x = Math.random() * s;
+        g.fillStyle = 'rgba(10,10,12,0.22)';
+        g.fillRect(x, Math.random() * s * 0.4, 2 + Math.random() * 4, s * (0.3 + Math.random() * 0.5));
+      }
+      // 纵向板缝 ×3 + 双排铆钉
+      for (const u of [0.17, 0.5, 0.83]) {
+        const x = u * s;
+        g.strokeStyle = 'rgba(12,12,14,0.9)';
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(x, 0); g.lineTo(x, s); g.stroke();
+        g.fillStyle = '#5a5a64';
+        for (let y = 8; y < s; y += 18) {
+          g.beginPath(); g.arc(x - 7, y, 2.6, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.arc(x + 7, y + 9, 2.6, 0, Math.PI * 2); g.fill();
+        }
+      }
+    }, 2, 1),
+    color: 0x8a8a92, roughness: 0.52, metalness: 0.5,
+    bumpMap: noiseCanvasTexture(64, 128, 50, 6), bumpScale: 0.25, envMapIntensity: 1.3
+  });
+  const boiler = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 4.4, 22), boilerMat);
   boiler.rotation.x = Math.PI / 2;
   boiler.position.set(-S / 2 - 4.6, 1.5, 0);
   const capGeos = [
     xform(new THREE.SphereGeometry(1.15, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), -S / 2 - 4.6, 1.5, 2.2, Math.PI / 2, 0, 0),
     xform(new THREE.SphereGeometry(1.15, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), -S / 2 - 4.6, 1.5, -2.2, -Math.PI / 2, 0, 0)
   ];
-  boilerRoom.add(boiler, mergedMesh(capGeos, bodyMat));
+  boilerRoom.add(boiler, mergedMesh(capGeos, boilerMat));
+  // 低位补光（入口侧洗亮罐腹与步道；冷白弱光不与余烬争色）
+  const bellyFill = new THREE.PointLight(0xbfc8d4, 2.4, 6.5, 1.7);
+  bellyFill.position.set(-S / 2 - 2.1, 1.15, 0);
+  boilerRoom.add(bellyFill);
   const bandGeo = new THREE.TorusGeometry(1.17, 0.045, 8, 30);
   const bandGeos = [];
   for (const z of [-1.5, -0.5, 0.5, 1.5]) {
@@ -360,6 +395,36 @@ export function build(ctx) {
   }
   bandGeo.dispose();
   boilerRoom.add(mergedMesh(bandGeos, pipeMat));
+  // 承托鞍座 ×2（浇筑墩 + 过顶钢箍）—— 罐体不再悬空
+  const pierGeos = [];
+  const strapGeos = [];
+  for (const z of [-1.5, 1.5]) {
+    pierGeos.push(xform(new THREE.BoxGeometry(1.9, 0.5, 0.55), -S / 2 - 4.6, 0.25, z));
+    pierGeos.push(xform(new THREE.BoxGeometry(2.2, 0.12, 0.7), -S / 2 - 4.6, 0.06, z));
+    strapGeos.push(xform(new THREE.TorusGeometry(1.19, 0.035, 6, 26, Math.PI), -S / 2 - 4.6, 1.5, z));
+  }
+  boilerRoom.add(mergedMesh(pierGeos, floorConcrete), mergedMesh(strapGeos, pipeMat));
+  // 罐底余烬光带（炉膛漏光；随火光脉动）
+  const emberMat = new THREE.MeshStandardMaterial({
+    color: 0x140a06, emissive: 0xff6a24, emissiveIntensity: 1.2, roughness: 1
+  });
+  const ember = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 4.2), emberMat);
+  ember.rotation.x = -Math.PI / 2;
+  ember.position.set(-S / 2 - 4.6, 0.015, 0);
+  boilerRoom.add(ember);
+  // 灰坑箱（罐腹下取灰口；正面三道通风缝漏火光 —— 面向入口的暗部锚点）
+  const ashBox = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.72, 1.9), pipeMat);
+  ashBox.position.set(-S / 2 - 4.25, 0.36, 0);
+  boilerRoom.add(ashBox);
+  const ventGeos = [];
+  for (const y of [0.2, 0.38, 0.56]) {
+    ventGeos.push(xform(new THREE.PlaneGeometry(0.06, 1.5), -S / 2 - 3.815, y, 0, 0, Math.PI / 2, Math.PI / 2));
+  }
+  const ventMesh = mergedMesh(ventGeos, emberMat);
+  boilerRoom.add(ventMesh);
+  const emberLight = new THREE.PointLight(0xff5a1c, 2.5, 6, 1.6);
+  emberLight.position.set(-S / 2 - 3.3, 0.4, 0);
+  boilerRoom.add(emberLight);
   // 铰链炉门 v2（铆钉圈 + 观火窗 + 手轮锁；可开启）
   const firebox = fireboxDoor({ mats: M });
   firebox.position.set(-S / 2 - 4.96, 0.95, 2.28);
@@ -374,6 +439,8 @@ export function build(ctx) {
     const f = 1.6 + Math.sin(t * 3.7) * 0.5 + Math.random() * 0.3;
     firebox.userData.portMat.emissiveIntensity = f * (1 + fireboxState.open * 1.2);
     furnaceLight.intensity = (3 + f * 1.6) * (1 + fireboxState.open * 2.2);
+    emberMat.emissiveIntensity = 0.7 + f * 0.45;
+    emberLight.intensity = 2.0 + f * 1.1 + fireboxState.open * 1.5;
   });
   hotspots.add(firebox.userData.wheel, {
     hint: 'E — 转动炉门手轮',
@@ -486,8 +553,8 @@ export function build(ctx) {
       if (cutting) ui.caption('整层楼安静了一档。', 3600);
     }
   });
-  const annexLamp = new THREE.PointLight(0xf5f0e6, 5, 10, 1.9);
-  annexLamp.position.set(-S / 2 - 3, H - 1.4, 0);
+  const annexLamp = new THREE.PointLight(0xf5f0e6, 6.5, 10, 1.9);
+  annexLamp.position.set(-S / 2 - 2.2, H - 1.4, 0);
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
   group.add(boilerRoom);
