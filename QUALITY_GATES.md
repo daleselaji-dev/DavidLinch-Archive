@@ -273,9 +273,12 @@
 冒烟 `activateAll()` 90 交互不抛错 + 人工耳机巡检。✅ 全绿。
 
 ### 24. Release 1.3.0（v1.3 新增）
-- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.3.0.exe` + `Setup-1.3.0.exe`
-- [ ] `SHA256SUMS.txt` 更新；PE 结构校验；文档（README/BUILD/TESTING/本文件）同步 1.3.0
+- [x] `npm test`（139 用例）/ `npm run smoke` / `xvfb-run npx electron . --smoke`（全厅巡检：
+      预算/交互阈值/激活/彩蛋/UI 全绿）三连全绿（2026-08-25 23:15 UTC，版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.3.0.exe`（100.0MB，便携版双击即运行）
+- [x] `release/SmokeVelvet-LynchArchive-Setup-1.3.0.exe`（100.2MB，NSIS 一键安装包）
+- [x] `SHA256SUMS.txt` 更新（portable `d4c744f6…` / setup `e9f00f8c…`）；`file` PE32 结构校验
+      两 exe 均通过；文档（README/BUILD/TESTING/本文件）同步 1.3.0
 
 ---
 
@@ -284,7 +287,18 @@
 
 ---
 
-## 最终自检结果（v1.2.0）
+## 最终自检结果（v1.3.0）
+
+| # | 门禁 | 状态 | 备注 |
+|---|------|------|------|
+| 19 | 讲解克制 | ✅ | 8×≤16 字风格化旁白（84 字）/ 展签每厅 ≤1 / 字幕 ≤22 字 / 叙事禁词扫描 |
+| 20 | 交互密度 | ✅ | 90 件非导航交互（10/19/12/11/14/13/11），阈值锁普查 -1 入冒烟 |
+| 21 | PS4-tier 清单 | ✅ | Sobel 法线三通道纹理组 ×8 + 35 预制体 + 三遍艺术重做 + 20+ 机位截屏复核 |
+| 22 | 性能预算 | ✅ | 220/200k/40 硬断言；实测峰值 203 mesh / 12.4 万 tris / 26 灯；自动降档实证 |
+| 23 | 音景抛光 | ✅ | 18 种交互音（含 7 脚步 + rain）/ sfxAt 位置化 / 程序化混响四预设 / 爵士填充+LFO |
+| 24 | Release 1.3.0 | ✅ | 双 exe（各约 100MB）+ SHA256SUMS + PE 校验 + 文档同步 |
+
+以下为 v1.2.0 存档：
 
 | # | 门禁 | 状态 | 备注 |
 |---|------|------|------|
