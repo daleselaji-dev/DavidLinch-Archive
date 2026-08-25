@@ -12,7 +12,7 @@ import {
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
   asphaltMat, woodMat
 } from './kit.js';
-import { propMats, theaterSeats, phoneBooth, streetLampV2 } from './props.js';
+import { propMats, theaterSeats, phoneBooth, streetLampV2, dressingMirror } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -632,6 +632,33 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('swell');
       ui.caption('台上空无一人，音乐还在继续。', 4200);
+    }
+  });
+
+  // 后台衣镜（推到台侧的化妆间道具）：E → 框边灯泡 A/B 追逐几秒再暗下
+  const mirror = dressingMirror({ mats: M });
+  mirror.position.set(6.6, 0, -3.2);
+  mirror.rotation.y = -1.87;
+  inner.add(mirror);
+  const mirState = { t: -1 };
+  updaters.push((dt) => {
+    if (mirState.t < 0) return;
+    mirState.t += dt;
+    const on = mirState.t % 0.56 < 0.28;
+    mirror.userData.bulbA.emissiveIntensity = on ? 2.6 : 0.3;
+    mirror.userData.bulbB.emissiveIntensity = on ? 0.3 : 2.6;
+    if (mirState.t > 6.2) {
+      mirState.t = -1;
+      mirror.userData.bulbA.emissiveIntensity = 0.12;
+      mirror.userData.bulbB.emissiveIntensity = 0.12;
+    }
+  });
+  hotspots.add(mirror.userData.hitbox, {
+    hint: 'E — 后台衣镜',
+    onActivate: () => {
+      mirState.t = 0;
+      audio.sfxAt('switch', 6.6, -23.2, 0.7, 4);
+      ui.caption('镜子先记住你，再放你走。', 4200);
     }
   });
 

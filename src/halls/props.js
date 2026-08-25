@@ -1754,3 +1754,76 @@ export function filmProjector({ mats } = {}) {
   g.userData.hitbox = hitbox;
   return g;
 }
+
+/**
+ * 后台衣镜：立式全身镜 + 框边追逐灯泡（老剧场后台/化妆间道具）。
+ * 深框 + 背板 + 高反射镜面；灯泡分 A/B 两组材质（交替追逐用，零新增光源）；
+ * 八字后撑腿 + 脚轮。userData: { bulbA, bulbB, hitbox }
+ */
+export function dressingMirror({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const W = 0.86, MH = 1.66, T = 0.075, BOT = 0.34; // 镜幅/框厚/离地
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x22131a, roughness: 0.5, metalness: 0.1 });
+  const frameGeos = [
+    xform(new THREE.BoxGeometry(W + T * 2, T, 0.07), 0, BOT + MH + T / 2, 0),
+    xform(new THREE.BoxGeometry(W + T * 2, T, 0.07), 0, BOT - T / 2, 0),
+    xform(new THREE.BoxGeometry(T, MH, 0.07), -(W + T) / 2, BOT + MH / 2, 0),
+    xform(new THREE.BoxGeometry(T, MH, 0.07), (W + T) / 2, BOT + MH / 2, 0),
+    // 背板
+    xform(new THREE.BoxGeometry(W + T * 2, MH + T * 2, 0.03), 0, BOT + MH / 2, -0.035),
+    // 八字后撑（斜向后的两根方腿）+ 底横枨
+    xform(new THREE.BoxGeometry(0.06, 1.5, 0.05), -(W + T) / 2 + 0.02, 0.72, -0.3, -0.36, 0, 0),
+    xform(new THREE.BoxGeometry(0.06, 1.5, 0.05), (W + T) / 2 - 0.02, 0.72, -0.3, -0.36, 0, 0),
+    xform(new THREE.BoxGeometry(W + T * 2 - 0.04, 0.05, 0.06), 0, 0.06, -0.56)
+  ];
+  g.add(mergedMesh(frameGeos, frameMat));
+  // 脚轮 ×4（框脚两只 + 撑腿两只）
+  const castorGeo = new THREE.SphereGeometry(0.035, 10, 8);
+  g.add(mergedMesh([
+    xform(castorGeo, -(W + T) / 2, 0.035, 0),
+    xform(castorGeo, (W + T) / 2, 0.035, 0),
+    xform(castorGeo, -(W + T) / 2 + 0.02, 0.035, -0.56),
+    xform(castorGeo, (W + T) / 2 - 0.02, 0.035, -0.56)
+  ], M.iron));
+  castorGeo.dispose();
+  // 镜面：近零粗糙金属面 + 冷灰蓝，靠环境贴图读作镜子
+  const glass = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, MH),
+    new THREE.MeshStandardMaterial({
+      color: 0x9fb4c8, roughness: 0.04, metalness: 1.0, envMapIntensity: 2.2
+    })
+  );
+  glass.position.set(0, BOT + MH / 2, 0.012);
+  g.add(glass);
+  // 追逐灯泡：左右各 4 + 顶 3，奇偶分 A/B 两组材质
+  const bulbA = new THREE.MeshStandardMaterial({
+    color: 0x2a2118, emissive: 0xffd9a0, emissiveIntensity: 0.12, roughness: 0.4
+  });
+  const bulbB = bulbA.clone();
+  const bulbGeo = new THREE.SphereGeometry(0.028, 10, 8);
+  const posl = [];
+  for (let i = 0; i < 4; i++) {
+    posl.push([-(W / 2 + T / 2), BOT + 0.24 + i * 0.42]);
+    posl.push([W / 2 + T / 2, BOT + 0.24 + i * 0.42]);
+  }
+  for (let i = -1; i <= 1; i++) posl.push([i * 0.3, BOT + MH + T / 2]);
+  const aGeos = [], bGeos = [];
+  posl.forEach(([x, y], i) => {
+    (i % 2 ? bGeos : aGeos).push(xform(bulbGeo, x, y, 0.05));
+  });
+  g.add(mergedMesh(aGeos, bulbA), mergedMesh(bGeos, bulbB));
+  bulbGeo.dispose();
+  // 射线靶
+  const hitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(W + 0.3, MH + 0.6, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x000000 })
+  );
+  hitbox.visible = false;
+  hitbox.position.set(0, BOT + MH / 2, -0.1);
+  g.add(hitbox);
+  g.userData.bulbA = bulbA;
+  g.userData.bulbB = bulbB;
+  g.userData.hitbox = hitbox;
+  return g;
+}
