@@ -1,7 +1,8 @@
 // ============================================================
 // 《穆赫兰道》展厅 —— NIGHT ROAD & THE ILLUSION THEATER
 // 夜路 + 路灯 + 剧场 + 蓝色立方体 (梦境反转交互)
-// 彩蛋：绕到剧场后面的人，会遇到那个东西。（WINKIES 致敬，原创程序化惊吓）
+// 彩蛋：绕到剧场后面的人，会遇到那个东西。（原创程序化惊吓，
+// 无镜头复刻、无对白引用）
 // ============================================================
 import * as THREE from 'three';
 import {
@@ -392,16 +393,28 @@ export function build(ctx) {
   const scareTrig = zoneTrigger({ x: 2.0, z: -30.3, r: 3.4 }, doScare, { cooldown: 45 });
   updaters.push((dt) => scareTrig.update(player, dt));
 
-  // 空地上唯一的提示——半掩的粉笔字
+  // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
   const chalkTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = 'rgba(0,0,0,0)';
     g.clearRect(0, 0, s, s);
-    g.fillStyle = 'rgba(220,220,230,0.5)';
-    g.font = 'italic 44px Georgia, serif';
-    g.textAlign = 'center';
-    g.fillText('he\u2019s the one', s / 2, s / 2 - 12);
-    g.font = 'italic 30px "Songti SC","SimSun",serif';
-    g.fillText('就 是 他', s / 2, s / 2 + 40);
+    g.strokeStyle = 'rgba(220,220,230,0.5)';
+    g.lineWidth = 5;
+    g.lineCap = 'round';
+    // 向内收紧的粉笔螺旋，末端一个被划掉的小圆
+    g.beginPath();
+    for (let a = 0; a < Math.PI * 7; a += 0.08) {
+      const r = 100 - a * 4.2;
+      const x = s / 2 + Math.cos(a) * r;
+      const y = s / 2 + Math.sin(a) * r * 0.92;
+      if (a === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+    g.beginPath();
+    g.arc(s / 2, s / 2, 9, 0, 7);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(s / 2 - 15, s / 2 - 13);
+    g.lineTo(s / 2 + 15, s / 2 + 13);
+    g.stroke();
   });
   const chalk = new THREE.Mesh(
     new THREE.PlaneGeometry(1.8, 1.8),
@@ -603,7 +616,7 @@ export function build(ctx) {
     spawn: { x: 0, z: 15.5, yaw: 0 },
     bounds: multiRectBounds([ROAD, ROOM, DOOR, SHOULDER, ALLEY, BACKLOT]),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'winkies-scare': scareTrig },
+    eggs: { 'backlot-scare': scareTrig },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);

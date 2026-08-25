@@ -465,7 +465,7 @@ export function build(ctx) {
       if (special) chain.step = 3;
       later(() => {
         const text = special
-          ? '……插播：一条非常大的鱼正经过本市上空。请闭上眼睛。'
+          ? '插播：一条大鱼正经过本市上空。'
           : WEATHER[radioState.idx % WEATHER.length];
         radioState.idx++;
         ui.caption('📻 ' + text, 5200);

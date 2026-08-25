@@ -19,12 +19,16 @@ describe('旁白模式体系', () => {
   });
 });
 
-describe('留白预算：旁白宁少勿滥（v1.2 门禁）', () => {
-  it('每个展厅仅一句旁白稿，且不超过 24 个字符', () => {
+describe('留白预算：旁白宁少勿滥（v1.3 收紧至 v1.0 克制量级）', () => {
+  it('旁白全馆 ≤8 条（welcome + 7 厅），无多余条目', () => {
+    expect(Object.keys(NARRATIONS).length).toBeLessThanOrEqual(8);
+  });
+
+  it('每个展厅仅一句旁白稿，且不超过 16 个字符', () => {
     for (const key of ['welcome', ...HALL_KEYS]) {
       expect(NARRATIONS[key], `缺少旁白: ${key}`).toBeTruthy();
       const text = NARRATIONS[key].text;
-      expect(text.length, `旁白过长: ${key} → ${text}`).toBeLessThanOrEqual(24);
+      expect(text.length, `旁白过长: ${key} → ${text}`).toBeLessThanOrEqual(16);
       expect(text.length).toBeGreaterThanOrEqual(4);
       // 单句：至多一个句号，禁止长篇多句说教
       const sentences = text.split(/[。！？]/).filter((s) => s.trim().length > 0);
@@ -32,9 +36,9 @@ describe('留白预算：旁白宁少勿滥（v1.2 门禁）', () => {
     }
   });
 
-  it('全馆旁白总字数 ≤ 160（v1.1 曾数倍于此）', () => {
+  it('全馆旁白总字数 ≤ 110（v1.0 克制量级）', () => {
     const total = Object.values(NARRATIONS).reduce((n, v) => n + v.text.length, 0);
-    expect(total).toBeLessThanOrEqual(160);
+    expect(total).toBeLessThanOrEqual(110);
   });
 
   it('旁白不含说教/总结腔词汇', () => {
@@ -87,15 +91,15 @@ describe('文案哲学：只用林奇自己的话，二手解读退场', () => {
   });
 });
 
-describe('展签预算：源码级审计（v1.2 门禁）', () => {
+describe('展签预算：源码级审计（v1.3 收紧）', () => {
   const hallsDir = join(process.cwd(), 'src', 'halls');
   const hallFiles = readdirSync(hallsDir).filter((f) => f.endsWith('.js') && f !== 'kit.js');
 
-  it('每厅可见文字展签（quotePlaque）≤ 2', () => {
+  it('每厅林奇原话展签（quotePlaque）≤ 1', () => {
     for (const f of hallFiles) {
       const src = readFileSync(join(hallsDir, f), 'utf-8');
       const count = (src.match(/quotePlaque\(/g) || []).length;
-      expect(count, `${f} 展签过多: ${count}`).toBeLessThanOrEqual(2);
+      expect(count, `${f} 展签过多: ${count}`).toBeLessThanOrEqual(1);
     }
   });
 
@@ -106,7 +110,7 @@ describe('展签预算：源码级审计（v1.2 门禁）', () => {
     }
   });
 
-  it('厅内字幕（ui.caption 字面量）均为短句（≤ 26 字符）', () => {
+  it('厅内字幕（ui.caption 字面量）均为短句（≤ 22 字符）', () => {
     for (const f of hallFiles) {
       const src = readFileSync(join(hallsDir, f), 'utf-8');
       for (const line of src.split('\n')) {
@@ -114,8 +118,42 @@ describe('展签预算：源码级审计（v1.2 门禁）', () => {
         const literals = line.match(/'([^']*)'/g) || [];
         for (const lit of literals) {
           const text = lit.slice(1, -1);
-          expect(text.length, `${f} 字幕过长: ${text}`).toBeLessThanOrEqual(26);
+          expect(text.length, `${f} 字幕过长: ${text}`).toBeLessThanOrEqual(22);
         }
+      }
+    }
+  });
+});
+
+describe('零原作叙事剧透（v1.3 门禁 19）', () => {
+  const srcDirs = ['halls', 'data', 'ui'].map((d) => join(process.cwd(), 'src', d));
+  const allSources = srcDirs.flatMap((dir) =>
+    readdirSync(dir)
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => ({ file: f, text: readFileSync(join(dir, f), 'utf-8') }))
+  );
+
+  it('源码不含原作对白引用与角色名（叙事禁词扫描）', () => {
+    const banned = [
+      // 原作对白（直译/原文）
+      'he\u2019s the one', "he's the one", '就是他', '就 是 他',
+      // 场景/角色专名（避免剧情还原式指涉）
+      'winkies', 'WINKIES', 'Winkies',
+      'Laura Palmer', '劳拉·帕尔默', 'Dale Cooper', '库珀探员',
+      'Dorothy Vallens', '多萝西·瓦伦斯', 'Frank Booth', '弗兰克·布斯',
+      'Diane Selwyn', '戴安·塞尔温', 'Betty Elms', 'Rita'
+    ];
+    for (const { file, text } of allSources) {
+      for (const w of banned) {
+        expect(text, `${file} 含叙事禁词: ${w}`).not.toContain(w);
+      }
+    }
+  });
+
+  it('文案不用叙事还原连接词（后来他/然后他/接着他）', () => {
+    for (const { file, text } of allSources) {
+      for (const w of ['后来他', '然后他', '接着他', '故事讲到']) {
+        expect(text, `${file} 含叙事连接词: ${w}`).not.toContain(w);
       }
     }
   });
