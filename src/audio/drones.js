@@ -13,7 +13,8 @@ export const DRONES = {
     ],
     noises: [{ type: 'brown', gain: 0.05, filter: { type: 'lowpass', freq: 300, q: 0.7 } }],
     lfo: { freq: 0.07, depth: 0.4 },
-    events: []
+    // 极稀疏：墙外某扇远门闷闷合上——这栋楼比你以为的大
+    events: [{ sfx: 'doorfar', minGap: 26, maxGap: 58 }]
   },
   archive: {
     // 档案室: 更亮的电流声 + 磁带气息

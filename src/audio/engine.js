@@ -440,6 +440,12 @@ export class AudioEngine {
         noise('crackle', 1.2, 'highpass', 3400, 1, 0.03, 0.5);
         break;
       }
+      case 'doorfar': { // 墙外某扇远门：闷厚一声 + 迟来的锁舌
+        noise('brown', 0.5, 'lowpass', 140, 0.8, 0.12, 0, 0.05);
+        tone('sine', 46, 30, 0.5, 0.07);
+        noise('white', 0.03, 'bandpass', 900, 4, 0.02, 0.42);
+        break;
+      }
       case 'vinyl': { // 黑胶底噪一小段：尘埃嘶声 + 两三粒离散爆点
         noise('crackle', 1.5, 'highpass', 2800, 0.8, 0.028, 0, 0.3);
         const pops = 2 + Math.floor(Math.random() * 2);
