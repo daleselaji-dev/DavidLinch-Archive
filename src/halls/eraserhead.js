@@ -19,6 +19,7 @@ export const meta = {
   name: 'ERASERHEAD · 工业摇篮曲 (1977)',
   ambience: 'eraserhead',
   narration: 'eraserhead',
+  floorSfx: 'concrete',
   look: { saturation: 0.09, tint: 0xe9edf2, fogColor: 0x050507, fogDensity: 0.052, bg: 0x030304, exposure: 0.88, bloom: 0.62 }
 };
 
@@ -693,6 +694,8 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 6.4, yaw: 0 },
     bounds: multiRectBounds([MAIN, ANNEX]),
+    // 脚步材质分区：锅炉房检修步道=钢格栅；其余=水泥
+    surfaceAt: (x, z) => (x >= -S / 2 - 2.4 && x <= -S / 2 - 0.8 && z >= -2.5 && z <= 2.5 ? 'metal' : 'concrete'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'radiator-stage': radiatorTrig }
   };

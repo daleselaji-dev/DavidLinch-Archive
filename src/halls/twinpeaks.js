@@ -26,6 +26,7 @@ export const meta = {
   name: 'TWIN PEAKS · 黑松林 (1990)',
   ambience: 'twinpeaks',
   narration: 'twinpeaks',
+  floorSfx: 'dirt',
   look: { saturation: 0.82, tint: 0xdcecdf, fogColor: 0x030805, fogDensity: 0.028, bg: 0x02040a, exposure: 0.95, bloom: 0.8 }
 };
 
@@ -878,6 +879,14 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 7.5, yaw: 0 },
     bounds: zonesBounds(ZONES),
+    // 脚步材质分区：夜街=沥青 / diner=瓷砖 / 红房间=硬面 / 瀑布眺望台=木栈道 / 其余林地=泥土
+    surfaceAt: (x, z) => {
+      if (x >= 27.6 && x <= 31.6 && z >= -12 && z <= -3.6) return 'tile';        // diner
+      if (x >= 16.5 && x <= 28.0 && z >= -17 && z <= 3) return 'asphalt';        // 夜街 + 门洞
+      if (Math.hypot(x + 20, z + 16) <= 6.0) return 'tile';                       // 红房间折线地板
+      if (x >= 5 && x <= 17 && z >= -29 && z <= -22.5) return 'wood';             // 瀑布眺望台
+      return 'dirt';
+    },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'stone-circle': groveTrig },
     onLeave: () => { for (const id of timers) clearTimeout(id); }

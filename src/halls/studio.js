@@ -21,6 +21,7 @@ export const meta = {
   name: 'HIS ROOM · 林奇的房间',
   ambience: 'studio',
   narration: 'studio',
+  floorSfx: 'wood',
   look: { saturation: 1.02, tint: 0xffeeda, fogColor: 0x0d0806, fogDensity: 0.042, bg: 0x070403, exposure: 1.05, bloom: 0.75 }
 };
 
@@ -802,6 +803,8 @@ export function build(ctx) {
     group,
     spawn: { x: 0, z: 4.4, yaw: 0 },
     bounds: clamp,
+    // 脚步材质分区：圆毯上=绒面；其余=木地板
+    surfaceAt: (x, z) => (Math.hypot(x + 1.5, z + 0.5) <= 2.6 ? 'carpet' : 'wood'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'radio-wakes': radioTrig },
     onLeave: () => {

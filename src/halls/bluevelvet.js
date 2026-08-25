@@ -19,6 +19,7 @@ export const meta = {
   name: 'BLUE VELVET · 蓝色房间 (1986)',
   ambience: 'bluevelvet',
   narration: 'bluevelvet',
+  floorSfx: 'wood',
   look: { saturation: 0.92, tint: 0xdfe6ff, fogColor: 0x030409, fogDensity: 0.05, bg: 0x02030a, exposure: 1.0, bloom: 0.95 }
 };
 

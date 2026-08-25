@@ -119,7 +119,7 @@ async function goTo(id) {
   controls.setBounds(built.bounds);
   controls.teleport(built.spawn.x, built.spawn.z, built.spawn.yaw);
   const unsubUpdate = engine.onUpdate(built.update);
-  current = { id, built, unsubUpdate };
+  current = { id, built, unsubUpdate, floorSfx: mod.meta.floorSfx || 'wood' };
 
   ui.setHall(mod.meta.name);
   audio.startAmbience(mod.meta.ambience);
@@ -172,6 +172,29 @@ document.addEventListener('keydown', (e) => {
 engine.onUpdate((dt) => {
   controls.update(dt);
   if (!ui.anyOpen) hotspots.update(dt);
+});
+
+// 脚步声：按步幅距离触发，左右交替微声像；
+// 地面材质 = 厅内分区函数 built.surfaceAt(x,z)（若有）→ meta.floorSfx → wood
+const stepState = { prev: null, acc: 0, side: 1 };
+engine.onUpdate(() => {
+  if (!entered || !current || ui.anyOpen) { stepState.prev = null; return; }
+  const p = controls.yawObject.position;
+  if (stepState.prev) {
+    const d = Math.hypot(p.x - stepState.prev.x, p.z - stepState.prev.z);
+    if (d > 1.5) {
+      stepState.acc = 0; // 传送不是走路
+    } else {
+      stepState.acc += d;
+      if (stepState.acc >= 0.82) {
+        stepState.acc -= 0.82;
+        stepState.side = -stepState.side;
+        const surf = (current.built.surfaceAt && current.built.surfaceAt(p.x, p.z)) || current.floorSfx;
+        audio.sfx(`step-${surf}`, 0.6 + Math.random() * 0.2, stepState.side * 0.12);
+      }
+    }
+  }
+  stepState.prev = { x: p.x, z: p.z };
 });
 
 // 自动降档保帧（G9）：高档下持续 5s 低于 32fps → 自动切低画质；

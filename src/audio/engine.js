@@ -383,6 +383,54 @@ export class AudioEngine {
         noise('crackle', 1.4, 'highpass', 1600, 1, 0.08, 0.9);
         break;
       }
+      // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
+      case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
+        const j = 0.92 + Math.random() * 0.16;
+        tone('sine', 96 * j, 58, 0.09, 0.1);
+        noise('brown', 0.07, 'lowpass', 320, 1, 0.07);
+        noise('pink', 0.04, 'bandpass', 680 * j, 3, 0.028);
+        break;
+      }
+      case 'step-concrete': { // 水泥：干硬短击
+        const j = 0.9 + Math.random() * 0.2;
+        noise('white', 0.045, 'bandpass', 1250 * j, 1.4, 0.055);
+        tone('sine', 170 * j, 110, 0.05, 0.04);
+        break;
+      }
+      case 'step-tile': { // 瓷砖/石面：亮口短击 + 微回弹
+        const j = 0.9 + Math.random() * 0.2;
+        noise('white', 0.035, 'highpass', 2100 * j, 1, 0.045);
+        tone('sine', 240 * j, 150, 0.04, 0.035);
+        noise('white', 0.02, 'bandpass', 3100 * j, 5, 0.018, 0.05);
+        break;
+      }
+      case 'step-carpet': { // 地毯/绒面：极软闷压
+        const j = 0.9 + Math.random() * 0.2;
+        noise('brown', 0.09, 'lowpass', 260 * j, 1, 0.05);
+        tone('sine', 68 * j, 48, 0.06, 0.028);
+        break;
+      }
+      case 'step-asphalt': { // 沥青/砂砾：带砂粒感的擦击
+        const j = 0.9 + Math.random() * 0.2;
+        noise('white', 0.06, 'bandpass', 920 * j, 1.2, 0.05);
+        noise('crackle', 0.05, 'highpass', 1500, 1, 0.05);
+        tone('sine', 112 * j, 70, 0.05, 0.04);
+        break;
+      }
+      case 'step-dirt': { // 泥土/林地：软压 + 碎屑
+        const j = 0.9 + Math.random() * 0.2;
+        noise('pink', 0.08, 'lowpass', 480 * j, 1, 0.055);
+        noise('brown', 0.06, 'lowpass', 200, 1, 0.05);
+        noise('white', 0.02, 'bandpass', 1900 * j, 4, 0.014, 0.02);
+        break;
+      }
+      case 'step-metal': { // 钢格栅：短促金属鸣振
+        const j = 0.94 + Math.random() * 0.12;
+        tone('sine', 225 * j, 205, 0.1, 0.05);
+        tone('sine', 342 * j, 330, 0.07, 0.02, 0.005);
+        noise('white', 0.04, 'bandpass', 1150 * j, 4, 0.045);
+        break;
+      }
       default:
         tone('sine', 660, 660, 0.08, 0.04);
     }

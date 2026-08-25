@@ -116,3 +116,31 @@ describe('v1.3 新交互音色（源码审计：合成器 switch 分支存在）
     expect(src).toContain('setListener(fn)');
   });
 });
+
+describe('v1.3 脚步系统（七种地面材质 + 逐厅映射）', () => {
+  const engineSrc = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+  const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  it.each(['wood', 'concrete', 'tile', 'carpet', 'asphalt', 'dirt', 'metal'])(
+    '脚步音色 step-%s 已实现', (surf) => {
+      expect(engineSrc).toContain(`case 'step-${surf}'`);
+    }
+  );
+
+  it('主循环存在步幅触发（左右交替声像 + 传送保护）', () => {
+    expect(mainSrc).toContain('step-${surf}');
+    expect(mainSrc).toContain('stepState');
+    expect(mainSrc).toMatch(/d > 1\.5/);
+  });
+
+  it('每个展厅 meta 都声明了 floorSfx；多地面厅有 surfaceAt 分区', () => {
+    for (const h of HALLS) {
+      const hallSrc = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hallSrc, `${h} 缺 floorSfx`).toContain('floorSfx:');
+    }
+    for (const h of ['twinpeaks', 'mulholland', 'studio', 'eraserhead']) {
+      const hallSrc = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hallSrc, `${h} 缺 surfaceAt`).toContain('surfaceAt:');
+    }
+  });
+});
