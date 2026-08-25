@@ -10,10 +10,10 @@ import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
-  mergedMesh, xform, roundedBoxMesh, armchair,
+  mergedMesh, xform, roundedBoxMesh,
   woodMat as woodPbr
 } from './kit.js';
-import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan } from './props.js';
+import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -195,8 +195,8 @@ export function build(ctx) {
   rug.position.set(-1.5, 0.012, -0.5);
   group.add(rug);
 
-  // 读书角：扶手椅 + 书架（合并的书脊）
-  const chair = armchair(0x2c1a10);
+  // 读书角：俱乐部椅 + 书架（合并的书脊）
+  const chair = clubChair(0x2c1a10, { mats: M });
   chair.position.set(-3.2, 0, 2.6);
   chair.rotation.y = -0.7;
   group.add(chair);

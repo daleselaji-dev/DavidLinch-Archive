@@ -874,34 +874,7 @@ export function rockMesh(size = 1, color = 0x141821) {
   }));
 }
 
-/** 高背扶手椅（圆角软包，红房间/房间用） */
-export function armchair(color = 0x2a0e16) {
-  const g = new THREE.Group();
-  const fabric = new THREE.MeshPhysicalMaterial({
-    map: weaveTexture(), color, roughness: 0.9, sheen: 0.7,
-    sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.3), sheenRoughness: 0.6
-  });
-  const woodMat = new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [26, 15, 8], planks: 1, size: 128 }), roughness: 0.6
-  });
-  const seat = roundedBoxMesh(0.72, 0.24, 0.68, 0.09, fabric);
-  seat.position.y = 0.42;
-  const back = roundedBoxMesh(0.72, 0.85, 0.18, 0.09, fabric);
-  back.position.set(0, 0.86, -0.28);
-  back.rotation.x = -0.13;
-  const armL = roundedBoxMesh(0.15, 0.34, 0.6, 0.06, fabric);
-  armL.position.set(-0.34, 0.62, -0.02);
-  const armR = armL.clone();
-  armR.position.x = 0.34;
-  const legGeo = new THREE.CylinderGeometry(0.03, 0.022, 0.3, 8);
-  const legs = mergedMesh([
-    xform(legGeo, -0.28, 0.15, 0.24), xform(legGeo, 0.28, 0.15, 0.24),
-    xform(legGeo, -0.28, 0.15, -0.24), xform(legGeo, 0.28, 0.15, -0.24)
-  ], woodMat);
-  legGeo.dispose();
-  g.add(seat, back, armL, armR, legs);
-  return g;
-}
+// （v1.3 艺术三遍：旧 roundedBox armchair 已由 props.clubChair 取代并删除）
 
 /** 沿线段铺设的地面条带（小径/道路） */
 export function groundStrip(x1, z1, x2, z2, width, material, y = 0.012) {

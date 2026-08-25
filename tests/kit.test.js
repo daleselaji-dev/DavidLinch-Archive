@@ -75,7 +75,9 @@ describe('v1.3 道具预制体库导出面', () => {
     // v1.3 阶段 4 新增（互动带小件）
     'lectern', 'stanchionRope', 'ushersBell', 'dimmerPlate', 'callaLily', 'lilyMats',
     // v1.3 阶段 7 艺术二遍新增
-    'ashStand'
+    'ashStand',
+    // v1.3 艺术三遍：装饰派俱乐部椅（替代 roundedBox armchair）
+    'clubChair'
   ];
   it.each(PROPS)('%s 已导出为函数', (name) => {
     expect(typeof props[name]).toBe('function');

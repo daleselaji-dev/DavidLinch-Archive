@@ -1499,3 +1499,77 @@ export function ashStand({ mats } = {}) {
   g.userData.cig = cig;
   return g;
 }
+
+// ============================================================
+// 红房间 / 房间 —— 装饰派俱乐部椅（替代 roundedBox armchair）
+// 部件：环抱式弧背（部分车削一体剖面：外壁→卷沿→内壁）/
+//       低位卷臂两翼（同剖面矮段）/ 卷臂前缘立柱 /
+//       竖向通道软包 ×5 / 滚边座垫 / 圆裙座基 / 车削矮腿 ×4
+// 朝向：+Z 为正面（开口方向）
+// ============================================================
+export function clubChair(color = 0x2a0e16, { mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const base = new THREE.Color(color);
+  // 注意：乘法调深浅（lerp 白色在线性空间会把暗色一步跳成中灰）
+  const hexA = '#' + base.clone().multiplyScalar(0.72).getHexString();
+  const hexB = '#' + base.clone().multiplyScalar(1.55).getHexString();
+  const fabric = fabricMat(hexA, hexB, {
+    seed: (color % 89) + 5, repX: 3, repY: 3,
+    sheenColor: base.clone().lerp(new THREE.Color(0xfff0e0), 0.3).getHex()
+  });
+  // 环抱壳剖面：外壁上行 → 卷沿翻出 → 内壁下行（近闭合 C 形）
+  const shellPts = (top) => [
+    [0.43, 0.1], [0.44, 0.3], [0.44, top - 0.1], [0.425, top - 0.02],
+    [0.39, top + 0.015], [0.355, top - 0.03], [0.35, top - 0.12], [0.36, 0.12]
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const backArc = 1.5;
+  const armArc = 0.62;
+  const wrapGeos = [
+    new THREE.LatheGeometry(shellPts(0.92), 20, Math.PI - backArc / 2, backArc),
+    new THREE.LatheGeometry(shellPts(0.58), 10, Math.PI - backArc / 2 - armArc, armArc),
+    new THREE.LatheGeometry(shellPts(0.58), 10, Math.PI + backArc / 2, armArc)
+  ];
+  // 卷臂前缘立柱（封住臂壳开口，兼作卷边）+ 背/臂接缝滚条
+  const frontA = Math.PI - backArc / 2 - armArc;
+  const frontB = Math.PI + backArc / 2 + armArc;
+  const rollGeo = new THREE.CapsuleGeometry(0.048, 0.4, 4, 10);
+  const seamGeo = new THREE.CapsuleGeometry(0.03, 0.62, 4, 8);
+  for (const a of [frontA, frontB]) {
+    wrapGeos.push(xform(rollGeo, Math.sin(a) * 0.395, 0.36, Math.cos(a) * 0.395));
+  }
+  for (const a of [Math.PI - backArc / 2, Math.PI + backArc / 2]) {
+    wrapGeos.push(xform(seamGeo, Math.sin(a) * 0.395, 0.44, Math.cos(a) * 0.395));
+  }
+  rollGeo.dispose();
+  seamGeo.dispose();
+  // 竖向通道软包（背壳内侧五道）
+  const chGeo = new THREE.CapsuleGeometry(0.034, 0.34, 4, 8);
+  for (let i = 0; i < 5; i++) {
+    const a = Math.PI - backArc * 0.32 + (i / 4) * backArc * 0.64;
+    wrapGeos.push(xform(chGeo, Math.sin(a) * 0.335, 0.56, Math.cos(a) * 0.335));
+  }
+  chGeo.dispose();
+  // 圆裙座基 + 滚边座垫
+  const skirtGeo = new THREE.CylinderGeometry(0.37, 0.385, 0.2, 20);
+  wrapGeos.push(xform(skirtGeo, 0, 0.22, 0));
+  skirtGeo.dispose();
+  const pipeGeo = new THREE.TorusGeometry(0.285, 0.015, 6, 24);
+  wrapGeos.push(xform(pipeGeo, 0, 0.335, 0.02, Math.PI / 2, 0, 0, 1));
+  pipeGeo.dispose();
+  g.add(mergedMesh(wrapGeos, fabric));
+  const cushion = roundedBoxMesh(0.56, 0.16, 0.54, 0.07, fabric);
+  cushion.position.set(0, 0.4, 0.03);
+  g.add(cushion);
+  // 车削矮腿 ×4（暗木）
+  const legGeo = lathe([
+    [0.042, 0], [0.048, 0.015], [0.026, 0.045], [0.038, 0.09], [0.018, 0.13]
+  ], 10);
+  const legGeos = [];
+  for (const [lx, lz] of [[-0.24, 0.24], [0.24, 0.24], [-0.24, -0.24], [0.24, -0.24]]) {
+    legGeos.push(xform(legGeo, lx, 0, lz));
+  }
+  legGeo.dispose();
+  g.add(mergedMesh(legGeos, M.darkWood));
+  return g;
+}

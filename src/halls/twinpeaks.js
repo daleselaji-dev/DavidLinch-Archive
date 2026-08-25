@@ -11,13 +11,13 @@ import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
   zoneTrigger, zonesBounds, pineGeometryMaterial,
-  roundedBoxMesh, mergedMesh, xform, railing, rockMesh, armchair,
+  roundedBoxMesh, mergedMesh, xform, railing, rockMesh,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
   chevronMat, asphaltMat, woodMat, waterMat
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
-  counterClutter, ceilingFan, viewScope
+  counterClutter, ceilingFan, viewScope, clubChair
 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
@@ -289,11 +289,11 @@ export function build(ctx) {
   const entryA = Math.atan2(8, 6); // 指向小径
   const gapArc = 0.72;
   redRoom.add(curtainRing(5.7, 5.2, PALETTE.velvet, 16, Math.PI * 2 - gapArc, entryA + gapArc / 2));
-  // 两把相对而坐的扶手椅
-  const chairA = armchair(0x2a0e16);
+  // 两把相对而坐的俱乐部椅（环抱弧背 + 通道软包 + 卷臂）
+  const chairA = clubChair(0x2a0e16, { mats: M });
   chairA.position.set(-1.5, 0, 0.6);
   chairA.rotation.y = Math.PI / 2 + 0.25;
-  const chairB = armchair(0x120c16);
+  const chairB = clubChair(0x120c16, { mats: M });
   chairB.position.set(1.6, 0, -0.5);
   chairB.rotation.y = -Math.PI / 2 - 0.2;
   redRoom.add(chairA, chairB);
