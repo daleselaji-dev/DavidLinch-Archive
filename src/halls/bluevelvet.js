@@ -8,7 +8,7 @@ import {
   PALETTE, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
   neonSign, micStand, smokeLayer, dustField, lightCone, quotePlaque, vitrine,
   velvetMaterial, zoneTrigger, rectBounds,
-  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture, weaveTexture,
+  mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
   woodMat, fabricMat
 } from './kit.js';
 import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
@@ -540,8 +540,31 @@ export function build(ctx) {
     map: woodTexture({ base: [26, 18, 12], planks: 2, vertical: true, size: 256 }), roughness: 0.8
   });
   const closet = new THREE.Group();
-  const closetBody = roundedBoxMesh(1.3, 2.4, 0.7, 0.04, closetMat);
-  closetBody.position.y = 1.2;
+  // v1.3 艺术三遍：柜体分件——顶檐/底座/双门中缝/下门芯板/黄铜旋钮，不再是一只圆角箱
+  const closetBody = roundedBoxMesh(1.3, 2.3, 0.7, 0.04, closetMat);
+  closetBody.position.y = 1.21;
+  const closetTrimGeos = [
+    xform(roundedBoxGeo(1.42, 0.1, 0.8, 0.025, 2), 0, 2.41, 0),   // 顶檐
+    xform(roundedBoxGeo(1.38, 0.13, 0.76, 0.025, 2), 0, 0.065, 0) // 底座线脚
+  ];
+  closet.add(mergedMesh(closetTrimGeos, closetMat));
+  // 双门中缝 + 下半门芯板（凹入的暗色板）
+  const seamMat = new THREE.MeshStandardMaterial({ color: 0x140d08, roughness: 0.85 });
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.016, 2.14, 0.02), seamMat);
+  seam.position.set(0, 1.21, 0.355);
+  const panelGeos = [
+    xform(new THREE.BoxGeometry(0.46, 0.5, 0.018), -0.3, 0.42, 0.358),
+    xform(new THREE.BoxGeometry(0.46, 0.5, 0.018), 0.3, 0.42, 0.358)
+  ];
+  closet.add(seam, mergedMesh(panelGeos, new THREE.MeshStandardMaterial({
+    color: 0x1c130c, roughness: 0.75
+  })));
+  const knobGeo = new THREE.SphereGeometry(0.024, 10, 8);
+  closet.add(mergedMesh([
+    xform(knobGeo, -0.07, 1.18, 0.375),
+    xform(knobGeo, 0.07, 1.18, 0.375)
+  ], M.brass));
+  knobGeo.dispose();
   const slats = [];
   for (let i = 0; i < 8; i++) {
     const slat = new THREE.Mesh(
