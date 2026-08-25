@@ -440,6 +440,15 @@ export class AudioEngine {
         noise('crackle', 1.2, 'highpass', 3400, 1, 0.03, 0.5);
         break;
       }
+      case 'vinyl': { // 黑胶底噪一小段：尘埃嘶声 + 两三粒离散爆点
+        noise('crackle', 1.5, 'highpass', 2800, 0.8, 0.028, 0, 0.3);
+        const pops = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < pops; i++) {
+          noise('white', 0.02, 'bandpass', 1400 + Math.random() * 1800, 6,
+            0.02 + Math.random() * 0.02, Math.random() * 1.3);
+        }
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

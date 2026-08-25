@@ -107,10 +107,16 @@ export function build(ctx) {
   const lustre = chandelier({ arms: 6, radius: 1.2, mats: M });
   lustre.position.y = 6.55;
   group.add(lustre);
+  // 顶冠洗光：吊灯上方一盏小暖光，让天花线脚环从黑里显出来（随调光档）
+  const crownWash = new THREE.PointLight(0xffb27a, 4.5, 6, 1.8);
+  crownWash.position.set(0, 7.55, 0);
+  group.add(crownWash);
   updaters.push((dt, t) => {
     lustre.rotation.y = t * 0.05;
     // 极缓的烛光呼吸 × 调光档
-    lustre.userData.setPower((0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03) * dim.v);
+    const breathe = 0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03;
+    lustre.userData.setPower(breathe * dim.v);
+    crownWash.intensity = 4.5 * breathe * dim.v;
   });
 
   // 悬浮标题霓虹

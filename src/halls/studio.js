@@ -239,11 +239,19 @@ export function build(ctx) {
   tt.position.set(2.8, 0.55, 6.05);
   tt.rotation.y = Math.PI;
   group.add(tt);
-  const ttState = { playing: false, armIn: 0 };
+  const ttState = { playing: false, armIn: 0, crackleT: 0 };
   updaters.push((dt) => {
     ttState.armIn += ((ttState.playing ? 1 : 0) - ttState.armIn) * Math.min(1, dt * 2.4);
     tt.userData.arm.rotation.y = ttState.armIn * -0.5;
-    if (ttState.playing) tt.userData.record.rotation.y -= dt * 3.5;
+    if (ttState.playing) {
+      tt.userData.record.rotation.y -= dt * 3.5;
+      // 黑胶底噪：间歇一小段尘埃嘶声 + 爆点（位置化在唱机上）
+      ttState.crackleT -= dt;
+      if (ttState.crackleT <= 0) {
+        audio.sfxAt('vinyl', 2.8, 6.05, 0.5);
+        ttState.crackleT = 1.5 + Math.random() * 0.9;
+      }
+    }
   });
   hotspots.add(tt.userData.record, {
     hint: 'E — 放一张唱片',

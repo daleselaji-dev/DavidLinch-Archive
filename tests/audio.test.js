@@ -107,7 +107,7 @@ describe('v1.3 位置化音效 spatialParams（纯几何）', () => {
 
 describe('v1.3 新交互音色（源码审计：合成器 switch 分支存在）', () => {
   const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
-  it.each(['bell', 'ratchet', 'creak', 'switch', 'crank', 'projector'])('音色 %s 已实现', (name) => {
+  it.each(['bell', 'ratchet', 'creak', 'switch', 'crank', 'projector', 'vinyl'])('音色 %s 已实现', (name) => {
     expect(src).toContain(`case '${name}'`);
   });
 
