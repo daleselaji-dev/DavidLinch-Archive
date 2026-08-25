@@ -284,6 +284,15 @@ bootBtn.addEventListener('click', async () => {
   engine.start();
   controls.enabled = true;
   await goTo('lobby');
+  // 预取其余展厅分包：软渲染/慢盘长跑到第 6/7 厅时，chunk fetch 在内存/IO
+  // 压力下偶发失败（退避重试也可能连败）——趁刚进馆的空闲把全部模块拉进缓存，
+  // 每 900ms 一个，避免与大厅纹理生成抢 IO；失败留给 goTo 的退避重试兜底
+  (async () => {
+    for (const id of Object.keys(HALLS)) {
+      await sleep(900);
+      try { await loadHallModule(id); } catch { /* 见上 */ }
+    }
+  })();
 });
 
 // 调试/冒烟钩子
