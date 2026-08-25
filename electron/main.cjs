@@ -49,6 +49,7 @@ function createWindow() {
       console.error('[smoke] 超时：展厅巡检未完成');
       app.exit(1);
     }, 300000);
+    let shotCount = 0;
     win.webContents.on('console-message', (_e, _level, message) => {
       if (message.includes('[sv] boot-ready')) {
         win.webContents.executeJavaScript(
@@ -168,6 +169,10 @@ function createWindow() {
         // SV_SHOT_POS: 可选 "x,z,yaw" —— 截屏前瞬移（复核厅内分区）
         // 顺序：交互密度检查 → （瞬移 + 截屏）→ 全量激活 + 彩蛋 → 下一厅
         const shotDir = process.env.SV_SHOT_DIR;
+        // 首厅截屏额外加等：开场淡入 + 空闲预取 6 个分包在软渲染下会占满
+        // 合成器数秒，3.5s 默认延迟会拍到全黑首帧（后续厅无预取压力不受影响）
+        const firstShotExtra = shotCount === 0 ? 5500 : 0;
+        shotCount += 1;
         interactiveCheck.then(() => {
           if (shotDir) {
             const pos = (process.env.SV_SHOT_POS || '').split(',').map(Number);
@@ -193,7 +198,7 @@ function createWindow() {
                 console.error('[smoke] 截屏失败', err);
               }
               proceed();
-            }, Number(process.env.SV_SHOT_DELAY || 3500));
+            }, Number(process.env.SV_SHOT_DELAY || 3500) + firstShotExtra);
           } else {
             proceed();
           }
