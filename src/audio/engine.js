@@ -446,6 +446,16 @@ export class AudioEngine {
         noise('white', 0.03, 'bandpass', 900, 4, 0.02, 0.42);
         break;
       }
+      case 'phonering': { // 旧木盒电话双铃：两串快速金属颤 + 木箱共鸣
+        for (const start of [0, 0.62]) {
+          for (let i = 0; i < 10; i++) {
+            tone('sine', 1180 + (i % 2) * 160, 1150, 0.03, 0.045, start + i * 0.042);
+            tone('sine', 1770 + (i % 2) * 210, 1740, 0.025, 0.02, start + i * 0.042);
+          }
+          tone('sine', 96, 82, 0.4, 0.03, start);
+        }
+        break;
+      }
       case 'vinyl': { // 黑胶底噪一小段：尘埃嘶声 + 两三粒离散爆点
         noise('crackle', 1.5, 'highpass', 2800, 0.8, 0.028, 0, 0.3);
         const pops = 2 + Math.floor(Math.random() * 2);

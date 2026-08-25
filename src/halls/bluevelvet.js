@@ -11,7 +11,7 @@ import {
   mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture, weaveTexture,
   woodMat, fabricMat
 } from './kit.js';
-import { propMats, jukebox, beerTaps, cashRegister } from './props.js';
+import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -337,6 +337,41 @@ export function build(ctx) {
   bar.add(mergedMesh(stPoleGeos, new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(), color: 0xa8a8a8, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4
   })));
+  // 吧台壁挂电话 —— 拿起听筒：只有拨号音，然后一阵没人接的响铃
+  const barPhone = wallPhone({ mats: M });
+  barPhone.position.set(-W / 2 + 0.12, 1.5, 5.1);
+  barPhone.rotation.y = Math.PI / 2;
+  bar.add(barPhone);
+  const phoneState = { busy: false, shake: 0 };
+  updaters.push((dt, t) => {
+    if (phoneState.shake > 0) {
+      phoneState.shake -= dt;
+      barPhone.userData.bells.position.x = Math.sin(t * 90) * 0.004;
+      barPhone.userData.handset.rotation.x = Math.sin(t * 70) * 0.02;
+    } else {
+      barPhone.userData.bells.position.x = 0;
+      barPhone.userData.handset.rotation.x = 0;
+    }
+  });
+  hotspots.add(barPhone.userData.hitbox, {
+    hint: 'E — 吧台电话',
+    onActivate: () => {
+      if (phoneState.busy) return;
+      phoneState.busy = true;
+      audio.sfx('click', 0.5);
+      ui.caption('只有拨号音。', 2400);
+      setTimeout(() => {
+        phoneState.shake = 1.4;
+        audio.sfxAt('phonering', -W / 2 + 0.3, 5.1, 0.65, 3);
+      }, 2600);
+      setTimeout(() => {
+        phoneState.shake = 1.4;
+        audio.sfxAt('phonering', -W / 2 + 0.3, 5.1, 0.5, 3);
+        phoneState.busy = false;
+      }, 4400);
+    }
+  });
+
   // 第四把吧凳 —— 被人拉离了吧台，凳面可以转
   const strayStool = new THREE.Group();
   const straySeatSpin = new THREE.Group();

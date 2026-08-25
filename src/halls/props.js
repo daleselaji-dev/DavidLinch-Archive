@@ -1575,6 +1575,65 @@ export function clubChair(color = 0x2a0e16, { mats } = {}) {
 }
 
 // ============================================================
+// 蓝丝绒 —— 吧台壁挂电话（酒馆后墙的旧木盒电话）
+// 部件：木盒箱体 / 双铃盖帽 / 话筒叉座 + 听筒（车削）/ 螺旋线 / 前脸标牌
+// userData: handset（可微晃）/ bells（响铃时抖）
+// ============================================================
+export function wallPhone({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const box = roundedBoxMesh(0.34, 0.5, 0.14, 0.015, M.darkWood);
+  g.add(box);
+  // 双铃盖帽（车削浅圆顶）
+  const bellGeo = lathe([[0.001, 0], [0.05, 0.005], [0.055, 0.03], [0.02, 0.05]], 14);
+  const bells = mergedMesh([
+    xform(bellGeo, -0.08, 0.16, 0.075, Math.PI / 2, 0, 0),
+    xform(bellGeo, 0.08, 0.16, 0.075, Math.PI / 2, 0, 0)
+  ], M.brass);
+  g.add(bells);
+  // 听筒（车削哑铃形）横搁在左侧叉座
+  const cradle = mergedMesh([
+    xform(new THREE.BoxGeometry(0.03, 0.05, 0.08), -0.2, 0.05, 0.04),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.1, 8), -0.2, 0.1, 0.04)
+  ], M.iron);
+  g.add(cradle);
+  const handsetGeo = lathe([
+    [0.001, 0], [0.032, 0.008], [0.026, 0.05], [0.014, 0.09],
+    [0.014, 0.17], [0.026, 0.21], [0.032, 0.252], [0.001, 0.26]
+  ], 12);
+  const handset = new THREE.Mesh(handsetGeo, new THREE.MeshStandardMaterial({
+    color: 0x14100c, roughness: 0.4, metalness: 0.1, envMapIntensity: 0.8
+  }));
+  handset.rotation.z = Math.PI / 2 - 0.06;
+  handset.position.set(-0.07, 0.13, 0.04);
+  g.add(handset);
+  // 螺旋线（小段圆环串成的垂线）
+  const coilGeos = [];
+  const loopGeo = new THREE.TorusGeometry(0.016, 0.005, 5, 10);
+  for (let i = 0; i < 9; i++) {
+    coilGeos.push(xform(loopGeo, -0.2, -0.02 - i * 0.026, 0.05, 0.5, (i % 2) * 0.9, 0));
+  }
+  loopGeo.dispose();
+  g.add(mergedMesh(coilGeos, new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.6 })));
+  // 前脸标牌（空白黄铜小片）
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.01), M.brass);
+  plate.position.set(0, -0.14, 0.075);
+  g.add(plate);
+  // 不可见射线靶
+  const hitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.62, 0.3),
+    new THREE.MeshStandardMaterial({ color: 0x000000 })
+  );
+  hitbox.visible = false;
+  hitbox.position.z = 0.06;
+  g.add(hitbox);
+  g.userData.handset = handset;
+  g.userData.bells = bells;
+  g.userData.hitbox = hitbox;
+  return g;
+}
+
+// ============================================================
 // 档案 —— 16mm 放映机展台（可开机：双盘转动 + 镜头亮 + 光锥）
 // 部件：方几座（踏脚枨方几）/ 机身 + 散热鳍 / 阶梯镜头筒（车削）/
 //       前后倾斜盘臂 / 供片盘 + 收片盘（侧板-辐条-片饼）/ 过片带 / 旋钮
