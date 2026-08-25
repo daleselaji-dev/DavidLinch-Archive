@@ -894,6 +894,32 @@ export function build(ctx) {
   mist.position.set(12, 0, -39);
   overlook.add(mist);
   updaters.push(mist.userData.update);
+
+  // 彩蛋：眺望台守望 —— 在栏杆前站定八秒不动，水雾与水幕会短暂应答
+  const vigil = { t: 0, cool: 0, surge: -1 };
+  const vigilFire = () => {
+    vigil.cool = 90;
+    vigil.surge = 0;
+    audio.sfxAt('swell', 12, -38, 0.9, 15);
+    ui.caption('白噪音里藏着一个音。', 4600);
+  };
+  const vigilTrig = {
+    update(p, dt) {
+      if (vigil.cool > 0) vigil.cool -= dt;
+      const inZone = p.x >= 9 && p.x <= 14.5 && p.z >= -28.6 && p.z <= -25.4;
+      vigil.t = inZone && vigil.cool <= 0 ? vigil.t + dt : 0;
+      if (vigil.t > 8) { vigil.t = 0; vigilFire(); }
+      if (vigil.surge >= 0) {
+        vigil.surge += dt;
+        const k = vigil.surge < 2.4 ? vigil.surge / 2.4 : Math.max(0, 1 - (vigil.surge - 2.4) / 3.6);
+        mist.material.opacity = 0.08 + k * 0.16;
+        falls2.material.opacity = 0.32 + k * 0.22;
+        if (vigil.surge > 6) vigil.surge = -1;
+      }
+    },
+    force() { vigilFire(); }
+  };
+  updaters.push((dt) => vigilTrig.update(player, dt));
   // 锯木厂剪影（烟囱 + 缓慢的烟）
   const millMat = new THREE.MeshBasicMaterial({ color: 0x05070c, fog: false });
   const mill = mergedMesh([
@@ -1001,7 +1027,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'stone-circle': groveTrig },
+    eggs: { 'stone-circle': groveTrig, 'falls-vigil': vigilTrig },
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
 }
