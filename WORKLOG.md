@@ -5,4 +5,6 @@
 | 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
 |----|----|------|----------|-----------|
 | 2026-08-25 17:05 | 2026-08-25 17:11 | 阶段 0 | fetch/checkout `cursor/david-lynch-archive-1310`；通读全部源码（main/engine/controls/hotspots/post/kit/7 厅/audio×3/ui×4/data×2/tests×6/smoke/electron），盘点 v1.2 交互与文案现状 | 分支就绪；npm ci 后台启动 |
-| 2026-08-25 17:11 | — | 阶段 0 | 撰写 PRODUCTION_PLAN.md / WORKFLOW.md / WORKLOG.md，起草 QUALITY_GATES 19–24 | 本 commit |
+| 2026-08-25 17:11 | 2026-08-25 17:15 | 阶段 0 | 撰写 PRODUCTION_PLAN.md / WORKFLOW.md / WORKLOG.md，起草 QUALITY_GATES 19–24 | commit `ae2a3f3` |
+| 2026-08-25 17:15 | 2026-08-25 17:20 | 阶段 1 | 基线 42 用例复核；旁白改写为 8×≤16 字风格化空间提示（总 84 字）；删除穆赫兰道粉笔对白引用（改原创螺旋图形）、winkies 标识更名 backlot、电台长句缩短；单测收紧（旁白 16/110、展签 ≤1、字幕 ≤22）+ 新增叙事禁词扫描两组 | commit `304444b`，45 用例全绿 |
+| 2026-08-25 17:20 | 2026-08-25 17:38 | 阶段 2 | kit 材质系统升级：seeded RNG、normalFromHeight（Sobel 法线）、八类对齐三通道纹理组（木/砖/拉丝金属/织物/水泥/沥青/折线地板/皮革）、11 个 PBR 材质工厂（含 anisotropy 拉丝金属、clearcoat 湿沥青、静水）；新建 props.js 道具预制体库 24 件（吊灯/荧光灯/卡片柜/点唱机/轿车 v2/剧场排椅/电话亭 v2/工作灯/收音机/唱机/打字机/吊扇/柜台杂物/派柜/路灯 v2/信号灯/观景镜/炉门/阀轮/配电箱/留声机/啤酒塔/收银机/纪念碑 v2），全部车削/贝塞尔管/部件层级化；kit.test.js 52 用例（RNG 确定性、导出面、纹理尺寸预算源码审计） | commit（本条）；97 用例全绿 |

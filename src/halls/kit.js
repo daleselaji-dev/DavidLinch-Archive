@@ -929,6 +929,705 @@ export function gravelTexture(base = '#131009', size = 256) {
   }, 2, 6);
 }
 
+// ============================================================
+// v1.3 材质系统 —— seeded RNG / 高度图→Sobel 法线 / 三通道对齐
+// 纹理组（map+normalMap+roughnessMap 由同一随机种子驱动，逐像素
+// 对齐）/ PBR 材质工厂（含各向异性拉丝金属、湿沥青、静水）。
+// 纹理尺寸遵守 PRODUCTION_PLAN §2.1 上限表。
+// ============================================================
+
+/** mulberry32 —— 可复现随机源（多通道纹理对齐的关键） */
+export function rng(seed = 1) {
+  let a = (seed * 1e9) >>> 0 || 1;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function canvasOf(size, draw) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  return c;
+}
+
+export function texOf(canvas, repeatX = 1, repeatY = 1) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/**
+ * 高度图 → 法线贴图（Sobel，环绕采样保平铺）。
+ * 高度canvas 取 R 通道；输出 OpenGL 约定（+Y 上，配合 flipY canvas 纹理）。
+ */
+export function normalFromHeight(heightCanvas, strength = 1.4, repeatX = 1, repeatY = 1) {
+  const s = heightCanvas.width;
+  const src = heightCanvas.getContext('2d').getImageData(0, 0, s, s).data;
+  const h = (x, y) => src[(((y + s) % s) * s + ((x + s) % s)) * 4] / 255;
+  const out = document.createElement('canvas');
+  out.width = out.height = s;
+  const g = out.getContext('2d');
+  const img = g.createImageData(s, s);
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      // 左-右 / 下-上（canvas y 向下 + flipY 纹理 → v 向上）
+      const dx = (h(x - 1, y - 1) + 2 * h(x - 1, y) + h(x - 1, y + 1)) -
+                 (h(x + 1, y - 1) + 2 * h(x + 1, y) + h(x + 1, y + 1));
+      const dy = (h(x - 1, y + 1) + 2 * h(x, y + 1) + h(x + 1, y + 1)) -
+                 (h(x - 1, y - 1) + 2 * h(x, y - 1) + h(x + 1, y - 1));
+      let nx = dx * strength;
+      let ny = dy * strength;
+      const inv = 1 / Math.hypot(nx, ny, 1);
+      const i = (y * s + x) * 4;
+      img.data[i] = (nx * inv * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * inv * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (inv * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return texOf(out, repeatX, repeatY);
+}
+
+/** 三通道纹理组装配 */
+function setFrom(albedo, height, rough, { repX = 1, repY = 1, nStrength = 1.4 } = {}) {
+  return {
+    map: texOf(albedo, repX, repY),
+    normalMap: normalFromHeight(height, nStrength, repX, repY),
+    roughnessMap: texOf(rough, repX, repY)
+  };
+}
+
+/** 确定性污渍/磨损（seeded 版 grime） */
+function grimeR(g, s, r, { stains = 18, scratches = 20, alpha = 0.08 } = {}) {
+  for (let i = 0; i < stains; i++) {
+    const rad = 8 + r() * s * 0.13;
+    const grad = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+    grad.addColorStop(0, `rgba(0,0,0,${alpha * (0.5 + r())})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save();
+    g.translate(r() * s, r() * s);
+    g.fillStyle = grad;
+    g.fillRect(-rad, -rad, rad * 2, rad * 2);
+    g.restore();
+  }
+  g.strokeStyle = `rgba(255,255,255,${alpha * 0.35})`;
+  g.lineWidth = 1;
+  for (let i = 0; i < scratches; i++) {
+    g.beginPath();
+    const x = r() * s;
+    const y = r() * s;
+    g.moveTo(x, y);
+    g.lineTo(x + (r() - 0.5) * 40, y + (r() - 0.5) * 40);
+    g.stroke();
+  }
+}
+
+// ---------- 木纹三通道组 ----------
+export function woodSet({
+  base = [44, 30, 16], planks = 6, vertical = false, size = 512,
+  seed = 7, repX = 1, repY = 1, worn = 0.5, gloss = 0.5, nStrength = 1.6
+} = {}) {
+  // 布局（归一化坐标，通道间共享）
+  const r = rng(seed);
+  const lay = [];
+  for (let i = 0; i < planks; i++) {
+    const rings = [];
+    for (let k = 0; k < 9; k++) rings.push({ off: r(), amp: 0.16 + r() * 0.2, w: 0.8 + r() });
+    lay.push({
+      tone: (r() - 0.5) * 2,
+      rings,
+      knot: r() < 0.6 ? { u: 0.2 + r() * 0.6, v: r() } : null
+    });
+  }
+  const drawPlank = (g, s, mode) => {
+    const pw = s / planks;
+    for (let i = 0; i < planks; i++) {
+      const L = lay[i];
+      const v = L.tone * 12;
+      if (mode === 'albedo') {
+        g.fillStyle = `rgb(${base[0] + v},${base[1] + v * 0.7},${base[2] + v * 0.45})`;
+      } else if (mode === 'height') {
+        const hv = Math.round(128 + L.tone * 7);
+        g.fillStyle = `rgb(${hv},${hv},${hv})`;
+      } else {
+        const rv = Math.round(150 - gloss * 60 + L.tone * 12);
+        g.fillStyle = `rgb(${rv},${rv},${rv})`;
+      }
+      if (vertical) g.fillRect(i * pw, 0, pw, s);
+      else g.fillRect(0, i * pw, s, pw);
+      // 年轮
+      for (const ring of L.rings) {
+        if (mode === 'albedo') {
+          g.strokeStyle = `rgba(${base[0] * 0.4},${base[1] * 0.4},${base[2] * 0.4},${ring.amp})`;
+        } else if (mode === 'height') {
+          g.strokeStyle = 'rgba(112,112,112,0.5)';
+        } else {
+          g.strokeStyle = 'rgba(190,190,190,0.35)';
+        }
+        g.lineWidth = ring.w;
+        g.beginPath();
+        const off = ring.off * s;
+        const ri = lay[i].rings.indexOf(ring);
+        for (let t = 0; t <= s; t += 14) {
+          const wob = Math.sin((t + off) * 0.02) * 3 + Math.sin((t + off) * 0.11) * 1.2;
+          const along = t;
+          const across = i * pw + ((ri + 0.5) / 9) * pw + wob * 0.4;
+          const px = vertical ? across : along;
+          const py = vertical ? along : across;
+          if (t === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        }
+        g.stroke();
+      }
+      // 节疤
+      if (L.knot) {
+        const kx = vertical ? i * pw + L.knot.u * pw : L.knot.v * s;
+        const ky = vertical ? L.knot.v * s : i * pw + L.knot.u * pw;
+        if (mode === 'albedo') g.strokeStyle = 'rgba(10,6,3,0.55)';
+        else if (mode === 'height') g.strokeStyle = 'rgba(150,150,150,0.7)';
+        else g.strokeStyle = 'rgba(215,215,215,0.7)';
+        for (let rad = 1.5; rad < 6; rad += 1.6) {
+          g.beginPath(); g.ellipse(kx, ky, rad * 1.6, rad, 0.4, 0, 7); g.stroke();
+        }
+      }
+      // 使用磨损带（板条中央更亮更滑）
+      if (mode !== 'height' && worn > 0) {
+        const grad = vertical
+          ? g.createLinearGradient(i * pw, 0, i * pw + pw, 0)
+          : g.createLinearGradient(0, i * pw, 0, i * pw + pw);
+        const a = mode === 'albedo' ? 0.10 * worn : 0.35 * worn;
+        const col = mode === 'albedo' ? '255,240,220' : '40,40,40';
+        grad.addColorStop(0, `rgba(${col},0)`);
+        grad.addColorStop(0.5, `rgba(${col},${a})`);
+        grad.addColorStop(1, `rgba(${col},0)`);
+        g.fillStyle = grad;
+        if (vertical) g.fillRect(i * pw, 0, pw, s);
+        else g.fillRect(0, i * pw, s, pw);
+      }
+    }
+    // 板缝
+    for (let i = 0; i < planks; i++) {
+      if (mode === 'albedo') g.fillStyle = 'rgba(0,0,0,0.55)';
+      else if (mode === 'height') g.fillStyle = 'rgb(52,52,52)';
+      else g.fillStyle = 'rgb(215,215,215)';
+      if (vertical) g.fillRect(((i * pw) + pw - 1.5 + s) % s, 0, 2.2, s);
+      else g.fillRect(0, ((i * pw) + pw - 1.5 + s) % s, s, 2.2);
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => { drawPlank(g, s, 'albedo'); grimeR(g, s, rng(seed + 1), { stains: 10, scratches: 14, alpha: 0.05 }); });
+  const height = canvasOf(size >> 1, (g, s) => drawPlank(g, s, 'height'));
+  const rough = canvasOf(size >> 1, (g, s) => { drawPlank(g, s, 'rough'); grimeR(g, s, rng(seed + 1), { stains: 8, scratches: 10, alpha: 0.10 }); });
+  return setFrom(albedo, height, rough, { repX, repY, nStrength });
+}
+
+// ---------- 砖墙三通道组 ----------
+export function brickSet({
+  tint = [36, 34, 38], rows = 10, cols = 5, size = 512,
+  seed = 11, repX = 4, repY = 2, nStrength = 2.2
+} = {}) {
+  const r = rng(seed);
+  const bricks = [];
+  for (let row = 0; row < rows; row++) {
+    for (let c = -1; c < cols + 1; c++) {
+      bricks.push({ row, c, tone: r() * 16, chip: r() < 0.18 ? { u: r(), v: r() } : null });
+    }
+  }
+  const draw = (g, s, mode) => {
+    const bh = s / rows;
+    const bw = s / cols;
+    if (mode === 'albedo') g.fillStyle = 'rgb(16,15,17)';
+    else if (mode === 'height') g.fillStyle = 'rgb(72,72,72)';
+    else g.fillStyle = 'rgb(225,225,225)';
+    g.fillRect(0, 0, s, s);
+    for (const b of bricks) {
+      const off = b.row % 2 ? bw / 2 : 0;
+      const x = b.c * bw + off + 2;
+      const y = b.row * bh + 2;
+      if (mode === 'albedo') {
+        g.fillStyle = `rgb(${tint[0] + b.tone},${tint[1] + b.tone * 0.85},${tint[2] + b.tone * 0.8})`;
+      } else if (mode === 'height') {
+        const hv = Math.round(150 + b.tone * 0.6);
+        g.fillStyle = `rgb(${hv},${hv},${hv})`;
+      } else {
+        g.fillStyle = `rgb(${Math.round(168 - b.tone)},${Math.round(168 - b.tone)},${Math.round(168 - b.tone)})`;
+      }
+      g.fillRect(x, y, bw - 4, bh - 4);
+      if (b.chip) {
+        const cx = x + b.chip.u * (bw - 8);
+        const cy = y + b.chip.v * (bh - 8);
+        if (mode === 'albedo') g.fillStyle = 'rgba(12,11,13,0.8)';
+        else if (mode === 'height') g.fillStyle = 'rgb(96,96,96)';
+        else g.fillStyle = 'rgb(230,230,230)';
+        g.beginPath(); g.arc(cx, cy, 3 + b.tone * 0.3, 0, 7); g.fill();
+      }
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => { draw(g, s, 'albedo'); grimeR(g, s, rng(seed + 2), { stains: 16, scratches: 6, alpha: 0.09 }); });
+  const height = canvasOf(size, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size >> 1, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength });
+}
+
+// ---------- 拉丝金属三通道组 ----------
+export function metalBrushedSet({
+  base = 132, streak = 46, size = 256, seed = 5, repX = 2, repY = 2, roughBase = 100
+} = {}) {
+  const r = rng(seed);
+  const rows = [];
+  for (let y = 0; y < size; y++) rows.push((r() - 0.5) * streak);
+  const marks = [];
+  for (let i = 0; i < 26; i++) marks.push({ v: r(), a: 0.2 + r() * 0.3 });
+  const draw = (g, s, mode) => {
+    for (let y = 0; y < s; y++) {
+      const v = rows[Math.floor((y / s) * rows.length)];
+      if (mode === 'albedo') {
+        g.fillStyle = `rgba(${base + v},${base + v},${base + v + 4},1)`;
+      } else if (mode === 'height') {
+        g.fillStyle = `rgb(${Math.round(128 + v * 0.18)},${Math.round(128 + v * 0.18)},${Math.round(128 + v * 0.18)})`;
+      } else {
+        g.fillStyle = `rgb(${Math.round(roughBase + v * 0.7)},${Math.round(roughBase + v * 0.7)},${Math.round(roughBase + v * 0.7)})`;
+      }
+      g.fillRect(0, y, s, 1);
+    }
+    for (const m of marks) {
+      if (mode === 'albedo') g.fillStyle = `rgba(${base + 60},${base + 60},${base + 62},${m.a})`;
+      else if (mode === 'height') g.fillStyle = `rgba(140,140,140,${m.a})`;
+      else g.fillStyle = `rgba(${roughBase + 70},${roughBase + 70},${roughBase + 70},${m.a})`;
+      g.fillRect(0, m.v * size, size, 0.8);
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength: 0.6 });
+}
+
+// ---------- 织物三通道组 ----------
+export function weaveSet(colA = '#20080d', colB = '#31121a', {
+  cells = 42, size = 256, seed = 9, repX = 6, repY = 6
+} = {}) {
+  const r = rng(seed);
+  const jitter = [];
+  for (let i = 0; i < cells * cells; i++) jitter.push(r());
+  const draw = (g, s, mode) => {
+    const c = s / cells;
+    if (mode === 'albedo') g.fillStyle = colA;
+    else if (mode === 'height') g.fillStyle = 'rgb(96,96,96)';
+    else g.fillStyle = 'rgb(215,215,215)';
+    g.fillRect(0, 0, s, s);
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const j = jitter[y * cells + x];
+        const even = (x + y) % 2 === 0;
+        if (mode === 'albedo') {
+          g.fillStyle = even ? colB : colA;
+          g.fillRect(x * c, y * c, c - 0.6, c - 0.6);
+        } else if (mode === 'height') {
+          // 每格一粒鼓起的线束，横竖交替拉长
+          const grad = g.createRadialGradient(
+            x * c + c / 2, y * c + c / 2, 0,
+            x * c + c / 2, y * c + c / 2, c * 0.7
+          );
+          grad.addColorStop(0, `rgb(${170 + j * 20},${170 + j * 20},${170 + j * 20})`);
+          grad.addColorStop(1, 'rgb(96,96,96)');
+          g.save();
+          g.translate(x * c + c / 2, y * c + c / 2);
+          g.scale(even ? 1.4 : 0.7, even ? 0.7 : 1.4);
+          g.translate(-(x * c + c / 2), -(y * c + c / 2));
+          g.fillStyle = grad;
+          g.fillRect(x * c - c, y * c - c, c * 3, c * 3);
+          g.restore();
+        } else {
+          const rv = Math.round(205 + j * 26);
+          g.fillStyle = `rgb(${rv},${rv},${rv})`;
+          g.fillRect(x * c, y * c, c - 0.6, c - 0.6);
+        }
+      }
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => { draw(g, s, 'albedo'); grimeR(g, s, rng(seed + 3), { stains: 6, scratches: 4, alpha: 0.05 }); });
+  const height = canvasOf(size, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength: 1.0 });
+}
+
+// ---------- 水泥三通道组 ----------
+export function concreteSet({
+  base = [42, 42, 44], size = 512, seed = 13, repX = 3, repY = 3, joints = 4, nStrength = 1.8
+} = {}) {
+  const r = rng(seed);
+  const blotches = [];
+  for (let i = 0; i < 220; i++) blotches.push({ u: r(), v: r(), rad: r() * 0.09, dark: r() < 0.55, a: r() * 0.28 });
+  const pits = [];
+  for (let i = 0; i < 260; i++) pits.push({ u: r(), v: r(), rad: 0.6 + r() * 2 });
+  const polish = [];
+  for (let i = 0; i < 8; i++) polish.push({ u: r(), v: r(), rad: 0.08 + r() * 0.16 });
+  const draw = (g, s, mode) => {
+    if (mode === 'albedo') g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
+    else if (mode === 'height') g.fillStyle = 'rgb(128,128,128)';
+    else g.fillStyle = 'rgb(178,178,178)';
+    g.fillRect(0, 0, s, s);
+    for (const b of blotches) {
+      if (mode === 'albedo') g.fillStyle = b.dark ? `rgba(14,14,16,${b.a})` : `rgba(84,84,88,${b.a * 0.7})`;
+      else if (mode === 'height') continue;
+      else g.fillStyle = b.dark ? `rgba(215,215,215,${b.a * 0.5})` : `rgba(120,120,120,${b.a * 0.4})`;
+      g.beginPath(); g.arc(b.u * s, b.v * s, b.rad * s, 0, 7); g.fill();
+    }
+    for (const p of pits) {
+      if (mode === 'albedo') g.fillStyle = 'rgba(10,10,12,0.5)';
+      else if (mode === 'height') g.fillStyle = 'rgb(92,92,92)';
+      else g.fillStyle = 'rgb(226,226,226)';
+      g.beginPath(); g.arc(p.u * s, p.v * s, p.rad, 0, 7); g.fill();
+    }
+    if (mode !== 'height') {
+      for (const p of polish) {
+        const grad = g.createRadialGradient(p.u * s, p.v * s, 0, p.u * s, p.v * s, p.rad * s);
+        grad.addColorStop(0, mode === 'albedo' ? 'rgba(96,96,100,0.18)' : 'rgba(80,80,80,0.55)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.beginPath(); g.arc(p.u * s, p.v * s, p.rad * s, 0, 7); g.fill();
+      }
+    }
+    // 伸缩缝
+    for (let i = 1; i < joints; i++) {
+      if (mode === 'albedo') g.strokeStyle = 'rgba(8,8,10,0.75)';
+      else if (mode === 'height') g.strokeStyle = 'rgb(58,58,58)';
+      else g.strokeStyle = 'rgb(230,230,230)';
+      g.lineWidth = 3;
+      g.beginPath(); g.moveTo((i / joints) * s, 0); g.lineTo((i / joints) * s, s); g.stroke();
+      g.beginPath(); g.moveTo(0, (i / joints) * s); g.lineTo(s, (i / joints) * s); g.stroke();
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size >> 1, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size >> 1, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength });
+}
+
+// ---------- 沥青三通道组（可湿润） ----------
+export function asphaltSet({
+  size = 512, seed = 17, repX = 1, repY = 6, wet = 0.7, centerLine = 'dash', nStrength = 1.6
+} = {}) {
+  const r = rng(seed);
+  const grains = [];
+  for (let i = 0; i < 900; i++) grains.push({ u: r(), v: r(), t: r(), rad: 0.8 + r() * 1.8 });
+  const cracks = [];
+  for (let i = 0; i < 7; i++) {
+    const pts = [{ u: r(), v: r() }];
+    for (let k = 0; k < 6; k++) {
+      const p = pts[pts.length - 1];
+      pts.push({ u: p.u + (r() - 0.5) * 0.12, v: p.v + (r() - 0.3) * 0.14 });
+    }
+    cracks.push(pts);
+  }
+  const puddles = [];
+  for (let i = 0; i < 5; i++) puddles.push({ u: 0.2 + r() * 0.6, v: r(), rad: 0.05 + r() * 0.1 });
+  const draw = (g, s, mode) => {
+    if (mode === 'albedo') g.fillStyle = '#131317';
+    else if (mode === 'height') g.fillStyle = 'rgb(128,128,128)';
+    else g.fillStyle = 'rgb(205,205,205)';
+    g.fillRect(0, 0, s, s);
+    for (const gr of grains) {
+      const v = 18 + gr.t * 30;
+      if (mode === 'albedo') g.fillStyle = `rgba(${v},${v},${v + 4},0.6)`;
+      else if (mode === 'height') g.fillStyle = `rgb(${Math.round(120 + gr.t * 22)},${Math.round(120 + gr.t * 22)},${Math.round(120 + gr.t * 22)})`;
+      else g.fillStyle = `rgba(${Math.round(160 + gr.t * 60)},${Math.round(160 + gr.t * 60)},${Math.round(160 + gr.t * 60)},0.8)`;
+      g.fillRect(gr.u * s, gr.v * s, gr.rad, gr.rad);
+    }
+    for (const pts of cracks) {
+      if (mode === 'albedo') g.strokeStyle = 'rgba(6,6,8,0.7)';
+      else if (mode === 'height') g.strokeStyle = 'rgb(88,88,88)';
+      else g.strokeStyle = 'rgb(235,235,235)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      pts.forEach((p, i) => { if (i === 0) g.moveTo(p.u * s, p.v * s); else g.lineTo(p.u * s, p.v * s); });
+      g.stroke();
+    }
+    if (wet > 0 && mode === 'rough') {
+      // 车辙湿带（低粗糙）+ 积水斑（镜面）
+      for (const x of [0.3, 0.7]) {
+        const grad = g.createLinearGradient((x - 0.09) * s, 0, (x + 0.09) * s, 0);
+        grad.addColorStop(0, 'rgba(70,70,70,0)');
+        grad.addColorStop(0.5, `rgba(60,60,60,${0.85 * wet})`);
+        grad.addColorStop(1, 'rgba(70,70,70,0)');
+        g.fillStyle = grad;
+        g.fillRect((x - 0.1) * s, 0, 0.2 * s, s);
+      }
+      for (const p of puddles) {
+        const grad = g.createRadialGradient(p.u * s, p.v * s, 0, p.u * s, p.v * s, p.rad * s);
+        grad.addColorStop(0, `rgba(28,28,28,${wet})`);
+        grad.addColorStop(1, 'rgba(28,28,28,0)');
+        g.fillStyle = grad;
+        g.beginPath(); g.arc(p.u * s, p.v * s, p.rad * s, 0, 7); g.fill();
+      }
+    }
+    if (wet > 0 && mode === 'albedo') {
+      for (const p of puddles) {
+        const grad = g.createRadialGradient(p.u * s, p.v * s, 0, p.u * s, p.v * s, p.rad * s);
+        grad.addColorStop(0, `rgba(8,9,14,${0.5 * wet})`);
+        grad.addColorStop(1, 'rgba(8,9,14,0)');
+        g.fillStyle = grad;
+        g.beginPath(); g.arc(p.u * s, p.v * s, p.rad * s, 0, 7); g.fill();
+      }
+    }
+    if (centerLine && mode === 'albedo') {
+      g.fillStyle = '#b8a24a';
+      if (centerLine === 'dash') g.fillRect(s / 2 - 5, 10, 10, s * 0.42);
+      else g.fillRect(s / 2 - 5, 0, 10, s);
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size >> 1, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength });
+}
+
+// ---------- 折线地板三通道组（红房间纹样 + 缝隙 + 蜡面磨损） ----------
+export function chevronSet(colA = '#0d0d0f', colB = '#e8e2d5', {
+  repeat = 6, size = 1024, seed = 21, gloss = 0.75, nStrength = 1.5
+} = {}) {
+  const drawChevron = (g, s, mode) => {
+    const n = 4;
+    const w = s / n;
+    if (mode === 'albedo') g.fillStyle = colA;
+    else if (mode === 'height') g.fillStyle = 'rgb(128,128,128)';
+    else g.fillStyle = `rgb(${Math.round(140 - gloss * 70)},${Math.round(140 - gloss * 70)},${Math.round(140 - gloss * 70)})`;
+    g.fillRect(0, 0, s, s);
+    if (mode === 'albedo') g.fillStyle = colB;
+    else if (mode === 'height') g.fillStyle = 'rgb(134,134,134)';
+    else g.fillStyle = `rgb(${Math.round(148 - gloss * 70)},${Math.round(148 - gloss * 70)},${Math.round(148 - gloss * 70)})`;
+    for (let row = -1; row < n + 1; row++) {
+      g.beginPath();
+      for (let i = 0; i <= n * 2; i++) {
+        const x = (i * w) / 2;
+        const y = row * w + (i % 2 === 0 ? 0 : w / 2);
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      for (let i = n * 2; i >= 0; i--) {
+        const x = (i * w) / 2;
+        const y = row * w + (i % 2 === 0 ? 0 : w / 2) + w / 2;
+        g.lineTo(x, y);
+      }
+      g.closePath();
+      if (row % 2 === 0) g.fill();
+    }
+    // 板块接缝
+    if (mode === 'albedo') g.strokeStyle = 'rgba(0,0,0,0.35)';
+    else if (mode === 'height') g.strokeStyle = 'rgb(84,84,84)';
+    else g.strokeStyle = 'rgb(205,205,205)';
+    g.lineWidth = mode === 'height' ? 3 : 2;
+    for (let i = 0; i <= n; i++) {
+      g.beginPath(); g.moveTo(0, i * w); g.lineTo(s, i * w); g.stroke();
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => { drawChevron(g, s, 'albedo'); grimeR(g, s, rng(seed), { stains: 14, scratches: 22, alpha: 0.06 }); });
+  const height = canvasOf(size >> 1, (g, s) => drawChevron(g, s, 'height'));
+  const rough = canvasOf(size >> 1, (g, s) => { drawChevron(g, s, 'rough'); grimeR(g, s, rng(seed), { stains: 12, scratches: 20, alpha: 0.14 }); });
+  return setFrom(albedo, height, rough, { repX: repeat, repY: repeat, nStrength });
+}
+
+// ---------- 皮革三通道组 ----------
+export function leatherSet(color = [64, 20, 28], { size = 256, seed = 27, repX = 2, repY = 2 } = {}) {
+  const r = rng(seed);
+  const cells = [];
+  for (let i = 0; i < 340; i++) cells.push({ u: r(), v: r(), rad: 3 + r() * 8, t: r() });
+  const draw = (g, s, mode) => {
+    if (mode === 'albedo') g.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+    else if (mode === 'height') g.fillStyle = 'rgb(120,120,120)';
+    else g.fillStyle = 'rgb(158,158,158)';
+    g.fillRect(0, 0, s, s);
+    for (const c of cells) {
+      const grad = g.createRadialGradient(c.u * s, c.v * s, 0, c.u * s, c.v * s, c.rad);
+      if (mode === 'albedo') {
+        grad.addColorStop(0, `rgba(${color[0] + 18},${color[1] + 10},${color[2] + 10},${0.3 + c.t * 0.3})`);
+        grad.addColorStop(1, `rgba(${color[0] - 14},${color[1] - 6},${color[2] - 8},0.2)`);
+      } else if (mode === 'height') {
+        grad.addColorStop(0, `rgba(${Math.round(150 + c.t * 30)},${Math.round(150 + c.t * 30)},${Math.round(150 + c.t * 30)},0.8)`);
+        grad.addColorStop(1, 'rgba(104,104,104,0.5)');
+      } else {
+        grad.addColorStop(0, `rgba(${Math.round(140 + c.t * 40)},${Math.round(140 + c.t * 40)},${Math.round(140 + c.t * 40)},0.6)`);
+        grad.addColorStop(1, 'rgba(170,170,170,0)');
+      }
+      g.fillStyle = grad;
+      g.beginPath(); g.arc(c.u * s, c.v * s, c.rad, 0, 7); g.fill();
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength: 1.1 });
+}
+
+// ---------- PBR 材质工厂 ----------
+function applySet(mat, set, normalScale = 0.8) {
+  mat.map = set.map;
+  mat.normalMap = set.normalMap;
+  mat.roughnessMap = set.roughnessMap;
+  mat.normalScale = new THREE.Vector2(normalScale, normalScale);
+  return mat;
+}
+
+/** 木质（三通道 PBR） */
+export function woodMat(opts = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: opts.color ?? 0xffffff,
+    roughness: 1.0,
+    metalness: opts.metalness ?? 0.04,
+    envMapIntensity: opts.env ?? 0.8
+  });
+  return applySet(mat, woodSet(opts), opts.normalScale ?? 0.8);
+}
+
+/** 黄铜（拉丝 + 各向异性高光） */
+export function brassMat(opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? 0x8a6c3c,
+    roughness: 1.0,
+    metalness: 0.95,
+    anisotropy: opts.anisotropy ?? 0.55,
+    envMapIntensity: opts.env ?? 1.4
+  });
+  return applySet(mat, metalBrushedSet({ seed: opts.seed ?? 5, roughBase: opts.roughBase ?? 88, ...opts }), 0.35);
+}
+
+/** 铬/不锈钢（拉丝 + 各向异性） */
+export function chromeMat(opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? 0xb8bcc2,
+    roughness: 1.0,
+    metalness: 0.96,
+    anisotropy: opts.anisotropy ?? 0.4,
+    envMapIntensity: opts.env ?? 1.6
+  });
+  return applySet(mat, metalBrushedSet({ seed: opts.seed ?? 6, roughBase: 68, streak: 30 }), 0.3);
+}
+
+/** 铸铁/深色钢（哑光 + 微各向异性） */
+export function ironMat(opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? 0x3c4046,
+    roughness: 1.0,
+    metalness: 0.85,
+    anisotropy: 0.22,
+    envMapIntensity: opts.env ?? 0.9
+  });
+  return applySet(mat, metalBrushedSet({ seed: opts.seed ?? 8, roughBase: 148, streak: 60, base: 96 }), 0.55);
+}
+
+/** 织物（织纹法线 + sheen） */
+export function fabricMat(colA, colB, opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? 0xffffff,
+    roughness: 1.0,
+    metalness: 0,
+    sheen: opts.sheen ?? 0.7,
+    sheenColor: new THREE.Color(opts.sheenColor ?? 0xffffff).multiplyScalar(0.6),
+    sheenRoughness: 0.55,
+    envMapIntensity: 0.5
+  });
+  return applySet(mat, weaveSet(colA, colB, opts), opts.normalScale ?? 0.9);
+}
+
+/** 皮革（皱纹法线 + clearcoat） */
+export function leatherMat(color = [64, 20, 28], opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    roughness: 1.0,
+    metalness: 0,
+    clearcoat: opts.clearcoat ?? 0.35,
+    clearcoatRoughness: 0.45,
+    sheen: 0.3,
+    sheenColor: new THREE.Color(0xffffff).multiplyScalar(0.3),
+    envMapIntensity: 0.9
+  });
+  return applySet(mat, leatherSet(color, opts), 0.9);
+}
+
+/** 水泥地/墙 */
+export function concreteMat(opts = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: opts.color ?? 0xffffff,
+    roughness: 1.0,
+    metalness: opts.metalness ?? 0.08,
+    envMapIntensity: opts.env ?? 0.6
+  });
+  return applySet(mat, concreteSet(opts), opts.normalScale ?? 0.9);
+}
+
+/** 砖墙 */
+export function brickMat(opts = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 1.0,
+    metalness: 0.02,
+    envMapIntensity: 0.5
+  });
+  return applySet(mat, brickSet(opts), opts.normalScale ?? 1.0);
+}
+
+/** 沥青（默认雨后微湿：车辙与积水低粗糙度反光） */
+export function asphaltMat(opts = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 1.0,
+    metalness: 0.12,
+    envMapIntensity: opts.env ?? 1.1
+  });
+  return applySet(mat, asphaltSet(opts), opts.normalScale ?? 0.8);
+}
+
+/** 折线拼花地板（蜡面） */
+export function chevronMat(colA, colB, opts = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 1.0,
+    metalness: opts.metalness ?? 0.14,
+    envMapIntensity: opts.env ?? 1.1
+  });
+  return applySet(mat, chevronSet(colA, colB, opts), opts.normalScale ?? 0.7);
+}
+
+/** 静水/镜面水（微波纹法线，userData.update 缓慢流动） */
+export function waterMat(color = 0x04121c, opts = {}) {
+  const rippleHeight = canvasOf(128, (g, s) => {
+    g.fillStyle = 'rgb(128,128,128)';
+    g.fillRect(0, 0, s, s);
+    const r = rng(opts.seed ?? 31);
+    for (let i = 0; i < 60; i++) {
+      const v = Math.round(120 + r() * 16);
+      g.strokeStyle = `rgba(${v},${v},${v},0.6)`;
+      g.lineWidth = 1 + r() * 2;
+      g.beginPath();
+      const y = r() * s;
+      g.moveTo(0, y);
+      g.bezierCurveTo(s * 0.3, y + (r() - 0.5) * 10, s * 0.7, y + (r() - 0.5) * 10, s, y);
+      g.stroke();
+    }
+  });
+  const normalMap = normalFromHeight(rippleHeight, 0.5, opts.repX ?? 2, opts.repY ?? 2);
+  const mat = new THREE.MeshPhysicalMaterial({
+    color,
+    roughness: 0.06,
+    metalness: 0.55,
+    normalMap,
+    normalScale: new THREE.Vector2(0.22, 0.22),
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.08,
+    envMapIntensity: opts.env ?? 2.0
+  });
+  mat.userData.update = (dt) => {
+    normalMap.offset.x += dt * 0.008;
+    normalMap.offset.y += dt * 0.005;
+  };
+  return mat;
+}
+
 // ---------- 边界 ----------
 /** 矩形边界约束 */
 export function rectBounds(minX, maxX, minZ, maxZ) {
