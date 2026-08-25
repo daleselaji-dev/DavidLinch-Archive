@@ -388,7 +388,7 @@ export function build(ctx) {
   back.rotation.y = Math.PI;
   group.add(back);
   updaters.push(back.userData.update);
-  hotspots.add(back.userData.portal, { hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+  hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
   // 氛围
   const smoke = smokeLayer(46, { x: W, z: L }, { opacity: 0.03, size: 7, yBase: 0.2, ySpread: 1 });

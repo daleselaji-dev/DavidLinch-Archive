@@ -71,15 +71,17 @@ describe('v1.3 道具预制体库导出面', () => {
     'theaterSeats', 'phoneBooth', 'angleLamp', 'radioCabinet', 'turntable',
     'typewriter', 'ceilingFan', 'counterClutter', 'pieCase', 'streetLampV2',
     'trafficLight', 'viewScope', 'fireboxDoor', 'valveWheel', 'fuseBox',
-    'gramophone', 'beerTaps', 'cashRegister', 'memorialStele', 'propMats'
+    'gramophone', 'beerTaps', 'cashRegister', 'memorialStele', 'propMats',
+    // v1.3 阶段 4 新增（互动带小件）
+    'lectern', 'stanchionRope', 'ushersBell', 'dimmerPlate', 'callaLily', 'lilyMats'
   ];
   it.each(PROPS)('%s 已导出为函数', (name) => {
     expect(typeof props[name]).toBe('function');
   });
 
-  it('预制体总数 ≥ 24（PRODUCTION_PLAN §3 独有预制体清单）', () => {
+  it('预制体总数 ≥ 29（PRODUCTION_PLAN §3 独有预制体清单 + 阶段 4 互动小件）', () => {
     const fns = Object.values(props).filter((v) => typeof v === 'function');
-    expect(fns.length).toBeGreaterThanOrEqual(24);
+    expect(fns.length).toBeGreaterThanOrEqual(29);
   });
 });
 

@@ -216,5 +216,8 @@ window.__SV__ = {
     }
     return names;
   },
+  /** 冒烟测试：当前展厅非导航可交互物件数（门禁 20：nav 门户不计入） */
+  countInteractives: () =>
+    hotspots.items.filter((m) => !(m.userData.hotspot && m.userData.hotspot.nav)).length,
   version: '1.2.0'
 };

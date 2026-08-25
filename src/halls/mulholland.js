@@ -330,6 +330,24 @@ export function build(ctx) {
       ui.caption('没有拨号音。只有呼吸。', 3600);
     }
   });
+  // 转盘拨号 —— 顺时针转到底，再嗒嗒嗒弹回
+  const dialState = { t: 0 };
+  updaters.push((dt) => {
+    if (dialState.t <= 0) return;
+    dialState.t = Math.max(0, dialState.t - dt);
+    const k = dialState.t > 0.6 ? (1.2 - dialState.t) / 0.6 : dialState.t / 0.6;
+    booth.userData.dial.rotation.z = -k * 2.4;
+  });
+  hotspots.add(booth.userData.dialDisc, {
+    hint: 'E — 转一格拨号盘',
+    onActivate: () => {
+      dialState.t = 1.2;
+      audio.sfx('clank', 0.22);
+      later(() => audio.sfx('type', 0.5), 620);
+      later(() => audio.sfx('type', 0.42), 800);
+      later(() => audio.sfx('type', 0.35), 950);
+    }
+  });
 
   // ---------- 惊吓彩蛋：THE THING BEHIND ----------
   const figure = darkFigure(2.3);
@@ -501,6 +519,36 @@ export function build(ctx) {
     });
   }
 
+  // 走道排灯闸 —— 墙上的黄铜拨杆，熄掉排椅侧的小灯珠
+  const aisleBox = roundedBoxMesh(0.14, 0.22, 0.07, 0.015,
+    new THREE.MeshStandardMaterial({ color: 0x1a1418, roughness: 0.5, metalness: 0.5 }));
+  aisleBox.position.set(7.15, 1.05, 1.8);
+  aisleBox.rotation.y = -Math.PI / 2;
+  const aisleLever = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.016, 0.022, 0.16, 8),
+    new THREE.MeshStandardMaterial({ color: 0x8a6c3c, roughness: 0.3, metalness: 0.9 })
+  );
+  aisleLever.position.set(7.1, 1.05, 1.8);
+  aisleLever.rotation.z = 0.5;
+  inner.add(aisleBox, aisleLever);
+  const aisleWash = new THREE.PointLight(0xffca7a, 2.2, 8, 2);
+  aisleWash.position.set(0, 1.4, 0.5);
+  inner.add(aisleWash);
+  const aisleState = { on: 1 };
+  updaters.push((dt) => {
+    const target = aisleState.on;
+    seats.userData.domeMat.emissiveIntensity += (target * 1.8 - seats.userData.domeMat.emissiveIntensity) * Math.min(1, dt * 8);
+    aisleWash.intensity += (target * 2.2 - aisleWash.intensity) * Math.min(1, dt * 8);
+    aisleLever.rotation.z += ((aisleState.on ? 0.5 : -0.5) - aisleLever.rotation.z) * Math.min(1, dt * 10);
+  });
+  hotspots.add(aisleLever, {
+    hint: 'E — 走道排灯',
+    onActivate: () => {
+      aisleState.on = aisleState.on ? 0 : 1;
+      audio.sfx(aisleState.on ? 'lampon' : 'lampoff', 0.6);
+    }
+  });
+
   // 蓝色立方体 —— 梦境反转
   const pedestal = roundedBoxMesh(0.6, 1.15, 0.6, 0.04,
     new THREE.MeshStandardMaterial({ color: 0x0d0d12, roughness: 0.3, metalness: 0.4 }));
@@ -595,7 +643,7 @@ export function build(ctx) {
   back.position.set(0, 0, 17.8);
   group.add(back);
   updaters.push(back.userData.update);
-  hotspots.add(back.userData.portal, { hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+  hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
   group.add(new THREE.AmbientLight(0x141228, 1.15));
 

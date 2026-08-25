@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import {
   roundedBoxGeo, roundedBoxMesh, mergedMesh, xform, canvasTexture,
-  woodMat, brassMat, chromeMat, ironMat, leatherMat, rng
+  woodMat, brassMat, chromeMat, ironMat, leatherMat, fabricMat, rng
 } from './kit.js';
 
 /** 每厅一次性创建的共享材质组（切厅时随 group 一并 dispose） */
@@ -494,6 +494,25 @@ export function phoneBooth({ mats } = {}) {
   const cord = new THREE.Mesh(new THREE.TubeGeometry(new Helix(), 120, 0.006, 6), frameCol);
   cord.position.set(-0.19, 1.5, 0);
   g.add(boxUnit, handset, cord);
+  // 转盘拨号：镀铬盘体 + 指孔环 + 固定指停片 —— userData.dial / dialDisc 供交互
+  const dial = new THREE.Group();
+  const dialDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, 0.014, 20), M.chrome);
+  dialDisc.rotation.x = Math.PI / 2;
+  const holeGeo = new THREE.TorusGeometry(0.011, 0.0038, 6, 10);
+  const holeGeos = [];
+  for (let i = 0; i < 9; i++) {
+    const a = -Math.PI * 0.18 - (i / 9) * Math.PI * 1.5;
+    holeGeos.push(xform(holeGeo, Math.cos(a) * 0.047, Math.sin(a) * 0.047, 0.0085));
+  }
+  holeGeo.dispose();
+  dial.add(dialDisc, mergedMesh(holeGeos, frameCol));
+  dial.position.set(0.04, 1.4, -0.234);
+  const fingerStop = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.012), M.brass);
+  fingerStop.position.set(0.095, 1.43, -0.23);
+  fingerStop.rotation.z = -0.5;
+  g.add(dial, fingerStop);
+  g.userData.dial = dial;
+  g.userData.dialDisc = dialDisc;
   const innerLight = new THREE.PointLight(0x88c8ff, 1.6, 3, 2);
   innerLight.position.set(0, 2.2, 0);
   g.add(innerLight);
@@ -1270,5 +1289,167 @@ export function memorialStele({ mats } = {}) {
     xform(dotGeo, -0.72, 0.32, -0.32), xform(dotGeo, 0.72, 0.32, -0.32)
   ], M.brass));
   g.userData.inscription = insc;
+  return g;
+}
+
+// ============================================================
+// 大厅 —— 访客名册讲台（车削柱身 + 斜面台 + 黄铜前唇 + 摊开册页）
+// ============================================================
+export function lectern({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const stemGeo = lathe([
+    [0.3, 0], [0.28, 0.05], [0.1, 0.1], [0.07, 0.5],
+    [0.11, 0.88], [0.06, 0.98], [0.13, 1.06]
+  ], 18);
+  g.add(new THREE.Mesh(stemGeo, M.darkWood));
+  // 斜面台 + 唇边
+  const desk = new THREE.Group();
+  const board = roundedBoxMesh(0.64, 0.05, 0.48, 0.012, M.darkWood);
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.045, 0.03), M.brass);
+  lip.position.set(0, 0.01, 0.245);
+  desk.add(board, lip);
+  desk.position.y = 1.14;
+  desk.rotation.x = -0.34;
+  g.add(desk);
+  // 摊开的名册（左右双页微倾 + 米白页芯 + 深皮封面）
+  const pageMat = new THREE.MeshStandardMaterial({ color: 0xe8e0cd, roughness: 0.92 });
+  const coverMat = new THREE.MeshStandardMaterial({ color: 0x281016, roughness: 0.55 });
+  const ledger = new THREE.Group();
+  for (const s of [-1, 1]) {
+    const cover = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.014, 0.35), coverMat);
+    cover.position.set(s * 0.128, 0, 0);
+    cover.rotation.z = s * 0.1;
+    const page = new THREE.Mesh(new THREE.BoxGeometry(0.225, 0.016, 0.315), pageMat);
+    page.position.set(s * 0.124, 0.009, 0);
+    page.rotation.z = s * 0.1;
+    ledger.add(cover, page);
+  }
+  ledger.position.set(0, 0.05, -0.02);
+  desk.add(ledger);
+  g.userData.desk = board;
+  g.userData.ledger = ledger;
+  return g;
+}
+
+// ============================================================
+// 大厅 —— 天鹅绒围栏（车削黄铜立柱 ×2 + 悬垂绒绳；绳挂点可摆动）
+// ============================================================
+export function stanchionRope({ span = 1.8, mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const postGeo = lathe([
+    [0.15, 0], [0.14, 0.03], [0.05, 0.07], [0.032, 0.76],
+    [0.05, 0.84], [0.02, 0.88], [0.042, 0.93], [0.001, 0.98]
+  ], 16);
+  g.add(mergedMesh([
+    xform(postGeo, -span / 2, 0, 0),
+    xform(postGeo, span / 2, 0, 0)
+  ], M.brass));
+  postGeo.dispose();
+  // 绒绳：二次贝塞尔悬垂；pivot 在挂点高度，供小幅摆动
+  const pivot = new THREE.Group();
+  pivot.position.y = 0.86;
+  const rope = new THREE.Mesh(
+    bentTube([-span / 2 + 0.04, 0, 0], [0, -0.34, 0], [span / 2 - 0.04, 0, 0], 0.03, 26),
+    fabricMat('#4a0c18', '#661222', { seed: 51, repX: 6, repY: 1, sheenColor: 0xcc4a5c })
+  );
+  pivot.add(rope);
+  g.add(pivot);
+  g.userData.rope = rope;
+  g.userData.pivot = pivot;
+  return g;
+}
+
+// ============================================================
+// 大厅 —— 迎宾铃（黄铜座 + 半球罩 + 按钮；一按六门齐亮）
+// ============================================================
+export function ushersBell({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const baseGeo = lathe([[0.105, 0], [0.095, 0.02], [0.055, 0.034], [0.02, 0.04]], 18);
+  const domeGeo = lathe([
+    [0.082, 0.042], [0.08, 0.07], [0.062, 0.1], [0.03, 0.12], [0.001, 0.128]
+  ], 18);
+  const dome = new THREE.Mesh(domeGeo, M.brass);
+  g.add(new THREE.Mesh(baseGeo, M.brass), dome);
+  const button = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.022, 10), M.iron);
+  button.position.y = 0.134;
+  g.add(button);
+  g.userData.dome = dome;
+  g.userData.button = button;
+  return g;
+}
+
+// ============================================================
+// 大厅 —— 黄铜调光面板（立柱挂装；三档旋钮 + 四角螺钉）
+// ============================================================
+export function dimmerPlate({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const plate = roundedBoxMesh(0.16, 0.24, 0.026, 0.012, M.brass);
+  g.add(plate);
+  const screwGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.014, 8);
+  const screws = mergedMesh([
+    xform(screwGeo, -0.058, 0.098, 0.014, Math.PI / 2, 0, 0),
+    xform(screwGeo, 0.058, 0.098, 0.014, Math.PI / 2, 0, 0),
+    xform(screwGeo, -0.058, -0.098, 0.014, Math.PI / 2, 0, 0),
+    xform(screwGeo, 0.058, -0.098, 0.014, Math.PI / 2, 0, 0)
+  ], M.iron);
+  screwGeo.dispose();
+  g.add(screws);
+  // 旋钮：车削锥台 + 指针刻条；绕面板法线旋转指示档位
+  const knob = new THREE.Group();
+  const knobGeo = lathe([[0.001, 0], [0.048, 0.006], [0.042, 0.032], [0.02, 0.048], [0.001, 0.052]], 16);
+  const knobBody = new THREE.Mesh(knobGeo, M.iron);
+  knobBody.rotation.x = Math.PI / 2;
+  const notch = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.03, 0.01), M.brass);
+  notch.position.set(0, 0.024, 0.05);
+  knob.add(knobBody, notch);
+  knob.position.z = 0.014;
+  g.add(knob);
+  g.userData.knob = knob;
+  g.userData.plate = plate;
+  return g;
+}
+
+// ============================================================
+// 大厅 —— 马蹄莲（献花小件：曲茎 + 上挑佛焰苞 + 花蕊）
+// shared 传入共享材质 { stem, spathe, spadix }，献 7 支不重复建材质
+// ============================================================
+export function lilyMats() {
+  return {
+    stem: new THREE.MeshStandardMaterial({ color: 0x2c4a22, roughness: 0.72 }),
+    spathe: new THREE.MeshPhysicalMaterial({
+      color: 0xf2ead8, roughness: 0.55, sheen: 1,
+      sheenColor: new THREE.Color(0xfff8ee), sheenRoughness: 0.4, side: THREE.DoubleSide
+    }),
+    spadix: new THREE.MeshStandardMaterial({
+      color: 0xd8b048, roughness: 0.8, emissive: 0x604818, emissiveIntensity: 0.3
+    })
+  };
+}
+export function callaLily(shared) {
+  const S = shared || lilyMats();
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(
+    bentTube([0, 0, 0], [0.01, 0.22, 0.02], [0.06, 0.38, 0], 0.008, 12), S.stem
+  );
+  g.add(stem);
+  // 佛焰苞：开口喇叭车削后单侧顶点上挑（马蹄莲特征）
+  const spatheGeo = lathe([[0.004, 0], [0.02, 0.03], [0.045, 0.09], [0.058, 0.13]], 14);
+  const pos = spatheGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    if (y > 0.07 && z > 0.015) pos.setY(i, y + z * 0.95);
+  }
+  spatheGeo.computeVertexNormals();
+  const spathe = new THREE.Mesh(spatheGeo, S.spathe);
+  spathe.position.set(0.055, 0.35, 0);
+  g.add(spathe);
+  const spadix = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.1, 8), S.spadix);
+  spadix.position.set(0.055, 0.42, 0);
+  g.add(spadix);
   return g;
 }

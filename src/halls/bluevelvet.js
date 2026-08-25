@@ -105,6 +105,44 @@ export function build(ctx) {
   cone.position.set(0, 3.1, -D / 2 + 2.3);
   group.add(cone);
 
+  // 幕绳 —— 拉一下，后幕全幅打个寒颤，脚灯跟着亮一拍
+  const pullRope = new THREE.Group();
+  const ropeCord = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.018, 3.9, 8),
+    new THREE.MeshStandardMaterial({ color: 0x6b5232, roughness: 0.8 })
+  );
+  ropeCord.position.y = -1.95;
+  const tassel = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.05, -0.05), new THREE.Vector2(0.055, -0.16),
+      new THREE.Vector2(0.03, -0.24), new THREE.Vector2(0.001, -0.27)
+    ], 12),
+    new THREE.MeshStandardMaterial({ color: 0x8a6c3c, roughness: 0.65, metalness: 0.3 })
+  );
+  tassel.position.y = -3.9;
+  pullRope.add(ropeCord, tassel);
+  pullRope.position.set(3.85, 5.1, -D / 2 + 0.9);
+  group.add(pullRope);
+  const curtainShudder = { t: 0, e: 0 };
+  updaters.push((dt) => {
+    if (curtainShudder.e <= 0.004) return;
+    curtainShudder.t += dt;
+    curtainShudder.e *= Math.max(0, 1 - dt * 1.3);
+    const k = Math.sin(curtainShudder.t * 11) * curtainShudder.e;
+    backdrop.position.x = k * 0.07;
+    backdrop.rotation.y = k * 0.018;
+    pullRope.rotation.x = Math.sin(curtainShudder.t * 5.5) * 0.2 * curtainShudder.e;
+    footWash.intensity = 3 + curtainShudder.e * 5;
+  });
+  hotspots.add(tassel, {
+    hint: 'E — 拉动幕绳',
+    onActivate: () => {
+      curtainShudder.t = 0;
+      curtainShudder.e = 1;
+      audio.sfx('curtain', 0.9);
+    }
+  });
+
   // 话筒热点 —— 影片档案
   const micHot = new THREE.Mesh(
     new THREE.SphereGeometry(0.34, 10, 8),
@@ -273,6 +311,43 @@ export function build(ctx) {
   bar.add(mergedMesh(stPoleGeos, new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(), color: 0xa8a8a8, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4
   })));
+  // 第四把吧凳 —— 被人拉离了吧台，凳面可以转
+  const strayStool = new THREE.Group();
+  const straySeatSpin = new THREE.Group();
+  const straySeat = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.24, 0.24, 0.11, 18),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x101c40, roughness: 0.5, sheen: 0.7, sheenColor: new THREE.Color(0x5070d0),
+      clearcoat: 0.4, clearcoatRoughness: 0.4
+    })
+  );
+  straySeat.position.y = 0.84;
+  const strayRim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.045, 8, 20), straySeat.material);
+  strayRim.rotation.x = Math.PI / 2;
+  strayRim.position.y = 0.8;
+  straySeatSpin.add(straySeat, strayRim);
+  const strayPole = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.04, 0.06, 0.74, 10), 0, 0.4, 0),
+    xform(new THREE.CylinderGeometry(0.18, 0.22, 0.04, 12), 0, 0.02, 0)
+  ], new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0xa8a8a8, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4
+  }));
+  strayStool.add(straySeatSpin, strayPole);
+  strayStool.position.set(-W / 2 + 3.35, 0, 4.35);
+  bar.add(strayStool);
+  const stoolSpin = { w: 0 };
+  updaters.push((dt) => {
+    if (stoolSpin.w <= 0.01) return;
+    stoolSpin.w *= Math.max(0, 1 - dt * 0.9);
+    straySeatSpin.rotation.y += stoolSpin.w * dt;
+  });
+  hotspots.add(straySeat, {
+    hint: 'E — 转一转吧凳',
+    onActivate: () => {
+      stoolSpin.w = 9;
+      audio.sfx('thud', 0.3);
+    }
+  });
   // 吧台上的威士忌杯
   const glass = new THREE.Mesh(
     new THREE.CylinderGeometry(0.05, 0.045, 0.09, 14),
@@ -437,7 +512,7 @@ export function build(ctx) {
   back.rotation.y = Math.PI;
   group.add(back);
   updaters.push(back.userData.update);
-  hotspots.add(back.userData.portal, { hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+  hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
   // 氛围
   const haze = smokeLayer(60, { x: W, z: D }, { opacity: 0.05, size: 8, yBase: 0.6, ySpread: 2.2, color: 0xaab4d8 });

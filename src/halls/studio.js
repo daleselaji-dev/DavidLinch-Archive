@@ -724,7 +724,7 @@ export function build(ctx) {
   back.rotation.y = Math.PI;
   group.add(back);
   updaters.push(back.userData.update);
-  hotspots.add(back.userData.portal, { hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+  hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
   // 边界：主房间 + （帘开着才可进的）冥想角
   const clamp = (p) => {

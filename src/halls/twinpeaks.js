@@ -194,6 +194,7 @@ export function build(ctx) {
     gateLight.intensity = 14 + Math.sin(t * 1.3) * 4;
   });
   hotspots.add(glowPlane, {
+    nav: true,
     hint: 'E — 掀开帷幕，回到大厅',
     onActivate: () => goTo('lobby')
   });

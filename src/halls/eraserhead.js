@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, railing, brushedMetalTexture,
-  concreteMat, brickMat
+  concreteMat, brickMat, hangingBulb
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -159,6 +159,63 @@ export function build(ctx) {
       audio.sfx('clank');
       setTimeout(() => audio.sfx('steam'), 260);
       lever.rotation.z = lever.rotation.z < 0 ? 0.4 : -0.4;
+    }
+  });
+
+  // 汽笛链 —— 北墙管道上垂下的链条；拉响 → 蒸汽 + 大机器猛冲一拍
+  const chainRig = new THREE.Group();
+  const linkGeo2 = new THREE.TorusGeometry(0.032, 0.008, 6, 10);
+  const linkGeos2 = [];
+  for (let i = 0; i < 46; i++) {
+    linkGeos2.push(xform(linkGeo2, 0, -i * 0.054, 0, Math.PI / 2, (i % 2) * Math.PI / 2, 0));
+  }
+  linkGeo2.dispose();
+  chainRig.add(mergedMesh(linkGeos2, pipeMat));
+  const chainHandle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.025, 0.22, 10),
+    new THREE.MeshStandardMaterial({ color: 0x4a3420, roughness: 0.7 })
+  );
+  chainHandle.rotation.z = Math.PI / 2;
+  chainHandle.position.y = -2.52;
+  chainRig.add(chainHandle);
+  chainRig.position.set(-0.8, 4.5, -S / 2 + 0.42);
+  group.add(chainRig);
+  const whistle = { pull: 0 };
+  updaters.push((dt) => {
+    if (whistle.pull > 0) whistle.pull = Math.max(0, whistle.pull - dt * 2.4);
+    chainRig.position.y = 4.5 - Math.sin(Math.min(1, whistle.pull) * Math.PI) * 0.16;
+    machineState.run += (1 - machineState.run) * Math.min(1, dt * 0.8);
+  });
+  hotspots.add(chainHandle, {
+    hint: 'E — 拉响汽笛链',
+    onActivate: () => {
+      whistle.pull = 1;
+      steamBurst = 4.2;
+      machineState.run = 2.4;
+      audio.sfx('clank', 0.5);
+      setTimeout(() => audio.sfx('steam', 0.95), 180);
+      setTimeout(() => audio.sfx('steamfar', 0.7), 900);
+    }
+  });
+
+  // 裸吊灯 —— 推一下就荡起来，光影跟着晃
+  const swingBulb = hangingBulb(0xffe2b8, 2.5);
+  swingBulb.position.set(1.9, H, -3.1);
+  group.add(swingBulb);
+  const swing = { e: 0, t: 0 };
+  updaters.push((dt) => {
+    if (swing.e <= 0.004) return;
+    swing.t += dt;
+    swing.e *= Math.max(0, 1 - dt * 0.55);
+    swingBulb.rotation.z = Math.sin(swing.t * 1.9) * 0.52 * swing.e;
+    swingBulb.rotation.x = Math.sin(swing.t * 1.9 + 1.1) * 0.3 * swing.e;
+  });
+  hotspots.add(swingBulb.userData.bulb, {
+    hint: 'E — 推一下吊灯',
+    onActivate: () => {
+      swing.e = 1;
+      swing.t = 0;
+      audio.sfx('thud', 0.3);
     }
   });
 
@@ -532,7 +589,7 @@ export function build(ctx) {
   back.rotation.y = Math.PI;
   group.add(back);
   updaters.push(back.userData.update);
-  hotspots.add(back.userData.portal, { hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+  hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
   // 氛围
   const haze = smokeLayer(60, { x: S, z: S }, { opacity: 0.06, size: 9, yBase: 0.5, ySpread: 2.4, color: 0xb9bec4 });

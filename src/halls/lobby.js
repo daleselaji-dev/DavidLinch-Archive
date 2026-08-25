@@ -11,7 +11,10 @@ import {
   column, mergedMesh, xform, brushedMetalTexture,
   chevronMat, woodMat
 } from './kit.js';
-import { propMats, chandelier, memorialStele, gramophone } from './props.js';
+import {
+  propMats, chandelier, memorialStele, gramophone,
+  lectern, stanchionRope, ushersBell, dimmerPlate, callaLily, lilyMats
+} from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -97,14 +100,15 @@ export function build(ctx) {
     onActivate: () => ui.showArtist()
   });
 
-  // 黄铜六臂吊灯（挂在天花线脚中心）
+  // 黄铜六臂吊灯（挂在天花线脚中心）；dim 为墙面调光旋钮的三档状态
+  const dim = { stops: [1, 0.52, 0.16], idx: 0, v: 1 };
   const lustre = chandelier({ arms: 6, radius: 1.2, mats: M });
   lustre.position.y = 6.55;
   group.add(lustre);
   updaters.push((dt, t) => {
     lustre.rotation.y = t * 0.05;
-    // 极缓的烛光呼吸
-    lustre.userData.setPower(0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03);
+    // 极缓的烛光呼吸 × 调光档
+    lustre.userData.setPower((0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03) * dim.v);
   });
 
   // 悬浮标题霓虹
@@ -129,6 +133,7 @@ export function build(ctx) {
     { id: 'twinpeaks', label: 'TWIN PEAKS', labelZh: '双 峰 · 1990', color: '#3fae6a', angle: -Math.PI / 2 + (Math.PI * 8) / 6 },
     { id: 'mulholland', label: 'MULHOLLAND DR.', labelZh: '穆 赫 兰 道 · 2001', color: '#3ec5ff', angle: -Math.PI / 2 + (Math.PI * 10) / 6 }
   ];
+  const doorPortals = [];
   for (const d of doors) {
     const door = doorway({ label: d.label, labelZh: d.labelZh, color: d.color });
     const x = Math.cos(d.angle) * (R - 2.1);
@@ -137,7 +142,9 @@ export function build(ctx) {
     door.lookAt(0, 0, 0);
     group.add(door);
     updaters.push(door.userData.update);
+    doorPortals.push(door.userData.portal);
     hotspots.add(door.userData.portal, {
+      nav: true,
       hint: `E — 进入 ${d.labelZh.replace(/\s/g, '')}`,
       onActivate: () => goTo(d.id)
     });
@@ -268,6 +275,124 @@ export function build(ctx) {
     onActivate: () => ui.showQuotes()
   });
 
+  // ============================================================
+  // v1.3 互动带：名册讲台 / 调光旋钮 / 迎宾铃 / 献花 / 绒绳围栏
+  // ============================================================
+  // 访客名册讲台 —— 打开留言簿
+  const stand = lectern({ mats: M });
+  stand.position.set(3.4, 0, 6.2);
+  stand.rotation.y = -0.95;
+  group.add(stand);
+  hotspots.add(stand.userData.desk, {
+    hint: 'E — 访客名册（写一句话）',
+    onActivate: () => ui.openGuestbook()
+  });
+
+  // 立柱上的黄铜调光面板 —— 三档：常亮 / 半亮 / 烛暗
+  const dimmer = dimmerPlate({ mats: M });
+  {
+    const colA = -Math.PI / 2 + Math.PI / 6;
+    dimmer.position.set(Math.cos(colA) * (R - 1.24), 1.35, Math.sin(colA) * (R - 1.24));
+    dimmer.rotation.y = Math.atan2(-dimmer.position.x, -dimmer.position.z);
+  }
+  group.add(dimmer);
+  hotspots.add(dimmer.userData.plate, {
+    hint: 'E — 吊灯调光',
+    onActivate: () => {
+      const prev = dim.stops[dim.idx];
+      dim.idx = (dim.idx + 1) % dim.stops.length;
+      audio.sfx(dim.stops[dim.idx] < prev ? 'lampoff' : 'lampon', 0.55);
+    }
+  });
+
+  // 迎宾铃 —— 一按，六扇门齐声增亮一拍（连锁反馈）
+  const bellTable = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.3, 0), new THREE.Vector2(0.27, 0.04), new THREE.Vector2(0.06, 0.09),
+      new THREE.Vector2(0.055, 0.82), new THREE.Vector2(0.26, 0.9), new THREE.Vector2(0.28, 0.94)
+    ], 18),
+    woodMat({ base: [30, 18, 12], planks: 2, size: 256, seed: 45 })
+  );
+  bellTable.position.set(-4.9, 0, 5.4);
+  group.add(bellTable);
+  const bell = ushersBell({ mats: M });
+  bell.position.set(-4.9, 0.94, 5.4);
+  group.add(bell);
+  const bellPulse = { t: 0 };
+  hotspots.add(bell.userData.dome, {
+    hint: 'E — 迎宾铃',
+    onActivate: () => {
+      bellPulse.t = 1.6;
+      audio.sfx('typebell', 0.8);
+      audio.sfx('chime', 0.5);
+    }
+  });
+  updaters.push((dt) => {
+    if (bellPulse.t <= 0) return;
+    bellPulse.t = Math.max(0, bellPulse.t - dt);
+    const k = bellPulse.t / 1.6;
+    const glowNow = 0.13 + k * 1.1 * (0.65 + Math.sin(bellPulse.t * 18) * 0.35);
+    for (const p of doorPortals) p.material.emissiveIntensity = glowNow;
+  });
+
+  // 献花 —— 黄铜瓶取一支马蹄莲，放到碑前（最多七支）
+  const urn = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.16, 0), new THREE.Vector2(0.14, 0.03), new THREE.Vector2(0.06, 0.09),
+      new THREE.Vector2(0.1, 0.34), new THREE.Vector2(0.17, 0.52), new THREE.Vector2(0.15, 0.55)
+    ], 18),
+    M.brass
+  );
+  urn.position.set(2.7, 0, 1.5);
+  group.add(urn);
+  const lilyShared = lilyMats();
+  [[0, 0.2], [2.1, 0.28], [4.2, 0.24]].forEach(([ry, rz]) => {
+    const l = callaLily(lilyShared);
+    l.position.set(2.7, 0.4, 1.5);
+    l.rotation.set(0, ry, rz);
+    group.add(l);
+  });
+  const placed = { n: 0 };
+  hotspots.add(urn, {
+    hint: 'E — 献一支花',
+    onActivate: () => {
+      if (placed.n >= 7) {
+        audio.sfx('page', 0.25);
+        return;
+      }
+      placed.n += 1;
+      const lily = callaLily(lilyShared);
+      lily.position.set(-0.9 + (placed.n - 1) * 0.3, 0.27, 0.95 + (placed.n % 2) * 0.16);
+      lily.rotation.set(-Math.PI / 2 + 0.18, 0, 0.5 - placed.n * 0.14);
+      group.add(lily);
+      audio.sfx('page', 0.45);
+      audio.sfx('chime', 0.28);
+      if (placed.n === 1) ui.caption('给他留一支花。', 3200);
+      else if (placed.n === 7) ui.caption('碑前放满了花。', 3200);
+    }
+  });
+
+  // 天鹅绒绒绳围栏 —— 推一下会摆
+  const rail = stanchionRope({ span: 1.9, mats: M });
+  rail.position.set(-2.85, 0, 4.2);
+  rail.rotation.y = 0.9;
+  group.add(rail);
+  const ropeSway = { v: 0, t: 0 };
+  hotspots.add(rail.userData.rope, {
+    hint: 'E — 天鹅绒围栏',
+    onActivate: () => {
+      ropeSway.v = 1;
+      ropeSway.t = 0;
+      audio.sfx('thud', 0.22);
+    }
+  });
+  updaters.push((dt) => {
+    if (ropeSway.v <= 0.004) return;
+    ropeSway.t += dt;
+    ropeSway.v *= Math.max(0, 1 - dt * 1.1);
+    rail.userData.pivot.rotation.x = Math.sin(ropeSway.t * 7) * 0.35 * ropeSway.v;
+  });
+
   // 氛围: 地面烟雾 + 光尘
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
   group.add(smoke);
@@ -283,6 +408,14 @@ export function build(ctx) {
   const rim = new THREE.PointLight(0x8f0e1e, 22, 40, 1.6);
   rim.position.set(0, 3.4, 0);
   group.add(amb, center, rim);
+  // 调光档缓动：中央顶光跟随、旋钮指针转档
+  updaters.push((dt) => {
+    dim.v += (dim.stops[dim.idx] - dim.v) * Math.min(1, dt * 4.5);
+    center.intensity = 14 * (0.22 + dim.v * 0.78);
+    const targetRz = -dim.idx * (Math.PI * 2 / 3);
+    const kn = dimmer.userData.knob;
+    kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
+  });
 
   return {
     group,

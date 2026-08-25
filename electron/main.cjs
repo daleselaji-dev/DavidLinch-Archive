@@ -82,6 +82,24 @@ function createWindow() {
             app.exit(1);
           }
         }).catch(() => {});
+        // 交互密度门禁（QUALITY_GATES 20）：每厅非导航可交互物 ≥ 阈值
+        const INTERACTIVE_MIN = {
+          lobby: 8, archive: 8, eraserhead: 8, bluevelvet: 8,
+          twinpeaks: 10, mulholland: 8, studio: 10
+        };
+        win.webContents.executeJavaScript(
+          'window.__SV__.countInteractives()', true
+        ).then((n) => {
+          const min = INTERACTIVE_MIN[hall] ?? 8;
+          console.log(`[smoke] 可交互物 ${hall}: ${n} (阈值 ≥${min})`);
+          if (Number(n) < min) {
+            console.error(`[smoke] 交互密度不足 ${hall}: ${n} < ${min}`);
+            app.exit(1);
+          }
+        }).catch((err) => {
+          console.error(`[smoke] countInteractives 失败 ${hall}: ${err && err.message}`);
+          app.exit(1);
+        });
         const proceed = () => {
           // 彩蛋触发冒烟：每厅引爆其隐藏彩蛋，校验触发链不抛错（在截屏之后，避免熄灯污染画面存档）
           win.webContents.executeJavaScript(
