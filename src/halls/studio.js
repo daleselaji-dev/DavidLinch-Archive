@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
-  mergedMesh, xform, roundedBoxMesh,
+  mergedMesh, xform, roundedBoxMesh, woodTexture,
   woodMat as woodPbr
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
@@ -74,10 +74,22 @@ export function build(ctx) {
   mkWall(W, 0, D / 2, Math.PI);
   mkWall(D, -W / 2, 0, Math.PI / 2);
   mkWall(D, W / 2, 0, -Math.PI / 2);
-  const ceil = floorMesh(W, D, new THREE.MeshStandardMaterial({ color: 0x0d0906, roughness: 0.95 }));
+  // 拼板木顶 + 三道明椽（小木屋的顶，不再是黑洞）
+  const ceil = floorMesh(W, D, woodPbr({
+    base: [24, 16, 9], planks: 7, size: 256, seed: 47, repX: 4, repY: 3, gloss: 0.25, env: 0.35
+  }));
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = H;
   group.add(ceil);
+  const rafterGeo = new THREE.BoxGeometry(W, 0.18, 0.24);
+  const rafterGeos = [];
+  for (const rz of [-3.4, 0.4, 4.2]) {
+    rafterGeos.push(xform(rafterGeo, 0, H - 0.09, rz));
+  }
+  rafterGeo.dispose();
+  group.add(mergedMesh(rafterGeos, new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [18, 12, 7], planks: 1, size: 128 }), roughness: 0.85
+  })));
 
   // 冥想角（北墙外的凹间）
   const nookMat = new THREE.MeshStandardMaterial({ color: 0x120b12, roughness: 0.9 });
