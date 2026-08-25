@@ -13,7 +13,7 @@ import {
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
-  lectern, stanchionRope, ushersBell, dimmerPlate, callaLily, lilyMats
+  lectern, stanchionRope, ushersBell, dimmerPlate, callaLily, lilyMats, ashStand
 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
@@ -392,6 +392,31 @@ export function build(ctx) {
     ropeSway.t += dt;
     ropeSway.v *= Math.max(0, 1 - dt * 1.1);
     rail.userData.pivot.rotation.x = Math.sin(ropeSway.t * 7) * 0.35 * ropeSway.v;
+  });
+
+  // 立式烟灰缸 —— 碗沿搁着一支没熄的烟（E → 余烬亮起，一缕烟升）
+  const ash = ashStand({ mats: M });
+  ash.position.set(-4.7, 0, 3.9);
+  ash.rotation.y = 0.7;
+  group.add(ash);
+  const wisp = smokeLayer(5, { x: 0.1, z: 0.1 }, { opacity: 0.05, size: 0.4, yBase: 0, ySpread: 0.9, color: 0xcfd4da });
+  wisp.position.set(-4.66, 0.9, 3.93);
+  group.add(wisp);
+  updaters.push(wisp.userData.update);
+  const ashState = { warm: 0 };
+  updaters.push((dt, t) => {
+    if (ashState.warm > 0) ashState.warm -= dt * 0.2;
+    const w = Math.max(0, Math.min(ashState.warm, 1));
+    wisp.material.opacity = 0.05 + w * 0.22;
+    ash.userData.emberMat.emissiveIntensity = 0.5 + Math.sin(t * 2.2) * 0.2 + w * 1.6;
+  });
+  hotspots.add(ash.userData.bowl, {
+    hint: 'E — 搁着的烟',
+    onActivate: () => {
+      ashState.warm = 1.8;
+      audio.sfx('strike', 0.5);
+      ui.caption('有人刚离开。', 3000);
+    }
   });
 
   // 氛围: 地面烟雾 + 光尘

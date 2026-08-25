@@ -1453,3 +1453,49 @@ export function callaLily(shared) {
   g.add(spadix);
   return g;
 }
+
+// ============================================================
+// 大厅 —— 立式烟灰缸（纪念小件：车削铬柱 + 凹槽底座 + 沙盘 + 搁着的烟）
+// 部件：喇叭底 / 束腰柱身 / 环唇碗 / 沙面 / 烟卷（纸身 + 余烬头）
+// ============================================================
+export function ashStand({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const standGeo = lathe([
+    [0.16, 0], [0.15, 0.02], [0.07, 0.05], [0.028, 0.1],
+    [0.02, 0.45], [0.026, 0.72], [0.05, 0.78], [0.1, 0.82], [0.115, 0.86], [0.1, 0.88]
+  ], 20);
+  g.add(new THREE.Mesh(standGeo, M.chrome));
+  // 碗内沙面
+  const sand = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.092, 0.092, 0.012, 18),
+    new THREE.MeshStandardMaterial({ color: 0xb8ac96, roughness: 0.98 })
+  );
+  sand.position.y = 0.855;
+  g.add(sand);
+  // 搁在碗沿的烟：纸身微倾 + 余烬头（可脉动）
+  const cig = new THREE.Group();
+  const paper = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0045, 0.0045, 0.075, 8),
+    new THREE.MeshStandardMaterial({ color: 0xe8e2d2, roughness: 0.8 })
+  );
+  paper.rotation.z = Math.PI / 2 - 0.18;
+  cig.add(paper);
+  const emberMat = new THREE.MeshStandardMaterial({
+    color: 0x1c0f08, emissive: 0xff5a1c, emissiveIntensity: 0.7, roughness: 1
+  });
+  const emberTip = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.004, 0.008, 8), emberMat);
+  emberTip.rotation.z = Math.PI / 2 - 0.18;
+  emberTip.position.set(-0.041, 0.0075, 0);
+  cig.add(emberTip);
+  cig.position.set(0.055, 0.868, 0);
+  g.add(cig);
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.1, 0.06, 18), M.chrome);
+  bowl.visible = false; // 更好点的射线目标（覆盖整个碗口）
+  bowl.position.y = 0.86;
+  g.add(bowl);
+  g.userData.bowl = bowl;
+  g.userData.emberMat = emberMat;
+  g.userData.cig = cig;
+  return g;
+}
