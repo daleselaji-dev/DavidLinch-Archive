@@ -431,6 +431,15 @@ export class AudioEngine {
         noise('crackle', 1.4, 'highpass', 1600, 1, 0.08, 0.9);
         break;
       }
+      case 'projector': { // 16mm 放映机：马达起转 + 24 格快门嗒嗒 + 片道摩擦
+        tone('sawtooth', 30, 96, 0.8, 0.035);
+        noise('pink', 1.6, 'bandpass', 480, 1.5, 0.05, 0.15, 0.3);
+        for (let i = 0; i < 22; i++) {
+          noise('white', 0.014, 'bandpass', 2600 + (i % 3) * 300, 5, 0.03, 0.35 + i * 0.058);
+        }
+        noise('crackle', 1.2, 'highpass', 3400, 1, 0.03, 0.5);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

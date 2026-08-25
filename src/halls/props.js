@@ -1573,3 +1573,125 @@ export function clubChair(color = 0x2a0e16, { mats } = {}) {
   g.add(mergedMesh(legGeos, M.darkWood));
   return g;
 }
+
+// ============================================================
+// 档案 —— 16mm 放映机展台（可开机：双盘转动 + 镜头亮 + 光锥）
+// 部件：方几座（踏脚枨方几）/ 机身 + 散热鳍 / 阶梯镜头筒（车削）/
+//       前后倾斜盘臂 / 供片盘 + 收片盘（侧板-辐条-片饼）/ 过片带 / 旋钮
+// 朝向：镜头指 +Z；userData: reelF/reelR（旋转组）/ lensMat / lensTip
+// ============================================================
+export function filmProjector({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  // 方几座：四方腿 + 双层枨 + 台面
+  const standGeos = [];
+  const legGeo2 = new THREE.BoxGeometry(0.05, 0.86, 0.05);
+  for (const [lx, lz] of [[-0.24, 0.2], [0.24, 0.2], [-0.24, -0.2], [0.24, -0.2]]) {
+    standGeos.push(xform(legGeo2, lx, 0.43, lz));
+  }
+  legGeo2.dispose();
+  const railGeoX = new THREE.BoxGeometry(0.48, 0.04, 0.04);
+  const railGeoZ = new THREE.BoxGeometry(0.04, 0.04, 0.4);
+  for (const ry of [0.2, 0.78]) {
+    standGeos.push(xform(railGeoX, 0, ry, 0.2), xform(railGeoX, 0, ry, -0.2));
+    standGeos.push(xform(railGeoZ, -0.24, ry, 0), xform(railGeoZ, 0.24, ry, 0));
+  }
+  railGeoX.dispose();
+  railGeoZ.dispose();
+  const topGeo = roundedBoxGeo(0.6, 0.05, 0.5, 0.012, 2);
+  standGeos.push(xform(topGeo, 0, 0.885, 0));
+  topGeo.dispose();
+  g.add(mergedMesh(standGeos, M.darkWood));
+  // 机身（铁壳）+ 散热鳍 + 底座滑轨
+  const bodyGeos = [];
+  const shell = roundedBoxGeo(0.3, 0.3, 0.42, 0.03, 2);
+  bodyGeos.push(xform(shell, 0, 1.08, -0.04));
+  shell.dispose();
+  const finGeo = new THREE.BoxGeometry(0.012, 0.2, 0.3);
+  for (let i = 0; i < 5; i++) {
+    bodyGeos.push(xform(finGeo, -0.16, 1.08, -0.18 + i * 0.07));
+  }
+  finGeo.dispose();
+  const sled = new THREE.BoxGeometry(0.34, 0.04, 0.46);
+  bodyGeos.push(xform(sled, 0, 0.93, -0.04));
+  sled.dispose();
+  // 阶梯镜头筒（车削，转向 +Z）
+  const barrel = lathe([
+    [0.055, 0], [0.06, 0.03], [0.048, 0.05], [0.05, 0.12], [0.042, 0.14], [0.046, 0.2]
+  ], 16);
+  bodyGeos.push(xform(barrel, 0, 1.1, 0.18, Math.PI / 2, 0, 0));
+  barrel.dispose();
+  // 倾斜盘臂（前倾 + 后仰）与旋钮
+  const armGeo2 = new THREE.BoxGeometry(0.05, 0.34, 0.05);
+  bodyGeos.push(xform(armGeo2, 0.0, 1.36, 0.1, 0.5, 0, 0));
+  bodyGeos.push(xform(armGeo2, 0.0, 1.36, -0.2, -0.5, 0, 0));
+  armGeo2.dispose();
+  const knobGeo = new THREE.CylinderGeometry(0.024, 0.028, 0.03, 10);
+  bodyGeos.push(xform(knobGeo, 0.17, 1.05, 0.05, 0, 0, Math.PI / 2));
+  bodyGeos.push(xform(knobGeo, 0.17, 1.12, -0.1, 0, 0, Math.PI / 2));
+  knobGeo.dispose();
+  g.add(mergedMesh(bodyGeos, M.iron));
+  // 镜头玻璃（可点亮）
+  const lensMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0c10, roughness: 0.15, metalness: 0.2,
+    emissive: 0xfff2d8, emissiveIntensity: 0
+  });
+  const lensTip = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.012, 14), lensMat);
+  lensTip.rotation.x = Math.PI / 2;
+  lensTip.position.set(0, 1.1, 0.385);
+  g.add(lensTip);
+  // 供片/收片盘（侧板 + 三辐条 + 片饼），装在盘臂端，可旋转
+  const mkReel = (filmR) => {
+    const r = new THREE.Group();
+    const plateGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.008, 22);
+    const spokeGeo = new THREE.BoxGeometry(0.022, 0.006, 0.3);
+    const reelGeos = [
+      xform(plateGeo, -0.02, 0, 0, 0, 0, Math.PI / 2),
+      xform(plateGeo, 0.02, 0, 0, 0, 0, Math.PI / 2)
+    ];
+    for (let i = 0; i < 3; i++) {
+      reelGeos.push(xform(spokeGeo, -0.021, 0, 0, i * Math.PI / 3, 0, 0));
+      reelGeos.push(xform(spokeGeo, 0.021, 0, 0, i * Math.PI / 3 + 0.5, 0, 0));
+    }
+    plateGeo.dispose();
+    spokeGeo.dispose();
+    r.add(mergedMesh(reelGeos, M.chrome));
+    const film = new THREE.Mesh(
+      new THREE.CylinderGeometry(filmR, filmR, 0.024, 20),
+      new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.55 })
+    );
+    film.rotation.z = Math.PI / 2;
+    r.add(film);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.05, 10), M.brass);
+    hub.rotation.z = Math.PI / 2;
+    r.add(hub);
+    return r;
+  };
+  const reelF = mkReel(0.13);
+  reelF.position.set(0, 1.53, 0.19);
+  const reelR = mkReel(0.07);
+  reelR.position.set(0, 1.53, -0.29);
+  g.add(reelF, reelR);
+  // 过片带（供片盘→机身→收片盘，两段斜带）
+  const beltGeo = new THREE.BoxGeometry(0.012, 0.4, 0.006);
+  const belts = mergedMesh([
+    xform(beltGeo, 0.03, 1.33, 0.22, 0.32, 0, 0),
+    xform(beltGeo, 0.03, 1.33, -0.3, -0.28, 0, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x17140f, roughness: 0.5 }));
+  beltGeo.dispose();
+  g.add(belts);
+  // 不可见射线靶（罩住整机，交互好瞄）
+  const hitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.9, 0.85),
+    new THREE.MeshStandardMaterial({ color: 0x000000 })
+  );
+  hitbox.visible = false;
+  hitbox.position.y = 1.28;
+  g.add(hitbox);
+  g.userData.reelF = reelF;
+  g.userData.reelR = reelR;
+  g.userData.lensMat = lensMat;
+  g.userData.lensTip = lensTip;
+  g.userData.hitbox = hitbox;
+  return g;
+}

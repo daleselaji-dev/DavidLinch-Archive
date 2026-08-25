@@ -10,9 +10,9 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, roundedBoxGeo
+  woodMat, fabricMat, roundedBoxGeo, lightCone
 } from './kit.js';
-import { propMats, fluorescentFixture, cardCatalog } from './props.js';
+import { propMats, fluorescentFixture, cardCatalog, filmProjector } from './props.js';
 
 export const meta = {
   id: 'archive',
@@ -213,6 +213,70 @@ export function build(ctx) {
     group.add(bench);
   }
   benchLegGeo.dispose();
+
+  // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
+  const projector = filmProjector({ mats: M });
+  projector.position.set(-2.4, 0, 8.2);
+  projector.rotation.y = Math.PI / 2; // 镜头指 +X（东墙）
+  group.add(projector);
+  // 光锥（镜头 → 东墙）+ 墙上抖动的空白画格
+  const beam = lightCone(0.06, 0.9, 6.3, 0xfff2d8, 0.05);
+  beam.rotation.z = -Math.PI / 2 + 0.04;
+  beam.position.set(1.2, 1.23, 8.2);
+  beam.visible = false;
+  group.add(beam);
+  const frameTex = canvasTexture(256, (g, s) => {
+    const grad = g.createRadialGradient(s / 2, s / 2, s * 0.1, s / 2, s / 2, s * 0.72);
+    grad.addColorStop(0, 'rgba(255,246,228,0.95)');
+    grad.addColorStop(0.75, 'rgba(240,228,204,0.55)');
+    grad.addColorStop(1, 'rgba(200,190,170,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+    // 片门刮痕
+    g.strokeStyle = 'rgba(120,110,95,0.25)';
+    for (let i = 0; i < 5; i++) {
+      g.lineWidth = 1 + (i % 2);
+      const x = s * (0.15 + i * 0.18);
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 4, s); g.stroke();
+    }
+  });
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.5, 1.5),
+    new THREE.MeshBasicMaterial({
+      map: frameTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  screen.position.set(W / 2 - 0.04, 1.5, 8.2);
+  screen.rotation.y = -Math.PI / 2;
+  group.add(screen);
+  const projLight = new THREE.PointLight(0xfff2d8, 0, 5.5, 1.8);
+  projLight.position.set(W / 2 - 1.2, 1.6, 8.2);
+  group.add(projLight);
+  const projState = { on: false, v: 0 };
+  updaters.push((dt, t) => {
+    projState.v += ((projState.on ? 1 : 0) - projState.v) * Math.min(1, dt * 4);
+    const v = projState.v;
+    if (v < 0.01) { beam.visible = false; screen.material.opacity = 0; projLight.intensity = 0; return; }
+    beam.visible = true;
+    // 24 格快门颤 + 偶发跳帧
+    const flick = 0.82 + Math.sin(t * 46) * 0.1 + (Math.sin(t * 3.1) > 0.96 ? -0.3 : 0);
+    beam.material.opacity = 0.05 * v * flick;
+    screen.material.opacity = 0.85 * v * flick;
+    screen.position.y = 1.5 + Math.sin(t * 24) * 0.006 * v; // 片门抖动
+    projLight.intensity = 5.5 * v * flick;
+    projector.userData.lensMat.emissiveIntensity = 2.4 * v * flick;
+    projector.userData.reelF.rotation.x -= dt * 5.6 * v;
+    projector.userData.reelR.rotation.x -= dt * 6.4 * v;
+  });
+  hotspots.add(projector.userData.hitbox, {
+    hint: 'E — 放映机',
+    onActivate: () => {
+      projState.on = !projState.on;
+      audio.sfxAt(projState.on ? 'projector' : 'switch', -2.0, 8.2, 0.7);
+      if (projState.on) ui.caption('每秒二十四格的空白。', 3600);
+    }
+  });
 
   // ---------- 西侧壁龛：原话摘录墙（他自己的话，唯一的字） ----------
   const niche = new THREE.Group();
