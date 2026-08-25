@@ -466,6 +466,35 @@ export function build(ctx) {
     leg.rotation.x = rz === 0 ? -0.3 : 0;
     easel.add(leg);
   }
+  // v1.3 艺术三遍：画架补齐工作件——托板/横撑/顶夹 + 抹布 + 笔筒
+  const easelWoodGeos = [
+    xform(new THREE.BoxGeometry(0.84, 0.045, 0.11), 0, 0.72, 0.115, -0.08, 0, 0),  // 托板
+    xform(new THREE.BoxGeometry(0.84, 0.03, 0.02), 0, 0.745, 0.165, -0.08, 0, 0),  // 托板前唇
+    xform(new THREE.BoxGeometry(0.62, 0.05, 0.04), 0, 0.42, 0.02),                  // 前腿横撑
+    xform(new THREE.BoxGeometry(0.1, 0.07, 0.06), 0, 1.98, 0.1, -0.08, 0, 0)        // 顶夹块
+  ];
+  easel.add(mergedMesh(easelWoodGeos, legMat));
+  // 沾了颜料的抹布（搭在托板左端）
+  const ragMat = new THREE.MeshStandardMaterial({ color: 0xb9ab92, roughness: 0.95 });
+  const rag = mergedMesh([
+    xform(new THREE.BoxGeometry(0.17, 0.016, 0.12), -0.28, 0.755, 0.12, -0.08, 0, 0.06),
+    xform(new THREE.BoxGeometry(0.16, 0.2, 0.012), -0.28, 0.65, 0.18, -0.12, 0, -0.05)
+  ], ragMat);
+  easel.add(rag);
+  // 笔筒 + 三支笔（托板右端）
+  const cup = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.038, 0.13, 12),
+    new THREE.MeshStandardMaterial({ color: 0x3a2c1c, roughness: 0.5, metalness: 0.4 })
+  );
+  cup.position.set(0.3, 0.81, 0.12);
+  easel.add(cup);
+  const brushGeos = [
+    xform(new THREE.CylinderGeometry(0.006, 0.008, 0.24, 6), 0.285, 0.93, 0.11, 0.12, 0, 0.1),
+    xform(new THREE.CylinderGeometry(0.006, 0.008, 0.21, 6), 0.31, 0.91, 0.13, -0.1, 0, -0.14),
+    xform(new THREE.CylinderGeometry(0.006, 0.008, 0.27, 6), 0.3, 0.94, 0.12, 0.02, 0, 0.22)
+  ];
+  easel.add(mergedMesh(brushGeos, new THREE.MeshStandardMaterial({ color: 0x8a5c30, roughness: 0.7 })));
+
   const paintState = { painting: false, progress: 0 };
   const paintCanvasEl = document.createElement('canvas');
   paintCanvasEl.width = paintCanvasEl.height = 256;
