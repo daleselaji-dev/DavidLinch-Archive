@@ -466,6 +466,16 @@ export class AudioEngine {
         }
         break;
       }
+      case 'rain': { // 一段雨声坡：慢起慢落的高频嘶 + 屋檐低滴——隔 2s 叠续即成雨幕
+        noise('pink', 3.4, 'highpass', 2100, 0.7, 0.045, 0, 1.3);
+        noise('brown', 3.4, 'lowpass', 460, 0.6, 0.03, 0.2, 1.5);
+        const drips = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < drips; i++) {
+          const f = 900 + Math.random() * 900;
+          tone('sine', f, f * 0.7, 0.05, 0.014 + Math.random() * 0.012, 0.4 + Math.random() * 2.4);
+        }
+        break;
+      }
       case 'vinyl': { // 黑胶底噪一小段：尘埃嘶声 + 两三粒离散爆点
         noise('crackle', 1.5, 'highpass', 2800, 0.8, 0.028, 0, 0.3);
         const pops = 2 + Math.floor(Math.random() * 2);

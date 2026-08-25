@@ -358,13 +358,21 @@ export function build(ctx) {
   moonSliver.position.set(W / 2 - 0.8, 2.1, -3.4);
   windowGroup.add(winFrame, winGlow, blinds, wand, winHit, moonSliver);
   group.add(windowGroup);
-  const blindState = { open: false, v: 0 };
+  const blindState = { open: false, v: 0, rainT: 99 };
   updaters.push((dt) => {
     blindState.v += ((blindState.open ? 1 : 0) - blindState.v) * Math.min(1, dt * 3.2);
     const tilt = 1.12 - blindState.v * 1.0;
     for (const slat of slats) slat.rotation.z = tilt;
     winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75;
     moonSliver.intensity = 2.4 + blindState.v * 3.2;
+    // 叶片开着时从窗那边叠续雨声坡（3.4s 音长 / 2s 重触发 → 连成雨幕）
+    if (blindState.v > 0.35) {
+      blindState.rainT += dt;
+      if (blindState.rainT > 2.0) {
+        blindState.rainT = 0;
+        audio.sfxAt('rain', W / 2, -3.4, 0.5 * blindState.v, 7);
+      }
+    }
   });
   hotspots.add(winHit, {
     hint: 'E — 窗百叶',
