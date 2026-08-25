@@ -9,8 +9,10 @@ import { QUOTES } from '../data/essays.js';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
-  mergedMesh, xform, roundedBoxMesh, woodTexture, weaveTexture
+  mergedMesh, xform, roundedBoxMesh, woodTexture,
+  woodMat, fabricMat, roundedBoxGeo
 } from './kit.js';
+import { propMats, fluorescentFixture, cardCatalog } from './props.js';
 
 export const meta = {
   id: 'archive',
@@ -31,17 +33,15 @@ export function build(ctx) {
   const group = new THREE.Group();
   const updaters = [];
 
-  // 地板: 深色拼木 + 中央红毯
-  group.add(floorMesh(W, L, new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [30, 22, 14], planks: 9, size: 512 }),
-    roughness: 0.4, metalness: 0.08, envMapIntensity: 0.7
+  // 地板: 深色拼木（v1.3 三通道：板缝法线 + 磨损粗糙度）+ 中央红毯
+  const M = propMats();
+  group.add(floorMesh(W, L, woodMat({
+    base: [30, 22, 14], planks: 9, size: 512, seed: 12, repX: 1, repY: 5,
+    worn: 0.7, gloss: 0.55, env: 0.8
   })));
   const runner = new THREE.Mesh(
     new THREE.PlaneGeometry(2.2, L - 6),
-    new THREE.MeshPhysicalMaterial({
-      map: weaveTexture('#240a10', '#3a1018'), roughness: 0.94,
-      sheen: 0.5, sheenColor: new THREE.Color(0xaa4a5a), sheenRoughness: 0.7
-    })
+    fabricMat('#240a10', '#3a1018', { seed: 15, repX: 3, repY: 26, sheenColor: 0xaa4a5a })
   );
   runner.rotation.x = -Math.PI / 2;
   runner.position.y = 0.012;
@@ -96,26 +96,22 @@ export function build(ctx) {
   ];
   group.add(mergedMesh(dadoGeos, new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 0.6 })));
 
-  // 荧光灯管（顺序闪烁；彩蛋时逐管熄灭）
+  // 荧光灯具 v2（折板反光罩 + 双管 + 吊杆；顺序闪烁；彩蛋时逐管熄灭）
   const tubes = [];
   for (let i = 0; i < 7; i++) {
     const z = -L / 2 + 6 + i * 6;
-    const tube = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.05, 2.5, 4, 10),
-      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xdfe8ff, emissiveIntensity: 2.6, toneMapped: true })
-    );
-    tube.rotation.x = Math.PI / 2;
-    tube.position.set(0, 5.28, z);
+    const fixture = fluorescentFixture({ len: 2.8, mats: M });
+    fixture.position.set(0, 4.73, z);
     const lp = new THREE.PointLight(0xdfe8ff, 9, 12, 1.7);
-    lp.position.set(0, 4.9, z);
-    group.add(tube, lp);
-    tubes.push({ tube, lp, seed: i * 7.3, dead: 0 });
+    lp.position.set(0, 4.5, z);
+    group.add(fixture, lp);
+    tubes.push({ mat: fixture.userData.tubeMat, lp, seed: i * 7.3, dead: 0 });
   }
   updaters.push((dt, t) => {
-    for (const { tube, lp, seed, dead } of tubes) {
+    for (const { mat, lp, seed, dead } of tubes) {
       const n = Math.sin(t * 11 + seed) * Math.sin(t * 4.7 + seed * 2.1);
       const f = (n > 0.93 ? 0.15 : 1) * (1 - dead);
-      tube.material.emissiveIntensity = 2.6 * Math.max(0.02, f);
+      mat.emissiveIntensity = 2.6 * Math.max(0.02, f);
       lp.intensity = 9 * f;
     }
   });
@@ -138,13 +134,51 @@ export function build(ctx) {
     group.add(spot);
   });
 
+  // 卡片目录柜 ×2（黄铜拉手 + 标签框；各有一只可拉的抽屉）
+  const catalogs = [
+    { x: W / 2 - 0.55, z: -2.2, ry: -Math.PI / 2 },
+    { x: -W / 2 + 0.55, z: 13.6, ry: Math.PI / 2 }
+  ].map(({ x, z, ry }) => {
+    const cab = cardCatalog({ cols: 4, rows: 5, mats: M });
+    cab.position.set(x, 0, z);
+    cab.rotation.y = ry;
+    group.add(cab);
+    const state = { open: 0, target: 0 };
+    const closedZ = cab.userData.drawer.position.z;
+    updaters.push((dt) => {
+      state.open += (state.target - state.open) * Math.min(1, dt * 6);
+      cab.userData.drawer.position.z = closedZ + state.open * 0.26;
+    });
+    hotspots.add(cab.userData.drawerFace, {
+      hint: 'E — 拉开抽屉',
+      onActivate: () => {
+        state.target = state.target > 0.5 ? 0 : 1;
+        audio.sfx(state.target ? 'page' : 'thud', 0.55);
+        if (state.target) ui.caption('卡片都空着。', 3200);
+      }
+    });
+    return cab;
+  });
+  void catalogs;
+
+  // 护墙板（壁板矩形阵列，合并单 mesh）
+  const wainGeos = [];
+  const panelGeo = roundedBoxGeo(0.02, 0.72, 1.5, 0.008, 2);
+  for (let i = 0; i < 12; i++) {
+    const z = -L / 2 + 3.4 + i * 3.6;
+    wainGeos.push(xform(panelGeo, -W / 2 + 0.04, 0.62, z));
+    wainGeos.push(xform(panelGeo, W / 2 - 0.04, 0.62, z));
+  }
+  panelGeo.dispose();
+  group.add(mergedMesh(wainGeos, woodMat({
+    base: [26, 17, 11], planks: 1, size: 256, seed: 18, gloss: 0.5, env: 0.6
+  })));
+
   // 长凳 ×2（圆角软座）
   for (const z of [-9, 9]) {
     const bench = new THREE.Group();
-    const seat = roundedBoxMesh(0.62, 0.14, 2.4, 0.05, new THREE.MeshPhysicalMaterial({
-      map: weaveTexture('#1a1216', '#241a20'), roughness: 0.9, sheen: 0.5,
-      sheenColor: new THREE.Color(0x907080), sheenRoughness: 0.6
-    }));
+    const seat = roundedBoxMesh(0.62, 0.14, 2.4, 0.05,
+      fabricMat('#1a1216', '#241a20', { seed: 19, repX: 2, repY: 8, sheenColor: 0x907080 }));
     seat.position.y = 0.5;
     const legGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.44, 10);
     const legs = mergedMesh([

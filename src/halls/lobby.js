@@ -5,11 +5,13 @@
 // ============================================================
 import * as THREE from 'three';
 import {
-  PALETTE, chevronTexture, curtainRing, floorMesh, neonSign, doorway,
+  PALETTE, curtainRing, floorMesh, neonSign, doorway,
   smokeLayer, dustField, lightCone, hangingBulb, makeFlicker,
   quotePlaque, vitrine, zoneTrigger, circleBounds,
-  column, mergedMesh, xform, brushedMetalTexture
+  column, mergedMesh, xform, brushedMetalTexture,
+  chevronMat, woodMat
 } from './kit.js';
+import { propMats, chandelier, memorialStele, gramophone } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -23,17 +25,14 @@ export const meta = {
 const R = 14.5;
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
-  // 地板 —— 黑白折线 + 鎏金环形镶边
-  const floorMat = new THREE.MeshStandardMaterial({
-    map: chevronTexture('#0b0b0d', '#ded7c8', 7),
-    roughness: 0.32, metalness: 0.12, envMapIntensity: 0.9
-  });
-  const floor = floorMesh(R * 2.4, R * 2.4, floorMat);
+  // 地板 —— 黑白折线拼花（v1.3 三通道：法线拼缝 + 蜡面粗糙度变化）
+  const floor = floorMesh(R * 2.4, R * 2.4, chevronMat('#0b0b0d', '#ded7c8', { repeat: 7, seed: 21 }));
   group.add(floor);
+  const M = propMats();
   const goldMat = new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(), color: 0x8a6c3c, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.3
   });
@@ -89,19 +88,23 @@ export function build(ctx) {
   cone.position.y = 4.2;
   group.add(cone);
 
-  // 中央碑石（关于林奇 热点）
-  const stele = new THREE.Mesh(
-    new THREE.BoxGeometry(1.15, 1.9, 0.32),
-    new THREE.MeshStandardMaterial({
-      color: 0x191013, roughness: 0.25, metalness: 0.45,
-      emissive: PALETTE.ivory, emissiveIntensity: 0.06, envMapIntensity: 1.1
-    })
-  );
-  stele.position.y = 1.29;
+  // 中央纪念碑 v2（削角碑身 + 鎏金铭文 + 叠级基座；关于林奇 热点）
+  const stele = memorialStele({ mats: M });
+  stele.position.y = 0.24;
   group.add(stele);
-  hotspots.add(stele, {
+  hotspots.add(stele.userData.inscription, {
     hint: 'E — 关于大卫·林奇（1946–2025）',
     onActivate: () => ui.showArtist()
+  });
+
+  // 黄铜六臂吊灯（挂在天花线脚中心）
+  const lustre = chandelier({ arms: 6, radius: 1.2, mats: M });
+  lustre.position.y = 6.55;
+  group.add(lustre);
+  updaters.push((dt, t) => {
+    lustre.rotation.y = t * 0.05;
+    // 极缓的烛光呼吸
+    lustre.userData.setPower(0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03);
   });
 
   // 悬浮标题霓虹
@@ -186,6 +189,43 @@ export function build(ctx) {
   };
   const whisperTrig = zoneTrigger({ x: 0, z: -10.6, r: 2.4 }, whisperEgg, { cooldown: 40 });
   updaters.push((dt) => whisperTrig.update(player, dt));
+
+  // 留声机（车削黄铜喇叭）—— 摇柄可用：上发条 → 唱片转 + 爵士层
+  const gramoTable = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.34, 0), new THREE.Vector2(0.3, 0.04), new THREE.Vector2(0.07, 0.1),
+      new THREE.Vector2(0.06, 0.78), new THREE.Vector2(0.3, 0.86), new THREE.Vector2(0.32, 0.9)
+    ], 18),
+    woodMat({ base: [30, 18, 12], planks: 2, size: 256, seed: 44 })
+  );
+  gramoTable.position.set(4.6, 0, 2.4);
+  group.add(gramoTable);
+  const gramo = gramophone({ mats: M });
+  gramo.position.set(4.6, 0.9, 2.4);
+  gramo.rotation.y = -2.05;
+  group.add(gramo);
+  const gramoState = { wind: 0, spin: 0 };
+  updaters.push((dt) => {
+    if (gramoState.wind > 0) {
+      gramoState.wind -= dt;
+      gramoState.spin += dt * 3.6;
+      gramo.userData.crank.rotation.x -= dt * 5;
+      gramo.userData.record.rotation.y = gramoState.spin;
+      if (gramoState.wind <= 0) narration.jazz.setEnabled(false);
+    }
+  });
+  hotspots.add(gramo.userData.horn, {
+    hint: 'E — 给留声机上发条',
+    onActivate: () => {
+      const first = gramoState.wind <= 0;
+      gramoState.wind = 46;
+      if (first) {
+        audio.sfx('chime', 0.5);
+        narration.jazz.setEnabled(true);
+        ui.caption('黄铜喇叭醒了。', 3200);
+      }
+    }
+  });
 
   // 展柜：一卷空白胶片
   const reelCase = vitrine('空白胶片', 'THE UNMADE FILM', '#c9a35c');

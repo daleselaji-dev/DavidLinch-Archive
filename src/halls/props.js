@@ -238,6 +238,7 @@ export function jukebox({ mats } = {}) {
   win.position.set(0, 0.98, 0.29);
   win.rotation.x = -0.18;
   g.add(win);
+  g.userData.win = win;
   // 按键排
   const keyGeos = [];
   const keyGeo = new THREE.BoxGeometry(0.045, 0.02, 0.03);

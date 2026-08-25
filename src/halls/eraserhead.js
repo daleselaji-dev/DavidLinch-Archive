@@ -8,8 +8,10 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
   smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
-  mergedMesh, xform, roundedBoxMesh, railing, brushedMetalTexture
+  mergedMesh, xform, roundedBoxMesh, railing, brushedMetalTexture,
+  concreteMat, brickMat
 } from './kit.js';
+import { propMats, fireboxDoor, valveWheel, fuseBox } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -29,45 +31,13 @@ export function build(ctx) {
   const group = new THREE.Group();
   const updaters = [];
 
-  // 污渍水泥地
-  const floorTex = canvasTexture(512, (g, s) => {
-    g.fillStyle = '#2a2a2c';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 260; i++) {
-      g.fillStyle = `rgba(${Math.random() > 0.5 ? 12 : 60},${Math.random() > 0.5 ? 12 : 60},${Math.random() > 0.5 ? 14 : 62},${Math.random() * 0.28})`;
-      g.beginPath();
-      g.arc(Math.random() * s, Math.random() * s, Math.random() * 46, 0, 7);
-      g.fill();
-    }
-    // 伸缩缝
-    g.strokeStyle = 'rgba(8,8,10,0.7)';
-    g.lineWidth = 3;
-    for (let i = 1; i < 4; i++) {
-      g.beginPath(); g.moveTo((i / 4) * s, 0); g.lineTo((i / 4) * s, s); g.stroke();
-      g.beginPath(); g.moveTo(0, (i / 4) * s); g.lineTo(s, (i / 4) * s); g.stroke();
-    }
-  }, 3, 3);
-  group.add(floorMesh(S, S, new THREE.MeshStandardMaterial({
-    map: floorTex, roughness: 0.55, metalness: 0.2, envMapIntensity: 0.6
-  })));
+  // 污渍水泥地（v1.3 三通道：伸缩缝法线 + 污渍粗糙度）
+  const M = propMats();
+  const floorConcrete = concreteMat({ base: [40, 40, 42], seed: 13, repX: 3, repY: 3, env: 0.6 });
+  group.add(floorMesh(S, S, floorConcrete));
 
-  // 砖墙（西墙留出锅炉房门洞）
-  const brickTex = canvasTexture(512, (g, s) => {
-    g.fillStyle = '#1d1d1f';
-    g.fillRect(0, 0, s, s);
-    const bh = s / 10;
-    const bw = s / 5;
-    for (let r = 0; r < 10; r++) {
-      for (let c = -1; c < 6; c++) {
-        const off = r % 2 ? bw / 2 : 0;
-        g.fillStyle = `rgb(${34 + Math.random() * 16},${34 + Math.random() * 14},${36 + Math.random() * 14})`;
-        g.fillRect(c * bw + off + 2, r * bh + 2, bw - 4, bh - 4);
-      }
-    }
-  }, 4, 2);
-  const wallMat = new THREE.MeshStandardMaterial({
-    map: brickTex, roughness: 0.9, bumpMap: brickTex, bumpScale: 0.5
-  });
+  // 砖墙（v1.3 三通道：砖缝法线 + 逐砖粗糙度；西墙留出锅炉房门洞）
+  const wallMat = brickMat({ tint: [36, 34, 38], seed: 11, repX: 4, repY: 2 });
   const H = 5.6;
   const mkWall = (w, h, x, z, ry) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
@@ -254,10 +224,7 @@ export function build(ctx) {
   // ============================================================
   const boilerRoom = new THREE.Group();
   // 地面：钢格栅步道 + 水泥
-  const annexFloor = new THREE.Mesh(
-    new THREE.PlaneGeometry(7.4, 5.2),
-    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.6, metalness: 0.2 })
-  );
+  const annexFloor = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 5.2), floorConcrete);
   annexFloor.rotation.x = -Math.PI / 2;
   annexFloor.position.set(-S / 2 - 2.6, 0.004, 0);
   boilerRoom.add(annexFloor);
@@ -285,7 +252,7 @@ export function build(ctx) {
   rail.rotation.y = Math.PI / 2;
   boilerRoom.add(rail);
   // 围墙
-  const annexWallMat = new THREE.MeshStandardMaterial({ map: brickTex, roughness: 0.9, bumpMap: brickTex, bumpScale: 0.5 });
+  const annexWallMat = wallMat;
   const aw1 = new THREE.Mesh(new THREE.PlaneGeometry(7.4, H), annexWallMat);
   aw1.position.set(-S / 2 - 2.6, H / 2, -2.6);
   const aw2 = new THREE.Mesh(new THREE.PlaneGeometry(7.4, H), annexWallMat);
@@ -314,20 +281,49 @@ export function build(ctx) {
   }
   bandGeo.dispose();
   boilerRoom.add(mergedMesh(bandGeos, pipeMat));
-  // 炉口辉光
-  const furnaceGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.4, 20),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xff7a2c, emissiveIntensity: 2.2 })
-  );
-  furnaceGlow.position.set(-S / 2 - 4.6, 0.9, 2.21);
+  // 铰链炉门 v2（铆钉圈 + 观火窗 + 手轮锁；可开启）
+  const firebox = fireboxDoor({ mats: M });
+  firebox.position.set(-S / 2 - 4.96, 0.95, 2.28);
+  boilerRoom.add(firebox);
   const furnaceLight = new THREE.PointLight(0xff7a2c, 6, 8, 1.8);
   furnaceLight.position.set(-S / 2 - 4.2, 1.0, 1.6);
-  boilerRoom.add(furnaceGlow, furnaceLight);
+  boilerRoom.add(furnaceLight);
+  const fireboxState = { open: 0, target: 0 };
   updaters.push((dt, t) => {
+    fireboxState.open += (fireboxState.target - fireboxState.open) * Math.min(1, dt * 3.5);
+    firebox.userData.hinge.rotation.y = fireboxState.open * 1.9;
     const f = 1.6 + Math.sin(t * 3.7) * 0.5 + Math.random() * 0.3;
-    furnaceGlow.material.emissiveIntensity = f;
-    furnaceLight.intensity = 3 + f * 1.6;
+    firebox.userData.portMat.emissiveIntensity = f * (1 + fireboxState.open * 1.2);
+    furnaceLight.intensity = (3 + f * 1.6) * (1 + fireboxState.open * 2.2);
   });
+  hotspots.add(firebox.userData.wheel, {
+    hint: 'E — 转动炉门手轮',
+    onActivate: () => {
+      fireboxState.target = fireboxState.target > 0.5 ? 0 : 1;
+      audio.sfx('clank', 0.9);
+      if (fireboxState.target) {
+        setTimeout(() => audio.sfx('steam', 0.6), 350);
+        ui.caption('炉膛里的光在呼吸。', 3600);
+      }
+    }
+  });
+
+  // 手轮阀（步道旁；转动 → 压力表乱跳 + 蒸汽）
+  const valve = valveWheel({ mats: M });
+  valve.position.set(-S / 2 - 1.7, 0.08, 1.9);
+  boilerRoom.add(valve);
+  const valveState = { spin: 0 };
+  updaters.push((dt) => {
+    if (valveState.spin > 0) {
+      valveState.spin -= dt;
+      valve.userData.wheel.rotation.y += dt * 7;
+    }
+  });
+
+  // 闸刀配电箱（合闸/断闸 → 铁笼灯全场明灭）
+  const fusebox = fuseBox({ mats: M });
+  fusebox.position.set(-S / 2 - 2.4, 1.7, -2.5);
+  boilerRoom.add(fusebox);
   // 压力表 ×3（表盘 + 指针）
   const gaugeNeedles = [];
   for (const [z, seed] of [[-1.4, 1], [0, 4], [1.4, 7]]) {
@@ -359,9 +355,13 @@ export function build(ctx) {
     boilerRoom.add(dial, needle);
     gaugeNeedles.push({ needle, seed });
   }
+  const pressure = { surge: 0 };
   updaters.push((dt, t) => {
+    if (pressure.surge > 0) pressure.surge -= dt;
+    const s2 = Math.max(0, Math.min(pressure.surge, 1));
     for (const { needle, seed } of gaugeNeedles) {
-      needle.rotation.x = Math.sin(t * 0.7 + seed) * 0.8 + Math.sin(t * 5.3 + seed * 2) * 0.1;
+      needle.rotation.x = Math.sin(t * 0.7 + seed) * 0.8 + Math.sin(t * 5.3 + seed * 2) * 0.1 +
+        s2 * Math.sin(t * 21 + seed * 3) * 0.7;
     }
   });
   // 锅炉房蒸汽与灯
@@ -369,6 +369,44 @@ export function build(ctx) {
   boilerSteam.position.set(-S / 2 - 3, 0, 0);
   boilerRoom.add(boilerSteam);
   updaters.push(boilerSteam.userData.update);
+  updaters.push(() => {
+    boilerSteam.material.opacity = 0.07 + Math.max(0, Math.min(pressure.surge, 1)) * 0.22;
+  });
+  // 手轮阀交互：压力表狂跳 + 蒸汽增压
+  hotspots.add(valve.userData.wheel.children[0], {
+    hint: 'E — 转动阀轮',
+    onActivate: () => {
+      valveState.spin = 2.6;
+      pressure.surge = 4.0;
+      audio.sfx('clank', 0.7);
+      setTimeout(() => audio.sfx('steam', 0.9), 300);
+      ui.caption('压力去了别的地方。', 3600);
+    }
+  });
+  // 配电箱交互：断闸 → 铁笼灯熄灭数秒
+  const fuseState = { cut: 0 };
+  updaters.push((dt) => {
+    if (fuseState.cut > 0) {
+      fuseState.cut -= dt;
+      for (const c of cageLights) {
+        c.light.intensity = 0.15;
+        c.bulb.material.emissiveIntensity = 0.06;
+      }
+      if (fuseState.cut <= 0) audio.sfx('fluor', 0.7);
+    }
+  });
+  const midLever = fusebox.userData.levers[1];
+  hotspots.add(midLever.children[0], {
+    hint: 'E — 扳动闸刀',
+    onActivate: () => {
+      const cutting = fuseState.cut <= 0;
+      fuseState.cut = cutting ? 5 : 0.01;
+      midLever.rotation.z = cutting ? -0.5 : 0.5;
+      fusebox.userData.levers.forEach((lv, i) => { if (i !== 1) lv.rotation.z = cutting ? -0.5 : 0.5; });
+      audio.sfx('thud', 0.9);
+      if (cutting) ui.caption('整层楼安静了一档。', 3600);
+    }
+  });
   const annexLamp = new THREE.PointLight(0xf5f0e6, 5, 10, 1.9);
   annexLamp.position.set(-S / 2 - 3, H - 1.4, 0);
   boilerRoom.add(annexLamp);

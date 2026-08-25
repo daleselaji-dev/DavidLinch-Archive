@@ -8,8 +8,10 @@ import {
   PALETTE, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
   neonSign, micStand, smokeLayer, dustField, lightCone, quotePlaque, vitrine,
   velvetMaterial, zoneTrigger, rectBounds,
-  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture, weaveTexture
+  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture, weaveTexture,
+  woodMat, fabricMat
 } from './kit.js';
+import { propMats, jukebox, beerTaps, cashRegister } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -24,14 +26,15 @@ const W = 19;
 const D = 15;
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
-  // 深色木地板（拼板 + 磨损）
-  group.add(floorMesh(W, D, new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [26, 16, 18], planks: 10, size: 512 }),
-    roughness: 0.3, metalness: 0.15, envMapIntensity: 0.9
+  // 深色木地板（v1.3 三通道：板缝法线 + 蜡面磨损）
+  const M = propMats();
+  group.add(floorMesh(W, D, woodMat({
+    base: [26, 16, 18], planks: 10, size: 512, seed: 23, repX: 2, repY: 2,
+    worn: 0.6, gloss: 0.75, env: 0.9
   })));
 
   // 四周深蓝帷幕墙
@@ -195,17 +198,12 @@ export function build(ctx) {
   // 吧台一角（西墙）：背光酒瓶墙 + 吧凳 + 黄铜脚踏
   // ============================================================
   const bar = new THREE.Group();
-  // 台面 + 台体
+  // 台面（高蜡面木 + 板缝法线）+ 软包台体
   const barTop = roundedBoxMesh(0.9, 0.09, 6.4, 0.04,
-    new THREE.MeshStandardMaterial({
-      map: woodTexture({ base: [46, 26, 20], planks: 2, size: 256 }), roughness: 0.28, envMapIntensity: 1.0
-    }));
+    woodMat({ base: [46, 26, 20], planks: 2, size: 256, seed: 24, gloss: 0.85, env: 1.1 }));
   barTop.position.set(-W / 2 + 1.7, 1.08, 0.8);
   const barBody = roundedBoxMesh(0.78, 1.04, 6.3, 0.05,
-    new THREE.MeshPhysicalMaterial({
-      map: weaveTexture('#141024', '#1c1834'), color: 0x141a34, roughness: 0.8,
-      sheen: 0.5, sheenColor: new THREE.Color(0x6070c0), sheenRoughness: 0.6
-    }));
+    fabricMat('#141024', '#1c1834', { seed: 25, repX: 2, repY: 10, color: 0x8a90c0, sheenColor: 0x6070c0 }));
   barBody.position.set(-W / 2 + 1.7, 0.52, 0.8);
   // 黄铜脚踏杆
   const brassRail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 6.2, 10), brassMat);
@@ -289,7 +287,72 @@ export function build(ctx) {
       ui.caption('冰早就化了。', 2800);
     }
   });
+
+  // 三头啤酒塔（拉一下手柄）
+  const taps = beerTaps({ n: 3, mats: M });
+  taps.position.set(-W / 2 + 1.7, 1.12, 2.4);
+  taps.rotation.y = Math.PI / 2;
+  bar.add(taps);
+  const tapState = { pull: 0 };
+  updaters.push((dt) => {
+    if (tapState.pull > 0) {
+      tapState.pull -= dt;
+      taps.userData.handles[1].rotation.x = -0.3 - Math.min(1, tapState.pull) * 0.7;
+    }
+  });
+  hotspots.add(taps.userData.handles[1].children[0], {
+    hint: 'E — 拉一下酒头',
+    onActivate: () => {
+      tapState.pull = 1.4;
+      audio.sfx('sip', 0.8);
+      ui.caption('龙头是干的。', 2800);
+    }
+  });
+
+  // 收银机（摇柄 → 抽屉弹开）
+  const register = cashRegister({ mats: M });
+  register.position.set(-W / 2 + 1.7, 1.12, -1.9);
+  register.rotation.y = Math.PI / 2 - 0.2;
+  bar.add(register);
+  const regState = { crank: 0, open: 0, target: 0 };
+  updaters.push((dt) => {
+    if (regState.crank > 0) {
+      regState.crank -= dt;
+      register.userData.crank.rotation.x -= dt * 9;
+    }
+    regState.open += (regState.target - regState.open) * Math.min(1, dt * 8);
+    register.userData.drawer.position.z = 0.02 + regState.open * 0.2;
+    register.userData.flagMat.emissiveIntensity = 0.3 + regState.open * 0.8;
+  });
+  hotspots.add(register.userData.body, {
+    hint: 'E — 摇动收银机',
+    onActivate: () => {
+      regState.crank = 0.8;
+      audio.sfx('type', 0.7);
+      setTimeout(() => {
+        regState.target = regState.target > 0.5 ? 0 : 1;
+        audio.sfx('typebell', 0.8);
+      }, 500);
+    }
+  });
   group.add(bar);
+
+  // 点唱机（西南角；开机 → 氖弧点亮 + 深夜爵士）
+  const juke = jukebox({ mats: M });
+  juke.position.set(-W / 2 + 1.3, 0, 5.4);
+  juke.rotation.y = Math.PI / 2 - 0.25;
+  group.add(juke);
+  const jukeState = { on: false };
+  hotspots.add(juke.userData.win, {
+    hint: 'E — 点唱机',
+    onActivate: () => {
+      jukeState.on = !jukeState.on;
+      juke.userData.setOn(jukeState.on);
+      audio.sfx(jukeState.on ? 'chime' : 'thud', 0.6);
+      narration.jazz.setEnabled(jukeState.on);
+      if (jukeState.on) ui.caption('隔壁房间的乐队醒了。', 3600);
+    }
+  });
 
   // 引语展签（本厅唯一文字展签）
   const q1 = quotePlaque(quoteById('home'), '#4f74ff');
