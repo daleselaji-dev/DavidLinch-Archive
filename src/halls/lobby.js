@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, lightCone, hangingBulb, makeFlicker,
   quotePlaque, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat
+  chevronMat, woodMat, canvasTexture, rng
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -48,6 +48,37 @@ export function build(ctx) {
   ringInner.rotation.x = -Math.PI / 2;
   ringInner.position.y = 0.006;
   group.add(ringOuter, ringInner);
+
+  // 帷幕脚下的深色大理石镶边带（拼花地面 → 幕墙的过渡）+ 内缘鎏金细线
+  const marbleTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#141117';
+    g.fillRect(0, 0, s, s);
+    const r = rng(53);
+    for (let v = 0; v < 14; v++) {
+      let x = r() * s;
+      let y = r() * s;
+      g.strokeStyle = `rgba(${170 + r() * 40 | 0},${165 + r() * 35 | 0},${175 + r() * 30 | 0},${(0.05 + r() * 0.08).toFixed(3)})`;
+      g.lineWidth = 0.6 + r() * 1.8;
+      g.beginPath();
+      g.moveTo(x, y);
+      for (let i = 0; i < 26; i++) {
+        x += (r() - 0.5) * 30;
+        y += (r() - 0.35) * 22;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  }, 3, 3);
+  const marbleBand = new THREE.Mesh(
+    new THREE.RingGeometry(R - 1.35, R - 0.05, 72),
+    new THREE.MeshStandardMaterial({ map: marbleTex, roughness: 0.22, envMapIntensity: 1.1 })
+  );
+  marbleBand.rotation.x = -Math.PI / 2;
+  marbleBand.position.y = 0.007;
+  const marbleLine = new THREE.Mesh(new THREE.RingGeometry(R - 1.43, R - 1.35, 72), goldMat);
+  marbleLine.rotation.x = -Math.PI / 2;
+  marbleLine.position.y = 0.007;
+  group.add(marbleBand, marbleLine);
 
   // 帷幕环形墙 + 帷头层 + 深色天花与线脚
   group.add(curtainRing(R, 8.4, PALETTE.velvet, 26));
