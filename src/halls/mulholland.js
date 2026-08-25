@@ -595,6 +595,38 @@ export function build(ctx) {
   const stageCone = lightCone(0.35, 1.5, 5.4, 0xffeedd, 0.06);
   stageCone.position.set(-1.6, 3.2, -4.2);
   inner.add(stageCone);
+  // 台口拱架：条纹壁柱 ×2（基座/柱身/柱帽 + 竖棱）+ 双级楣梁 + 鎏金内沿
+  const archWood = woodMat({ base: [30, 12, 16], planks: 1, size: 256, seed: 44, gloss: 0.6 });
+  const archGeos = [];
+  for (const sx of [-1, 1]) {
+    archGeos.push(xform(new THREE.BoxGeometry(0.72, 0.5, 0.6), sx * 4.7, 0.25, -2.9));
+    archGeos.push(xform(new THREE.BoxGeometry(0.56, 4.7, 0.48), sx * 4.7, 2.85, -2.9));
+    archGeos.push(xform(new THREE.BoxGeometry(0.78, 0.34, 0.66), sx * 4.7, 5.37, -2.9));
+    for (let i = -1; i <= 1; i++) {
+      archGeos.push(xform(new THREE.BoxGeometry(0.07, 4.6, 0.04), sx * 4.7 + i * 0.16, 2.85, -2.65));
+    }
+  }
+  archGeos.push(xform(new THREE.BoxGeometry(10.2, 0.62, 0.5), 0, 5.85, -2.9));
+  archGeos.push(xform(new THREE.BoxGeometry(9.6, 0.34, 0.56), 0, 5.42, -2.9));
+  inner.add(mergedMesh(archGeos, archWood));
+  const archTrim = mergedMesh([
+    xform(new THREE.BoxGeometry(0.05, 4.9, 0.05), -4.36, 2.85, -2.68),
+    xform(new THREE.BoxGeometry(0.05, 4.9, 0.05), 4.36, 2.85, -2.68),
+    xform(new THREE.BoxGeometry(8.8, 0.05, 0.05), 0, 5.27, -2.68)
+  ], M.brass);
+  inner.add(archTrim);
+  // 壁柱烛台（纯自发光小珠，不加光源）
+  const sconceMat = new THREE.MeshStandardMaterial({
+    color: 0x201408, emissive: 0xffc07a, emissiveIntensity: 2.2
+  });
+  const sconces = mergedMesh([
+    xform(new THREE.SphereGeometry(0.05, 8, 6), -4.7, 3.9, -2.6),
+    xform(new THREE.SphereGeometry(0.05, 8, 6), 4.7, 3.9, -2.6)
+  ], sconceMat);
+  inner.add(sconces);
+  updaters.push((dt, t) => {
+    sconceMat.emissiveIntensity = 2.2 + Math.sin(t * 5.3) * 0.35 + Math.sin(t * 13.7) * 0.18;
+  });
   hotspots.add(mic.children[3], {
     hint: 'E — 没有乐队，一切都是录音',
     onActivate: () => {
