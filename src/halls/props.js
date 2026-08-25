@@ -1866,3 +1866,73 @@ export function pipeRail(length, { mats } = {}) {
   geos.push(xform(railGeo, 0, 0.55, 0, 0, 0, Math.PI / 2));
   return mergedMesh(geos, M.iron);
 }
+
+// ============================================================
+// 档案廊 —— 银行家台灯
+// 部件：阶梯铸座（车削）/ 束腰立杆（车削）/ 双叉臂 / 绿玻璃半筒罩
+//       / 罩端黄铜盖 / 可见灯管 / 拉链（可抖动）/ 射线靶
+// 罩前倾 12°，开口朝读者——绿玻璃只照亮桌面一小片
+// ============================================================
+export function bankersLamp({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  // 铸座 + 立杆（座缘-座肩-束腰-中环-上颈一条剖面）
+  const brassGeos = [
+    lathe([
+      [0.105, 0], [0.1, 0.02], [0.062, 0.035], [0.055, 0.05], [0.032, 0.06],
+      [0.016, 0.07], [0.014, 0.2], [0.024, 0.22], [0.014, 0.24], [0.012, 0.35]
+    ], 18),
+    // 双叉臂：杆顶分向罩轴两端
+    bentTube([0, 0.34, 0], [-0.09, 0.41, 0.01], [-0.155, 0.415, 0.02], 0.0075),
+    bentTube([0, 0.34, 0], [0.09, 0.41, 0.01], [0.155, 0.415, 0.02], 0.0075),
+    // 罩端盖 ×2（轴向沿 x 的小圆饼）
+    xform(new THREE.CylinderGeometry(0.028, 0.028, 0.014, 12), -0.165, 0.415, 0.02, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.028, 0.028, 0.014, 12), 0.165, 0.415, 0.02, 0, 0, Math.PI / 2)
+  ];
+  g.add(mergedMesh(brassGeos, M.brass));
+  // 绿玻璃半筒罩：横轴半开筒 + 前倾；双面渲染让内壁可见
+  const shadeMat = new THREE.MeshStandardMaterial({
+    color: 0x11402a, roughness: 0.22, metalness: 0.1,
+    emissive: 0x2f9a58, emissiveIntensity: 0.06, side: THREE.DoubleSide, envMapIntensity: 1.2
+  });
+  const shade = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.1, 0.3, 20, 1, true, Math.PI * 0.92, Math.PI * 1.16),
+    shadeMat
+  );
+  shade.rotation.z = Math.PI / 2;   // 轴放平（沿 x）
+  shade.rotation.y = Math.PI / 2;   // 开口转向前下
+  shade.rotation.x = -0.21;         // 前倾 12°
+  shade.position.set(0, 0.415, 0.02);
+  g.add(shade);
+  // 罩下可见灯管（横放小圆柱）
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0x241a10, emissive: 0xffe9b8, emissiveIntensity: 0.1, roughness: 0.4
+  });
+  const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.14, 10), bulbMat);
+  bulb.rotation.z = Math.PI / 2;
+  bulb.position.set(0, 0.395, 0.035);
+  g.add(bulb);
+  // 拉链：四珠 + 坠头（独立小组，激活时抖两下）
+  const chain = new THREE.Group();
+  const beadGeo = new THREE.SphereGeometry(0.0058, 8, 6);
+  const beads = [];
+  for (let i = 0; i < 4; i++) beads.push(xform(beadGeo, 0, -0.016 * i, 0));
+  beads.push(xform(new THREE.CylinderGeometry(0.008, 0.005, 0.02, 8), 0, -0.072, 0));
+  beadGeo.dispose();
+  chain.add(mergedMesh(beads, M.brass));
+  chain.position.set(0.07, 0.375, 0.055);
+  g.add(chain);
+  // 射线靶
+  const hitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.42, 0.3, 0.3),
+    new THREE.MeshStandardMaterial({ color: 0x000000 })
+  );
+  hitbox.visible = false;
+  hitbox.position.set(0, 0.38, 0.02);
+  g.add(hitbox);
+  g.userData.shadeMat = shadeMat;
+  g.userData.bulbMat = bulbMat;
+  g.userData.chain = chain;
+  g.userData.hitbox = hitbox;
+  return g;
+}

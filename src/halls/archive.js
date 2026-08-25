@@ -12,7 +12,7 @@ import {
   mergedMesh, xform, roundedBoxMesh, woodTexture,
   woodMat, fabricMat, roundedBoxGeo, lightCone
 } from './kit.js';
-import { propMats, fluorescentFixture, cardCatalog, filmProjector } from './props.js';
+import { propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp } from './props.js';
 
 export const meta = {
   id: 'archive',
@@ -213,6 +213,66 @@ export function build(ctx) {
     group.add(bench);
   }
   benchLegGeo.dispose();
+
+  // ---------- 阅览桌 + 银行家台灯（拉链开灯：绿玻璃照亮一小片桌面） ----------
+  const readTable = new THREE.Group();
+  const tableWood = woodMat({ base: [28, 18, 11], planks: 2, size: 256, seed: 57, gloss: 0.6, env: 0.7 });
+  const tableTop = roundedBoxMesh(1.5, 0.05, 0.78, 0.015, tableWood);
+  tableTop.position.y = 0.755;
+  // 桌沿收边条 + 束腰裙板
+  const tableLegGeo = new THREE.LatheGeometry([
+    new THREE.Vector2(0.045, 0), new THREE.Vector2(0.036, 0.03), new THREE.Vector2(0.02, 0.1),
+    new THREE.Vector2(0.034, 0.3), new THREE.Vector2(0.02, 0.52), new THREE.Vector2(0.038, 0.66),
+    new THREE.Vector2(0.03, 0.73)
+  ], 12);
+  const tableDarkGeos = [
+    xform(new THREE.BoxGeometry(1.56, 0.025, 0.84), 0, 0.725, 0),               // 沿下收边
+    xform(new THREE.BoxGeometry(1.34, 0.1, 0.02), 0, 0.66, 0.36),               // 前裙板
+    xform(new THREE.BoxGeometry(1.34, 0.1, 0.02), 0, 0.66, -0.36),              // 后裙板
+    xform(new THREE.BoxGeometry(0.02, 0.1, 0.62), -0.66, 0.66, 0),
+    xform(new THREE.BoxGeometry(0.02, 0.1, 0.62), 0.66, 0.66, 0),
+    xform(tableLegGeo, -0.64, 0, -0.32), xform(tableLegGeo, 0.64, 0, -0.32),
+    xform(tableLegGeo, -0.64, 0, 0.32), xform(tableLegGeo, 0.64, 0, 0.32),
+    // H 枨
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.6, 8), -0.64, 0.2, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.6, 8), 0.64, 0.2, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.014, 0.014, 1.26, 8), 0, 0.2, 0, 0, 0, Math.PI / 2)
+  ];
+  tableLegGeo.dispose();
+  readTable.add(tableTop, mergedMesh(tableDarkGeos,
+    new THREE.MeshStandardMaterial({ color: 0x1c1008, roughness: 0.5, metalness: 0.15 })));
+  const lamp = bankersLamp({ mats: M });
+  lamp.position.set(-0.3, 0.78, -0.12);
+  lamp.rotation.y = Math.PI; // 罩口朝廊道（读者站的一侧）
+  readTable.add(lamp);
+  readTable.position.set(-2.85, 0, -14);
+  readTable.rotation.y = -0.16;
+  group.add(readTable);
+  const lampPool = new THREE.PointLight(0x9fdba8, 0, 2.6, 2.2);
+  lampPool.position.set(-3.1, 1.15, -14.1);
+  group.add(lampPool);
+  const lampState = { on: false, v: 0, jiggle: -1 };
+  updaters.push((dt, t) => {
+    lampState.v += ((lampState.on ? 1 : 0) - lampState.v) * Math.min(1, dt * 7);
+    const v = lampState.v;
+    lamp.userData.shadeMat.emissiveIntensity = 0.06 + v * 1.35;
+    lamp.userData.bulbMat.emissiveIntensity = 0.1 + v * 3.2;
+    lampPool.intensity = v * 3.4;
+    if (lampState.jiggle >= 0) {
+      lampState.jiggle += dt;
+      lamp.userData.chain.rotation.x = Math.sin(lampState.jiggle * 26) * 0.5 *
+        Math.max(0, 1 - lampState.jiggle * 1.6);
+      if (lampState.jiggle > 0.8) { lamp.userData.chain.rotation.x = 0; lampState.jiggle = -1; }
+    }
+  });
+  hotspots.add(lamp.userData.hitbox, {
+    hint: 'E — 台灯拉链',
+    onActivate: () => {
+      lampState.on = !lampState.on;
+      lampState.jiggle = 0;
+      audio.sfxAt('switch', -2.85, -14, 0.32, 3);
+    }
+  });
 
   // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
   const projector = filmProjector({ mats: M });
