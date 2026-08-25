@@ -1,0 +1,2 @@
+366bb8faf5ac16dba30093b0f2687450fbfae742257c0bddc3317a553fda11d3  SmokeVelvet-LynchArchive-Portable-1.0.0.exe
+b07bfc977ee886844ccd5b02da87b259b1d46385c97a02b423304799cf3bda14  SmokeVelvet-LynchArchive-Setup-1.0.0.exe

@@ -198,4 +198,4 @@ bootBtn.addEventListener('click', async () => {
 });
 
 // 调试/冒烟钩子
-window.__SV__ = { engine, goTo, audio, store, version: '1.0.0' };
+window.__SV__ = { engine, goTo, audio, store, ui, version: '1.0.0' };

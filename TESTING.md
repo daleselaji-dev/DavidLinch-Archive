@@ -16,12 +16,19 @@ npm run smoke   # 构建冒烟：生产构建 + 产物结构 + Electron 语法 +
 | `tests/audio.test.js` | 每厅底噪配方存在、振荡器/噪声/滤波参数安全范围、低频成分存在、事件音间隔 |
 | `tests/compliance.test.js` | 合规声明关键词、仓库零媒体素材文件、原创文案非空、README 免责声明 |
 
-## 运行时冒烟（Electron，Linux 下用 xvfb）
+## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
 ```bash
 npm run build
-xvfb-run -a npx electron . --no-sandbox   # 观察窗口创建无异常、控制台无未捕获错误
+xvfb-run -a npx electron . --no-sandbox --smoke
 ```
+
+`--smoke` 模式自动完成：启动 → 点击「掀开帷幕」→ 依次装载全部六个展厅 →
+UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 文章 / 生平面板 / 发帖+点赞+回复闭环），
+任一环节出现未捕获错误即以非零码退出。已在本仓库 CI 环境验证通过（约 15 秒）。
+
+可选视觉自检：`SV_SHOT_DIR=/tmp/shots xvfb-run -a npx electron . --no-sandbox --smoke`
+会在每厅装载后截屏到指定目录（软件渲染下画面滞后约一帧周期，属正常）。
 
 ## 手动测试清单
 
