@@ -1,12 +1,14 @@
 // ============================================================
 // 《蓝丝绒》展厅 —— THE BLUE ROOM 夜总会
-// 蓝天鹅绒舞台 + 孤独的话筒 + 桌灯烛光 + 香烟薄雾
+// 蓝天鹅绒舞台（帷头层 + 台口脚灯 + 踏步）+ 桌灯烛光 +
+// 吧台一角（背光酒瓶墙 + 吧凳 + 黄铜脚踏）+ 香烟薄雾
 // ============================================================
 import * as THREE from 'three';
 import {
-  PALETTE, canvasTexture, floorMesh, doorway, curtain, neonSign, micStand,
-  smokeLayer, dustField, lightCone, standPlaque, quotePlaque, vitrine,
-  velvetMaterial, zoneTrigger, rectBounds
+  PALETTE, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
+  neonSign, micStand, smokeLayer, dustField, lightCone, quotePlaque, vitrine,
+  velvetMaterial, zoneTrigger, rectBounds,
+  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture, weaveTexture
 } from './kit.js';
 import { quoteById } from '../data/essays.js';
 
@@ -26,21 +28,15 @@ export function build(ctx) {
   const group = new THREE.Group();
   const updaters = [];
 
-  // 深色木地板
-  const floorTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#100c0e';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 10; i++) {
-      g.fillStyle = `rgba(${26 + Math.random() * 14},${16 + Math.random() * 10},${18 + Math.random() * 10},1)`;
-      g.fillRect(i * (s / 10), 0, s / 10 - 2, s);
-    }
-  }, 6, 6);
+  // 深色木地板（拼板 + 磨损）
   group.add(floorMesh(W, D, new THREE.MeshStandardMaterial({
-    map: floorTex, roughness: 0.3, metalness: 0.15, envMapIntensity: 0.9
+    map: woodTexture({ base: [26, 16, 18], planks: 10, size: 512 }),
+    roughness: 0.3, metalness: 0.15, envMapIntensity: 0.9
   })));
 
   // 四周深蓝帷幕墙
   const H = 6;
+  const wallMat = velvetMaterial(0x101c40);
   const wallCurtains = [
     { w: W, x: 0, z: -D / 2, ry: 0 },
     { w: W, x: 0, z: D / 2, ry: Math.PI },
@@ -48,7 +44,7 @@ export function build(ctx) {
     { w: D, x: W / 2, z: 0, ry: -Math.PI / 2 }
   ];
   for (const c of wallCurtains) {
-    const m = curtain(c.w, H, 0x101c40, Math.round(c.w * 0.7));
+    const m = curtain(c.w, H, 0x101c40, Math.round(c.w * 0.7), wallMat);
     m.position.set(c.x, H / 2, c.z);
     m.rotation.y = c.ry;
     group.add(m);
@@ -58,17 +54,40 @@ export function build(ctx) {
   ceil.position.y = H;
   group.add(ceil);
 
-  // 舞台
-  const stage = new THREE.Mesh(
-    new THREE.BoxGeometry(8.4, 0.55, 3.6),
-    new THREE.MeshStandardMaterial({ color: 0x120d10, roughness: 0.35, metalness: 0.2, envMapIntensity: 0.8 })
-  );
+  // 舞台（圆角台体 + 黄铜包边 + 踏步 + 台口脚灯）
+  const brassMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x8a6c3c, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.3
+  });
+  const stage = roundedBoxMesh(8.4, 0.55, 3.6, 0.06,
+    new THREE.MeshStandardMaterial({ color: 0x120d10, roughness: 0.35, metalness: 0.2, envMapIntensity: 0.8 }));
   stage.position.set(0, 0.275, -D / 2 + 2.3);
   group.add(stage);
+  const stageTrim = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.03, 0.05), brassMat);
+  stageTrim.position.set(0, 0.56, -D / 2 + 4.08);
+  group.add(stageTrim);
+  const steps = mergedMesh([
+    xform(new THREE.BoxGeometry(1.6, 0.18, 0.5), 3.2, 0.09, -D / 2 + 4.4),
+    xform(new THREE.BoxGeometry(1.6, 0.37, 0.5), 3.2, 0.185, -D / 2 + 3.95)
+  ], new THREE.MeshStandardMaterial({ color: 0x0e0a0c, roughness: 0.5 }));
+  group.add(steps);
+  // 台口脚灯（一排小暖灯，合并）
+  const footGeos = [];
+  const footGeo = new THREE.SphereGeometry(0.035, 8, 6);
+  for (let i = 0; i < 9; i++) {
+    footGeos.push(xform(footGeo, -3.6 + i * 0.9, 0.6, -D / 2 + 4.12));
+  }
+  footGeo.dispose();
+  const footLights = mergedMesh(footGeos, new THREE.MeshStandardMaterial({
+    color: 0x111111, emissive: 0xffc48a, emissiveIntensity: 2.4
+  }));
+  group.add(footLights);
+  const footWash = new THREE.PointLight(0xffc48a, 3, 6, 1.8);
+  footWash.position.set(0, 0.9, -D / 2 + 4.2);
+  group.add(footWash);
 
-  // 舞台后幕 —— 更亮的蓝天鹅绒
-  const backdrop = curtain(9.4, 5.2, 0x1a2c66, 8);
-  backdrop.position.set(0, 3.1, -D / 2 + 0.5);
+  // 舞台后幕 —— 更亮的蓝天鹅绒 + 帷头层
+  const backdrop = curtainWithValance(9.4, 5.2, 0x1a2c66, 8);
+  backdrop.position.set(0, 0, -D / 2 + 0.5);
   group.add(backdrop);
 
   // 话筒 + 聚光
@@ -91,7 +110,7 @@ export function build(ctx) {
   micHot.position.set(0, 1.9, -D / 2 + 2.3);
   group.add(micHot);
   hotspots.add(micHot, {
-    hint: 'E — 空舞台，等一位歌者（《蓝丝绒》档案）',
+    hint: 'E — 空舞台（《蓝丝绒》档案）',
     onActivate: () => ui.showFilm('blue-velvet')
   });
 
@@ -103,21 +122,26 @@ export function build(ctx) {
 
   // 观众席小圆桌 + 桌灯
   const lamps = [];
+  const tableMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [24, 12, 15], planks: 1, size: 128 }), roughness: 0.4
+  });
   const tablePos = [[-3.4, 1.2], [3.2, 0.8], [-1.2, 3.4], [2.6, 3.8], [-4.6, 4.4], [0.6, 5.8]];
   for (const [x, z] of tablePos) {
-    const table = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.52, 0.52, 0.05, 18),
-      new THREE.MeshStandardMaterial({ color: 0x17090d, roughness: 0.4 })
-    );
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.05, 24), tableMat);
     table.position.set(x, 0.78, z);
     const leg = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.22, 0.78, 10),
+      new THREE.CylinderGeometry(0.05, 0.22, 0.78, 12),
       new THREE.MeshStandardMaterial({ color: 0x0c0608, roughness: 0.5 })
     );
     leg.position.set(x, 0.39, z);
     const shade = new THREE.Mesh(
-      new THREE.ConeGeometry(0.16, 0.18, 12, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x8f0e1e, roughness: 0.6, side: THREE.DoubleSide, emissive: 0xff5e3c, emissiveIntensity: 0.25 })
+      new THREE.ConeGeometry(0.16, 0.18, 14, 1, true),
+      new THREE.MeshPhysicalMaterial({
+        map: weaveTexture('#5c0e18', '#7a1424', 128, 24),
+        color: 0x8f0e1e, roughness: 0.7, side: THREE.DoubleSide,
+        emissive: 0xff5e3c, emissiveIntensity: 0.25,
+        sheen: 0.8, sheenColor: new THREE.Color(0xff9080), sheenRoughness: 0.5
+      })
     );
     shade.position.set(x, 1.02, z);
     const glow = new THREE.Mesh(
@@ -130,7 +154,6 @@ export function build(ctx) {
     group.add(table, leg, shade, glow, light);
     lamps.push({ light, glow });
 
-    // 桌面升起的细烟
     const wisp = smokeLayer(9, { x: 0.3, z: 0.3 }, { opacity: 0.05, size: 1.6, yBase: 1.0, ySpread: 1.5, color: 0xcdd3e0 });
     wisp.position.set(x + 0.2, 0, z);
     group.add(wisp);
@@ -162,34 +185,123 @@ export function build(ctx) {
       dimState.warm = toBlue ? 0.06 : 1;
       dimState.blue = toBlue ? 1 : 0;
       audio.sfx(toBlue ? 'thud' : 'chime');
-      ui.caption(toBlue ? '灯灭了。蓝色接管了房间。' : '暖光回来了。假装什么都没发生。', 4000);
     }
   });
   updaters.push((dt) => {
     blueWash.intensity += ((dimState.blue * 26) - blueWash.intensity) * Math.min(1, dt * 2.2);
   });
 
-  // 展签：帷幕意象
-  const s1 = standPlaque('帷幕与凝视', 'THE CURTAIN MOTIF', '#4f74ff');
-  s1.position.set(5.6, 0, 2.6);
-  s1.rotation.y = -1.1;
-  group.add(s1);
-  hotspots.add(s1.userData.board, {
-    hint: 'E — 阅读《帷幕与凝视》',
-    onActivate: () => ui.showEssay('velvet')
+  // ============================================================
+  // 吧台一角（西墙）：背光酒瓶墙 + 吧凳 + 黄铜脚踏
+  // ============================================================
+  const bar = new THREE.Group();
+  // 台面 + 台体
+  const barTop = roundedBoxMesh(0.9, 0.09, 6.4, 0.04,
+    new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [46, 26, 20], planks: 2, size: 256 }), roughness: 0.28, envMapIntensity: 1.0
+    }));
+  barTop.position.set(-W / 2 + 1.7, 1.08, 0.8);
+  const barBody = roundedBoxMesh(0.78, 1.04, 6.3, 0.05,
+    new THREE.MeshPhysicalMaterial({
+      map: weaveTexture('#141024', '#1c1834'), color: 0x141a34, roughness: 0.8,
+      sheen: 0.5, sheenColor: new THREE.Color(0x6070c0), sheenRoughness: 0.6
+    }));
+  barBody.position.set(-W / 2 + 1.7, 0.52, 0.8);
+  // 黄铜脚踏杆
+  const brassRail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 6.2, 10), brassMat);
+  brassRail.rotation.x = Math.PI / 2;
+  brassRail.position.set(-W / 2 + 2.25, 0.22, 0.8);
+  bar.add(barTop, barBody, brassRail);
+  // 背柜 + 酒瓶墙（发光轮廓，合并两组）
+  const backbar = roundedBoxMesh(0.34, 2.6, 6.4, 0.04,
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [20, 12, 14], planks: 3, vertical: true, size: 256 }), roughness: 0.6 }));
+  backbar.position.set(-W / 2 + 0.4, 1.3, 0.8);
+  bar.add(backbar);
+  const shelfGeos = [
+    xform(new THREE.BoxGeometry(0.3, 0.03, 6.0), -W / 2 + 0.42, 1.5, 0.8),
+    xform(new THREE.BoxGeometry(0.3, 0.03, 6.0), -W / 2 + 0.42, 2.1, 0.8)
+  ];
+  bar.add(mergedMesh(shelfGeos, brassMat));
+  const bottleGeos = [];
+  for (let shelf = 0; shelf < 2; shelf++) {
+    for (let i = 0; i < 12; i++) {
+      const bh = 0.26 + Math.random() * 0.16;
+      const geo = new THREE.CylinderGeometry(0.035, 0.045, bh, 8);
+      bottleGeos.push(xform(geo, -W / 2 + 0.42, 1.52 + shelf * 0.6 + bh / 2, -1.9 + i * 0.46 + Math.random() * 0.05));
+      geo.dispose();
+      const neck = new THREE.CylinderGeometry(0.012, 0.02, 0.1, 6);
+      bottleGeos.push(xform(neck, -W / 2 + 0.42, 1.52 + shelf * 0.6 + bh + 0.05, -1.9 + i * 0.46));
+      neck.dispose();
+    }
+  }
+  const bottles = mergedMesh(bottleGeos, new THREE.MeshPhysicalMaterial({
+    color: 0x1a3a55, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.82,
+    emissive: 0x2a5a88, emissiveIntensity: 0.5, envMapIntensity: 1.5
+  }));
+  bar.add(bottles);
+  // 背光条
+  const barGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(6.2, 1.4),
+    new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: 0x3ec5ff, emissiveIntensity: 0.55 })
+  );
+  barGlow.position.set(-W / 2 + 0.28, 1.9, 0.8);
+  barGlow.rotation.y = Math.PI / 2;
+  bar.add(barGlow);
+  const barLight = new THREE.PointLight(0x66aaff, 4, 8, 1.8);
+  barLight.position.set(-W / 2 + 1.4, 2.1, 0.8);
+  bar.add(barLight);
+  updaters.push((dt, t) => {
+    barGlow.material.emissiveIntensity = 0.5 + Math.sin(t * 1.9) * 0.12;
+    bottles.material.emissiveIntensity = 0.42 + Math.sin(t * 1.9 + 1) * 0.14;
   });
+  // 吧凳 ×3（软包 + 铬柱，合并两组）
+  const stSeatGeos = [];
+  const stPoleGeos = [];
+  const stSeat = new THREE.CylinderGeometry(0.24, 0.24, 0.11, 18);
+  const stRim = new THREE.TorusGeometry(0.24, 0.045, 8, 20);
+  const stPole = new THREE.CylinderGeometry(0.04, 0.06, 0.74, 10);
+  const stFoot = new THREE.CylinderGeometry(0.18, 0.22, 0.04, 12);
+  for (const z of [-1.2, 0.8, 2.8]) {
+    stSeatGeos.push(xform(stSeat, -W / 2 + 2.7, 0.84, z));
+    stSeatGeos.push(xform(stRim, -W / 2 + 2.7, 0.8, z, Math.PI / 2, 0, 0));
+    stPoleGeos.push(xform(stPole, -W / 2 + 2.7, 0.4, z));
+    stPoleGeos.push(xform(stFoot, -W / 2 + 2.7, 0.02, z));
+  }
+  stSeat.dispose(); stRim.dispose(); stPole.dispose(); stFoot.dispose();
+  bar.add(mergedMesh(stSeatGeos, new THREE.MeshPhysicalMaterial({
+    color: 0x101c40, roughness: 0.5, sheen: 0.7, sheenColor: new THREE.Color(0x5070d0),
+    clearcoat: 0.4, clearcoatRoughness: 0.4
+  })));
+  bar.add(mergedMesh(stPoleGeos, new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0xa8a8a8, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4
+  })));
+  // 吧台上的威士忌杯
+  const glass = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.045, 0.09, 14),
+    new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.25, roughness: 0.05, envMapIntensity: 1.6 })
+  );
+  glass.position.set(-W / 2 + 1.75, 1.17, -0.6);
+  bar.add(glass);
+  hotspots.add(glass, {
+    hint: 'E — 一杯没人碰过的酒',
+    onActivate: () => {
+      audio.sfx('chime', 0.5);
+      ui.caption('冰早就化了。', 2800);
+    }
+  });
+  group.add(bar);
 
-  // 引语展签（林奇原话：家）
+  // 引语展签（本厅唯一文字展签）
   const q1 = quotePlaque(quoteById('home'), '#4f74ff');
-  q1.position.set(-6.4, 0, 3.6);
+  q1.position.set(-6.4, 0, 4.6);
   q1.rotation.y = 1.15;
   group.add(q1);
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
-    onActivate: () => ui.showEssay('velvet')
+    onActivate: () => ui.showQuotes()
   });
 
-  // ---------- 博物馆化：展柜（天鹅绒样本） ----------
+  // ---------- 展柜（天鹅绒样本） ----------
   const swatchCase = vitrine('天鹅绒样本', 'TEXTURE STUDY', '#4f74ff');
   swatchCase.position.set(6.8, 0, -1.6);
   swatchCase.rotation.y = -0.9;
@@ -207,17 +319,17 @@ export function build(ctx) {
     hint: 'E — 布料的两面',
     onActivate: () => {
       audio.sfx('chime');
-      ui.caption('展签：天鹅绒的绒面向着光，底布向着墙。每一块布都同时活在两个世界里。', 6000);
+      ui.caption('绒面向着光，底布向着墙。', 3600);
     }
   });
 
   // ---------- 彩蛋：衣柜的暗侧 ----------
-  // 房间深处立着一只旧衣柜。绕到它和墙壁的夹缝里——你就成了躲起来的那个人。
-  const closetMat = new THREE.MeshStandardMaterial({ color: 0x17100c, roughness: 0.8 });
+  const closetMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [26, 18, 12], planks: 2, vertical: true, size: 256 }), roughness: 0.8
+  });
   const closet = new THREE.Group();
-  const closetBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.4, 0.7), closetMat);
+  const closetBody = roundedBoxMesh(1.3, 2.4, 0.7, 0.04, closetMat);
   closetBody.position.y = 1.2;
-  // 百叶门板条
   const slats = [];
   for (let i = 0; i < 8; i++) {
     const slat = new THREE.Mesh(
@@ -238,15 +350,14 @@ export function build(ctx) {
   const closetEgg = () => {
     for (const id of closetTimers) clearTimeout(id);
     closetTimers = [];
-    // 全场熄灯——你在夹缝里，透过板条看房间
     const prevWarm = dimState.warm;
     dimState.warm = 0.04;
     audio.duck(1.8, 0.03, 2.6);
     audio.sfx('breath', 0.9);
     closetTimers.push(setTimeout(() => {
-      for (const s of slats) s.material.emissiveIntensity = 1.4; // 板条透出红光
+      for (const s of slats) s.material.emissiveIntensity = 1.4;
       audio.sfx('thud', 0.6);
-      ui.caption('你躲进了看不见的一侧。房间里，有什么东西正在找你。别出声。', 6200);
+      ui.caption('有什么东西正在找你。别出声。', 4600);
     }, 1400));
     closetTimers.push(setTimeout(() => {
       for (const s of slats) s.material.emissiveIntensity = 0;

@@ -9,7 +9,8 @@
 import * as THREE from 'three';
 import {
   canvasTexture, floorMesh, doorway, smokeLayer, dustField,
-  quotePlaque, standPlaque, zoneTrigger
+  quotePlaque, zoneTrigger,
+  mergedMesh, xform, roundedBoxMesh, woodTexture, weaveTexture, brushedMetalTexture, armchair
 } from './kit.js';
 import { quoteById } from '../data/essays.js';
 
@@ -119,20 +120,121 @@ export function build(ctx) {
   nookCeil.position.y = H;
   group.add(nookCeil);
 
-  // ---------- 工作桌（西墙） ----------
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 0.6 });
+  // ---------- 工作桌（西墙，圆角桌板 + 车削桌腿） ----------
+  const woodMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [44, 28, 15], planks: 2, size: 256 }), roughness: 0.55
+  });
   const desk = new THREE.Group();
-  const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.09, 1.3), woodMat);
+  const deskTop = roundedBoxMesh(3.4, 0.09, 1.3, 0.03, woodMat);
   deskTop.position.y = 0.86;
-  for (const [dx, dz] of [[-1.55, -0.5], [1.55, -0.5], [-1.55, 0.5], [1.55, 0.5]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.86, 0.09), woodMat);
-    leg.position.set(dx, 0.43, dz);
-    desk.add(leg);
-  }
-  desk.add(deskTop);
+  const legGeo = new THREE.CylinderGeometry(0.045, 0.06, 0.86, 10);
+  const deskLegs = mergedMesh([
+    xform(legGeo, -1.55, 0.43, -0.5), xform(legGeo, 1.55, 0.43, -0.5),
+    xform(legGeo, -1.55, 0.43, 0.5), xform(legGeo, 1.55, 0.43, 0.5)
+  ], woodMat);
+  legGeo.dispose();
+  desk.add(deskTop, deskLegs);
   desk.position.set(-6.4, 0, -1.4);
   desk.rotation.y = Math.PI / 2;
   group.add(desk);
+
+  // 地毯（编织纹 + sheen）
+  const rug = new THREE.Mesh(
+    new THREE.CircleGeometry(2.6, 34),
+    new THREE.MeshPhysicalMaterial({
+      map: weaveTexture('#2a1410', '#3a1c16'), roughness: 0.95,
+      sheen: 0.5, sheenColor: new THREE.Color(0xb08060), sheenRoughness: 0.7
+    })
+  );
+  rug.rotation.x = -Math.PI / 2;
+  rug.position.set(-1.5, 0.012, -0.5);
+  group.add(rug);
+
+  // 读书角：扶手椅 + 书架（合并的书脊）
+  const chair = armchair(0x2c1a10);
+  chair.position.set(-3.2, 0, 2.6);
+  chair.rotation.y = -0.7;
+  group.add(chair);
+  const shelfUnit = new THREE.Group();
+  const shelfFrame = roundedBoxMesh(1.7, 2.5, 0.34, 0.03, woodMat);
+  shelfFrame.position.y = 1.25;
+  shelfUnit.add(shelfFrame);
+  const bookGeos = [];
+  for (let row = 0; row < 4; row++) {
+    let bx = -0.7;
+    while (bx < 0.66) {
+      const bw = 0.05 + Math.random() * 0.06;
+      const bh = 0.26 + Math.random() * 0.1;
+      const geo = new THREE.BoxGeometry(bw, bh, 0.2);
+      bookGeos.push(xform(geo, bx + bw / 2, 0.42 + row * 0.56 + bh / 2, 0.1, 0, 0, (Math.random() - 0.5) * 0.06));
+      geo.dispose();
+      bx += bw + 0.012;
+    }
+  }
+  const books = mergedMesh(bookGeos, new THREE.MeshStandardMaterial({
+    map: canvasTexture(64, (g, s) => {
+      const cols = ['#5c2c1a', '#1c2c44', '#44341c', '#2c1c2c', '#1c3428'];
+      for (let i = 0; i < 12; i++) {
+        g.fillStyle = cols[i % cols.length];
+        g.fillRect((i / 12) * s, 0, s / 12 + 1, s);
+      }
+    }),
+    roughness: 0.8
+  }));
+  shelfUnit.add(books);
+  shelfUnit.position.set(-1.2, 0, 6.25);
+  shelfUnit.rotation.y = Math.PI;
+  group.add(shelfUnit);
+
+  // 窗（百叶 + 夜光，东墙）
+  const windowGroup = new THREE.Group();
+  const winFrame = roundedBoxMesh(0.1, 1.7, 1.5, 0.02, woodMat);
+  winFrame.position.set(W / 2 - 0.05, 2.1, -3.4);
+  const winGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.3, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0x060a12, emissive: 0x8ea6c9, emissiveIntensity: 0.5 })
+  );
+  winGlow.position.set(W / 2 - 0.11, 2.1, -3.4);
+  winGlow.rotation.y = -Math.PI / 2;
+  const slatGeos = [];
+  const slatGeo = new THREE.BoxGeometry(0.02, 0.06, 1.32);
+  for (let i = 0; i < 12; i++) {
+    slatGeos.push(xform(slatGeo, 0, i * 0.125, 0, 0.5, 0, 0));
+  }
+  slatGeo.dispose();
+  const blinds = mergedMesh(slatGeos, new THREE.MeshStandardMaterial({ color: 0x201812, roughness: 0.7 }));
+  blinds.position.set(W / 2 - 0.16, 1.4, -3.4);
+  const moonSliver = new THREE.PointLight(0x8ea6c9, 2.4, 7, 1.9);
+  moonSliver.position.set(W / 2 - 0.8, 2.1, -3.4);
+  windowGroup.add(winFrame, winGlow, blinds, moonSliver);
+  group.add(windowGroup);
+
+  // 墙上的两幅暗色抽象画（原创程序化）
+  for (const [z, seed] of [[1.2, 3], [4.0, 8]]) {
+    const art = roundedBoxMesh(0.9, 1.1, 0.05, 0.015,
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(256, (g, s) => {
+          g.fillStyle = '#0c0908';
+          g.fillRect(0, 0, s, s);
+          for (let i = 0; i < 30; i++) {
+            const a = seed + i * 0.7;
+            g.strokeStyle = `rgba(${140 + Math.sin(a) * 60},${120 + Math.cos(a) * 40},${100},${0.1 + Math.random() * 0.12})`;
+            g.lineWidth = 2 + Math.random() * 8;
+            g.beginPath();
+            g.moveTo(Math.random() * s, Math.random() * s);
+            g.bezierCurveTo(Math.random() * s, Math.random() * s, Math.random() * s, Math.random() * s, Math.random() * s, Math.random() * s);
+            g.stroke();
+          }
+          g.strokeStyle = '#3a2c1a';
+          g.lineWidth = 10;
+          g.strokeRect(5, 5, s - 10, s - 10);
+        }),
+        roughness: 0.75, emissive: 0xffffff, emissiveIntensity: 0.03
+      }));
+    art.position.set(-W / 2 + 0.08, 2.4, z);
+    art.rotation.y = Math.PI / 2;
+    group.add(art);
+  }
 
   // 台灯（可开关 — 交互①）
   const lampState = { on: 1 };
@@ -166,7 +268,7 @@ export function build(ctx) {
     onActivate: () => {
       lampState.on = lampState.on ? 0 : 1;
       audio.sfx(lampState.on ? 'lampon' : 'lampoff');
-      ui.caption(lampState.on ? '台灯亮了。桌面变成一座小小的舞台。' : '台灯灭了。点子们游回深水里去了。', 3600);
+      ui.caption(lampState.on ? '台灯亮了。' : '台灯灭了。', 2400);
     }
   });
 
@@ -201,7 +303,7 @@ export function build(ctx) {
     onActivate: () => {
       ceilState.on = ceilState.on ? 0 : 1;
       audio.sfx(ceilState.on ? 'lampon' : 'lampoff');
-      ui.caption(ceilState.on ? '顶灯回来了。' : '只剩台灯了。这是他最喜欢的亮度。', 3200);
+      ui.caption(ceilState.on ? '顶灯回来了。' : '只剩台灯了。', 2400);
     }
   });
 
@@ -225,7 +327,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('sip');
       if (chain.step === 0) { chain.step = 1; chain.t = 0; }
-      ui.caption('「再难喝的咖啡，也好过没有咖啡。」——他在书里这样写。这杯不难喝。', 5200);
+      ui.caption('「再难喝的咖啡，也好过没有咖啡。」', 3600);
     }
   });
 
@@ -262,9 +364,7 @@ export function build(ctx) {
       smokeState.lit = smokeState.lit ? 0 : 1;
       audio.sfx(smokeState.lit ? 'strike' : 'thud', 0.6);
       if (smokeState.lit && chain.step === 1) chain.step = 2;
-      ui.caption(smokeState.lit
-        ? '一缕烟升起来，在台灯下慢慢写一行看不懂的字。'
-        : '烟掐灭了。那行字也写完了。', 4200);
+      ui.caption(smokeState.lit ? '一缕烟升起来。' : '烟掐灭了。', 2600);
     }
   });
 
@@ -318,16 +418,16 @@ export function build(ctx) {
         paintState.painting = true;
         paintState.progress = 0;
         audio.sfx('curtain', 0.4);
-        ui.caption('画开始自己生长。他说过，他首先是个画家——电影不过是会动的画。', 5600);
+        ui.caption('画开始自己生长。', 3000);
       }
     }
   });
 
   // 收音机（交互⑥：天气播报——原创文本，抽象致敬他的每日天气）
   const WEATHER = [
-    '洛杉矶。今天有金色的阳光，微风，华氏七十二度。如果你在等一个点子——今天是它上钩的好天气。',
-    '今晨有雾，能见度低。这不是坏事：看不清的日子，适合往更深处走。',
-    '阴，偶有小雨。请对身边的人好一点。然后，去喝杯咖啡。'
+    '洛杉矶。金色阳光，微风，华氏七十二度。',
+    '今晨有雾，能见度低。',
+    '阴，偶有小雨。去喝杯咖啡。'
   ];
   const radioState = { on: 0, idx: 0 };
   const radio = new THREE.Group();
@@ -365,10 +465,10 @@ export function build(ctx) {
       if (special) chain.step = 3;
       later(() => {
         const text = special
-          ? '……插播：今天有一条非常大的鱼经过本市上空。重复一遍：非常大。请各位留在原地，闭上眼睛。'
+          ? '……插播：一条非常大的鱼正经过本市上空。请闭上眼睛。'
           : WEATHER[radioState.idx % WEATHER.length];
         radioState.idx++;
-        ui.caption('📻 ' + text, 7200);
+        ui.caption('📻 ' + text, 5200);
         if (special) {
           audio.sfx('lullaby', 0.7);
           hiddenGlow.intensity = 9;
@@ -439,7 +539,7 @@ export function build(ctx) {
     onActivate: () => {
       curtainState.open = curtainState.open ? 0 : 1;
       audio.sfx('curtain');
-      ui.caption(curtainState.open ? '帘子后面：一只坐垫，一支蜡烛。他每天来这里两次。' : '帘子合上了。角落回到黑暗里等他。', 4600);
+      ui.caption(curtainState.open ? '帘子后面：一只坐垫，一支蜡烛。' : '帘子合上了。', 3000);
     }
   });
 
@@ -505,14 +605,14 @@ export function build(ctx) {
       audio.duck(0.4, 0.2, 3.0);
       engine.setLook({ saturation: 0.55, tint: 0x9ecfff, fogColor: 0x020610, fogDensity: 0.085, bg: 0x010409, exposure: 0.8, bloom: 1.2 });
       fishGroup.visible = true;
-      ui.caption('水面在头顶合拢。「想抓大鱼，就得潜到更深的水里去。」', 6600);
+      ui.caption('「想抓大鱼，就得潜到更深的水里去。」', 4600);
       later(() => audio.sfx('om', 0.7), 5200);
       later(() => {
         meditation.active = false;
         fishGroup.visible = false;
         engine.setLook(meta.look);
         audio.sfx('chime', 0.5);
-        ui.caption('你浮上来了。手里多了什么？说不清。但确实多了。', 5600);
+        ui.caption('你浮上来了。', 3000);
       }, 11500);
     }
   });
@@ -589,7 +689,7 @@ export function build(ctx) {
       radioState.on = 1;
       audio.sfx('radio', 1);
       audio.sfx('whisper', 0.8);
-      ui.caption('📻 ……收音机自己醒了。它播的不是天气。是一个名字。你的。', 6200);
+      ui.caption('📻 它播的不是天气。是一个名字。你的。', 5200);
     }, 1000));
     eggTimers.push(setTimeout(() => {
       lampState.on = prevLamp;
@@ -600,30 +700,14 @@ export function build(ctx) {
   const radioTrig = zoneTrigger({ x: -7.0, z: -5.2, r: 1.35 }, radioEgg, { cooldown: 45 });
   updaters.push((dt) => radioTrig.update(player, dt));
 
-  // ---------- 展签与引语 ----------
+  // ---------- 展签（全厅仅一块，短原话） ----------
   const q1 = quotePlaque(quoteById('you'), '#ffb25e');
   q1.position.set(2.2, 0, -5.6);
   q1.rotation.y = 0.35;
   group.add(q1);
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
-    onActivate: () => ui.showEssay('world')
-  });
-  const q2 = quotePlaque(quoteById('coffee'), '#ffb25e');
-  q2.position.set(-5.2, 0, 3.4);
-  q2.rotation.y = 2.2;
-  group.add(q2);
-  hotspots.add(q2.userData.board, {
-    hint: 'E — 他自己的话',
-    onActivate: () => ui.showEssay('world')
-  });
-  const s1 = standPlaque('一个人的房间', 'HIS OWN WORLD', '#ffb25e');
-  s1.position.set(2.6, 0, 3.2);
-  s1.rotation.y = -2.6;
-  group.add(s1);
-  hotspots.add(s1.userData.board, {
-    hint: 'E — 阅读《一个人的房间》',
-    onActivate: () => ui.showEssay('world')
+    onActivate: () => ui.showQuotes()
   });
 
   // ---------- 氛围 ----------

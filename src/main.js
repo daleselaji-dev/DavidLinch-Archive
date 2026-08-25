@@ -119,10 +119,11 @@ async function goTo(id) {
   ui.fade(false);
   console.log(`[sv] hall-loaded ${id}`);
 
+  // 留白：只在首访、且等你先看一会儿之后，才低声说一句短话
   if (!visited.has(id)) {
     visited.add(id);
     const key = id === 'lobby' && visited.size === 1 ? 'welcome' : mod.meta.narration;
-    setTimeout(() => narration.speakKey(key), 900);
+    setTimeout(() => narration.speakKey(key), 2600);
   }
   busy = false;
 }
@@ -215,5 +216,5 @@ window.__SV__ = {
     }
     return names;
   },
-  version: '1.1.0'
+  version: '1.2.0'
 };

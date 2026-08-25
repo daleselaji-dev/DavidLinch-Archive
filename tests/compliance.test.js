@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
-import { LEGAL, NARRATIONS, ESSAYS } from '../src/data/essays.js';
+import { LEGAL, NARRATIONS, QUOTES } from '../src/data/essays.js';
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -27,13 +27,13 @@ describe('版权合规自检', () => {
     expect(media).toEqual([]);
   });
 
-  it('旁白与文章均为原创中文文案且非空', () => {
+  it('旁白为原创中文短句，引语注明出处类型', () => {
     for (const n of Object.values(NARRATIONS)) {
-      expect(n.text.length).toBeGreaterThan(10);
+      expect(n.text.length).toBeGreaterThanOrEqual(4);
+      expect(n.lang).toBe('zh-CN');
     }
-    for (const e of Object.values(ESSAYS)) {
-      expect(e.title).toBeTruthy();
-      expect(e.paras.join('').length).toBeGreaterThan(80);
+    for (const q of QUOTES) {
+      expect(q.source, `引语缺出处: ${q.id}`).toMatch(/访谈|著作/);
     }
   });
 

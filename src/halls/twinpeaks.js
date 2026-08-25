@@ -1,12 +1,18 @@
 // ============================================================
-// 《双峰》展厅 —— THE DARK PINES 黑松林
-// 夜之松林 + 地表雾 + 萤火 + 林中独立的红帷幕之门
+// 《双峰》展厅 —— THE DARK PINES 黑松林（v1.2 多分区可逛地图）
+//   ① 林间空地：红帷幕之门（回大厅）+ 树桩咖啡 + 石阵彩蛋
+//   ② 红房间氛围区：几何折线地板 + 红帷幕围合 + 扶手椅（原创抽象致敬）
+//   ③ 小镇夜街：路灯 + 老轿车剪影 + DINER 柜台一角（樱桃派/咖啡壶）
+//   ④ 瀑布眺望台：木栈台 + 瀑布 + 锯木厂剪影
+// 分区之间由林间小径连接。全部原创程序化，无镜头复刻。
 // ============================================================
 import * as THREE from 'three';
 import {
-  PALETTE, canvasTexture, chevronTexture, curtain, neonSign,
-  smokeLayer, dustField, standPlaque, quotePlaque, vitrine,
-  zoneTrigger, circleBounds, pineGeometryMaterial
+  PALETTE, canvasTexture, chevronTexture, curtain, curtainRing, neonSign,
+  smokeLayer, dustField, quotePlaque, velvetMaterial,
+  zoneTrigger, zonesBounds, pineGeometryMaterial,
+  roundedBoxMesh, roundedBoxGeo, mergedMesh, xform, railing, rockMesh, armchair,
+  groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone
 } from './kit.js';
 import { quoteById } from '../data/essays.js';
 
@@ -15,7 +21,34 @@ export const meta = {
   name: 'TWIN PEAKS · 黑松林 (1990)',
   ambience: 'twinpeaks',
   narration: 'twinpeaks',
-  look: { saturation: 0.82, tint: 0xdcecdf, fogColor: 0x030805, fogDensity: 0.035, bg: 0x02040a, exposure: 0.95, bloom: 0.8 }
+  look: { saturation: 0.82, tint: 0xdcecdf, fogColor: 0x030805, fogDensity: 0.028, bg: 0x02040a, exposure: 0.95, bloom: 0.8 }
+};
+
+// ---------- 可逛分区（union 边界） ----------
+const ZONES = [
+  { circle: { x: 0, z: 0, r: 9.6 } },                                   // 林间空地
+  { rect: { minX: -15, maxX: -5, minZ: -8, maxZ: -3 } },                // 小径→红房间 ①
+  { rect: { minX: -19, maxX: -13, minZ: -14, maxZ: -6 } },              // 小径→红房间 ②
+  { circle: { x: -20, z: -16, r: 6.0 } },                               // 红房间
+  { rect: { minX: 6, maxX: 17, minZ: -7, maxZ: -1 } },                  // 小径→夜街
+  { rect: { minX: 16.5, maxX: 27.2, minZ: -17, maxZ: 3 } },             // 小镇夜街
+  { rect: { minX: 26.4, maxX: 28.0, minZ: -8.8, maxZ: -7.0 } },         // diner 门洞
+  { rect: { minX: 27.6, maxX: 31.6, minZ: -12, maxZ: -3.6 } },          // diner 柜台一角
+  { rect: { minX: 5.5, maxX: 9.5, minZ: -23, maxZ: -5 } },              // 小径→瀑布
+  { rect: { minX: 5, maxX: 17, minZ: -29, maxZ: -22.5 } },              // 瀑布眺望台
+  { rect: { minX: 6.5, maxX: 16, minZ: 6, maxZ: 13 } }                  // 林中岔路（石阵）
+];
+const insideWalkable = (x, z, margin = 1.6) => {
+  for (const zn of ZONES) {
+    if (zn.circle) {
+      const r = zn.circle.r + margin;
+      if ((x - zn.circle.x) ** 2 + (z - zn.circle.z) ** 2 < r * r) return true;
+    } else {
+      const r = zn.rect;
+      if (x > r.minX - margin && x < r.maxX + margin && z > r.minZ - margin && z < r.maxZ + margin) return true;
+    }
+  }
+  return false;
 };
 
 export function build(ctx) {
@@ -25,25 +58,43 @@ export function build(ctx) {
   const timers = [];
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
-  // 林地
+  // ---------- 林地地面 ----------
   const groundTex = canvasTexture(512, (g, s) => {
     g.fillStyle = '#0a0f08';
     g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 620; i++) {
       g.fillStyle = `rgba(${8 + Math.random() * 24},${14 + Math.random() * 26},${8 + Math.random() * 16},0.5)`;
       g.beginPath();
       g.arc(Math.random() * s, Math.random() * s, Math.random() * 12, 0, 7);
       g.fill();
     }
+    // 针叶落层
+    g.strokeStyle = 'rgba(30,40,22,0.5)';
+    for (let i = 0; i < 300; i++) {
+      const x = Math.random() * s; const y = Math.random() * s; const a = Math.random() * 7;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 6, y + Math.sin(a) * 6); g.stroke();
+    }
   }, 8, 8);
   const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(46, 48),
+    new THREE.CircleGeometry(56, 48),
     new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.95 })
   );
   ground.rotation.x = -Math.PI / 2;
   group.add(ground);
 
-  // 星空 + 月亮
+  // 林间小径（碎石条带把分区串成可逛地图）
+  const pathMat = new THREE.MeshStandardMaterial({ map: gravelTexture(), roughness: 0.92 });
+  for (const [x1, z1, x2, z2] of [
+    [-5.5, -5.4, -14, -6.8],   // → 红房间
+    [-14, -6.8, -18.4, -13],
+    [6, -4, 16.5, -4.2],       // → 夜街
+    [7.4, -6, 7.4, -22.8],     // → 瀑布
+    [7.5, 6.5, 13, 10.5]       // → 石阵岔路
+  ]) {
+    group.add(groundStrip(x1, z1, x2, z2, 2.6, pathMat));
+  }
+
+  // ---------- 星空 + 月亮 ----------
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(600 * 3);
   for (let i = 0; i < 600; i++) {
@@ -70,48 +121,55 @@ export function build(ctx) {
   moonLight.position.set(-30, 50, -60);
   group.add(moonLight);
 
-  // 松林（实例化）
+  // ---------- 松林（实例化，避开可逛分区） ----------
   const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
   const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
-  const COUNT = 300;
+  const COUNT = 340;
   const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
   const dummy = new THREE.Object3D();
   let placed = 0;
   let guard = 0;
-  while (placed < COUNT && guard++ < 4000) {
+  while (placed < COUNT && guard++ < 9000) {
     const a = Math.random() * Math.PI * 2;
-    const r = 11 + Math.pow(Math.random(), 0.7) * 33;
+    const r = 6 + Math.pow(Math.random(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
+    if (insideWalkable(x, z)) continue;
     const s = 0.8 + Math.random() * 2.4;
-    dummy.position.set(x, 1.3 * s + 0.9, z);
+    dummy.position.set(x, 2.1 * s + 0.9, z);
     dummy.scale.setScalar(s);
     dummy.rotation.y = Math.random() * Math.PI;
     dummy.updateMatrix();
     pines.setMatrixAt(placed, dummy.matrix);
     dummy.position.y = 0.8;
     dummy.scale.set(s, 1, s);
+    dummy.rotation.y = 0;
     dummy.updateMatrix();
     trunks.setMatrixAt(placed, dummy.matrix);
     placed++;
   }
+  pines.count = placed;
+  trunks.count = placed;
   group.add(pines, trunks);
 
-  // 林中红帷幕之门（回到大厅的通道）
+  // ============================================================
+  // ① 林间空地 —— 红帷幕之门
+  // ============================================================
   const gate = new THREE.Group();
   const pad = new THREE.Mesh(
-    new THREE.CircleGeometry(3.6, 36),
+    new THREE.CircleGeometry(3.6, 40),
     new THREE.MeshStandardMaterial({ map: chevronTexture('#0b0b0d', '#ded7c8', 4), roughness: 0.35, metalness: 0.1 })
   );
   pad.rotation.x = -Math.PI / 2;
   pad.position.y = 0.02;
-  const curtainL = curtain(1.6, 3.6, PALETTE.velvet, 3);
+  const gateMat = velvetMaterial(PALETTE.velvet);
+  const curtainL = curtain(1.6, 3.6, PALETTE.velvet, 3, gateMat);
   curtainL.position.set(-0.85, 1.8, 0);
-  const curtainR = curtain(1.6, 3.6, PALETTE.velvet, 3);
+  const curtainR = curtain(1.6, 3.6, PALETTE.velvet, 3, gateMat);
   curtainR.position.set(0.85, 1.8, 0);
-  const lintelC = curtain(3.6, 0.9, PALETTE.velvet, 6);
+  const lintelC = curtain(3.6, 0.9, PALETTE.velvet, 6, gateMat);
   lintelC.position.set(0, 3.55, 0);
   const glowPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(1.2, 3.4),
@@ -134,59 +192,44 @@ export function build(ctx) {
     onActivate: () => goTo('lobby')
   });
 
-  // 帷幕侧的剧集档案热点
-  const gatePlaque = standPlaque('林中帷幕', 'TWIN PEAKS · 1990–2017', '#3fae6a');
-  gatePlaque.position.set(3.2, 0, -4.4);
-  gatePlaque.rotation.y = -2.4;
-  group.add(gatePlaque);
-  hotspots.add(gatePlaque.userData.board, {
+  // 帷幕旁的黄铜档案铭牌（本厅唯一的档案入口，事实性文字）
+  const brassTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#6b5232';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(255,240,210,0.9)';
+    g.textAlign = 'center';
+    g.font = '400 44px Georgia, serif';
+    g.fillText('TWIN PEAKS', s / 2, s / 2 - 14);
+    g.font = '28px "Courier New", monospace';
+    g.fillText('1990 — 2017', s / 2, s / 2 + 36);
+  });
+  const brassPlate = roundedBoxMesh(0.62, 0.34, 0.03, 0.012,
+    new THREE.MeshStandardMaterial({
+      map: brassTex, roughness: 0.3, metalness: 0.85,
+      emissive: 0xffe6b8, emissiveMap: brassTex, emissiveIntensity: 0.12
+    }));
+  const brassPost = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.045, 0.95, 10),
+    new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x584124, roughness: 0.4, metalness: 0.9 })
+  );
+  brassPost.position.set(2.9, 0.47, -4.5);
+  brassPlate.position.set(2.9, 1.0, -4.5);
+  brassPlate.rotation.set(-0.4, -2.4, 0);
+  group.add(brassPost, brassPlate);
+  hotspots.add(brassPlate, {
     hint: 'E — 《双峰》剧集档案',
     onActivate: () => ui.showFilm('twin-peaks')
   });
 
-  // 木牌 —— 回归季档案
-  const signTex = canvasTexture(512, (g, s) => {
-    g.fillStyle = '#241708';
-    g.fillRect(0, 40, s, s - 160);
-    g.strokeStyle = '#0d0803';
-    g.lineWidth = 14;
-    g.strokeRect(7, 47, s - 14, s - 174);
-    g.fillStyle = '#e8dcc2';
-    g.textAlign = 'center';
-    g.font = '400 64px Georgia, serif';
-    g.fillText('THE DARK PINES', s / 2, 170);
-    g.font = '44px "Songti SC","SimSun",serif';
-    g.fillText('黑 松 林 保 护 区', s / 2, 250);
-    g.font = '26px "Courier New", monospace';
-    g.fillStyle = '#b8a781';
-    g.fillText('the owls · the wind · the return', s / 2, 320);
-  });
-  const woodSign = new THREE.Mesh(
-    new THREE.BoxGeometry(2.4, 1.7, 0.1),
-    new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.9, emissive: 0xffffff, emissiveMap: signTex, emissiveIntensity: 0.12 })
-  );
-  woodSign.position.set(-3.4, 1.6, 4.2);
-  woodSign.rotation.y = 0.6;
-  const signPost = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.07, 0.09, 1.6, 8),
-    new THREE.MeshStandardMaterial({ color: 0x1a1108, roughness: 0.95 })
-  );
-  signPost.position.set(-3.4, 0.75, 4.2);
-  group.add(woodSign, signPost);
-  hotspots.add(woodSign, {
-    hint: 'E — 《双峰：回归》档案',
-    onActivate: () => ui.showFilm('twin-peaks-return')
-  });
-
   // 树桩上的热咖啡
   const stump = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.6, 0.7, 12),
-    new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 0.95 })
+    new THREE.CylinderGeometry(0.5, 0.62, 0.7, 16),
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [44, 28, 14], planks: 1, size: 128 }), roughness: 0.95 })
   );
   stump.position.set(3.8, 0.35, 3.2);
   const cup = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.09, 0.07, 0.14, 12),
-    new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.4 })
+    new THREE.CylinderGeometry(0.09, 0.07, 0.14, 16),
+    new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.35 })
   );
   cup.position.set(3.8, 0.77, 3.2);
   group.add(stump, cup);
@@ -198,32 +241,413 @@ export function build(ctx) {
     hint: 'E — 一杯还冒着热气的咖啡',
     onActivate: () => {
       audio.sfx('sip');
-      ui.caption('热咖啡。永远趁热。这是这片林子唯一确定的事。', 4600);
+      ui.caption('热咖啡。趁热。', 3200);
     }
   });
 
-  // 地表雾 + 萤火（彩蛋发生时会凝固在半空）
-  const fogLayer = smokeLayer(110, { x: 60, z: 60 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
+  // 本厅唯一引语展签（他自己的话）
+  const q1 = quotePlaque(quoteById('darkness'), '#3fae6a');
+  q1.position.set(-4.6, 0, 5.2);
+  q1.rotation.y = 0.9;
+  group.add(q1);
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showQuotes()
+  });
+
+  // 地表雾 + 萤火
+  const fogLayer = smokeLayer(120, { x: 70, z: 70 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
-  const fireflies = dustField(90, { x: 40, y: 3, z: 40 }, { color: 0xbfffa8, size: 0.09, opacity: 0.8 });
+  const fireflies = dustField(90, { x: 44, y: 3, z: 44 }, { color: 0xbfffa8, size: 0.09, opacity: 0.8 });
   group.add(fireflies);
   const freeze = { on: false };
   updaters.push((dt, t) => { if (!freeze.on) fireflies.userData.update(dt, t); });
 
-  // ---------- 彩蛋：环形石阵（走进去的人会被移动） ----------
-  // 深入林子背面——帷幕之门的正对侧，藏着一圈立石与一汪黑水。
+  // ============================================================
+  // ② 红房间氛围区（几何抽象：折线地板 + 红帷幕 + 扶手椅）
+  // ============================================================
+  const redRoom = new THREE.Group();
+  redRoom.position.set(-20, 0, -16);
+  const rrFloor = new THREE.Mesh(
+    new THREE.CircleGeometry(6.0, 44),
+    new THREE.MeshStandardMaterial({ map: chevronTexture('#0b0b0d', '#ded7c8', 5), roughness: 0.3, metalness: 0.12, envMapIntensity: 0.9 })
+  );
+  rrFloor.rotation.x = -Math.PI / 2;
+  rrFloor.position.y = 0.015;
+  redRoom.add(rrFloor);
+  // 围合帷幕（朝小径方向留缺口）
+  const entryA = Math.atan2(8, 6); // 指向小径
+  const gapArc = 0.72;
+  redRoom.add(curtainRing(5.7, 5.2, PALETTE.velvet, 16, Math.PI * 2 - gapArc, entryA + gapArc / 2));
+  // 两把相对而坐的扶手椅
+  const chairA = armchair(0x2a0e16);
+  chairA.position.set(-1.5, 0, 0.6);
+  chairA.rotation.y = Math.PI / 2 + 0.25;
+  const chairB = armchair(0x120c16);
+  chairB.position.set(1.6, 0, -0.5);
+  chairB.rotation.y = -Math.PI / 2 - 0.2;
+  redRoom.add(chairA, chairB);
+  // 落地灯（可开关 —— 房间的两副面孔）
+  const rrLampPole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.14, 1.7, 12),
+    new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x6b5232, roughness: 0.35, metalness: 0.9 })
+  );
+  rrLampPole.position.set(0.2, 0.85, -2.2);
+  const rrShade = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.3, 0.32, 16, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xd8ccb2, roughness: 0.8, side: THREE.DoubleSide, emissive: 0xffe2b0, emissiveIntensity: 0.7 })
+  );
+  rrShade.position.set(0.2, 1.78, -2.2);
+  const rrLampLight = new THREE.PointLight(0xffd9a8, 7, 10, 1.7);
+  rrLampLight.position.set(0.2, 1.7, -2.2);
+  const rrRedWash = new THREE.PointLight(0xd4243c, 9, 13, 1.6);
+  rrRedWash.position.set(0, 3.6, 0);
+  redRoom.add(rrLampPole, rrShade, rrLampLight, rrRedWash);
+  const rrState = { warm: 1 };
+  updaters.push((dt, t) => {
+    const f = 1 + Math.sin(t * 6.2) * 0.05;
+    rrLampLight.intensity = 7 * f * rrState.warm;
+    rrShade.material.emissiveIntensity = 0.7 * Math.max(rrState.warm, 0.04);
+    rrRedWash.intensity = rrState.warm > 0.5 ? 9 : 20 + Math.sin(t * 2.1) * 5;
+  });
+  hotspots.add(rrShade, {
+    hint: 'E — 落地灯（这间房有两副面孔）',
+    onActivate: () => {
+      rrState.warm = rrState.warm ? 0 : 1;
+      audio.sfx(rrState.warm ? 'lampon' : 'lampoff');
+    }
+  });
+  group.add(redRoom);
+
+  // ============================================================
+  // ③ 小镇夜街 + DINER 柜台一角
+  // ============================================================
+  const town = new THREE.Group();
+  // 沥青街道
+  const asphaltTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#101014';
+    g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 420; i++) {
+      const v = 16 + Math.random() * 26;
+      g.fillStyle = `rgba(${v},${v},${v + 4},0.5)`;
+      g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
+    }
+    g.fillStyle = '#b8a24a';
+    g.fillRect(s / 2 - 4, 0, 8, s * 0.42);
+  }, 1, 6);
+  const street = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.5, 20),
+    new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.7, metalness: 0.06 })
+  );
+  street.rotation.x = -Math.PI / 2;
+  street.position.set(21.5, 0.015, -7);
+  town.add(street);
+  // 人行道
+  const sidewalk = roundedBoxMesh(2.2, 0.12, 20, 0.03,
+    new THREE.MeshStandardMaterial({ color: 0x1c1c20, roughness: 0.85 }));
+  sidewalk.position.set(26.2, 0.06, -7);
+  town.add(sidewalk);
+
+  // 路灯 ×2（暖光）
+  const lampPoleMat = new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x15151a, roughness: 0.45, metalness: 0.8 });
+  const townLamps = [];
+  for (const [x, z] of [[18.5, -1], [18.5, -12]]) {
+    const pole = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.06, 0.09, 4.6, 10), 0, 2.3, 0),
+      xform(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 8), 0.5, 4.55, 0, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.16, 0.2, 0.1, 12), 0, 0.05, 0)
+    ], lampPoleMat);
+    pole.position.set(x, 0, z);
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a8, emissiveIntensity: 3 })
+    );
+    bulb.position.set(x + 0.95, 4.5, z);
+    const light = new THREE.PointLight(0xffd9a8, 8, 14, 1.6);
+    light.position.set(x + 0.95, 4.4, z);
+    const cone = lightCone(0.3, 2.1, 4.2, 0xffd9a8, 0.05);
+    cone.position.set(x + 0.95, 2.3, z);
+    town.add(pole, bulb, light, cone);
+    townLamps.push({ bulb, light });
+  }
+  updaters.push((dt, t) => {
+    for (const [i, L] of townLamps.entries()) {
+      const f = Math.sin(t * 14 + i * 5) > 0.94 ? 0.3 : 1;
+      L.light.intensity = 8 * f;
+      L.bulb.material.emissiveIntensity = 3 * f;
+    }
+  });
+
+  // 老轿车剪影（原创抽象，无品牌）
+  const carBodyMat = new THREE.MeshStandardMaterial({ color: 0x0d1218, roughness: 0.32, metalness: 0.5, envMapIntensity: 1.1 });
+  const carBody = mergedMesh([
+    xform(roundedBoxGeo(4.1, 0.75, 1.7, 0.22), 0, 0.75, 0),
+    xform(roundedBoxGeo(2.2, 0.62, 1.5, 0.24), -0.25, 1.35, 0)
+  ], carBodyMat);
+  const wheelGeo = new THREE.TorusGeometry(0.32, 0.13, 10, 18);
+  const wheels = mergedMesh([
+    xform(wheelGeo, -1.3, 0.34, 0.85), xform(wheelGeo, 1.3, 0.34, 0.85),
+    xform(wheelGeo, -1.3, 0.34, -0.85), xform(wheelGeo, 1.3, 0.34, -0.85)
+  ], new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.9 }));
+  wheelGeo.dispose();
+  const bumper = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.06, 0.06, 1.75, 10), 2.06, 0.52, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.06, 0.06, 1.75, 10), -2.06, 0.52, 0, Math.PI / 2, 0, 0)
+  ], new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x9a9a9a, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4 }));
+  const car = new THREE.Group();
+  car.add(carBody, wheels, bumper);
+  car.position.set(20.2, 0, -13.5);
+  car.rotation.y = 0.06;
+  town.add(car);
+
+  // DINER 外立面
+  const facadeMat = new THREE.MeshStandardMaterial({
+    map: canvasTexture(256, (g, s) => {
+      g.fillStyle = '#1b1410';
+      g.fillRect(0, 0, s, s);
+      const bh = s / 10;
+      for (let r = 0; r < 10; r++) {
+        for (let c = -1; c < 6; c++) {
+          const off = r % 2 ? s / 12 : 0;
+          g.fillStyle = `rgb(${34 + Math.random() * 12},${24 + Math.random() * 8},${16 + Math.random() * 8})`;
+          g.fillRect(c * (s / 6) + off + 1, r * bh + 1, s / 6 - 2, bh - 2);
+        }
+      }
+    }, 4, 2),
+    roughness: 0.88
+  });
+  // 立面墙（门洞两侧 + 楣）
+  const facade = new THREE.Group();
+  const fw1 = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 4.6), facadeMat);
+  fw1.position.set(27.3, 2.3, -11.9);
+  fw1.rotation.y = -Math.PI / 2;
+  const fw2 = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), facadeMat);
+  fw2.position.set(27.3, 2.3, -4.4);
+  fw2.rotation.y = -Math.PI / 2;
+  const fwTop = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.8), facadeMat);
+  fwTop.position.set(27.3, 3.7, -7.9);
+  fwTop.rotation.y = -Math.PI / 2;
+  facade.add(fw1, fw2, fwTop);
+  // 大玻璃窗（暖光溢出）
+  const windowGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 1.9),
+    new THREE.MeshStandardMaterial({ color: 0x0c0a06, emissive: 0xffca7a, emissiveIntensity: 0.9 })
+  );
+  windowGlow.position.set(27.24, 2.0, -10.6);
+  windowGlow.rotation.y = -Math.PI / 2;
+  facade.add(windowGlow);
+  const windowLight = new THREE.PointLight(0xffca7a, 6, 9, 1.8);
+  windowLight.position.set(26.4, 2.0, -10.6);
+  facade.add(windowLight);
+  const dinerSign = neonSign('DINER', { color: '#ff2e88', size: 0.72 });
+  dinerSign.position.set(27.0, 5.2, -7.9);
+  dinerSign.rotation.y = -Math.PI / 2;
+  facade.add(dinerSign);
+  updaters.push((dt, t) => dinerSign.userData.flicker(t, 4.4));
+  town.add(facade);
+
+  // diner 内部：柜台一角
+  const dinerInner = new THREE.Group();
+  const dFloor = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.6, 9),
+    new THREE.MeshStandardMaterial({ map: chevronTexture('#101013', '#cfc7b8', 3), roughness: 0.4 })
+  );
+  dFloor.rotation.x = -Math.PI / 2;
+  dFloor.position.set(29.6, 0.02, -7.8);
+  dinerInner.add(dFloor);
+  // 内墙
+  const dWallMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [40, 26, 13], planks: 5, vertical: true, size: 256 }), roughness: 0.75
+  });
+  const dw1 = new THREE.Mesh(new THREE.PlaneGeometry(9, 3.6), dWallMat);
+  dw1.position.set(31.6, 1.8, -7.8);
+  dw1.rotation.y = -Math.PI / 2;
+  const dw2 = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.6), dWallMat);
+  dw2.position.set(29.6, 1.8, -12.2);
+  const dw3 = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.6), dWallMat);
+  dw3.position.set(29.6, 1.8, -3.4);
+  dw3.rotation.y = Math.PI;
+  const dCeil = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 9), new THREE.MeshStandardMaterial({ color: 0x171310, roughness: 0.95 }));
+  dCeil.rotation.x = Math.PI / 2;
+  dCeil.position.set(29.6, 3.6, -7.8);
+  dinerInner.add(dw1, dw2, dw3, dCeil);
+  // 柜台（圆角木台面 + 金属包边踢脚）
+  const counterTop = roundedBoxMesh(1.1, 0.1, 6.4, 0.04,
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [58, 34, 16], planks: 2 }), roughness: 0.35, envMapIntensity: 0.8 }));
+  counterTop.position.set(30.7, 1.06, -7.8);
+  const counterBody = roundedBoxMesh(0.95, 1.0, 6.3, 0.04,
+    new THREE.MeshStandardMaterial({ color: 0x321820, roughness: 0.55 }));
+  counterBody.position.set(30.72, 0.5, -7.8);
+  const counterKick = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.18, 6.3),
+    new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x9a9a9a, roughness: 0.25, metalness: 0.95 })
+  );
+  counterKick.position.set(30.22, 0.09, -7.8);
+  dinerInner.add(counterTop, counterBody, counterKick);
+  // 吧凳 ×3（红皮面 + 铬柱，合并成 2 个 mesh）
+  const seatGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.12, 20);
+  const seatRimGeo = new THREE.TorusGeometry(0.26, 0.05, 10, 22);
+  const seatGeos = [];
+  const poleGeos = [];
+  const poleGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.72, 12);
+  const footGeo = new THREE.CylinderGeometry(0.2, 0.24, 0.05, 14);
+  for (const z of [-10.0, -7.8, -5.6]) {
+    seatGeos.push(xform(seatGeo, 29.7, 0.82, z));
+    seatGeos.push(xform(seatRimGeo, 29.7, 0.78, z, Math.PI / 2, 0, 0));
+    poleGeos.push(xform(poleGeo, 29.7, 0.4, z));
+    poleGeos.push(xform(footGeo, 29.7, 0.03, z));
+  }
+  seatGeo.dispose(); seatRimGeo.dispose(); poleGeo.dispose(); footGeo.dispose();
+  dinerInner.add(mergedMesh(seatGeos, new THREE.MeshPhysicalMaterial({
+    color: 0x8f0e1e, roughness: 0.45, sheen: 0.6, sheenColor: new THREE.Color(0xff8090), clearcoat: 0.5, clearcoatRoughness: 0.4
+  })));
+  dinerInner.add(mergedMesh(poleGeos, new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0xa8a8a8, roughness: 0.2, metalness: 0.95, envMapIntensity: 1.4
+  })));
+  // 樱桃派（玻璃罩 + 瓷盘）
+  const pieGroup = new THREE.Group();
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.03, 22),
+    new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.3 }));
+  const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.09, 20),
+    new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#8a4a1c';
+        g.fillRect(0, 0, s, s);
+        g.strokeStyle = '#5c2c10';
+        g.lineWidth = 5;
+        for (let i = 0; i < 5; i++) {
+          g.beginPath(); g.moveTo((i / 5) * s + 12, 0); g.lineTo((i / 5) * s + 12, s); g.stroke();
+          g.beginPath(); g.moveTo(0, (i / 5) * s + 12); g.lineTo(s, (i / 5) * s + 12); g.stroke();
+        }
+      }),
+      roughness: 0.7
+    }));
+  pie.position.y = 0.06;
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.14, roughness: 0.05, envMapIntensity: 1.6, depthWrite: false }));
+  dome.position.y = 0.02;
+  pieGroup.add(plate, pie, dome);
+  pieGroup.position.set(30.7, 1.12, -9.2);
+  dinerInner.add(pieGroup);
+  hotspots.add(dome, {
+    hint: 'E — 玻璃罩下的樱桃派',
+    onActivate: () => {
+      audio.sfx('chime', 0.6);
+      ui.caption('今天的派还没卖完。', 3200);
+    }
+  });
+  // 咖啡壶（保温座 + 玻璃壶）
+  const potBase = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.05, 14),
+    new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x777777, roughness: 0.3, metalness: 0.9 }));
+  potBase.position.set(30.7, 1.13, -6.4);
+  const pot = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    new THREE.MeshPhysicalMaterial({ color: 0x2a1408, transparent: true, opacity: 0.7, roughness: 0.1, envMapIntensity: 1.4 }));
+  pot.position.set(30.7, 1.16, -6.4);
+  dinerInner.add(potBase, pot);
+  hotspots.add(pot, {
+    hint: 'E — 咖啡壶（续杯不要钱）',
+    onActivate: () => {
+      audio.sfx('sip');
+      ui.caption('续了一杯。', 2600);
+    }
+  });
+  // 吊灯 ×2
+  for (const z of [-9.5, -6.1]) {
+    const dl = new THREE.PointLight(0xffca7a, 4.5, 6, 1.8);
+    dl.position.set(30.2, 3.2, z);
+    dinerInner.add(dl);
+  }
+  town.add(dinerInner);
+  group.add(town);
+
+  // ============================================================
+  // ④ 瀑布眺望台
+  // ============================================================
+  const overlook = new THREE.Group();
+  // 木栈台
+  const deck = new THREE.Mesh(
+    new THREE.BoxGeometry(12, 0.16, 6.5),
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [40, 26, 13], planks: 10 }), roughness: 0.8 })
+  );
+  deck.position.set(11, 0.08, -25.7);
+  overlook.add(deck);
+  const rail1 = railing(12, { height: 1.05 });
+  rail1.position.set(11, 0.16, -28.8);
+  const rail2 = railing(6.3, { height: 1.05 });
+  rail2.position.set(4.9, 0.16, -25.7);
+  rail2.rotation.y = Math.PI / 2;
+  const rail3 = railing(6.3, { height: 1.05 });
+  rail3.position.set(17.1, 0.16, -25.7);
+  rail3.rotation.y = Math.PI / 2;
+  overlook.add(rail1, rail2, rail3);
+  // 峡谷崖壁剪影
+  for (const [x, z, s] of [[2, -40, 7], [22, -42, 8], [12, -48, 10]]) {
+    const cliff = rockMesh(s, 0x0a0e14);
+    cliff.position.set(x, s * 0.35, z);
+    overlook.add(cliff);
+  }
+  // 瀑布（滚动水纹）
+  const fallsTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#0c141c';
+    g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 130; i++) {
+      const x = Math.random() * s;
+      const w = 1 + Math.random() * 3;
+      const a = 0.14 + Math.random() * 0.4;
+      g.fillStyle = `rgba(214,232,246,${a})`;
+      g.fillRect(x, 0, w, s);
+    }
+  }, 1, 2);
+  const falls = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.5, 15),
+    new THREE.MeshBasicMaterial({ map: fallsTex, transparent: true, opacity: 0.85, toneMapped: false })
+  );
+  falls.position.set(12, 6.5, -41.5);
+  overlook.add(falls);
+  updaters.push((dt) => { fallsTex.offset.y -= dt * 0.32; });
+  // 瀑底水潭 + 水雾
+  const plunge = new THREE.Mesh(
+    new THREE.CircleGeometry(6, 26),
+    new THREE.MeshStandardMaterial({ color: 0x04121c, roughness: 0.05, metalness: 0.85, envMapIntensity: 1.7 })
+  );
+  plunge.rotation.x = -Math.PI / 2;
+  plunge.position.set(12, 0.01, -38.5);
+  overlook.add(plunge);
+  const mist = smokeLayer(36, { x: 9, z: 5 }, { opacity: 0.08, size: 6, yBase: 0.5, ySpread: 3.5, color: 0xc8dce8 });
+  mist.position.set(12, 0, -39);
+  overlook.add(mist);
+  updaters.push(mist.userData.update);
+  // 锯木厂剪影（烟囱 + 缓慢的烟）
+  const millMat = new THREE.MeshBasicMaterial({ color: 0x05070c, fog: false });
+  const mill = mergedMesh([
+    xform(new THREE.BoxGeometry(10, 5, 6), 0, 2.5, 0),
+    xform(new THREE.BoxGeometry(5, 3, 6.2), -5.5, 1.5, 0),
+    xform(new THREE.CylinderGeometry(0.5, 0.7, 7, 10), 2.5, 6, 1)
+  ], millMat);
+  mill.position.set(30, 0, -38);
+  overlook.add(mill);
+  const millSmoke = smokeLayer(16, { x: 2, z: 2 }, { opacity: 0.05, size: 5, yBase: 9.5, ySpread: 4, color: 0x8a8f96 });
+  millSmoke.position.set(32.5, 0, -37);
+  overlook.add(millSmoke);
+  updaters.push(millSmoke.userData.update);
+  group.add(overlook);
+
+  // ============================================================
+  // 彩蛋：环形石阵（空间错位）
+  // ============================================================
   const grove = new THREE.Group();
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x11141a, roughness: 0.9 });
+  const stoneGeos = [];
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
     const h = 0.8 + Math.random() * 0.7;
-    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.32), stoneMat);
-    stone.position.set(Math.cos(a) * 2.4, h / 2, Math.sin(a) * 2.4);
-    stone.rotation.y = a + Math.random() * 0.5;
-    stone.rotation.z = (Math.random() - 0.5) * 0.16;
-    grove.add(stone);
+    stoneGeos.push(xform(
+      new THREE.BoxGeometry(0.4, h, 0.32),
+      Math.cos(a) * 2.4, h / 2, Math.sin(a) * 2.4,
+      (Math.random() - 0.5) * 0.16, a + Math.random() * 0.5, 0
+    ));
   }
+  grove.add(mergedMesh(stoneGeos, new THREE.MeshStandardMaterial({ color: 0x11141a, roughness: 0.9 })));
   const pool = new THREE.Mesh(
     new THREE.CircleGeometry(1.5, 28),
     new THREE.MeshStandardMaterial({ color: 0x02030a, roughness: 0.06, metalness: 0.9, envMapIntensity: 1.8 })
@@ -231,7 +655,7 @@ export function build(ctx) {
   pool.rotation.x = -Math.PI / 2;
   pool.position.y = 0.015;
   grove.add(pool);
-  grove.position.set(15, 0, 11);
+  grove.position.set(14, 0, 10.5);
   group.add(grove);
 
   const groveEgg = () => {
@@ -244,60 +668,17 @@ export function build(ctx) {
     }, 900);
     later(() => ui.fade(true), 1700);
     later(() => {
-      // 空间错位：你没有走向帷幕，是帷幕走向了你
-      teleport(0, -3.4, 0); // 直接站在帷幕之门前，面对它
+      teleport(0, -3.4, 0); // 直接站在帷幕之门前
       ui.fade(false);
       freeze.on = false;
       glowPlane.material.emissiveIntensity = 0.5;
       gateLight.intensity = 16;
       audio.sfx('owl', 0.8);
-      ui.caption('你没有走向帷幕。是帷幕走向了你。石阵还留在原地，替你数着秒。', 6600);
+      ui.caption('你没有走向帷幕。是帷幕走向了你。', 5200);
     }, 2400);
   };
-  const groveTrig = zoneTrigger({ x: 15, z: 11, r: 2.1 }, groveEgg, { cooldown: 60 });
+  const groveTrig = zoneTrigger({ x: 14, z: 10.5, r: 2.1 }, groveEgg, { cooldown: 60 });
   updaters.push((dt) => groveTrig.update(player, dt));
-
-  // ---------- 博物馆化：引语展签 + 展柜 ----------
-  const q1 = quotePlaque(quoteById('darkness'), '#3fae6a');
-  q1.position.set(-4.6, 0, 8.4);
-  q1.rotation.y = 0.9;
-  group.add(q1);
-  hotspots.add(q1.userData.board, {
-    hint: 'E — 他自己的话',
-    onActivate: () => ui.showEssay('velvet')
-  });
-  // 展柜：一段圆木（小镇的沉默证人；原创抽象，不含角色形象）
-  const logCase = vitrine('一段圆木', 'THE SILENT WITNESS', '#3fae6a');
-  logCase.position.set(-6.2, 0, 1.8);
-  logCase.rotation.y = 1.2;
-  group.add(logCase);
-  const log = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.11, 0.12, 0.42, 12),
-    new THREE.MeshStandardMaterial({
-      map: canvasTexture(128, (g, s) => {
-        g.fillStyle = '#3a2814';
-        g.fillRect(0, 0, s, s);
-        for (let i = 0; i < 20; i++) {
-          g.strokeStyle = `rgba(${20 + Math.random() * 30},${14 + Math.random() * 20},8,0.6)`;
-          g.beginPath();
-          g.moveTo(0, Math.random() * s);
-          g.lineTo(s, Math.random() * s);
-          g.stroke();
-        }
-      }),
-      roughness: 0.95
-    })
-  );
-  log.rotation.z = Math.PI / 2;
-  log.position.y = 0.12;
-  logCase.userData.slot.add(log);
-  hotspots.add(logCase.userData.label, {
-    hint: 'E — 它看见了一切',
-    onActivate: () => {
-      audio.sfx('owl', 0.6);
-      ui.caption('展签：这段木头什么都看见了，但它只对愿意弯下腰的人开口。今晚它选择沉默。', 6200);
-    }
-  });
 
   // 掠过夜空的猫头鹰剪影
   const owls = [];
@@ -324,18 +705,12 @@ export function build(ctx) {
     }
   });
 
-  // 远处林间的一盏神秘路灯
-  const lamp = neonSign('···', { color: '#ffd9b0', size: 0.3 });
-  lamp.position.set(-11, 3.4, -12);
-  group.add(lamp);
-  updaters.push((dt, t) => lamp.userData.flicker(t, 5.5));
-
   group.add(new THREE.AmbientLight(0x18222a, 0.9));
 
   return {
     group,
     spawn: { x: 0, z: 7.5, yaw: 0 },
-    bounds: circleBounds(24),
+    bounds: zonesBounds(ZONES),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'stone-circle': groveTrig },
     onLeave: () => { for (const id of timers) clearTimeout(id); }

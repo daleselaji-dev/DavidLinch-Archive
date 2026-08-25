@@ -54,7 +54,9 @@ function createWindow() {
       if (message.includes('[sv] hall-loaded')) {
         const hall = message.split(' ').pop();
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
-        // 输出场景统计（性能门禁证据: 网格数≈draw calls 上限 / 三角面）
+        // 输出场景统计并校验性能预算（QUALITY_GATES: meshes ≤ 状态预算 / tris ≤ 预算）
+        const MESH_BUDGET = 260;
+        const TRI_BUDGET = 400000;
         win.webContents.executeJavaScript(
           `(() => {
             let meshes = 0, tris = 0;
@@ -68,7 +70,14 @@ function createWindow() {
             });
             return 'meshes=' + meshes + ' tris=' + Math.round(tris);
           })()`, true
-        ).then((s) => console.log(`[smoke] 场景统计 ${hall}: ${s}`)).catch(() => {});
+        ).then((s) => {
+          console.log(`[smoke] 场景统计 ${hall}: ${s}`);
+          const m = /meshes=(\d+) tris=(\d+)/.exec(s);
+          if (m && (Number(m[1]) > MESH_BUDGET || Number(m[2]) > TRI_BUDGET)) {
+            console.error(`[smoke] 性能预算超标 ${hall}: ${s} (预算 meshes≤${MESH_BUDGET} tris≤${TRI_BUDGET})`);
+            app.exit(1);
+          }
+        }).catch(() => {});
         const proceed = () => {
           // 彩蛋触发冒烟：每厅引爆其隐藏彩蛋，校验触发链不抛错（在截屏之后，避免熄灯污染画面存档）
           win.webContents.executeJavaScript(
@@ -88,7 +97,7 @@ function createWindow() {
               u.openGuestbook(); u.closeModal('guestbook');
               u.openLegal(); u.closeModal('legal');
               u.openHelp(); u.closeModal('help');
-              u.showFilm('mulholland-drive'); u.showEssay('method'); u.showEssay('world'); u.showArtist(); u.closeAll();
+              u.showFilm('mulholland-drive'); u.showQuotes(); u.showArtist(); u.closeAll();
               const s = window.__SV__.store;
               const p = s.addPost('冒烟机器人', '运行时冒烟测试留言');
               s.toggleLike(p.id); s.reply(p.id, '机器人', '自动回复');

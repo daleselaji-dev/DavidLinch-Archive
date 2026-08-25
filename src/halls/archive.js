@@ -1,13 +1,15 @@
 // ============================================================
 // 档案长廊 —— THE ARCHIVE 年表展厅
-// 荧光灯长廊 + 按年代排列的作品灯牌 + 尽头纪念墙
+// 荧光灯长廊 + 按年代排列的作品灯牌 + 中段原话摘录墙壁龛 +
+// 尽头纪念墙。解读文字为零：只有事实与他自己的话。
 // ============================================================
 import * as THREE from 'three';
 import { filmsSorted } from '../data/filmography.js';
-import { quoteById } from '../data/essays.js';
+import { QUOTES } from '../data/essays.js';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
-  smokeLayer, dustField, standPlaque, quotePlaque, zoneTrigger, rectBounds
+  smokeLayer, dustField, zoneTrigger, multiRectBounds,
+  mergedMesh, xform, roundedBoxMesh, woodTexture, weaveTexture
 } from './kit.js';
 
 export const meta = {
@@ -20,26 +22,32 @@ export const meta = {
 
 const W = 9;
 const L = 48;
+// 主廊 + 西侧摘录墙壁龛
+const HALL = { minX: -W / 2 + 1, maxX: W / 2 - 1, minZ: -L / 2 + 1.9, maxZ: L / 2 - 1.6 };
+const NICHE = { minX: -W / 2 - 3.4, maxX: -W / 2 + 1.2, minZ: -2.4, maxZ: 2.4 };
 
 export function build(ctx) {
   const { hotspots, ui, goTo, audio, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
-  // 地板: 深色拼木
-  const floorTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#171310';
-    g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 8; i++) {
-      g.fillStyle = `rgba(${30 + Math.random() * 24}, ${22 + Math.random() * 16}, ${16 + Math.random() * 10}, 1)`;
-      g.fillRect(0, i * (s / 8), s, s / 8 - 3);
-    }
-  }, 4, 22);
+  // 地板: 深色拼木 + 中央红毯
   group.add(floorMesh(W, L, new THREE.MeshStandardMaterial({
-    map: floorTex, roughness: 0.4, metalness: 0.08, envMapIntensity: 0.7
+    map: woodTexture({ base: [30, 22, 14], planks: 9, size: 512 }),
+    roughness: 0.4, metalness: 0.08, envMapIntensity: 0.7
   })));
+  const runner = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, L - 6),
+    new THREE.MeshPhysicalMaterial({
+      map: weaveTexture('#240a10', '#3a1018'), roughness: 0.94,
+      sheen: 0.5, sheenColor: new THREE.Color(0xaa4a5a), sheenRoughness: 0.7
+    })
+  );
+  runner.rotation.x = -Math.PI / 2;
+  runner.position.y = 0.012;
+  group.add(runner);
 
-  // 墙与天花
+  // 墙与护墙板
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x14100f, roughness: 0.85, bumpMap: noiseCanvasTexture(128, 128, 40, 8), bumpScale: 0.4
   });
@@ -49,7 +57,21 @@ export function build(ctx) {
     m.rotation.y = ry;
     group.add(m);
   };
-  mkWall(L, 5.4, -W / 2, 0, Math.PI / 2);
+  // 西墙留出壁龛口
+  {
+    const a = new THREE.Mesh(new THREE.PlaneGeometry(L / 2 - 2.5, 5.4), wallMat);
+    a.position.set(-W / 2, 2.7, -(L / 2 + 2.5) / 2);
+    a.rotation.y = Math.PI / 2;
+    group.add(a);
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(L / 2 - 2.5, 5.4), wallMat);
+    b.position.set(-W / 2, 2.7, (L / 2 + 2.5) / 2);
+    b.rotation.y = Math.PI / 2;
+    group.add(b);
+    const lintel = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.6), wallMat);
+    lintel.position.set(-W / 2, 4.6, 0);
+    lintel.rotation.y = Math.PI / 2;
+    group.add(lintel);
+  }
   mkWall(L, 5.4, W / 2, 0, -Math.PI / 2);
   mkWall(W, 5.4, 0, -L / 2, 0);
   mkWall(W, 5.4, 0, L / 2, Math.PI);
@@ -57,16 +79,33 @@ export function build(ctx) {
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = 5.4;
   group.add(ceil);
+  // 顶梁（合并单 mesh）
+  const beamGeos = [];
+  const beamGeo = new THREE.BoxGeometry(W, 0.28, 0.34);
+  for (let i = 0; i < 8; i++) {
+    beamGeos.push(xform(beamGeo, 0, 5.26, -L / 2 + 3 + i * 6));
+  }
+  beamGeo.dispose();
+  group.add(mergedMesh(beamGeos, new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [22, 15, 9], planks: 1, size: 128 }), roughness: 0.8
+  })));
+  // 护墙线脚（两侧长条）
+  const dadoGeos = [
+    xform(new THREE.BoxGeometry(0.06, 0.12, L - 1), -W / 2 + 0.05, 1.15, 0),
+    xform(new THREE.BoxGeometry(0.06, 0.12, L - 1), W / 2 - 0.05, 1.15, 0)
+  ];
+  group.add(mergedMesh(dadoGeos, new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 0.6 })));
 
   // 荧光灯管（顺序闪烁；彩蛋时逐管熄灭）
   const tubes = [];
   for (let i = 0; i < 7; i++) {
     const z = -L / 2 + 6 + i * 6;
     const tube = new THREE.Mesh(
-      new THREE.BoxGeometry(0.16, 0.06, 2.6),
+      new THREE.CapsuleGeometry(0.05, 2.5, 4, 10),
       new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xdfe8ff, emissiveIntensity: 2.6, toneMapped: true })
     );
-    tube.position.set(0, 5.32, z);
+    tube.rotation.x = Math.PI / 2;
+    tube.position.set(0, 5.28, z);
     const lp = new THREE.PointLight(0xdfe8ff, 9, 12, 1.7);
     lp.position.set(0, 4.9, z);
     group.add(tube, lp);
@@ -81,7 +120,7 @@ export function build(ctx) {
     }
   });
 
-  // 作品灯牌 —— 按年代沿两壁排布
+  // 作品灯牌 —— 按年代沿两壁排布（事实性档案）
   const films = filmsSorted();
   films.forEach((film, i) => {
     const side = i % 2 === 0 ? -1 : 1;
@@ -94,11 +133,101 @@ export function build(ctx) {
       hint: `E — ${film.titleZh}（${film.year}）`,
       onActivate: () => ui.showFilm(film.id)
     });
-    // 灯牌射灯
     const spot = new THREE.PointLight(0xfff0dd, 2.2, 4.5, 2);
     spot.position.set(side * (W / 2 - 1.1), 3.3, z);
     group.add(spot);
   });
+
+  // 长凳 ×2（圆角软座）
+  for (const z of [-9, 9]) {
+    const bench = new THREE.Group();
+    const seat = roundedBoxMesh(0.62, 0.14, 2.4, 0.05, new THREE.MeshPhysicalMaterial({
+      map: weaveTexture('#1a1216', '#241a20'), roughness: 0.9, sheen: 0.5,
+      sheenColor: new THREE.Color(0x907080), sheenRoughness: 0.6
+    }));
+    seat.position.y = 0.5;
+    const legGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.44, 10);
+    const legs = mergedMesh([
+      xform(legGeo, -0.2, 0.22, -1.0), xform(legGeo, 0.2, 0.22, -1.0),
+      xform(legGeo, -0.2, 0.22, 1.0), xform(legGeo, 0.2, 0.22, 1.0)
+    ], new THREE.MeshStandardMaterial({ color: 0x14090c, roughness: 0.5, metalness: 0.6 }));
+    legGeo.dispose();
+    bench.add(seat, legs);
+    bench.position.set(2.9, 0, z);
+    group.add(bench);
+  }
+
+  // ---------- 西侧壁龛：原话摘录墙（他自己的话，唯一的字） ----------
+  const niche = new THREE.Group();
+  const nicheWallMat = new THREE.MeshStandardMaterial({ color: 0x100c0e, roughness: 0.9 });
+  const nw1 = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 5.4), nicheWallMat);
+  nw1.position.set(-W / 2 - 3.5, 2.7, 0);
+  nw1.rotation.y = Math.PI / 2;
+  const nw2 = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 5.4), nicheWallMat);
+  nw2.position.set(-W / 2 - 1.7, 2.7, -2.5);
+  const nw3 = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 5.4), nicheWallMat);
+  nw3.position.set(-W / 2 - 1.7, 2.7, 2.5);
+  nw3.rotation.y = Math.PI;
+  const nFloor = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 5), new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [24, 17, 11], planks: 5, size: 256 }), roughness: 0.5
+  }));
+  nFloor.rotation.x = -Math.PI / 2;
+  nFloor.position.set(-W / 2 - 1.7, 0.008, 0);
+  const nCeil = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 5), new THREE.MeshStandardMaterial({ color: 0x0b0809, roughness: 0.95 }));
+  nCeil.rotation.x = Math.PI / 2;
+  nCeil.position.set(-W / 2 - 1.7, 5.4, 0);
+  niche.add(nw1, nw2, nw3, nFloor, nCeil);
+  // 摘录墙本体：他的三句原话（英文排印）
+  const pick = [QUOTES[0], QUOTES[1], QUOTES[9]];
+  const quoteWallTex = canvasTexture(1024, (g, s) => {
+    g.fillStyle = '#0d0a0c';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(201,163,92,0.5)';
+    g.lineWidth = 3;
+    g.strokeRect(40, 40, s - 80, s - 80);
+    g.textAlign = 'left';
+    let y = 170;
+    for (const q of pick) {
+      g.fillStyle = '#c9a35c';
+      g.font = '400 90px Georgia, serif';
+      g.fillText('\u201c', 80, y);
+      g.fillStyle = 'rgba(242,233,220,0.92)';
+      g.font = 'italic 44px Georgia, serif';
+      const words = q.en.split(' ');
+      let line = '';
+      for (const w of words) {
+        if (g.measureText(line + w).width > s - 260) {
+          g.fillText(line, 150, y);
+          y += 62;
+          line = w + ' ';
+        } else line += w + ' ';
+      }
+      g.fillText(line, 150, y);
+      y += 110;
+    }
+    g.fillStyle = 'rgba(201,163,92,0.8)';
+    g.font = '30px "Courier New", monospace';
+    g.textAlign = 'right';
+    g.fillText('— DAVID LYNCH', s - 90, s - 80);
+  });
+  const quoteWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.4, 4.4),
+    new THREE.MeshStandardMaterial({
+      map: quoteWallTex, roughness: 0.7,
+      emissive: 0xf2e9dc, emissiveMap: quoteWallTex, emissiveIntensity: 0.35
+    })
+  );
+  quoteWall.position.set(-W / 2 - 3.42, 2.6, 0);
+  quoteWall.rotation.y = Math.PI / 2;
+  niche.add(quoteWall);
+  hotspots.add(quoteWall, {
+    hint: 'E — 他自己的话（摘录墙）',
+    onActivate: () => ui.showQuotes()
+  });
+  const nicheLight = new THREE.PointLight(0xffe6c0, 5, 8, 1.8);
+  nicheLight.position.set(-W / 2 - 1.6, 3.6, 0);
+  niche.add(nicheLight);
+  group.add(niche);
 
   // 尽头纪念墙
   const wallTex = canvasTexture(1024, (g, s) => {
@@ -107,17 +236,13 @@ export function build(ctx) {
     g.textAlign = 'center';
     g.fillStyle = '#f2e9dc';
     g.font = '400 96px Georgia, serif';
-    g.fillText('DAVID LYNCH', s / 2, 300);
+    g.fillText('DAVID LYNCH', s / 2, 340);
     g.fillStyle = '#c9a35c';
     g.font = '54px Georgia, serif';
-    g.fillText('1946 — 2025', s / 2, 400);
-    g.fillStyle = 'rgba(242,233,220,0.75)';
-    g.font = '44px "Songti SC","SimSun",serif';
-    g.fillText('愿 你 在 更 深 的 水 里', s / 2, 540);
-    g.fillText('捕 到 最 大 的 鱼', s / 2, 620);
+    g.fillText('1946 — 2025', s / 2, 450);
     g.strokeStyle = 'rgba(212,36,60,0.8)';
     g.lineWidth = 5;
-    g.strokeRect(70, 130, s - 140, s - 300);
+    g.strokeRect(70, 170, s - 140, s - 380);
   });
   const memorial = new THREE.Mesh(
     new THREE.PlaneGeometry(7, 7),
@@ -137,7 +262,7 @@ export function build(ctx) {
   for (let i = 0; i < 7; i++) {
     const x = -1.8 + i * 0.6;
     const candle = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.055, 0.28, 8),
+      new THREE.CylinderGeometry(0.045, 0.055, 0.28, 10),
       new THREE.MeshStandardMaterial({ color: 0xd9cfc0, roughness: 0.8 })
     );
     candle.position.set(x, 0.6, -L / 2 + 1.3);
@@ -151,37 +276,14 @@ export function build(ctx) {
       flame.material.emissiveIntensity = 4.2 + Math.sin(t * 9 + i * 2.4) * 1.1 + Math.random() * 0.5;
     });
   }
-  const table = new THREE.Mesh(
-    new THREE.BoxGeometry(5, 0.46, 0.7),
-    new THREE.MeshStandardMaterial({ color: 0x120b0d, roughness: 0.5 })
-  );
+  const table = roundedBoxMesh(5, 0.46, 0.7, 0.04,
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [20, 12, 8], planks: 2, size: 128 }), roughness: 0.5 }));
   table.position.set(0, 0.23, -L / 2 + 1.3);
   const memLight = new THREE.PointLight(0xffb45e, 7, 10, 1.8);
   memLight.position.set(0, 1.6, -L / 2 + 2);
   group.add(table, memLight);
 
-  // 展签：数字转向
-  const stand = standPlaque('轻的机器', 'THE DIGITAL TURN', '#3ec5ff');
-  stand.position.set(2.6, 0, -L / 2 + 6);
-  stand.rotation.y = -0.7;
-  group.add(stand);
-  hotspots.add(stand.userData.board, {
-    hint: 'E — 阅读《轻的机器》',
-    onActivate: () => ui.showEssay('digital')
-  });
-
-  // 引语展签（林奇原话）
-  const q1 = quotePlaque(quoteById('voice'), '#c9a35c');
-  q1.position.set(-2.8, 0, -L / 2 + 9);
-  q1.rotation.y = 0.8;
-  group.add(q1);
-  hotspots.add(q1.userData.board, {
-    hint: 'E — 他自己的话',
-    onActivate: () => ui.showEssay('method')
-  });
-
   // ---------- 彩蛋：不在年表上的心跳 ----------
-  // 走到纪念墙跟前的人，会看见身后出现一块不存在的年代灯牌。
   const ghostTex = canvasTexture(512, (g, s) => {
     g.fillStyle = '#0c0709';
     g.fillRect(0, 0, s, s);
@@ -192,9 +294,6 @@ export function build(ctx) {
     g.fillStyle = '#f2e9dc';
     g.font = '400 44px Georgia, serif';
     g.fillText('THE UNSEEN ONE', s / 2, 268, s - 60);
-    g.font = '36px "Songti SC","SimSun",serif';
-    g.fillStyle = 'rgba(242,233,220,0.85)';
-    g.fillText('未 被 看 见 的 那 部', s / 2, 336, s - 60);
     g.strokeStyle = '#d4243c';
     g.lineWidth = 4;
     g.beginPath();
@@ -204,14 +303,11 @@ export function build(ctx) {
     g.font = '26px "Courier New", monospace';
     g.fillText('NOT IN THE TIMELINE', s / 2, 440);
   });
-  const ghostPlaque = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, 1.5, 0.08),
+  const ghostPlaque = roundedBoxMesh(1.5, 1.5, 0.09, 0.03,
     new THREE.MeshStandardMaterial({
       map: ghostTex, roughness: 0.55,
       emissive: 0xffffff, emissiveMap: ghostTex, emissiveIntensity: 0.7
-    })
-  );
-  // 挂在走廊中段、平时没有灯牌的一段空墙上
+    }));
   ghostPlaque.position.set(-(W / 2 - 0.28), 2.05, 8.2);
   ghostPlaque.rotation.y = Math.PI / 2;
   ghostPlaque.visible = false;
@@ -225,7 +321,6 @@ export function build(ctx) {
     for (const id of ghostTimers) clearTimeout(id);
     ghostTimers = [];
     audio.duck(1.0, 0.05, 2.0);
-    // 灯管从远到近逐管熄灭
     tubes.forEach((tb, i) => {
       ghostTimers.push(setTimeout(() => {
         tb.dead = 1;
@@ -235,23 +330,21 @@ export function build(ctx) {
     ghostTimers.push(setTimeout(() => {
       ghostPlaque.visible = true;
       audio.sfx('whisper', 0.8);
-      ui.caption('身后的墙上，多了一块灯牌。刚才那里什么都没有。', 5600);
+      ui.caption('身后的墙上，多了一块灯牌。', 4600);
     }, 1500));
-    // 灯管逐一回魂
     tubes.forEach((tb, i) => {
       ghostTimers.push(setTimeout(() => { tb.dead = 0; }, 3400 + i * 160));
     });
   };
   const ghostTrig = zoneTrigger({ x: 0, z: -L / 2 + 3.2, r: 2.6 }, showGhost, { cooldown: 50 });
   updaters.push((dt) => ghostTrig.update(player, dt));
-  // 第二段：走近它，它就熄灭消失
   const vanishTrig = zoneTrigger({ x: -(W / 2 - 1.6), z: 8.2, r: 2.2 }, () => {
     if (!ghostPlaque.visible) return;
     ghostPlaque.visible = false;
     ghostState.active = false;
     audio.sfx('fluor', 0.9);
     audio.sfx('thud', 0.5);
-    ui.caption('灯牌熄灭了。年表恢复了整齐。有些作品只放映给黑暗看。', 6000);
+    ui.caption('灯牌熄灭了。年表恢复了整齐。', 4600);
   }, { cooldown: 8 });
   updaters.push((dt) => vanishTrig.update(player, dt));
 
@@ -275,7 +368,7 @@ export function build(ctx) {
   return {
     group,
     spawn: { x: 0, z: L / 2 - 4, yaw: 0 },
-    bounds: rectBounds(-W / 2 + 1, W / 2 - 1, -L / 2 + 1.9, L / 2 - 1.6),
+    bounds: multiRectBounds([HALL, NICHE]),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'ghost-plaque': ghostTrig }
   };

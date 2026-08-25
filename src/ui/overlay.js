@@ -3,7 +3,7 @@
 // 所有动态文本一律通过 textContent 注入（XSS 安全）。
 // ============================================================
 import { FILMS, filmById, filmsSorted, ARTIST } from '../data/filmography.js';
-import { ESSAYS, LEGAL, ABOUT_RENDER } from '../data/essays.js';
+import { QUOTES, LEGAL, ABOUT_RENDER } from '../data/essays.js';
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -239,15 +239,19 @@ export class UI {
       });
       body.append(btn);
     }
-    body.append(el('p', 'quiet', '以上仅收录公开事实；评述为本馆原创文字。本展不含任何受版权保护的影像、对白或原声。'));
+    body.append(el('p', 'quiet', '仅收录公开事实。本展不含任何受版权保护的影像、对白或原声。'));
   }
 
-  showEssay(key) {
-    const e = ESSAYS[key];
-    if (!e) return;
-    const body = this._showInfo(e.title, e.tag);
-    for (const p of e.paras) body.append(el('p', null, p));
-    body.append(el('p', 'quiet', '策展原创文字 · 欢迎在留言墙讨论'));
+  /** 原话摘录墙 —— 全馆唯一的「解读」，全部是他自己的话 */
+  showQuotes() {
+    const body = this._showInfo('他自己的话', 'IN HIS WORDS');
+    for (const q of QUOTES) {
+      const card = el('div', 'quote-card');
+      card.append(el('p', 'fact', '「' + q.zh + '」'));
+      card.append(el('p', 'quote-en', q.en));
+      card.append(el('p', 'quiet', '— DAVID LYNCH · ' + q.source));
+      body.append(card);
+    }
   }
 
   showArtist() {
@@ -257,10 +261,6 @@ export class UI {
     body.append(el('p', null, `逝世：${ARTIST.died}`));
     body.append(el('h3', null, '公开荣誉（部分）'));
     for (const h of ARTIST.honors) body.append(el('p', null, '· ' + h));
-    body.append(el('h3', null, '策展的话'));
-    body.append(el('p', null,
-      '他一生都在说服我们：黑暗不是光的敌人，是光的容器。这座小小的数字纪念馆，' +
-      '愿作那间放映厅熄灯后仍亮着的一盏出口灯。'));
   }
 
   openTimeline() {
@@ -283,24 +283,21 @@ export class UI {
       row.append(year, name, right);
       body.append(row);
     }
-    body.append(el('h3', null, '策展文集'));
-    for (const [key, e] of Object.entries(ESSAYS)) {
-      const row = el('div', 'tl-item');
-      row.append(el('div', 'tl-year', '文'), (() => {
-        const n = el('div', 'tl-name');
-        n.append(el('b', null, e.title), el('i', null, e.tag));
-        return n;
-      })());
-      const btn = el('button', 'tl-open', '阅读 ⟶');
-      btn.addEventListener('click', () => {
-        this.closeModal('timeline');
-        this.showEssay(key);
-      });
-      const right = el('div');
-      right.append(btn);
-      row.append(right);
-      body.append(row);
-    }
+    const row = el('div', 'tl-item');
+    row.append(el('div', 'tl-year', '话'), (() => {
+      const n = el('div', 'tl-name');
+      n.append(el('b', null, '他自己的话'), el('i', null, 'IN HIS WORDS · 原话摘录墙'));
+      return n;
+    })());
+    const btn = el('button', 'tl-open', '打开 ⟶');
+    btn.addEventListener('click', () => {
+      this.closeModal('timeline');
+      this.showQuotes();
+    });
+    const right = el('div');
+    right.append(btn);
+    row.append(right);
+    body.append(row);
   }
 
   // ---------------- 留言墙 ----------------
@@ -422,7 +419,6 @@ export class UI {
       grid.append(el('b', null, k), el('span', null, v));
     }
     body.append(grid);
-    body.append(el('p', 'quiet', '发光的物体大多可以对话。帷幕后面没有答案，只有更多的帷幕。'));
-    body.append(el('p', 'quiet', '每个展厅都有一件不在导览图上的东西。想遇到它，就得绕到不该去的地方。'));
+    body.append(el('p', 'quiet', '发光的物体大多可以对话。每个厅都有一件不在导览图上的东西。'));
   }
 }

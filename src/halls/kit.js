@@ -1,8 +1,13 @@
 // ============================================================
 // kit — 程序化美术工具库。所有几何/材质/纹理均由代码生成，
 // 项目内不存在任何外部图像或音频素材。
+// v1.2：主机级风格化精修 —— 圆角几何、织物 sheen、
+// 高精程序纹理（木纹/拉丝金属/污渍）、合并几何控 draw call、
+// 栏杆/立柱/岩石/扶手椅等构件、多分区可逛边界。
 // ============================================================
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export const PALETTE = {
   ink: 0x0a0608,
@@ -22,7 +27,7 @@ export function canvasTexture(size, draw, repeatX = 1, repeatY = 1) {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeatX, repeatY);
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   return tex;
 }
 
@@ -38,9 +43,34 @@ export function noiseCanvasTexture(size = 256, base = 128, amp = 60, repeat = 4)
   }, repeat, repeat);
 }
 
-/** 黑白折线地板（通用锯齿纹样） */
+/** 污渍/磨损蒙版叠层：在已有画布上泼洒暗斑与擦痕 */
+export function grime(g, s, { stains = 26, scratches = 30, alpha = 0.1 } = {}) {
+  for (let i = 0; i < stains; i++) {
+    const r = 8 + Math.random() * s * 0.14;
+    const grad = g.createRadialGradient(0, 0, 0, 0, 0, r);
+    grad.addColorStop(0, `rgba(0,0,0,${alpha * (0.5 + Math.random())})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save();
+    g.translate(Math.random() * s, Math.random() * s);
+    g.fillStyle = grad;
+    g.fillRect(-r, -r, r * 2, r * 2);
+    g.restore();
+  }
+  g.strokeStyle = `rgba(255,255,255,${alpha * 0.35})`;
+  g.lineWidth = 1;
+  for (let i = 0; i < scratches; i++) {
+    g.beginPath();
+    const x = Math.random() * s;
+    const y = Math.random() * s;
+    g.moveTo(x, y);
+    g.lineTo(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 40);
+    g.stroke();
+  }
+}
+
+/** 黑白折线地板（红房间纹样，含地板接缝与磨损） */
 export function chevronTexture(colA = '#0d0d0f', colB = '#e8e2d5', repeat = 6) {
-  return canvasTexture(256, (g, s) => {
+  return canvasTexture(512, (g, s) => {
     g.fillStyle = colA;
     g.fillRect(0, 0, s, s);
     g.fillStyle = colB;
@@ -61,7 +91,91 @@ export function chevronTexture(colA = '#0d0d0f', colB = '#e8e2d5', repeat = 6) {
       g.closePath();
       if (row % 2 === 0) g.fill();
     }
+    // 板块接缝
+    g.strokeStyle = 'rgba(0,0,0,0.35)';
+    g.lineWidth = 2;
+    for (let i = 0; i <= n; i++) {
+      g.beginPath(); g.moveTo(0, i * w); g.lineTo(s, i * w); g.stroke();
+    }
+    grime(g, s, { stains: 14, scratches: 22, alpha: 0.06 });
   }, repeat, repeat);
+}
+
+/** 木纹（拼板 + 年轮曲线 + 节疤 + 接缝） */
+export function woodTexture({ base = [36, 24, 12], vary = 12, planks = 8, vertical = false, size = 512 } = {}) {
+  return canvasTexture(size, (g, s) => {
+    const pw = s / planks;
+    for (let i = 0; i < planks; i++) {
+      const v = (Math.random() - 0.5) * vary * 2;
+      g.fillStyle = `rgb(${base[0] + v},${base[1] + v * 0.7},${base[2] + v * 0.45})`;
+      if (vertical) g.fillRect(i * pw, 0, pw - 1.5, s);
+      else g.fillRect(0, i * pw, s, pw - 1.5);
+      // 年轮曲线
+      for (let k = 0; k < 9; k++) {
+        g.strokeStyle = `rgba(${base[0] * 0.4},${base[1] * 0.4},${base[2] * 0.4},${0.16 + Math.random() * 0.2})`;
+        g.lineWidth = 0.8 + Math.random();
+        g.beginPath();
+        const off = Math.random() * s;
+        for (let x = 0; x <= s; x += 16) {
+          const wob = Math.sin((x + off) * 0.02) * 3 + Math.sin((x + off) * 0.11) * 1.2;
+          const px = vertical ? i * pw + (k / 9) * pw + wob * 0.4 : x;
+          const py = vertical ? x : i * pw + (k / 9) * pw + wob * 0.4;
+          if (x === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        }
+        g.stroke();
+      }
+      // 节疤
+      if (Math.random() < 0.6) {
+        const kx = vertical ? i * pw + pw * (0.3 + Math.random() * 0.4) : Math.random() * s;
+        const ky = vertical ? Math.random() * s : i * pw + pw * (0.3 + Math.random() * 0.4);
+        g.strokeStyle = 'rgba(10,6,3,0.55)';
+        for (let r = 1.5; r < 6; r += 1.6) {
+          g.beginPath(); g.ellipse(kx, ky, r * 1.6, r, 0.4, 0, 7); g.stroke();
+        }
+      }
+    }
+    // 接缝阴影
+    g.fillStyle = 'rgba(0,0,0,0.5)';
+    for (let i = 1; i < planks; i++) {
+      if (vertical) g.fillRect(i * pw - 1, 0, 2, s);
+      else g.fillRect(0, i * pw - 1, s, 2);
+    }
+    grime(g, s, { stains: 10, scratches: 14, alpha: 0.05 });
+  });
+}
+
+/** 拉丝金属（方向性细纹 + 随机亮丝） */
+export function brushedMetalTexture(size = 256, base = 132, streak = 46) {
+  return canvasTexture(size, (g, s) => {
+    g.fillStyle = `rgb(${base},${base},${base + 4})`;
+    g.fillRect(0, 0, s, s);
+    for (let y = 0; y < s; y++) {
+      const v = base + (Math.random() - 0.5) * streak;
+      g.fillStyle = `rgba(${v},${v},${v + 4},0.5)`;
+      g.fillRect(0, y, s, 1);
+    }
+    for (let i = 0; i < 26; i++) {
+      const v = base + 40 + Math.random() * 50;
+      g.fillStyle = `rgba(${v},${v},${v},0.25)`;
+      g.fillRect(0, Math.random() * s, s, 0.7);
+    }
+  }, 2, 2);
+}
+
+/** 织物织纹（十字交叉编织） */
+export function weaveTexture(colA = '#20080d', colB = '#31121a', size = 256, cells = 42) {
+  return canvasTexture(size, (g, s) => {
+    g.fillStyle = colA;
+    g.fillRect(0, 0, s, s);
+    const c = s / cells;
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        g.fillStyle = (x + y) % 2 === 0 ? colB : colA;
+        g.fillRect(x * c, y * c, c - 0.6, c - 0.6);
+      }
+    }
+    grime(g, s, { stains: 6, scratches: 4, alpha: 0.05 });
+  }, 6, 6);
 }
 
 export function softCircleTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)') {
@@ -74,48 +188,113 @@ export function softCircleTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(2
   });
 }
 
+// ---------- 圆角几何 / 合并 ----------
+/** 圆角盒几何 */
+export function roundedBoxGeo(w, h, d, r, segments = 3) {
+  return new RoundedBoxGeometry(w, h, d, segments, Math.min(r, Math.min(w, h, d) / 2 - 1e-4));
+}
+
+/** 圆角盒（关键装置禁用裸 Box 的替代品） */
+export function roundedBoxMesh(w, h, d, r, material, segments = 3) {
+  return new THREE.Mesh(roundedBoxGeo(w, h, d, r, segments), material);
+}
+
+/** 多份几何合并为单 mesh（省 draw call）。矩阵需已应用。
+ *  RoundedBoxGeometry 等非索引几何与标准索引几何混用时自动归一化。 */
+export function mergedMesh(geos, material) {
+  const mixed = geos.some((g) => !g.index) && geos.some((g) => g.index);
+  const list = mixed ? geos.map((g) => (g.index ? g.toNonIndexed() : g)) : geos;
+  const merged = mergeGeometries(list, false);
+  if (!merged) {
+    throw new Error('mergedMesh: 合并失败（属性不兼容）: ' +
+      geos.map((g) => `${g.type}${g.index ? '' : '(non-indexed)'}`).join(','));
+  }
+  for (const g of geos) g.dispose();
+  if (list !== geos) for (const g of list) g.dispose();
+  return new THREE.Mesh(merged, material);
+}
+
+/** 应用位置/旋转/缩放后返回克隆几何（配合 mergedMesh） */
+export function xform(geo, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1) {
+  const g = geo.clone();
+  const m = new THREE.Matrix4()
+    .makeRotationFromEuler(new THREE.Euler(rx, ry, rz))
+    .scale(new THREE.Vector3(s, s, s))
+    .setPosition(x, y, z);
+  g.applyMatrix4(m);
+  return g;
+}
+
 // ---------- 天鹅绒帷幕 ----------
 export function velvetMaterial(color = PALETTE.velvet) {
-  const rough = noiseCanvasTexture(128, 200, 40, 3);
-  return new THREE.MeshStandardMaterial({
+  const rough = noiseCanvasTexture(256, 196, 46, 4);
+  const sheenCol = new THREE.Color(color).lerp(new THREE.Color(0xfff0e0), 0.42);
+  return new THREE.MeshPhysicalMaterial({
     color,
-    roughness: 0.92,
-    metalness: 0.02,
+    roughness: 0.88,
+    metalness: 0.0,
     roughnessMap: rough,
     bumpMap: rough,
-    bumpScale: 0.6,
-    envMapIntensity: 0.5,
+    bumpScale: 0.55,
+    sheen: 1.0,
+    sheenRoughness: 0.5,
+    sheenColor: sheenCol,
+    envMapIntensity: 0.4,
     side: THREE.DoubleSide
   });
 }
 
-/** 垂坠褶皱帷幕：正弦叠加位移的高分段平面 */
-export function curtain(width, height, color = PALETTE.velvet, folds = 7) {
-  const geo = new THREE.PlaneGeometry(width, height, Math.max(48, folds * 14), 6);
+/** 垂坠褶皱帷幕：三个八度正弦叠加位移的高分段平面 */
+export function curtain(width, height, color = PALETTE.velvet, folds = 7, material = null) {
+  const geo = new THREE.PlaneGeometry(width, height, Math.max(72, folds * 18), 10);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
     const u = x / width + 0.5;
+    const v = y / height + 0.5; // 0 底 1 顶
     const sag = 1 - Math.pow(Math.abs(y / height) * 2, 2) * 0.12;
+    const hem = 1 + (1 - v) * 0.25; // 下摆略微张开
     const z =
       (Math.sin(u * Math.PI * folds * 2) * 0.16 +
-        Math.sin(u * Math.PI * folds * 5.3 + 1.7) * 0.05) * sag;
+        Math.sin(u * Math.PI * folds * 5.3 + 1.7) * 0.05 +
+        Math.sin(u * Math.PI * folds * 11.7 + 0.6) * 0.02) * sag * hem;
     pos.setZ(i, z);
   }
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, velvetMaterial(color));
+  return new THREE.Mesh(geo, material || velvetMaterial(color));
 }
 
-/** 围合式帷幕墙（圆弧排布） */
+/**
+ * 带帷头（valance）的帷幕组：主幕 + 顶部短幕 + 挂杆。
+ * 比裸 curtain 多一层褶皱层次。
+ */
+export function curtainWithValance(width, height, color = PALETTE.velvet, folds = 7) {
+  const g = new THREE.Group();
+  const mat = velvetMaterial(color);
+  const main = curtain(width, height, color, folds, mat);
+  main.position.y = height / 2;
+  const valH = Math.min(0.9, height * 0.16);
+  const val = curtain(width * 1.02, valH, color, Math.round(folds * 1.6), mat);
+  val.position.set(0, height - valH / 2 + 0.02, 0.09);
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, width * 1.06, 10),
+    new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x6b5232, roughness: 0.35, metalness: 0.9, envMapIntensity: 1.1 })
+  );
+  rod.rotation.z = Math.PI / 2;
+  rod.position.set(0, height + 0.05, 0.1);
+  g.add(main, val, rod);
+  return g;
+}
+
+/** 围合式帷幕墙（圆弧排布，可留缺口） */
 export function curtainRing(radius, height, color, segments = 18, arc = Math.PI * 2, startAngle = 0) {
   const group = new THREE.Group();
   const segW = (arc * radius) / segments;
   const mat = velvetMaterial(color);
   for (let i = 0; i < segments; i++) {
     const a = startAngle + (i + 0.5) * (arc / segments);
-    const m = curtain(segW * 1.06, height, color);
-    m.material = mat;
+    const m = curtain(segW * 1.06, height, color, 3, mat);
     m.position.set(Math.cos(a) * radius, height / 2, Math.sin(a) * radius);
     m.lookAt(0, height / 2, 0);
     group.add(m);
@@ -245,17 +424,35 @@ export function floorMesh(w, d, material) {
   return m;
 }
 
-/** 通往其他展厅的门廊 */
+/** 通往其他展厅的门廊（v1.2：圆角门柱 + 线脚楣石 + 黄铜踢脚） */
 export function doorway({ label, labelZh, color = '#3ec5ff', width = 2.4, height = 3.4 }) {
   const group = new THREE.Group();
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x17090d, roughness: 0.4, metalness: 0.6, envMapIntensity: 0.8 });
-  const colGeo = new THREE.BoxGeometry(0.34, height, 0.34);
-  const left = new THREE.Mesh(colGeo, frameMat);
-  left.position.set(-width / 2, height / 2, 0);
-  const right = left.clone();
-  right.position.x = width / 2;
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(width + 0.9, 0.4, 0.5), frameMat);
-  lintel.position.y = height + 0.2;
+  const frameMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [26, 13, 15], planks: 2, vertical: true, size: 256 }),
+    color: 0x241318, roughness: 0.42, metalness: 0.35, envMapIntensity: 0.9
+  });
+  const brassMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x8a6c3c, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.2
+  });
+  // 圆角门柱（含柱脚/柱头黄铜环）
+  const colGeo = new RoundedBoxGeometry(0.34, height, 0.34, 3, 0.06);
+  const ringGeo = new THREE.CylinderGeometry(0.24, 0.26, 0.09, 14);
+  const columns = mergedMesh([
+    xform(colGeo, -width / 2, height / 2, 0),
+    xform(colGeo, width / 2, height / 2, 0)
+  ], frameMat);
+  const rings = mergedMesh([
+    xform(ringGeo, -width / 2, 0.06, 0),
+    xform(ringGeo, width / 2, 0.06, 0),
+    xform(ringGeo, -width / 2, height - 0.06, 0),
+    xform(ringGeo, width / 2, height - 0.06, 0)
+  ], brassMat);
+  // 楣石：主梁 + 上下线脚
+  const lintel = mergedMesh([
+    xform(new RoundedBoxGeometry(width + 0.9, 0.34, 0.5, 3, 0.05), 0, height + 0.17, 0),
+    xform(new THREE.BoxGeometry(width + 1.1, 0.07, 0.6), 0, height + 0.38, 0),
+    xform(new THREE.BoxGeometry(width + 1.0, 0.05, 0.55), 0, height - 0.02, 0)
+  ], frameMat);
   // 门内的"虚空" —— 微光涌动的黑
   const voidMat = new THREE.MeshStandardMaterial({
     color: 0x02010a, roughness: 1,
@@ -264,57 +461,21 @@ export function doorway({ label, labelZh, color = '#3ec5ff', width = 2.4, height
   const portal = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.2, height - 0.1), voidMat);
   portal.position.y = height / 2;
   const sign = neonSign(label, { color, size: 0.42 });
-  sign.position.y = height + 0.85;
+  sign.position.y = height + 0.95;
   const signZh = neonSign(labelZh, { color, size: 0.3, font: "'Songti SC','SimSun',serif" });
-  signZh.position.y = height + 0.42;
-  const step = new THREE.Mesh(
-    new THREE.BoxGeometry(width + 0.6, 0.09, 1.1),
-    new THREE.MeshStandardMaterial({ color: 0x1c1216, roughness: 0.75 })
-  );
+  signZh.position.y = height + 0.52;
+  // 踏步（圆角 + 黄铜防滑条）
+  const step = roundedBoxMesh(width + 0.6, 0.09, 1.1, 0.03,
+    new THREE.MeshStandardMaterial({ color: 0x1c1216, roughness: 0.7 }));
   step.position.set(0, 0.045, 0.35);
-  group.add(left, right, lintel, portal, sign, signZh, step);
+  const stepTrim = new THREE.Mesh(new THREE.BoxGeometry(width + 0.6, 0.012, 0.05), brassMat);
+  stepTrim.position.set(0, 0.095, 0.82);
+  group.add(columns, rings, lintel, portal, sign, signZh, step, stepTrim);
   group.userData.portal = portal;
   group.userData.update = (dt, t) => {
     portal.material.emissiveIntensity = 0.13 + Math.sin(t * 1.7) * 0.06;
     sign.userData.flicker(t, width);
   };
-  return group;
-}
-
-/** 展签立牌（可作热点） */
-export function standPlaque(title, subtitle, accent = '#c9a35c') {
-  const group = new THREE.Group();
-  const postMat = new THREE.MeshStandardMaterial({ color: 0x14090c, roughness: 0.5, metalness: 0.7 });
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 1.05, 10), postMat);
-  post.position.y = 0.52;
-  const tex = canvasTexture(512, (g, s) => {
-    g.fillStyle = '#100a0d';
-    g.fillRect(0, 0, s, s);
-    g.strokeStyle = accent;
-    g.lineWidth = 5;
-    g.strokeRect(14, 14, s - 28, s - 28);
-    g.fillStyle = '#f2e9dc';
-    g.font = '400 58px Georgia, serif';
-    g.textAlign = 'center';
-    g.fillText(title, s / 2, s / 2 - 30, s - 80);
-    g.fillStyle = accent;
-    g.font = '30px "Courier New", monospace';
-    g.fillText(subtitle, s / 2, s / 2 + 46, s - 80);
-    g.fillStyle = 'rgba(242,233,220,0.5)';
-    g.font = '24px "Courier New", monospace';
-    g.fillText('· 点 击 阅 读 ·', s / 2, s - 66);
-  });
-  const board = new THREE.Mesh(
-    new THREE.BoxGeometry(0.72, 0.72, 0.04),
-    new THREE.MeshStandardMaterial({
-      map: tex, roughness: 0.6,
-      emissive: 0xf2e9dc, emissiveMap: tex, emissiveIntensity: 0.35
-    })
-  );
-  board.position.y = 1.32;
-  board.rotation.x = -0.22;
-  group.add(post, board);
-  group.userData.board = board;
   return group;
 }
 
@@ -347,13 +508,11 @@ export function archivePlaque(film) {
     g.font = '26px "Courier New", monospace';
     g.fillText(film.type === 'tv' ? 'TELEVISION' : film.type === 'short' ? 'SHORT WORKS' : 'FEATURE FILM', s / 2, 440);
   });
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, 1.5, 0.08),
+  const mesh = roundedBoxMesh(1.5, 1.5, 0.09, 0.03,
     new THREE.MeshStandardMaterial({
       map: tex, roughness: 0.55,
       emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.5
-    })
-  );
+    }));
   return mesh;
 }
 
@@ -376,7 +535,7 @@ function wrapText(g, text, maxWidth) {
 }
 
 /**
- * 引语展签 —— 博物馆说明牌，以林奇原话为主体。
+ * 引语展签 —— 只有他自己的话（中英 + 出处），无策展解读。
  * quote: { zh, en, source }
  */
 export function quotePlaque(quote, accent = '#c9a35c') {
@@ -385,30 +544,27 @@ export function quotePlaque(quote, accent = '#c9a35c') {
     g.fillStyle = '#0e0709';
     g.fillRect(0, 0, s, s);
     g.strokeStyle = accent;
-    g.lineWidth = 4;
-    g.strokeRect(30, 30, s - 60, s - 60);
-    g.strokeStyle = 'rgba(242,233,220,0.14)';
-    g.lineWidth = 2;
-    g.strokeRect(44, 44, s - 88, s - 88);
+    g.lineWidth = 3;
+    g.strokeRect(34, 34, s - 68, s - 68);
     // 大引号
     g.fillStyle = accent;
     g.font = '400 170px Georgia, serif';
-    g.fillText('\u201c', 72, 210);
+    g.fillText('\u201c', 72, 220);
     // 中文引语
     g.fillStyle = '#f2e9dc';
-    g.font = '400 62px "Songti SC","SimSun",Georgia,serif';
+    g.font = '400 64px "Songti SC","SimSun",Georgia,serif';
     g.textAlign = 'left';
     const zhLines = wrapText(g, quote.zh, s - 220);
-    let y = 300;
+    let y = 330;
     for (const line of zhLines) {
       g.fillText(line, 110, y);
-      y += 92;
+      y += 96;
     }
     // 英文原文
-    g.fillStyle = 'rgba(242,233,220,0.6)';
+    g.fillStyle = 'rgba(242,233,220,0.55)';
     g.font = 'italic 34px Georgia, serif';
     const enLines = wrapText(g, quote.en, s - 220);
-    y += 26;
+    y += 30;
     for (const line of enLines) {
       g.fillText(line, 110, y);
       y += 48;
@@ -419,16 +575,14 @@ export function quotePlaque(quote, accent = '#c9a35c') {
     g.textAlign = 'right';
     g.fillText('— DAVID LYNCH · ' + quote.source, s - 90, s - 84);
   });
-  const board = new THREE.Mesh(
-    new THREE.BoxGeometry(1.7, 1.7, 0.05),
+  const board = roundedBoxMesh(1.7, 1.7, 0.055, 0.02,
     new THREE.MeshStandardMaterial({
-      map: tex, roughness: 0.6,
-      emissive: 0xf2e9dc, emissiveMap: tex, emissiveIntensity: 0.42
-    })
-  );
+      map: tex, roughness: 0.58,
+      emissive: 0xf2e9dc, emissiveMap: tex, emissiveIntensity: 0.4
+    }));
   board.position.y = 1.55;
-  const postMat = new THREE.MeshStandardMaterial({ color: 0x14090c, roughness: 0.5, metalness: 0.7 });
-  const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 1.55, 8), postMat);
+  const postMat = new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x584124, roughness: 0.35, metalness: 0.9 });
+  const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 1.55, 10), postMat);
   postL.position.set(-0.6, 0.77, 0);
   const postR = postL.clone();
   postR.position.x = 0.6;
@@ -438,29 +592,38 @@ export function quotePlaque(quote, accent = '#c9a35c') {
 }
 
 /**
- * 玻璃展柜 —— 展台 + 透明罩 + 顶光 + 标签牌。
+ * 玻璃展柜 —— 圆角展台 + 黄铜沿 + 透明罩 + 顶光 + 小铭牌。
  * 内容物请加到 group.userData.slot（位于台面中心上方）。
  */
 export function vitrine(labelTitle, labelSub, accent = '#c9a35c') {
   const group = new THREE.Group();
-  const baseMat = new THREE.MeshStandardMaterial({ color: 0x130b0e, roughness: 0.35, metalness: 0.3, envMapIntensity: 0.8 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.02, 0.85), baseMat);
+  const baseMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [22, 13, 15], planks: 3, vertical: true, size: 256 }),
+    color: 0x1c1014, roughness: 0.38, metalness: 0.2, envMapIntensity: 0.8
+  });
+  const brassMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x8a6c3c, roughness: 0.28, metalness: 0.95, envMapIntensity: 1.3
+  });
+  const base = roundedBoxMesh(0.85, 1.02, 0.85, 0.04, baseMat);
   base.position.y = 0.51;
-  const top = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.05, 0.95), baseMat);
+  const top = roundedBoxMesh(0.95, 0.05, 0.95, 0.02, baseMat);
   top.position.y = 1.045;
+  // 黄铜沿口
+  const trim = new THREE.Mesh(new THREE.BoxGeometry(0.97, 0.015, 0.97), brassMat);
+  trim.position.y = 1.075;
   // 玻璃罩
   const glass = new THREE.Mesh(
-    new THREE.BoxGeometry(0.78, 0.72, 0.78),
-    new THREE.MeshStandardMaterial({
-      color: 0xcfe4ff, transparent: true, opacity: 0.09,
-      roughness: 0.05, metalness: 0.1, envMapIntensity: 1.6, depthWrite: false
+    new RoundedBoxGeometry(0.78, 0.72, 0.78, 2, 0.02),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xcfe4ff, transparent: true, opacity: 0.08,
+      roughness: 0.04, metalness: 0.0, envMapIntensity: 1.7, depthWrite: false
     })
   );
-  glass.position.y = 1.43;
+  glass.position.y = 1.44;
   // 玻璃棱边
   const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(glass.geometry),
-    new THREE.LineBasicMaterial({ color: 0x8fb8d8, transparent: true, opacity: 0.35 })
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(0.78, 0.72, 0.78)),
+    new THREE.LineBasicMaterial({ color: 0x8fb8d8, transparent: true, opacity: 0.32 })
   );
   edges.position.copy(glass.position);
   // 顶光
@@ -481,19 +644,17 @@ export function vitrine(labelTitle, labelSub, accent = '#c9a35c') {
     g.font = '22px "Courier New", monospace';
     g.fillText(labelSub, s / 2, s / 2 + 42, s - 40);
   });
-  const label = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.28, 0.02),
+  const label = roundedBoxMesh(0.5, 0.28, 0.022, 0.01,
     new THREE.MeshStandardMaterial({
       map: labelTex, roughness: 0.6,
       emissive: 0xf2e9dc, emissiveMap: labelTex, emissiveIntensity: 0.4
-    })
-  );
+    }));
   label.position.set(0, 1.02, 0.52);
   label.rotation.x = -0.45;
   // 内容物挂点
   const slot = new THREE.Group();
   slot.position.y = 1.28;
-  group.add(base, top, glass, edges, light, label, slot);
+  group.add(base, top, trim, glass, edges, light, label, slot);
   group.userData.slot = slot;
   group.userData.label = label;
   return group;
@@ -567,42 +728,67 @@ export function zoneTrigger({ x, z, r }, onEnter, { cooldown = 20, once = false 
   return trig;
 }
 
-/** 立式话筒（抽象原创造型） */
+/** 立式话筒（车削底座 + 网格头） */
 export function micStand() {
   const g = new THREE.Group();
-  const metal = new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.25, metalness: 0.95, envMapIntensity: 1.2 });
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.05, 20), metal);
-  base.position.y = 0.025;
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.45, 8), metal);
+  const metal = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x9a9a9a, roughness: 0.24, metalness: 0.95, envMapIntensity: 1.2
+  });
+  const basePts = [];
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    basePts.push(new THREE.Vector2(0.26 * (1 - t * t * 0.72), t * 0.07));
+  }
+  const base = new THREE.Mesh(new THREE.LatheGeometry(basePts, 22), metal);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.45, 10), metal);
   pole.position.y = 0.75;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), metal);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 10), metal);
+  collar.position.y = 1.05;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 18, 14), metal);
   head.position.y = 1.5;
-  g.add(base, pole, head);
+  g.add(base, pole, collar, head);
   return g;
 }
 
-/** 松树（原创低多边形） */
+/** 松树（分层锥体，比单锥更像真树） */
 export function pineGeometryMaterial() {
-  const geo = new THREE.ConeGeometry(1, 3.2, 7);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x0a1a10, roughness: 0.95 });
+  const layers = [
+    xform(new THREE.ConeGeometry(1.05, 1.7, 8), 0, -0.7, 0),
+    xform(new THREE.ConeGeometry(0.82, 1.5, 8), 0, 0.25, 0),
+    xform(new THREE.ConeGeometry(0.55, 1.3, 8), 0, 1.15, 0)
+  ];
+  const geo = mergeGeometries(layers, false);
+  for (const l of layers) l.dispose();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x0a1a10, roughness: 0.95,
+    bumpMap: noiseCanvasTexture(64, 128, 60, 3), bumpScale: 0.4
+  });
   return { geo, mat };
 }
 
-/** 悬挂灯泡（含灯罩） */
+/** 悬挂灯泡（车削灯罩） */
 export function hangingBulb(color = 0xffe9c4, cordLen = 2) {
   const g = new THREE.Group();
   const cord = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, cordLen, 5),
+    new THREE.CylinderGeometry(0.012, 0.012, cordLen, 6),
     new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.9 })
   );
   cord.position.y = -cordLen / 2;
+  // 车削灯罩剖面
+  const pts = [];
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10;
+    pts.push(new THREE.Vector2(0.05 + Math.sin(t * Math.PI * 0.52) * 0.21, -t * 0.2));
+  }
   const shade = new THREE.Mesh(
-    new THREE.ConeGeometry(0.24, 0.2, 14, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0x101014, roughness: 0.4, metalness: 0.8, side: THREE.DoubleSide })
+    new THREE.LatheGeometry(pts, 20),
+    new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x14141a, roughness: 0.35, metalness: 0.85, side: THREE.DoubleSide
+    })
   );
-  shade.position.y = -cordLen + 0.05;
+  shade.position.y = -cordLen + 0.13;
   const bulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.075, 12, 10),
+    new THREE.SphereGeometry(0.075, 14, 12),
     new THREE.MeshStandardMaterial({ color: 0x111111, emissive: color, emissiveIntensity: 3.2, toneMapped: true })
   );
   bulb.position.y = -cordLen - 0.05;
@@ -630,6 +816,120 @@ export function makeFlicker(light, bulbMat, baseIntensity, seed = 0) {
   };
 }
 
+// ---------- v1.2 新构件 ----------
+
+/** 木栏杆：上下横杆 + 立柱，合并为单 mesh */
+export function railing(length, { height = 1.05, gap = 0.22, color = 0x241708, radius = 0.032 } = {}) {
+  const geos = [];
+  const railGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
+  geos.push(xform(railGeo, 0, height, 0, 0, 0, Math.PI / 2));
+  geos.push(xform(railGeo, 0, height * 0.42, 0, 0, 0, Math.PI / 2));
+  const n = Math.max(2, Math.round(length / gap));
+  const balGeo = new THREE.CylinderGeometry(radius * 0.55, radius * 0.62, height, 6);
+  for (let i = 0; i <= n; i++) {
+    geos.push(xform(balGeo, -length / 2 + (i / n) * length, height / 2, 0));
+  }
+  railGeo.dispose();
+  balGeo.dispose();
+  const mat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [30, 18, 9], planks: 2, size: 128 }),
+    color, roughness: 0.72, metalness: 0.05
+  });
+  return mergedMesh(geos, mat);
+}
+
+/** 凹槽立柱：柱础 + 柱身 + 柱头，合并为单 mesh */
+export function column(height = 6, radius = 0.32, colorHex = 0x1a1013) {
+  const geos = [];
+  geos.push(xform(new THREE.CylinderGeometry(radius * 1.5, radius * 1.62, 0.22, 18), 0, 0.11, 0));
+  geos.push(xform(new THREE.CylinderGeometry(radius * 1.32, radius * 1.5, 0.12, 18), 0, 0.28, 0));
+  geos.push(xform(new THREE.CylinderGeometry(radius * 0.92, radius, height - 0.9, 24, 1), 0, height / 2, 0));
+  geos.push(xform(new THREE.CylinderGeometry(radius * 1.3, radius * 0.98, 0.16, 18), 0, height - 0.5, 0));
+  geos.push(xform(new RoundedBoxGeometry(radius * 3, 0.2, radius * 3, 2, 0.04), 0, height - 0.32, 0));
+  const flute = canvasTexture(128, (g, s) => {
+    for (let x = 0; x < s; x++) {
+      const v = 120 + Math.sin((x / s) * Math.PI * 20) * 46;
+      g.fillStyle = `rgb(${v},${v},${v})`;
+      g.fillRect(x, 0, 1, s);
+    }
+  }, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({
+    color: colorHex, roughness: 0.5, metalness: 0.25,
+    bumpMap: flute, bumpScale: 0.5, envMapIntensity: 0.7
+  });
+  return mergedMesh(geos, mat);
+}
+
+/** 岩石（噪声位移二十面体） */
+export function rockMesh(size = 1, color = 0x141821) {
+  const geo = new THREE.IcosahedronGeometry(size, 1);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const k = 1 + (Math.random() - 0.5) * 0.42;
+    p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.72, p.getZ(i) * k);
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color, roughness: 0.95, bumpMap: noiseCanvasTexture(64, 128, 70, 2), bumpScale: 0.5
+  }));
+}
+
+/** 高背扶手椅（圆角软包，红房间/房间用） */
+export function armchair(color = 0x2a0e16) {
+  const g = new THREE.Group();
+  const fabric = new THREE.MeshPhysicalMaterial({
+    map: weaveTexture(), color, roughness: 0.9, sheen: 0.7,
+    sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.3), sheenRoughness: 0.6
+  });
+  const woodMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [26, 15, 8], planks: 1, size: 128 }), roughness: 0.6
+  });
+  const seat = roundedBoxMesh(0.72, 0.24, 0.68, 0.09, fabric);
+  seat.position.y = 0.42;
+  const back = roundedBoxMesh(0.72, 0.85, 0.18, 0.09, fabric);
+  back.position.set(0, 0.86, -0.28);
+  back.rotation.x = -0.13;
+  const armL = roundedBoxMesh(0.15, 0.34, 0.6, 0.06, fabric);
+  armL.position.set(-0.34, 0.62, -0.02);
+  const armR = armL.clone();
+  armR.position.x = 0.34;
+  const legGeo = new THREE.CylinderGeometry(0.03, 0.022, 0.3, 8);
+  const legs = mergedMesh([
+    xform(legGeo, -0.28, 0.15, 0.24), xform(legGeo, 0.28, 0.15, 0.24),
+    xform(legGeo, -0.28, 0.15, -0.24), xform(legGeo, 0.28, 0.15, -0.24)
+  ], woodMat);
+  legGeo.dispose();
+  g.add(seat, back, armL, armR, legs);
+  return g;
+}
+
+/** 沿线段铺设的地面条带（小径/道路） */
+export function groundStrip(x1, z1, x2, z2, width, material, y = 0.012) {
+  const len = Math.hypot(x2 - x1, z2 - z1);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(width, len + width * 0.5), material);
+  m.rotation.x = -Math.PI / 2;
+  m.rotation.z = -Math.atan2(x2 - x1, z2 - z1);
+  m.position.set((x1 + x2) / 2, y, (z1 + z2) / 2);
+  return m;
+}
+
+/** 碎石小径纹理 */
+export function gravelTexture(base = '#131009', size = 256) {
+  return canvasTexture(size, (g, s) => {
+    g.fillStyle = base;
+    g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 700; i++) {
+      const v = 26 + Math.random() * 42;
+      g.fillStyle = `rgba(${v},${v * 0.92},${v * 0.7},0.8)`;
+      g.beginPath();
+      g.arc(Math.random() * s, Math.random() * s, 0.6 + Math.random() * 2.2, 0, 7);
+      g.fill();
+    }
+    grime(g, s, { stains: 8, scratches: 0, alpha: 0.08 });
+  }, 2, 6);
+}
+
+// ---------- 边界 ----------
 /** 矩形边界约束 */
 export function rectBounds(minX, maxX, minZ, maxZ) {
   return (p) => {
@@ -648,5 +948,56 @@ export function circleBounds(radius, cx = 0, cz = 0) {
       p.x = cx + (dx / d) * radius;
       p.z = cz + (dz / d) * radius;
     }
+  };
+}
+
+/** 多矩形并集边界（房间 + 走廊拼合） */
+export function multiRectBounds(rects) {
+  const inside = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
+  return (p) => {
+    for (const r of rects) if (inside(r, p.x, p.z)) return;
+    let best = null;
+    let bestD = Infinity;
+    for (const r of rects) {
+      const cx = Math.max(r.minX, Math.min(r.maxX, p.x));
+      const cz = Math.max(r.minZ, Math.min(r.maxZ, p.z));
+      const d = (cx - p.x) ** 2 + (cz - p.z) ** 2;
+      if (d < bestD) { bestD = d; best = { cx, cz }; }
+    }
+    if (best) { p.x = best.cx; p.z = best.cz; }
+  };
+}
+
+/**
+ * 多分区并集边界：圆形分区 + 矩形通道混拼（双峰多分区地图用）。
+ * zones: [{ circle: {x,z,r} } | { rect: {minX,maxX,minZ,maxZ} }]
+ */
+export function zonesBounds(zones) {
+  const insideRect = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
+  const insideCircle = (c, x, z) => (x - c.x) ** 2 + (z - c.z) ** 2 <= c.r * c.r;
+  return (p) => {
+    for (const zn of zones) {
+      if (zn.rect && insideRect(zn.rect, p.x, p.z)) return;
+      if (zn.circle && insideCircle(zn.circle, p.x, p.z)) return;
+    }
+    let best = null;
+    let bestD = Infinity;
+    for (const zn of zones) {
+      let cx, cz;
+      if (zn.rect) {
+        cx = Math.max(zn.rect.minX, Math.min(zn.rect.maxX, p.x));
+        cz = Math.max(zn.rect.minZ, Math.min(zn.rect.maxZ, p.z));
+      } else {
+        const dx = p.x - zn.circle.x;
+        const dz = p.z - zn.circle.z;
+        const d = Math.hypot(dx, dz) || 1;
+        const k = Math.min(d, zn.circle.r);
+        cx = zn.circle.x + (dx / d) * k;
+        cz = zn.circle.z + (dz / d) * k;
+      }
+      const d2 = (cx - p.x) ** 2 + (cz - p.z) ** 2;
+      if (d2 < bestD) { bestD = d2; best = { cx, cz }; }
+    }
+    if (best) { p.x = best.cx; p.z = best.cz; }
   };
 }
