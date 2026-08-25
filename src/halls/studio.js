@@ -11,7 +11,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat as woodPbr
+  woodMat as woodPbr, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -289,28 +289,91 @@ export function build(ctx) {
     }
   });
 
-  // 窗（百叶 + 夜光，东墙）
+  // 窗（可调百叶 + 夜雨玻璃，东墙）——E 拨开叶片，夜色和雨痕进来
   const windowGroup = new THREE.Group();
   const winFrame = roundedBoxMesh(0.1, 1.7, 1.5, 0.02, caseWood);
   winFrame.position.set(W / 2 - 0.05, 2.1, -3.4);
+  const nightTex = canvasTexture(256, (g, s) => {
+    const grad = g.createLinearGradient(0, 0, 0, s);
+    grad.addColorStop(0, '#0a1220');
+    grad.addColorStop(0.68, '#182640');
+    grad.addColorStop(0.78, '#2c3e5a');
+    grad.addColorStop(1, '#0b121c');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(150,180,220,0.3)';
+    g.fillRect(0, s * 0.78, s, 2);
+    // 远树/屋脊剪影
+    g.fillStyle = 'rgba(3,6,11,0.95)';
+    const r = rng(21);
+    let x = 0;
+    while (x < s) {
+      const w = 14 + r() * 30;
+      const h = s * (0.06 + r() * 0.13);
+      g.fillRect(x, s * 0.8 - h, w, h + s * 0.2);
+      x += w;
+    }
+    // 玻璃上的斜雨痕
+    g.strokeStyle = 'rgba(190,212,238,0.15)';
+    for (let i = 0; i < 44; i++) {
+      const rx = r() * s;
+      const ry = r() * s;
+      const len = 10 + r() * 26;
+      g.lineWidth = 0.6 + r() * 0.9;
+      g.beginPath();
+      g.moveTo(rx, ry);
+      g.lineTo(rx - len * 0.18, ry + len);
+      g.stroke();
+    }
+  });
   const winGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(1.3, 1.5),
-    new THREE.MeshStandardMaterial({ color: 0x060a12, emissive: 0x8ea6c9, emissiveIntensity: 0.5 })
+    new THREE.MeshStandardMaterial({
+      color: 0x060a12, emissive: 0xffffff, emissiveMap: nightTex, emissiveIntensity: 0.5
+    })
   );
   winGlow.position.set(W / 2 - 0.11, 2.1, -3.4);
   winGlow.rotation.y = -Math.PI / 2;
-  const slatGeos = [];
-  const slatGeo = new THREE.BoxGeometry(0.02, 0.06, 1.32);
+  // 百叶：12 片独立叶（共几何/共材质），绕长轴倾转——不再是合并死件
+  const blinds = new THREE.Group();
+  const slatGeo = new THREE.BoxGeometry(0.055, 0.012, 1.32);
+  const slatMat = new THREE.MeshStandardMaterial({ color: 0x201812, roughness: 0.7 });
+  const slats = [];
   for (let i = 0; i < 12; i++) {
-    slatGeos.push(xform(slatGeo, 0, i * 0.125, 0, 0.5, 0, 0));
+    const slat = new THREE.Mesh(slatGeo, slatMat);
+    slat.position.y = i * 0.125;
+    slat.rotation.z = 1.12;
+    blinds.add(slat);
+    slats.push(slat);
   }
-  slatGeo.dispose();
-  const blinds = mergedMesh(slatGeos, new THREE.MeshStandardMaterial({ color: 0x201812, roughness: 0.7 }));
-  blinds.position.set(W / 2 - 0.16, 1.4, -3.4);
+  blinds.position.set(W / 2 - 0.16, 1.42, -3.4);
+  // 调叶木棒（垂在窗侧的细杆——射线靶不用打叶片）
+  const wand = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.5, 8), caseWood);
+  wand.position.set(W / 2 - 0.2, 1.7, -2.72);
+  const winHit = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.7, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0x000000 }));
+  winHit.visible = false;
+  winHit.position.set(W / 2 - 0.16, 2.1, -3.4);
   const moonSliver = new THREE.PointLight(0x8ea6c9, 2.4, 7, 1.9);
   moonSliver.position.set(W / 2 - 0.8, 2.1, -3.4);
-  windowGroup.add(winFrame, winGlow, blinds, moonSliver);
+  windowGroup.add(winFrame, winGlow, blinds, wand, winHit, moonSliver);
   group.add(windowGroup);
+  const blindState = { open: false, v: 0 };
+  updaters.push((dt) => {
+    blindState.v += ((blindState.open ? 1 : 0) - blindState.v) * Math.min(1, dt * 3.2);
+    const tilt = 1.12 - blindState.v * 1.0;
+    for (const slat of slats) slat.rotation.z = tilt;
+    winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75;
+    moonSliver.intensity = 2.4 + blindState.v * 3.2;
+  });
+  hotspots.add(winHit, {
+    hint: 'E — 窗百叶',
+    onActivate: () => {
+      blindState.open = !blindState.open;
+      audio.sfxAt('creak', W / 2 - 0.2, -3.4, 0.4, 3);
+      if (blindState.open) ui.caption('外面在下雨。', 3200);
+    }
+  });
 
   // 墙上的两幅暗色抽象画（原创程序化）
   for (const [z, seed] of [[1.2, 3], [4.0, 8]]) {
