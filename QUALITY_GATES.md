@@ -193,7 +193,7 @@
 
 ### 20. 交互密度 —— 可玩的数字艺术装置（v1.3 新增）
 - [x] 每厅非导航可交互物 ≥8（门/传送门 nav 标记不计入），双峰 ≥10、林奇的房间 ≥10
-      —— **实测（终版）：大厅 10 / 档案 18 / 橡皮头 11 / 蓝丝绒 10 / 房间 13 / 双峰 12 / 穆赫兰道 10，共 84**
+      —— **实测（终版）：大厅 10 / 档案 18 / 橡皮头 11 / 蓝丝绒 11 / 房间 13 / 双峰 12 / 穆赫兰道 10，共 85**
 - [x] 交互类型覆盖：开关（调光/闸刀/排灯/放映机）/ 拉动（汽笛链/幕绳/吊扇拉链）/ 开启（炉门/电话亭折门）/
       播放（留声机/点唱机/唱机+黑胶底噪）/ 坐下触发（剧场折座/diner 卡座）/ 可检视物件（派罩/胶片/搁着的烟）/
       连锁反应（迎宾铃→六门齐亮、汽笛→蒸汽+机器猛冲、幕绳→后幕寒颤+脚灯、折座→舞台灯链、咖啡→烟→电台特别播报、
@@ -245,9 +245,9 @@
 **验证方式**：`xvfb-run npx electron . --smoke` 输出逐厅统计且退出码 0。✅ 全绿。
 
 ### 23. 音景 / 配乐抛光（v1.3 新增）
-- [x] 新交互专属合成音 ≥10 种 —— **实际 15 种**：bell 迎宾铃 / ratchet 拨号棘轮 / creak 木革吱呀 /
-      switch 重型拨杆 / crank 留声机发条 / projector 放映机快门 / vinyl 黑胶底噪 / doorfar 远门闷响
-      + **脚步 7 种**（wood/concrete/tile/carpet/asphalt/dirt/metal，
+- [x] 新交互专属合成音 ≥10 种 —— **实际 16 种**：bell 迎宾铃 / ratchet 拨号棘轮 / creak 木革吱呀 /
+      switch 重型拨杆 / crank 留声机发条 / projector 放映机快门 / vinyl 黑胶底噪 / doorfar 远门闷响 /
+      phonering 木盒电话双铃 + **脚步 7 种**（wood/concrete/tile/carpet/asphalt/dirt/metal，
       每步频率抖动，按步幅 0.82m 触发、左右交替声像）
 - [x] 位置化音效通道 `sfxAt(name, x, z)`（StereoPanner + 纯几何 `spatialParams` 声像/距离衰减，
       可单测），听者位姿 `setListener` 每帧取相机；铃/蒸汽/拨号/信号灯等已位置化
@@ -261,7 +261,7 @@
 - [x] 零采样策略保持（compliance 扫描全绿：仓库零媒体文件）
 
 **验证方式**：`npm test`（audio.test.js 含 spatialParams 几何断言 + 脚步/混响审计）+
-冒烟 `activateAll()` 84 交互不抛错 + 人工耳机巡检。✅ 全绿。
+冒烟 `activateAll()` 85 交互不抛错 + 人工耳机巡检。✅ 全绿。
 
 ### 24. Release 1.3.0（v1.3 新增）
 - [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
