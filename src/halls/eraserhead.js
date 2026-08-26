@@ -970,6 +970,30 @@ export function build(ctx) {
     group.add(cage);
     cageLights.push({ light, bulb });
     updaters.push(makeFlicker(light, bulb.material, 6, seed));
+    // v1.9 抛光第 7 遍·光的怪谈：正中这盏常年被穿堂气推着荡，
+    // 但每隔半分钟左右，它会在摆到最快的那一瞬停死在半空——
+    // 一秒多之后又从原处继续荡，好像刚才那段时间不算数。
+    // 不配声音：这种事配上声音就假了。
+    if (x === 0 && z === 0) {
+      const sway = { phase: Math.random() * 6.28, frozen: 0, next: 26 + Math.random() * 30, a: 0 };
+      const pivotY = H - 0.05; // 吊线顶端（天花锚点）
+      updaters.push((dt) => {
+        if (sway.frozen > 0) {
+          sway.frozen -= dt; // 停死：相位与角度都不走
+        } else {
+          sway.phase += dt * 1.9;
+          sway.a = Math.sin(sway.phase) * 0.055;
+          sway.next -= dt;
+          // 在角速度最大的时刻（过中点附近）停最瘆人
+          if (sway.next <= 0 && Math.abs(Math.cos(sway.phase)) > 0.72) {
+            sway.frozen = 1.4 + Math.random() * 1.3;
+            sway.next = 32 + Math.random() * 42;
+          }
+        }
+        cage.rotation.z = sway.a;
+        cage.position.set(Math.sin(sway.a) * 1.65, pivotY - Math.cos(sway.a) * 1.65, 0);
+      });
+    }
   }
 
   // ============================================================

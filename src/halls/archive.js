@@ -1283,6 +1283,8 @@ export function build(ctx) {
   }
 
   // 纪念墙前的"烛火"排（v1.4：整桌抬上大理石台基）
+  // v1.9 抛光第 7 遍：静默区烛火响应——人一走进围栏，火苗齐齐抬头一拍
+  const hushFlare = { v: 0 };
   for (let i = 0; i < 7; i++) {
     const x = -1.8 + i * 0.6;
     const candle = new THREE.Mesh(
@@ -1297,9 +1299,39 @@ export function build(ctx) {
     flame.position.set(x, 0.92, -L / 2 + 1.3);
     group.add(candle, flame);
     updaters.push((dt, t) => {
-      flame.material.emissiveIntensity = 4.2 + Math.sin(t * 9 + i * 2.4) * 1.1 + Math.random() * 0.5;
+      flame.material.emissiveIntensity =
+        4.2 + Math.sin(t * 9 + i * 2.4) * 1.1 + Math.random() * 0.5 + hushFlare.v * 2.6;
+      flame.scale.y = 1 + hushFlare.v * 0.5;
     });
   }
+  // ---------- 静默区（v1.9 抛光第 7 遍）----------
+  // 走进纪念墙的围栏，整馆的声音自己退下去——底噪/荧光嗡鸣都按到
+  // 只剩一线，耳边只有你自己。烛火在你进来那一拍齐齐抬头。
+  // 退出围栏，声音像潮水一样漫回来。这里不需要一个字的说明。
+  const hush = { in: false, t: 0, said: false };
+  updaters.push((dt) => {
+    const dx = player.x;
+    const dz = player.z + 21.9;
+    const inNow = dx * dx + dz * dz < 1.7 * 1.7;
+    if (inNow) {
+      hush.t -= dt;
+      if (hush.t <= 0) {
+        audio.duck(1.1, 0.07, 1.3); // 连续续杯保持静默，离开后 1.3s 自然涨回
+        hush.t = 1.0;
+      }
+      if (!hush.in) {
+        hushFlare.v = 1;
+        if (!hush.said) {
+          hush.said = true;
+          setTimeout(() => ui.caption('长廊在这里屏住呼吸。', 3600), 700);
+        }
+      }
+    } else {
+      hush.t = 0;
+    }
+    hush.in = inNow;
+    if (hushFlare.v > 0) hushFlare.v = Math.max(0, hushFlare.v - dt * 0.7);
+  });
   const table = roundedBoxMesh(5, 0.46, 0.7, 0.04,
     new THREE.MeshStandardMaterial({ map: woodTexture({ base: [20, 12, 8], planks: 2, size: 128 }), roughness: 0.5 }));
   table.position.set(0, 0.37, -L / 2 + 1.3);

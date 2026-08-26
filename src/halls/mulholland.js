@@ -1879,6 +1879,35 @@ export function build(ctx) {
         }
       }
     });
+    // v1.9 抛光第 7 遍·空场怪谈：人在观众厅里待着，隔几十秒，
+    // 那把椅子偶尔自己放下来——吱一声、顿一下；坐了一会儿，又自己
+    // 翻回去。不给光、不给字幕（首次给半句），像剧场自己在等人。
+    const ghostSeat = { timer: 42 + Math.random() * 40, said: false };
+    const seatWp = new THREE.Vector3();
+    updaters.push((dt) => {
+      const p = pose();
+      const inRoom = p.x > ROOM.minX && p.x < ROOM.maxX && p.z > ROOM.minZ && p.z < ROOM.maxZ;
+      if (!inRoom || sitState.target > 0.5) return;
+      ghostSeat.timer -= dt;
+      if (ghostSeat.timer > 0) return;
+      ghostSeat.timer = 70 + Math.random() * 70;
+      special.getWorldPosition(seatWp);
+      sitState.target = 1;
+      audio.sfxAt('creak', seatWp.x, seatWp.z, 0.4, 4);
+      timers.push(setTimeout(() => audio.sfxAt('thud', seatWp.x, seatWp.z, 0.3, 4), 300));
+      if (!ghostSeat.said) {
+        ghostSeat.said = true;
+        timers.push(setTimeout(() => ui.caption('有人比你先坐下了。', 3400), 900));
+      }
+      // 坐一会儿，又自己翻回去（只翻自己放下的；你放下的它不动）
+      timers.push(setTimeout(() => {
+        if (sitState.target > 0.5) {
+          sitState.target = 0;
+          special.getWorldPosition(seatWp);
+          audio.sfxAt('creak', seatWp.x, seatWp.z, 0.3, 4);
+        }
+      }, 5200 + Math.random() * 2600));
+    });
   }
 
   // 走道排灯闸 —— 墙上的黄铜拨杆，熄掉排椅侧的小灯珠
