@@ -572,6 +572,119 @@ export function build(ctx) {
   }
   benchLegGeo.dispose();
 
+  // ---------- 还书推车（v1.9 抛光第 5 遍）----------
+  // 东墙两块展牌之间靠着一辆钢管书车：上层一排布面书脊斜靠成一列、
+  // 末一本还没躺稳，下层三本平摞。E → 车往前溜一小段、斜着的那本
+  // 顺势倒平（ladderroll 轮鸣 + thud 落书）。书都在，人不在。
+  {
+    const cart = new THREE.Group();
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x2a3230, roughness: 0.45, metalness: 0.8 });
+    const postGeo = new THREE.CylinderGeometry(0.014, 0.014, 0.92, 8);
+    const shelfGeo = roundedBoxGeo(0.82, 0.02, 0.38, 0.006, 2);
+    const lipGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.82, 6);
+    const frame = mergedMesh([
+      // 四立柱 + 上下两层板 + 层板前后防滑落细杆 + 顶端推手横杆
+      xform(postGeo, -0.41, 0.46, -0.19), xform(postGeo, 0.41, 0.46, -0.19),
+      xform(postGeo, -0.41, 0.46, 0.19), xform(postGeo, 0.41, 0.46, 0.19),
+      xform(shelfGeo, 0, 0.2, 0), xform(shelfGeo, 0, 0.58, 0),
+      xform(lipGeo, 0, 0.66, -0.19, 0, 0, Math.PI / 2),
+      xform(lipGeo, 0, 0.66, 0.19, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.011, 0.011, 0.44, 8), -0.41, 0.93, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.011, 0.011, 0.44, 8), 0.41, 0.93, 0, Math.PI / 2, 0, 0)
+    ], steelMat);
+    // 四只脚轮（叉架 + 轮），一只歪着——被推过的车
+    const castGeos = [];
+    const wheelGeo = new THREE.CylinderGeometry(0.036, 0.036, 0.024, 10);
+    const forkGeo = new THREE.BoxGeometry(0.03, 0.06, 0.05);
+    for (const [cx, cz, ry] of [[-0.38, -0.16, 0], [0.38, -0.16, 0], [-0.38, 0.16, 0], [0.38, 0.16, 0.7]]) {
+      castGeos.push(xform(forkGeo, cx, 0.07, cz, 0, ry, 0));
+      castGeos.push(xform(wheelGeo, cx, 0.036, cz, Math.PI / 2, ry, 0));
+    }
+    cart.add(frame, mergedMesh(castGeos, new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.8 })));
+    // 上层书列：布面精装 9 本，色布随机但压暗（图书馆布纹的沉色），
+    // 高矮参差、整列向末端渐斜——最后一本单独出来（等着被放倒）
+    const bookRng = rng(83);
+    const clothColors = [0x54382e, 0x35472e, 0x32405a, 0x50482a, 0x463042];
+    const bookGeos = [];
+    let bx = -0.36;
+    for (let i = 0; i < 9; i++) {
+      const h = 0.16 + bookRng() * 0.05;
+      const th = 0.028 + bookRng() * 0.014;
+      const lean = i > 5 ? (i - 5) * 0.09 : 0;
+      bookGeos.push({
+        geo: xform(new THREE.BoxGeometry(th, h, 0.24 + bookRng() * 0.04),
+          bx + Math.sin(lean) * h * 0.5, 0.59 + Math.cos(lean) * h * 0.5, 0, 0, 0, -lean),
+        color: clothColors[Math.floor(bookRng() * clothColors.length)]
+      });
+      bx += th + 0.004;
+    }
+    // 逐本上色：合并为单 mesh 前用顶点色（同一布纹材质，色布不重样）
+    const bookMat = new THREE.MeshStandardMaterial({ roughness: 0.88, vertexColors: true });
+    const coloredGeos = bookGeos.map(({ geo, color }) => {
+      const c = new THREE.Color(color);
+      const n = geo.attributes.position.count;
+      const arr = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+      geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+      return geo;
+    });
+    cart.add(mergedMesh(coloredGeos, bookMat));
+    // 下层平摞三本 + 一张借书单从中间那本探出一角
+    const flatMat = new THREE.MeshStandardMaterial({ color: 0x2c2018, roughness: 0.9 });
+    cart.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.3, 0.03, 0.22), -0.18, 0.225, 0, 0, 0.06, 0),
+      xform(new THREE.BoxGeometry(0.28, 0.026, 0.2), -0.18, 0.253, 0, 0, -0.04, 0),
+      xform(new THREE.BoxGeometry(0.31, 0.032, 0.23), -0.18, 0.282, 0, 0, 0.1, 0)
+    ], flatMat));
+    const slip = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0xd8cfba, roughness: 0.95, side: THREE.DoubleSide }));
+    slip.rotation.set(-Math.PI / 2 + 0.12, 0, 0.3);
+    slip.position.set(-0.05, 0.268, 0.13);
+    cart.add(slip);
+    // 末端那本：单独 mesh（放倒动画），枢轴在书脚外沿
+    const lastPivot = new THREE.Group();
+    lastPivot.position.set(bx + 0.05, 0.59, 0);
+    const lastBook = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.19, 0.26),
+      new THREE.MeshStandardMaterial({ color: 0x5c2a2e, roughness: 0.88 }));
+    lastBook.position.set(-0.016, 0.095, 0);
+    lastPivot.add(lastBook);
+    lastPivot.rotation.z = -0.42; // 斜靠在书列末端
+    cart.add(lastPivot);
+    cart.position.set(3.72, 0, -2.8);
+    cart.rotation.y = Math.PI / 2 + 0.1; // 长轴顺墙、书脊朝走廊；没停正——推它的人走得急
+    group.add(cart);
+    // E → 车溜走 9cm + 斜书倒平：轮鸣与落书两声、一条字幕
+    const cartAnim = { t: -1, done: false, z0: cart.position.z };
+    updaters.push((dt) => {
+      if (cartAnim.t < 0) return;
+      cartAnim.t += dt;
+      const k = Math.min(1, cartAnim.t / 0.9);
+      const ease = 1 - (1 - k) * (1 - k);
+      cart.position.z = cartAnim.z0 - ease * 0.09;
+      // 斜书 0.25s 后开始倒：越过支点加速砸平（-0.42 → -π/2）
+      const bk = Math.min(1, Math.max(0, (cartAnim.t - 0.25) / 0.45));
+      lastPivot.rotation.z = -0.42 - bk * bk * (Math.PI / 2 - 0.42);
+      if (cartAnim.t > 1.4) cartAnim.t = -1;
+    });
+    hotspots.add(frame, {
+      hint: 'E — 还书推车',
+      onActivate: () => {
+        audio.sfx('ladderroll', 0.4);
+        if (!cartAnim.done) {
+          cartAnim.done = true;
+          cartAnim.t = 0;
+          setTimeout(() => audio.sfx('thud', 0.5), 620);
+          ui.caption('书都还回来了。借书的人没有。', 4200);
+        } else if (cart.position.z > -3.07) {
+          // 再推还会溜，但最多三小段——车轮下有东西垫着（也不告诉你是什么）
+          cartAnim.z0 = cart.position.z;
+          cartAnim.t = 0;
+          ui.caption('轮子记得路。', 3200);
+        }
+      }
+    });
+  }
+
   // ---------- 阅览桌 + 银行家台灯（拉链开灯：绿玻璃照亮一小片桌面） ----------
   const readTable = new THREE.Group();
   const tableWood = woodMat({ base: [28, 18, 11], planks: 2, size: 256, seed: 57, gloss: 0.6, env: 0.7 });

@@ -900,9 +900,13 @@ export function build(ctx) {
     m.rotation.y = ry;
     group.add(m);
   };
-  mkShell(13.2, 8.2, 8.05, -20.2, -Math.PI / 2);  // 右侧外墙（暗巷内壁）
+  mkShell(13.2, 8.2, 8.05, -20.2, -Math.PI / 2);  // 右侧外墙（面朝剧场内侧）
   mkShell(13.2, 8.2, -8.05, -20.2, Math.PI / 2);  // 左侧外墙
   mkShell(16.4, 8.2, 0, -26.6, Math.PI);          // 剧场后墙（空地内壁）
+  // v1.9 抛光第 5 遍·修一处陈年剔除洞：右侧外墙法线朝剧场内，
+  // 从暗巷看整面墙被背面剔除——巷子其实一直「透视」进剧场内幕布。
+  // 补一面朝巷的砖墙（穿线管/接线盒这回真钉在墙上）
+  mkShell(13.2, 8.2, 8.06, -20.2, Math.PI / 2);   // 同壳同料，法线朝巷
 
   // 空地围墙（挡住世界尽头）—— 瓦楞铁皮：竖向波纹 + 锈迹流挂 + 接板缝
   const corrTex = canvasTexture(256, (g, s) => {
@@ -1022,6 +1026,63 @@ export function build(ctx) {
   trashLid.position.set(10.2, 0.06, -23.3);
   trashLid.rotation.set(0.12, 0, 1.45);
   group.add(trashCan, trashLid);
+  // v1.9 抛光第 5 遍·空间错位小机关：同一只垃圾桶在巷里出现两次——
+  // 连盖子歪靠的角度都一样，墙上同一枚粉笔记号。不点破，走过的人自己发凉。
+  const trashCan2 = trashCan.clone();
+  trashCan2.position.set(10.55, 0.39, -19.5);
+  const trashLid2 = trashLid.clone();
+  trashLid2.position.set(10.2, 0.06, -20.2);
+  group.add(trashCan2, trashLid2);
+  const alleyChalkTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(215,210,200,0.62)';
+    g.lineWidth = 2.2;
+    g.lineCap = 'round';
+    // 一个圈 + 圈里一支向下的箭
+    g.beginPath();
+    g.arc(s / 2, s / 2, 21, 0.3, 6.1);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(s / 2, 16);
+    g.lineTo(s / 2, 44);
+    g.moveTo(s / 2 - 7, 36);
+    g.lineTo(s / 2, 46);
+    g.lineTo(s / 2 + 7, 36);
+    g.stroke();
+  });
+  const alleyChalkMat = new THREE.MeshStandardMaterial({
+    map: alleyChalkTex, transparent: true, roughness: 0.95,
+    emissive: 0xd7d2c8, emissiveMap: alleyChalkTex, emissiveIntensity: 0.12
+  });
+  for (const cz of [-22.9, -19.8]) {
+    const chalk = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), alleyChalkMat);
+    chalk.position.set(11.58, 1.18, cz);
+    chalk.rotation.y = -Math.PI / 2;
+    group.add(chalk);
+  }
+  // v1.9 抛光第 5 遍：巷侧穿线管——沿剧场东墙一条黑铁管走完暗巷，
+  // 两只接线盒，中段一截电缆从管卡上松脱垂成弧（走巷时的近景视差层）
+  {
+    const conduitMat = new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.6, metalness: 0.7 });
+    // 剧场东墙面在 x=8.05：管/盒/卡全部贴墙装（盒凸出 10cm、管压在盒芯上）
+    const conduitGeos = [
+      xform(new THREE.CylinderGeometry(0.028, 0.028, 11.6, 8), 8.1, 2.62, -20.2, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.1, 0.22, 0.16), 8.1, 2.62, -16.4),
+      xform(new THREE.BoxGeometry(0.1, 0.22, 0.16), 8.1, 2.62, -24.4),
+      // 管卡两只（中段留空——电缆就是从这儿松的）
+      xform(new THREE.BoxGeometry(0.06, 0.1, 0.06), 8.09, 2.62, -18.3),
+      xform(new THREE.BoxGeometry(0.06, 0.1, 0.06), 8.09, 2.62, -22.1)
+    ];
+    // 松脱电缆：两端挂在接线盒上，中段垂成一道弧、微微鼓进巷里（近景视差层）
+    const sagCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(8.12, 2.56, -16.5),
+      new THREE.Vector3(8.34, 1.5, -20.3),
+      new THREE.Vector3(8.12, 2.56, -24.3)
+    );
+    conduitGeos.push(new THREE.TubeGeometry(sagCurve, 24, 0.014, 6));
+    group.add(mergedMesh(conduitGeos, conduitMat));
+  }
+
   // 巷面积水（暗镜面长条，映出将熄壁灯）
   const puddle = new THREE.Mesh(
     new THREE.PlaneGeometry(1.8, 5.2),
