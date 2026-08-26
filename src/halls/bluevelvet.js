@@ -13,7 +13,7 @@ import {
   neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
   velvetMaterial, zoneTrigger, rectBounds, darkFigure,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
-  woodMat, fabricMat, rng
+  woodMat, fabricMat, enamelMat, rng
 } from './kit.js';
 import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -113,6 +113,42 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.015, 0.12, 0.24), 4.29, 0.63, -D / 2 + 4.16)
   ];
   group.add(mergedMesh(troughGeos, brassMat));
+  // v1.9 二级细节·bluevelvet 件 1：脚灯槽 v3——每颗灯泡背后一只
+  // 瓷釉反光碗（enamelMat 首用：白瓷釉+崩瓷露铁+釉裂细纹），碗口朝台。
+  // 第 7 只是后来配的，歪着——E → 它晃一晃，瓷釉轻磕一声。
+  const bowlMat = enamelMat({ base: 228, seed: 49, chip: 0.6, clearcoat: 0.7, env: 1.3 });
+  bowlMat.side = THREE.DoubleSide;
+  const bowlGeos = [];
+  for (let i = 0; i < 9; i++) {
+    if (i === 6) continue;
+    bowlGeos.push(xform(
+      new THREE.SphereGeometry(0.078, 12, 7, 0, Math.PI * 2, 0, Math.PI / 2),
+      -3.6 + i * 0.9, 0.61, -D / 2 + 4.185, Math.PI / 2 - 0.28, 0, 0
+    ));
+  }
+  group.add(mergedMesh(bowlGeos, bowlMat));
+  const crookedBowl = new THREE.Mesh(
+    new THREE.SphereGeometry(0.078, 12, 7, 0, Math.PI * 2, 0, Math.PI / 2), bowlMat
+  );
+  crookedBowl.position.set(-3.6 + 6 * 0.9, 0.6, -D / 2 + 4.185);
+  crookedBowl.rotation.set(Math.PI / 2 - 0.28, 0, 0.2);
+  group.add(crookedBowl);
+  const bowlWob = { t: -1 };
+  updaters.push((dt) => {
+    if (bowlWob.t < 0) return;
+    bowlWob.t += dt;
+    const u = bowlWob.t;
+    if (u > 1.8) { bowlWob.t = -1; crookedBowl.rotation.z = 0.2; return; }
+    crookedBowl.rotation.z = 0.2 + Math.sin(u * 13) * 0.16 * Math.exp(-u * 2.6);
+  });
+  hotspots.add(crookedBowl, {
+    hint: 'E — 歪着的反光碗',
+    onActivate: () => {
+      if (bowlWob.t < 0) bowlWob.t = 0;
+      audio.sfxAt('porcelain', -3.6 + 6 * 0.9, -D / 2 + 4.185, 0.7);
+      ui.caption('有一只是后来配的。还没学会站直。', 3600);
+    }
+  });
   // v1.4 台口 v2：侧幕腿 ×2 + 顶部帘头——舞台开口有了完整的画框
   const legMat = velvetMaterial(0x0b142e);
   for (const sx of [-1, 1]) {
@@ -1224,6 +1260,89 @@ export function build(ctx) {
       ui.caption('绒面向着光，底布向着墙。', 3600);
     }
   });
+
+  // ============================================================
+  // v1.9 二级细节·bluevelvet 件 2：衣帽间的一角（后台语言）——
+  // 东墙黄铜门帘杆（双托座+端头球）挂半幅深蓝绒帘 + 号牌架
+  // （木背板+三排黄铜钩，只挂着五枚空号牌，其余钩子空着）。
+  // E → 号牌们轻碰出一串细响。
+  // ============================================================
+  const coatNook = new THREE.Group();
+  {
+    // 门帘杆：细杆 + 端头球 + 双壁装托座 + 六只帘环
+    const rodGeos = [
+      xform(new THREE.CylinderGeometry(0.016, 0.016, 1.9, 10), 0, 2.25, 0, 0, 0, Math.PI / 2),
+      xform(new THREE.SphereGeometry(0.034, 10, 8), -0.97, 2.25, 0),
+      xform(new THREE.SphereGeometry(0.034, 10, 8), 0.97, 2.25, 0),
+      xform(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 8), -0.72, 2.25, -0.08, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 8), 0.72, 2.25, -0.08, Math.PI / 2, 0, 0)
+    ];
+    for (let i = 0; i < 6; i++) {
+      rodGeos.push(xform(new THREE.TorusGeometry(0.028, 0.006, 6, 12), -0.86 + i * 0.09, 2.222, 0, 0, Math.PI / 2, 0));
+    }
+    coatNook.add(mergedMesh(rodGeos, M.brass));
+    // 半拉的绒帘（挂在杆左端那六只环下）
+    const nookCurtain = curtain(0.85, 2.1, 0x0b1430, 4);
+    nookCurtain.position.set(-0.58, 1.16, 0.01);
+    coatNook.add(nookCurtain);
+    // 号牌架：木背板 + 倒角边 + 三排黄铜钩（大多空着）
+    const board = roundedBoxMesh(0.66, 0.52, 0.028, 0.012, woodMat({
+      base: [30, 19, 13], planks: 2, size: 128, seed: 63, gloss: 0.45
+    }));
+    board.position.set(0.5, 1.62, 0.02);
+    coatNook.add(board);
+    const hookGeos = [];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 4; c++) {
+        hookGeos.push(
+          xform(new THREE.CylinderGeometry(0.006, 0.006, 0.045, 6), 0.29 + c * 0.14, 1.75 - r * 0.155, 0.05, Math.PI / 2 - 0.4, 0, 0),
+          xform(new THREE.SphereGeometry(0.009, 6, 5), 0.29 + c * 0.14, 1.742 - r * 0.155, 0.072)
+        );
+      }
+    }
+    coatNook.add(mergedMesh(hookGeos, M.brass));
+    // 空号牌 ×5（哪五只钩有牌 seeded 定死；牌面无字——没人回来领）
+    const tagPivot = new THREE.Group();
+    const tagGeos = [];
+    const tagSlots = [[0, 0], [0, 2], [1, 1], [2, 0], [2, 3]];
+    for (const [r, c] of tagSlots) {
+      const tx = 0.29 + c * 0.14;
+      const ty = 1.73 - r * 0.155;
+      tagGeos.push(
+        xform(new THREE.TorusGeometry(0.012, 0.004, 6, 10), tx, ty, 0.062, 0.25, 0, 0),
+        xform(roundedBoxGeo(0.052, 0.068, 0.006, 0.008, 2), tx, ty - 0.045, 0.058, 0.12, 0, (r + c) % 2 ? 0.07 : -0.05)
+      );
+    }
+    tagPivot.add(mergedMesh(tagGeos, new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x9a7c46, roughness: 0.42, metalness: 0.9, envMapIntensity: 1.1
+    })));
+    coatNook.add(tagPivot);
+    // 衣帽间小灯：一盏很暗的暖光把号牌从蓝黑里挑出来
+    const nookLamp = new THREE.PointLight(0xffd9a8, 1.1, 3.2, 2);
+    nookLamp.position.set(0.3, 2.4, 0.5);
+    coatNook.add(nookLamp);
+    const tagJingle = { t: -1 };
+    updaters.push((dt, t) => {
+      if (tagJingle.t >= 0) {
+        tagJingle.t += dt;
+        if (tagJingle.t > 2.0) tagJingle.t = -1;
+      }
+      const k = tagJingle.t >= 0 ? Math.exp(-tagJingle.t * 2.2) : 0;
+      tagPivot.rotation.x = Math.sin(t * 12.5) * 0.1 * k;
+      tagPivot.rotation.z = Math.sin(t * 9.8 + 0.5) * 0.05 * k;
+    });
+    hotspots.add(board, {
+      hint: 'E — 衣帽间号牌架',
+      onActivate: () => {
+        if (tagJingle.t < 0) tagJingle.t = 0;
+        audio.sfxAt('jostle', W / 2 - 0.65, 1.4, 0.55);
+        ui.caption('都是没人回来领的号牌。', 3400);
+      }
+    });
+  }
+  coatNook.position.set(W / 2 - 0.65, 0, 1.4);
+  coatNook.rotation.y = -Math.PI / 2;
+  group.add(coatNook);
 
   // ---------- 彩蛋：衣柜的暗侧 ----------
   const closetMat = new THREE.MeshStandardMaterial({

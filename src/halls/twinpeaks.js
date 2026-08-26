@@ -408,6 +408,111 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.9 二级细节·twinpeaks 件 2：柴堆与斧（锯木厂语言落到近景）——
+  // 双立桩夹住三层劈柴（树皮筒身 + 年轮端面朝人）+ 砧木 +
+  // 嵌在砧木里的斧（楔形头+微弯柄）。E → 顶上一根滚了半圈。
+  // ============================================================
+  const woodpile = new THREE.Group();
+  {
+    const barkMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [40, 26, 14], vary: 16, planks: 1, size: 128, seed: 91 }), roughness: 0.95
+    });
+    // 端面共用年轮贴图但整体压暗（夜林里不许发白）
+    const cutMat = new THREE.MeshStandardMaterial({ map: ringTex, color: 0x8f7c60, roughness: 0.88 });
+    const wpRng = rng(58);
+    const barkGeos = [];
+    const cutGeos = [];
+    // 三层柴（4+3+2），轴向 X、端面朝东（面向空地中心）
+    const layers = [[4, 0.105], [3, 0.215], [2, 0.325]];
+    let topLog = null;
+    for (const [li, [n, y]] of layers.entries()) {
+      for (let i = 0; i < n; i++) {
+        const r0 = 0.075 + wpRng() * 0.02;
+        const len = 0.5 + wpRng() * 0.08;
+        const z0 = (i - (n - 1) / 2) * 0.185 + (wpRng() - 0.5) * 0.02;
+        const x0 = (wpRng() - 0.5) * 0.06;
+        const bark = xform(new THREE.CylinderGeometry(r0, r0, len, 10, 1, true), x0, y, z0, 0, 0, Math.PI / 2);
+        barkGeos.push(bark);
+        cutGeos.push(xform(new THREE.CircleGeometry(r0 * 0.96, 12), x0 + len / 2 + 0.002, y, z0, 0, Math.PI / 2, 0));
+        cutGeos.push(xform(new THREE.CircleGeometry(r0 * 0.96, 12), x0 - len / 2 - 0.002, y, z0, 0, -Math.PI / 2, 0));
+        if (li === 2 && i === 0) topLog = { x: x0, y, z: z0, r: r0, len };
+      }
+    }
+    woodpile.add(mergedMesh(barkGeos, barkMat), mergedMesh(cutGeos, cutMat));
+    // 双立桩（防散）+ 砧木（前侧独立一墩）
+    woodpile.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.03, 0.038, 0.62, 8), 0, 0.31, -0.46),
+      xform(new THREE.CylinderGeometry(0.03, 0.038, 0.62, 8), 0, 0.31, 0.46),
+      xform(new THREE.CylinderGeometry(0.17, 0.19, 0.5, 12), 0.02, 0.25, 0.95)
+    ], barkMat));
+    const blockTop = new THREE.Mesh(new THREE.CircleGeometry(0.165, 14), cutMat);
+    blockTop.rotation.x = -Math.PI / 2;
+    blockTop.position.set(0.02, 0.502, 0.95);
+    woodpile.add(blockTop);
+    // 斧：楔形头（缩放盒）+ 刃口亮线 + 微斜木柄——嵌进砧木顶
+    const axe = new THREE.Group();
+    const axeHead = mergedMesh([
+      xform(new THREE.BoxGeometry(0.05, 0.12, 0.16), 0, 0, 0),
+      xform(new THREE.BoxGeometry(0.012, 0.1, 0.17), 0, -0.01, 0.01)
+    ], new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x777d84, roughness: 0.4, metalness: 0.9
+    }));
+    axeHead.position.set(0, 0.05, 0);
+    const axeHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.016, 0.02, 0.72, 8),
+      new THREE.MeshStandardMaterial({
+        map: woodTexture({ base: [70, 48, 26], planks: 1, size: 128, seed: 92 }), roughness: 0.7
+      })
+    );
+    axeHandle.position.set(0, 0.3, -0.14);
+    axeHandle.rotation.x = 0.42;
+    axe.add(axeHead, axeHandle);
+    axe.position.set(0.02, 0.52, 0.95);
+    axe.rotation.set(-0.08, 0.5, 0.06);
+    woodpile.add(axe);
+    // 顶上那根：E → 滚小半圈又晃停（woodknock 三连磕）
+    const rollPivot = new THREE.Group();
+    rollPivot.position.set(topLog.x, topLog.y, topLog.z);
+    const rollLog = new THREE.Mesh(new THREE.CylinderGeometry(topLog.r, topLog.r, topLog.len, 10, 1, true), barkMat);
+    rollLog.rotation.z = Math.PI / 2;
+    const rollCapA = new THREE.Mesh(new THREE.CircleGeometry(topLog.r * 0.96, 12), cutMat);
+    rollCapA.position.x = topLog.len / 2 + 0.002;
+    rollCapA.rotation.y = Math.PI / 2;
+    const rollCapB = rollCapA.clone();
+    rollCapB.position.x = -topLog.len / 2 - 0.002;
+    rollCapB.rotation.y = -Math.PI / 2;
+    rollPivot.add(rollLog, rollCapA, rollCapB);
+    rollPivot.position.y += 0.11; // 顶层再叠一根（第 4 层单根，E 的主角）
+    woodpile.add(rollPivot);
+    const rollState = { t: -1 };
+    updaters.push((dt) => {
+      if (rollState.t < 0) return;
+      rollState.t += dt;
+      const u = rollState.t;
+      if (u > 2.2) { rollState.t = -1; return; }
+      // 前 0.5s 滚出小半圈 + 位移，之后原地晃停
+      const k = Math.min(1, u / 0.5);
+      rollPivot.rotation.x = k * 1.7 + Math.sin(Math.max(0, u - 0.5) * 9) * 0.06 * Math.exp(-(u - 0.5) * 2.4);
+      rollPivot.position.z = topLog.z + k * 0.1;
+    });
+    hotspots.add(rollLog, {
+      hint: 'E — 劈好的柴垛',
+      onActivate: () => {
+        if (rollState.t < 0) {
+          rollState.t = 0;
+          rollPivot.rotation.x = 0;
+          rollPivot.position.z = topLog.z;
+        }
+        audio.sfxAt('woodknock', -7.2, 0.6, 0.7);
+        ui.caption('柴是新劈的。斧口还没凉。', 3600);
+      }
+    });
+  }
+  woodpile.position.set(-7.2, 0, 0.6);
+  woodpile.rotation.y = 0.35;
+  group.add(woodpile);
+
   // 本厅唯一引语立牌（走近才显影）
   const q1 = quoteStand(quoteById('darkness'), '#3fae6a');
   q1.position.set(-4.6, 0, 5.2);
@@ -505,33 +610,87 @@ export function build(ctx) {
   chairB.position.set(1.6, 0, -0.5);
   chairB.rotation.y = -Math.PI / 2 - 0.2;
   redRoom.add(chairA, chairB);
-  // 落地灯（可开关 —— 房间的两副面孔）
-  const rrLampPole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.025, 0.14, 1.7, 12),
-    new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x6b5232, roughness: 0.35, metalness: 0.9 })
-  );
-  rrLampPole.position.set(0.2, 0.85, -2.2);
+  // 落地灯 v2（v1.9 二级细节·twinpeaks 件 1）——可开关，房间的两副面孔。
+  // 车削黄铜灯身（三层踏座+束腰立杆+中膝球）+ 丝罩（织物微透光）+
+  // 罩沿一圈流苏穗（22 支小锥错落）+ 顶针 finial + 黄铜拉链（开关时荡起来）
+  const rrLamp = new THREE.Group();
+  const rrBrass = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x6b5232, roughness: 0.35, metalness: 0.9, envMapIntensity: 1.1
+  });
+  rrLamp.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.19, 0), new THREE.Vector2(0.17, 0.02), new THREE.Vector2(0.12, 0.05),
+      new THREE.Vector2(0.1, 0.07), new THREE.Vector2(0.05, 0.1), new THREE.Vector2(0.02, 0.14),
+      new THREE.Vector2(0.016, 0.8), new THREE.Vector2(0.045, 0.88), new THREE.Vector2(0.016, 0.96),
+      new THREE.Vector2(0.014, 1.62), new THREE.Vector2(0.03, 1.66), new THREE.Vector2(0.012, 1.7)
+    ], 18),
+    rrBrass
+  ));
   const rrShade = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.3, 0.32, 16, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xd8ccb2, roughness: 0.8, side: THREE.DoubleSide, emissive: 0xffe2b0, emissiveIntensity: 0.7 })
+    new THREE.CylinderGeometry(0.2, 0.31, 0.3, 18, 1, true),
+    new THREE.MeshStandardMaterial({
+      color: 0xd8ccb2, roughness: 0.82, side: THREE.DoubleSide,
+      emissive: 0xffe2b0, emissiveIntensity: 0.7
+    })
   );
-  rrShade.position.set(0.2, 1.78, -2.2);
+  rrShade.position.y = 1.78;
+  rrLamp.add(rrShade);
+  // 流苏穗圈：罩沿下 22 支收尖小锥（错落长短），跟一圈细束绳
+  const rrFringeGeos = [xform(new THREE.TorusGeometry(0.312, 0.006, 6, 24), 0, 1.632, 0, Math.PI / 2, 0, 0)];
+  const rrFrRng = rng(77);
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
+    rrFringeGeos.push(xform(
+      new THREE.LatheGeometry([
+        new THREE.Vector2(0.007, 0), new THREE.Vector2(0.01, -0.02),
+        new THREE.Vector2(0.006, -0.05 - rrFrRng() * 0.02), new THREE.Vector2(0.001, -0.062 - rrFrRng() * 0.02)
+      ], 6),
+      Math.cos(a) * 0.312, 1.63, Math.sin(a) * 0.312
+    ));
+  }
+  const rrFringe = mergedMesh(rrFringeGeos, new THREE.MeshStandardMaterial({
+    color: 0xc9b087, roughness: 0.7, metalness: 0.12
+  }));
+  rrLamp.add(rrFringe);
+  // 顶针 + 拉链（链坠开关时荡）
+  rrLamp.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.02, 1.93), new THREE.Vector2(0.028, 1.96), new THREE.Vector2(0.008, 2.0),
+      new THREE.Vector2(0.001, 2.02)
+    ], 10),
+    rrBrass
+  ));
+  const rrChain = new THREE.Group();
+  rrChain.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.0035, 0.0035, 0.1, 6), 0, -0.05, 0),
+    xform(new THREE.SphereGeometry(0.012, 8, 6), 0, -0.115, 0)
+  ], rrBrass));
+  rrChain.position.set(0.16, 1.66, 0.1);
+  rrLamp.add(rrChain);
+  rrLamp.position.set(0.2, 0, -2.2);
+  redRoom.add(rrLamp);
   const rrLampLight = new THREE.PointLight(0xffd9a8, 7, 10, 1.7);
   rrLampLight.position.set(0.2, 1.7, -2.2);
   const rrRedWash = new THREE.PointLight(0xd4243c, 9, 13, 1.6);
   rrRedWash.position.set(0, 3.6, 0);
-  redRoom.add(rrLampPole, rrShade, rrLampLight, rrRedWash);
-  const rrState = { warm: 1 };
+  redRoom.add(rrLampLight, rrRedWash);
+  const rrState = { warm: 1, chain: 0 };
   updaters.push((dt, t) => {
     const f = 1 + Math.sin(t * 6.2) * 0.05;
     rrLampLight.intensity = 7 * f * rrState.warm;
     rrShade.material.emissiveIntensity = 0.7 * Math.max(rrState.warm, 0.04);
     rrRedWash.intensity = rrState.warm > 0.5 ? 9 : 20 + Math.sin(t * 2.1) * 5;
+    // 拉链余荡（拉一下后指数衰减）+ 流苏永远差半拍跟着晃
+    if (rrState.chain > 0) rrState.chain = Math.max(0, rrState.chain - dt * 0.55);
+    rrChain.rotation.z = Math.sin(t * 9.2) * 0.5 * rrState.chain;
+    rrChain.rotation.x = Math.sin(t * 7.7 + 0.6) * 0.35 * rrState.chain;
+    rrFringe.rotation.y = Math.sin(t * 1.1) * 0.01 + Math.sin(t * 8.4 - 0.5) * 0.02 * rrState.chain;
   });
   hotspots.add(rrShade, {
     hint: 'E — 落地灯（这间房有两副面孔）',
     onActivate: () => {
       rrState.warm = rrState.warm ? 0 : 1;
+      rrState.chain = 1;
       audio.sfx(rrState.warm ? 'lampon' : 'lampoff');
     }
   });
