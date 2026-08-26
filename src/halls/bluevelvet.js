@@ -21,7 +21,13 @@ export const meta = {
   narration: 'bluevelvet',
   space: 'room',
   floorSfx: 'wood',
-  look: { saturation: 0.92, tint: 0xdfe6ff, fogColor: 0x030409, fogDensity: 0.05, bg: 0x02030a, exposure: 1.0, bloom: 0.95 }
+  look: {
+    saturation: 0.92, tint: 0xdfe6ff, fogColor: 0x030409, fogDensity: 0.05,
+    bg: 0x02030a, exposure: 1.0, bloom: 0.95,
+    // v1.4 P4/P5：蓝调暗部 + 冷增益，halation 让桌灯在蓝屋里晕出暖圈
+    halation: 0.15,
+    grade: { lift: [0.004, 0.006, 0.018], gamma: [0.97, 1.0, 1.05], gain: [0.97, 0.99, 1.06] }
+  }
 };
 
 const W = 19;
@@ -89,6 +95,26 @@ export function build(ctx) {
   const footWash = new THREE.PointLight(0xffc48a, 3, 6, 1.8);
   footWash.position.set(0, 0.9, -D / 2 + 4.2);
   group.add(footWash);
+  // v1.4 台口 v2：脚灯槽罩——底槽 + 观众侧遮光斜板 + 两端端板，
+  // 灯泡有了「装在里面」的装配感，光只向舞台侧溢出（P3 去预制体感）
+  const troughGeos = [
+    xform(new THREE.BoxGeometry(8.6, 0.06, 0.26), 0, 0.57, -D / 2 + 4.14),
+    xform(new THREE.BoxGeometry(8.6, 0.015, 0.18), 0, 0.665, -D / 2 + 4.24, 0.55, 0, 0),
+    xform(new THREE.BoxGeometry(0.015, 0.12, 0.24), -4.29, 0.63, -D / 2 + 4.16),
+    xform(new THREE.BoxGeometry(0.015, 0.12, 0.24), 4.29, 0.63, -D / 2 + 4.16)
+  ];
+  group.add(mergedMesh(troughGeos, brassMat));
+  // v1.4 台口 v2：侧幕腿 ×2 + 顶部帘头——舞台开口有了完整的画框
+  const legMat = velvetMaterial(0x0b142e);
+  for (const sx of [-1, 1]) {
+    const leg = curtain(1.4, 5.6, 0x0b142e, 4, legMat);
+    leg.position.set(sx * 4.55, 2.8, -D / 2 + 3.95);
+    leg.rotation.y = -sx * 0.14;
+    group.add(leg);
+  }
+  const header = curtain(9.8, 1.3, 0x0b142e, 11, legMat);
+  header.position.set(0, 5.42, -D / 2 + 3.98);
+  group.add(header);
 
   // 舞台后幕 —— 更亮的蓝天鹅绒 + 帷头层
   const backdrop = curtainWithValance(9.4, 5.2, 0x1a2c66, 8);
@@ -244,6 +270,115 @@ export function build(ctx) {
   });
 
   // ============================================================
+  // 丝绒卡座半圆包厢（东墙；v1.4 P3 重做件）
+  // 弧形软包靠背（双排缝扣 + 黄铜滚边）+ 半环长垫（枕端收头）
+  // + 独立包厢桌灯（并入桌灯烛光系统）+ 「已预留」牌
+  // ============================================================
+  const booth = new THREE.Group();
+  const boothBack = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.42, 1.42, 1.15, 40, 1, true, -Math.PI / 2, Math.PI),
+    velvetMaterial(0x1a2a60)
+  );
+  boothBack.position.y = 0.93;
+  booth.add(boothBack);
+  booth.add(mergedMesh([
+    xform(new THREE.TorusGeometry(1.42, 0.03, 8, 48, Math.PI), 0, 1.505, 0, Math.PI / 2, 0, 0)
+  ], brassMat));
+  // 双排缝扣（错位排布，软包不再是一张光皮）
+  const btnGeo = new THREE.SphereGeometry(0.021, 8, 6);
+  const btnGeos = [];
+  for (let i = 0; i < 9; i++) {
+    const th = -Math.PI * 0.42 + (i / 8) * Math.PI * 0.84;
+    btnGeos.push(xform(btnGeo, Math.sin(th) * 1.395, 1.08, Math.cos(th) * 1.395));
+  }
+  for (let i = 0; i < 8; i++) {
+    const th = -Math.PI * 0.375 + (i / 7) * Math.PI * 0.75;
+    btnGeos.push(xform(btnGeo, Math.sin(th) * 1.395, 0.78, Math.cos(th) * 1.395));
+  }
+  btnGeo.dispose();
+  booth.add(mergedMesh(btnGeos, new THREE.MeshStandardMaterial({
+    color: 0x0d1434, roughness: 0.38, envMapIntensity: 1.2
+  })));
+  // 半环长垫：压扁的半环 + 两端枕头收头（不是又一只圆角箱）
+  const cushion = mergedMesh([
+    xform(new THREE.TorusGeometry(1.02, 0.16, 12, 48, Math.PI), 0, 0, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.SphereGeometry(0.16, 12, 10), -1.02, 0, 0),
+    xform(new THREE.SphereGeometry(0.16, 12, 10), 1.02, 0, 0)
+  ], velvetMaterial(0x131f4c));
+  cushion.scale.set(1, 0.55, 1);
+  cushion.position.y = 0.43;
+  booth.add(cushion);
+  const skirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.0, 1.06, 0.38, 32, 1, true, -Math.PI / 2, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0x0a0f24, roughness: 0.85 })
+  );
+  skirt.position.y = 0.19;
+  booth.add(skirt);
+  // 包厢桌 + 独立桌灯（并入 lamps：随烛光颤动、随深蓝时刻熄灭）
+  const bTable = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 24), tableMat);
+  bTable.position.set(0, 0.78, 0.12);
+  const bLeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.2, 0.78, 12),
+    new THREE.MeshStandardMaterial({ color: 0x0c0608, roughness: 0.5 })
+  );
+  bLeg.position.set(0, 0.39, 0.12);
+  const bStem = new THREE.Mesh(lampStemGeo, brassMat);
+  bStem.position.set(0, 0.805, 0.12);
+  const bShade = new THREE.Mesh(lampShadeGeo, lampShadeMat);
+  bShade.position.set(0, 0.96, 0.12);
+  const bGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.045, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc48a, emissiveIntensity: 3.4 })
+  );
+  bGlow.position.set(0, 1.04, 0.12);
+  const bLight = new THREE.PointLight(0xff9e5e, 2.6, 5, 2);
+  bLight.position.set(0, 1.16, 0.12);
+  booth.add(bTable, bLeg, bStem, bShade, bGlow, bLight);
+  lamps.push({ light: bLight, glow: bGlow });
+  // 「已预留」立牌（帐篷折卡）
+  const cardTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    g.fillStyle = '#efe6d2';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#8a6c3c';
+    g.lineWidth = 3;
+    g.strokeRect(8, 8, s - 16, s - 16);
+    g.fillStyle = '#2a2018';
+    g.font = 'bold 34px serif';
+    g.textAlign = 'center';
+    g.fillText('已 预 留', s / 2, 62);
+    g.fillStyle = '#8a6c3c';
+    g.font = '13px serif';
+    g.fillText('R E S E R V E D', s / 2, 92);
+  });
+  const cardGeo = new THREE.PlaneGeometry(0.15, 0.1);
+  const card = mergedMesh([
+    xform(cardGeo, 0, 0.048, 0.02, -0.38, 0, 0),
+    xform(cardGeo, 0, 0.048, -0.02, 0.38, 0, 0)
+  ], new THREE.MeshStandardMaterial({ map: cardTex, side: THREE.DoubleSide, roughness: 0.7 }));
+  cardGeo.dispose();
+  card.position.set(0, 0.805, 0.34);
+  booth.add(card);
+  booth.position.set(7.75, 0, 1.7);
+  booth.rotation.y = Math.PI / 2; // 开口朝西迎向房间
+  group.add(booth);
+  const boothFlare = { v: 0 };
+  updaters.push((dt) => {
+    if (boothFlare.v <= 0.01) return;
+    boothFlare.v *= Math.max(0, 1 - dt * 1.1);
+    bLight.intensity = 2.6 * dimState.warm + boothFlare.v * 6;
+    bGlow.material.emissiveIntensity = 3.4 * Math.max(dimState.warm, 0.12) + boothFlare.v * 4;
+  });
+  hotspots.add(card, {
+    hint: 'E — 包厢预留牌',
+    onActivate: () => {
+      audio.sfx('page', 0.7);
+      boothFlare.v = 1;
+      ui.caption('「已预留」。没有名字，也没有日期。', 3600);
+    }
+  });
+
+  // ============================================================
   // 吧台一角（西墙）：背光酒瓶墙 + 吧凳 + 黄铜脚踏
   // ============================================================
   const bar = new THREE.Group();
@@ -259,6 +394,38 @@ export function build(ctx) {
   brassRail.rotation.x = Math.PI / 2;
   brassRail.position.set(-W / 2 + 2.25, 0.22, 0.8);
   bar.add(barTop, barBody, brassRail);
+  // v1.4 P2 独有印迹：台面酒渍杯印贴花层——窄长画布贴合台面比例（杯印保持正圆），
+  // 干涸残渍比蜡面更光滑，在吊灯下泛出一圈圈旧夜的痕迹；一枚正压在那杯酒底下
+  const ringCv = document.createElement('canvas');
+  ringCv.width = 128;
+  ringCv.height = 1024;
+  const rg = ringCv.getContext('2d');
+  const rr = (() => { let s = 24; return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }; })();
+  const stampRing = (px, py, rad) => {
+    for (let k = 0; k < 3; k++) {
+      const a0 = rr() * Math.PI * 2;
+      const arc = Math.PI * (0.5 + rr() * 1.3);
+      rg.strokeStyle = `rgba(226,214,188,${0.14 + rr() * 0.18})`;
+      rg.lineWidth = 1 + rr() * 1.6;
+      rg.beginPath();
+      rg.arc(px, py, rad - k * 1.2, a0, a0 + arc);
+      rg.stroke();
+    }
+  };
+  stampRing(71, 281, 7.5); // 威士忌杯正下方（z=-0.6 处）
+  for (let i = 0; i < 8; i++) stampRing(20 + rr() * 88, 80 + rr() * 860, 5 + rr() * 5);
+  const ringTex = new THREE.CanvasTexture(ringCv);
+  ringTex.colorSpace = THREE.SRGBColorSpace;
+  const ringDecal = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.86, 6.2),
+    new THREE.MeshPhysicalMaterial({
+      map: ringTex, transparent: true, roughness: 0.16, metalness: 0,
+      envMapIntensity: 1.3, depthWrite: false
+    })
+  );
+  ringDecal.rotation.x = -Math.PI / 2;
+  ringDecal.position.set(-W / 2 + 1.7, 1.1265, 0.8);
+  bar.add(ringDecal);
   // 背柜 + 酒瓶墙（发光轮廓，合并两组）
   const backbar = roundedBoxMesh(0.34, 2.6, 6.4, 0.04,
     new THREE.MeshStandardMaterial({ map: woodTexture({ base: [20, 12, 14], planks: 3, vertical: true, size: 256 }), roughness: 0.6 }));
@@ -299,10 +466,30 @@ export function build(ctx) {
     emissive: bottleTints[k].emissive, emissiveIntensity: 0.5, envMapIntensity: 1.6
   })));
   for (const m of bottleMeshes) bar.add(m);
-  // 背光条
+  // 背光条（v1.4 P1：均匀发光大色块 → 渐变光带，两端与上下缘熄灭，
+  // 酒瓶重新有了剪影层次）
+  const barGlowTex = canvasTexture(128, (g, s) => {
+    const grad = g.createLinearGradient(0, s, 0, 0);
+    grad.addColorStop(0, 'rgb(4,7,14)');
+    grad.addColorStop(0.42, 'rgb(46,110,190)');
+    grad.addColorStop(0.7, 'rgb(18,50,96)');
+    grad.addColorStop(1, 'rgb(2,4,8)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+    const side = g.createLinearGradient(0, 0, s, 0);
+    side.addColorStop(0, 'rgba(0,0,0,0.92)');
+    side.addColorStop(0.16, 'rgba(0,0,0,0)');
+    side.addColorStop(0.84, 'rgba(0,0,0,0)');
+    side.addColorStop(1, 'rgba(0,0,0,0.92)');
+    g.fillStyle = side;
+    g.fillRect(0, 0, s, s);
+  });
   const barGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(6.2, 1.4),
-    new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: 0x3ec5ff, emissiveIntensity: 0.55 })
+    new THREE.MeshStandardMaterial({
+      color: 0x05070c, map: barGlowTex,
+      emissive: 0xffffff, emissiveMap: barGlowTex, emissiveIntensity: 1.0
+    })
   );
   barGlow.position.set(-W / 2 + 0.58, 1.9, 0.8);
   barGlow.rotation.y = Math.PI / 2;
@@ -311,7 +498,7 @@ export function build(ctx) {
   barLight.position.set(-W / 2 + 1.4, 2.1, 0.8);
   bar.add(barLight);
   updaters.push((dt, t) => {
-    barGlow.material.emissiveIntensity = 0.5 + Math.sin(t * 1.9) * 0.12;
+    barGlow.material.emissiveIntensity = 0.95 + Math.sin(t * 1.9) * 0.18;
     bottleMeshes.forEach((m, k) => {
       m.material.emissiveIntensity = 0.42 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.14;
     });

@@ -744,7 +744,7 @@ export function zoneTrigger({ x, z, r }, onEnter, { cooldown = 20, once = false 
   return trig;
 }
 
-/** 立式话筒（车削底座 + 网格头） */
+/** 立式话筒 v2（v1.4 P3：车削底座 + 药丸头 + 铬鳍片网罩 + 后倾支耳） */
 export function micStand() {
   const g = new THREE.Group();
   const metal = new THREE.MeshStandardMaterial({
@@ -756,13 +756,39 @@ export function micStand() {
     basePts.push(new THREE.Vector2(0.26 * (1 - t * t * 0.72), t * 0.07));
   }
   const base = new THREE.Mesh(new THREE.LatheGeometry(basePts, 22), metal);
+  const baseRing = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.012, 8, 26), metal);
+  baseRing.rotation.x = Math.PI / 2;
+  baseRing.position.y = 0.035;
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.45, 10), metal);
   pole.position.y = 0.75;
   const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 10), metal);
   collar.position.y = 1.05;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 18, 14), metal);
-  head.position.y = 1.5;
-  g.add(base, pole, collar, head);
+  // 五十年代药丸头：网面凹凸 + 三道水平铬鳍 + 双侧支耳（微后倾）
+  const meshBump = noiseCanvasTexture(64, 128, 90, 6);
+  const headMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(128, 118, 40), color: 0xb8bcc2, roughness: 0.3, metalness: 0.92,
+    bumpMap: meshBump, bumpScale: 0.25, envMapIntensity: 1.4
+  });
+  const headGrp = new THREE.Group();
+  const pill = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.1, 6, 14), headMat);
+  const finGeos = [];
+  const finGeo = new THREE.TorusGeometry(0.077, 0.008, 6, 20);
+  for (const y of [-0.045, 0, 0.045]) finGeos.push(xform(finGeo, 0, y, 0, Math.PI / 2, 0, 0));
+  finGeo.dispose();
+  const fins = mergedMesh(finGeos, metal);
+  const lugGeos = [
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.05, 8), -0.085, -0.09, 0, 0, 0, 0.5),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.05, 8), 0.085, -0.09, 0, 0, 0, -0.5)
+  ];
+  // 防喷圈：短臂挑出的细铬环，随头部一起后仰
+  const popGeos = [
+    xform(new THREE.TorusGeometry(0.052, 0.005, 6, 22), 0, 0.05, 0.125),
+    xform(new THREE.CylinderGeometry(0.004, 0.004, 0.1, 6), 0, 0.02, 0.075, Math.PI / 2, 0, 0)
+  ];
+  headGrp.add(pill, fins, mergedMesh(lugGeos, metal), mergedMesh(popGeos, metal));
+  headGrp.position.y = 1.52;
+  headGrp.rotation.x = 0.22; // 朝观众微俯
+  g.add(base, baseRing, pole, collar, headGrp);
   return g;
 }
 
