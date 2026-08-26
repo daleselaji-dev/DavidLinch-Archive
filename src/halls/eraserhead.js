@@ -8,8 +8,8 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
   smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
-  mergedMesh, xform, roundedBoxMesh, brushedMetalTexture,
-  concreteMat, brickMat, hangingBulb, rng
+  mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
+  concreteMat, brickMat, hangingBulb, rustMat, rng
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -21,7 +21,13 @@ export const meta = {
   narration: 'eraserhead',
   space: 'tiled',
   floorSfx: 'concrete',
-  look: { saturation: 0.09, tint: 0xe9edf2, fogColor: 0x050507, fogDensity: 0.052, bg: 0x030304, exposure: 0.88, bloom: 0.62 }
+  look: {
+    saturation: 0.09, tint: 0xe9edf2, fogColor: 0x050507, fogDensity: 0.052,
+    bg: 0x030304, exposure: 0.88, bloom: 0.62,
+    // v1.4 P4/P5：单色厅——冷灰暗部微抬 + 冷高光，halation 收敛（工业白光的乳晕）
+    halation: 0.1,
+    grade: { lift: [0.01, 0.011, 0.014], gamma: [1.02, 1.02, 1.02], gain: [0.98, 1.0, 1.03] }
+  }
 };
 
 const S = 17; // 主房间边长
@@ -181,45 +187,179 @@ export function build(ctx) {
   flangeGeo.dispose();
   group.add(mergedMesh(flangeGeos, pipeMat));
 
-  // 大机器 —— 圆角机体 + 铆钉 + 飞轮 + 活塞
+  // 大机器 v2 —— 真曲柄连杆机构（v1.4 P3 英雄资产）：
+  // 飞轮（轮辋+六辐+轮毂+曲柄销+扇形配重）→ 连杆 → 十字头（双导轨）→ 活塞杆
+  // → 立式汽缸（法兰/缸盖螺栓/填料函，铸铁立柱承托）；
+  // 顶置天轴皮带把"动力从天花板传下来"——传动链每一环都可读（装配感）
   const machine = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(256, 92, 40), color: 0x303036, roughness: 0.5, metalness: 0.72, envMapIntensity: 0.8
   });
   const body = roundedBoxMesh(3.4, 2.2, 1.8, 0.12, bodyMat);
-  body.position.y = 1.1;
+  body.position.y = 1.24;
+  // 锈蚀底橇：机器坐在槽钢框上（rustSet 五通道），不再直接长在地里
+  const skidMat = rustMat({ seed: 77, rust: 0.62, repX: 2, repY: 1 });
+  machine.add(mergedMesh([
+    xform(new THREE.BoxGeometry(4.0, 0.18, 0.34), 0, 0.09, 0.75),
+    xform(new THREE.BoxGeometry(4.0, 0.18, 0.34), 0, 0.09, -0.75),
+    xform(new THREE.BoxGeometry(0.34, 0.18, 1.32), -1.8, 0.09, 0),
+    xform(new THREE.BoxGeometry(0.34, 0.18, 1.32), 1.8, 0.09, 0)
+  ], skidMat));
+  // 地脚螺栓板 ×4（每块两颗六角头）
+  const padGeos = [];
+  for (const [px, pz] of [[-1.9, 0.75], [1.9, 0.75], [-1.9, -0.75], [1.9, -0.75]]) {
+    padGeos.push(xform(new THREE.BoxGeometry(0.3, 0.05, 0.44), px, 0.025, pz));
+    padGeos.push(xform(new THREE.CylinderGeometry(0.03, 0.03, 0.09, 6), px, 0.06, pz - 0.14));
+    padGeos.push(xform(new THREE.CylinderGeometry(0.03, 0.03, 0.09, 6), px, 0.06, pz + 0.14));
+  }
+  machine.add(mergedMesh(padGeos, pipeMat));
   // 铆钉排（合并）
   const rivetGeo = new THREE.SphereGeometry(0.035, 6, 5);
   const rivetGeos = [];
   for (let i = 0; i < 10; i++) {
-    rivetGeos.push(xform(rivetGeo, -1.5 + i * 0.33, 2.14, 0.91));
-    rivetGeos.push(xform(rivetGeo, -1.5 + i * 0.33, 0.12, 0.91));
+    rivetGeos.push(xform(rivetGeo, -1.5 + i * 0.33, 2.28, 0.91));
+    rivetGeos.push(xform(rivetGeo, -1.5 + i * 0.33, 0.26, 0.91));
   }
   rivetGeo.dispose();
   machine.add(mergedMesh(rivetGeos, pipeMat));
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.13, 12, 32), pipeMat);
-  wheel.position.set(1.95, 1.35, 0);
-  wheel.rotation.y = Math.PI / 2;
-  const spokes = new THREE.Group();
-  for (let i = 0; i < 4; i++) {
-    const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.8, 8), pipeMat);
-    sp.rotation.x = (i / 4) * Math.PI;
-    spokes.add(sp);
+  // ---- 飞轮 v2（整组绕轴自转；曲柄销带出连杆） ----
+  const flyGroup = new THREE.Group();
+  flyGroup.position.set(1.95, 1.35, 0);
+  flyGroup.rotation.y = Math.PI / 2;
+  const wheelSpin = new THREE.Group();
+  const flyGeos = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    flyGeos.push(xform(new THREE.CylinderGeometry(0.042, 0.058, 0.84, 8),
+      Math.cos(a) * 0.46, Math.sin(a) * 0.46, 0, 0, 0, a - Math.PI / 2));
   }
-  spokes.position.copy(wheel.position);
-  const piston = roundedBoxMesh(0.5, 0.7, 0.5, 0.06, pipeMat);
-  piston.position.set(-1.2, 2.6, 0);
-  machine.add(body, wheel, spokes, piston);
+  flyGeos.push(xform(new THREE.TorusGeometry(0.95, 0.13, 12, 36), 0, 0, 0));
+  flyGeos.push(xform(new THREE.CylinderGeometry(0.16, 0.16, 0.5, 14), 0, 0, 0.1, Math.PI / 2, 0, 0));
+  // 扇形配重（曲柄销对侧的月牙铁——真机器为平衡往复质量都长这个）
+  flyGeos.push(xform(new THREE.TorusGeometry(0.62, 0.095, 8, 14, 1.5), 0, 0, 0.02, 0, 0, Math.PI - 0.75));
+  // 曲柄销 + 销座
+  flyGeos.push(xform(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 10), 0.42, 0, 0.06, Math.PI / 2, 0, 0));
+  flyGeos.push(xform(new THREE.CylinderGeometry(0.05, 0.05, 0.26, 10), 0.42, 0, 0.18, Math.PI / 2, 0, 0));
+  // 皮带轮（与飞轮同轴同转）+ 双侧挡边
+  flyGeos.push(xform(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 18), 0, 0, 0.34, Math.PI / 2, 0, 0));
+  flyGeos.push(xform(new THREE.CylinderGeometry(0.335, 0.335, 0.02, 18), 0, 0, 0.3, Math.PI / 2, 0, 0));
+  flyGeos.push(xform(new THREE.CylinderGeometry(0.335, 0.335, 0.02, 18), 0, 0, 0.38, Math.PI / 2, 0, 0));
+  wheelSpin.add(mergedMesh(flyGeos, pipeMat));
+  flyGroup.add(wheelSpin);
+  machine.add(flyGroup);
+  // ---- 十字头 + 活塞杆（沿导轨往复） ----
+  const crosshead = new THREE.Group();
+  crosshead.add(mergedMesh([
+    roundedBoxGeo(0.2, 0.26, 0.13, 0.03),
+    xform(new THREE.CylinderGeometry(0.032, 0.032, 1.25, 10), 0, 0.66, 0)
+  ], pipeMat));
+  crosshead.position.x = 2.13;
+  machine.add(crosshead);
+  // ---- 连杆（小端挂十字头销，大端追曲柄销摆动） ----
+  const rodPivot = new THREE.Group();
+  rodPivot.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.034, 0.05, 1.0, 10), 0, -0.5, 0),
+    xform(new THREE.CylinderGeometry(0.078, 0.078, 0.1, 12), 0, -1.0, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.055, 0.055, 0.09, 10), 0, 0, 0, Math.PI / 2, 0, 0)
+  ], pipeMat));
+  rodPivot.position.x = 2.13;
+  machine.add(rodPivot);
+  // ---- 导轨 + 铸铁立柱 + 立式汽缸（静件合并单 mesh） ----
+  machine.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.024, 0.024, 1.24, 8), 2.13, 2.36, 0.15),
+    xform(new THREE.CylinderGeometry(0.024, 0.024, 1.24, 8), 2.13, 2.36, -0.15),
+    xform(new THREE.BoxGeometry(0.62, 0.07, 0.42), 2.42, 1.72, 0),
+    xform(new THREE.BoxGeometry(0.62, 0.07, 0.42), 2.42, 2.98, 0),
+    xform(roundedBoxGeo(0.26, 3.05, 0.34, 0.05), 2.62, 1.53, 0),
+    xform(new THREE.BoxGeometry(0.46, 0.1, 0.52), 2.62, 0.05, 0),
+    xform(new THREE.BoxGeometry(0.62, 0.14, 0.3), 2.38, 3.06, 0),
+    // 立式汽缸：底法兰 / 缸体 / 顶盖 / 填料函
+    xform(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 16), 2.13, 3.16, 0),
+    xform(new THREE.CylinderGeometry(0.24, 0.24, 1.2, 16), 2.13, 3.78, 0),
+    xform(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 16), 2.13, 4.42, 0),
+    xform(new THREE.CylinderGeometry(0.085, 0.085, 0.22, 10), 2.13, 3.05, 0),
+    // 顶盖螺栓 ×6
+    ...[0, 1, 2, 3, 4, 5].map((i) => {
+      const a = (i / 6) * Math.PI * 2;
+      return xform(new THREE.CylinderGeometry(0.024, 0.024, 0.07, 6),
+        2.13 + Math.cos(a) * 0.26, 4.5, Math.sin(a) * 0.26);
+    })
+  ], bodyMat));
+  // ---- 顶置天轴皮带传动：吊架/天轴/从动轮（静）+ 皮带 + 接缝块（巡回的运动锚点） ----
+  machine.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.045, 0.045, 1.7, 10), 2.25, 5.15, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.BoxGeometry(0.07, 0.45, 0.07), 1.55, 5.38, 0),
+    xform(new THREE.BoxGeometry(0.07, 0.45, 0.07), 2.95, 5.38, 0),
+    xform(new THREE.BoxGeometry(0.2, 0.05, 0.2), 1.55, 5.58, 0),
+    xform(new THREE.BoxGeometry(0.2, 0.05, 0.2), 2.95, 5.58, 0),
+    xform(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 18), 2.29, 5.15, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.335, 0.335, 0.02, 18), 2.235, 5.15, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.335, 0.335, 0.02, 18), 2.345, 5.15, 0, 0, 0, Math.PI / 2)
+  ], pipeMat));
+  const beltMat = new THREE.MeshStandardMaterial({ color: 0x17130f, roughness: 0.92, metalness: 0.05 });
+  const wrapTop = new THREE.TorusGeometry(0.3, 0.028, 5, 18, Math.PI);
+  wrapTop.scale(1, 1, 2.2);
+  const wrapBot = new THREE.TorusGeometry(0.3, 0.028, 5, 18, Math.PI);
+  wrapBot.scale(1, 1, 2.2);
+  machine.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.1, 3.8, 0.024), 2.29, 3.25, 0.3),
+    xform(new THREE.BoxGeometry(0.1, 3.8, 0.024), 2.29, 3.25, -0.3),
+    xform(wrapTop, 2.29, 5.15, 0, 0, Math.PI / 2, 0),
+    xform(wrapBot, 2.29, 1.35, 0, 0, Math.PI / 2, Math.PI)
+  ], beltMat));
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.032), pipeMat);
+  machine.add(seam);
+  // ---- 飞轮护栏（半圈弯管 + 双立柱；可敲——机器会打个嗝） ----
+  const guard = mergedMesh([
+    xform(new THREE.TorusGeometry(1.24, 0.028, 6, 24, Math.PI + 0.4), 1.95, 1.35, 0, 0, Math.PI / 2, -0.2),
+    xform(new THREE.CylinderGeometry(0.028, 0.028, 1.12, 8), 1.95, 0.56, 1.216),
+    xform(new THREE.CylinderGeometry(0.028, 0.028, 1.12, 8), 1.95, 0.56, -1.216)
+  ], pipeMat);
+  machine.add(guard);
+  machine.add(body);
   machine.position.set(-4.6, 0, -4.9);
   machine.rotation.y = 0.5;
   group.add(machine);
-  const machineState = { run: 1, angle: 0, phase: 0 };
+  // 曲柄连杆运动学：R=曲柄半径，L=连杆长；十字头 y = pinY + √(L²−pinZ²)
+  const machineState = { run: 1, angle: 0 };
+  const CRANK_R = 0.42;
+  const ROD_L = 1.0;
+  let seamD = 0;
+  const beltPath = (d) => {
+    const runL = 3.8;
+    const r = 0.3;
+    const P = 2 * runL + 2 * Math.PI * r;
+    d = ((d % P) + P) % P;
+    if (d < runL) return [1.35 + d, 0.3];
+    d -= runL;
+    if (d < Math.PI * r) return [5.15 + Math.sin(d / r) * r, Math.cos(d / r) * 0.3];
+    d -= Math.PI * r;
+    if (d < runL) return [5.15 - d, -0.3];
+    d -= runL;
+    return [1.35 - Math.sin(d / r) * r, -Math.cos(d / r) * 0.3];
+  };
   updaters.push((dt) => {
     machineState.angle += dt * 1.7 * machineState.run;
-    machineState.phase += dt * 3.4 * machineState.run;
-    wheel.rotation.z = machineState.angle;
-    spokes.rotation.x = machineState.angle;
-    piston.position.y = 2.6 + Math.sin(machineState.phase) * 0.32;
+    const th = machineState.angle;
+    wheelSpin.rotation.z = th;
+    const pinY = 1.35 + Math.sin(th) * CRANK_R;
+    const pinZ = -Math.cos(th) * CRANK_R;
+    const slide = Math.sqrt(ROD_L * ROD_L - pinZ * pinZ);
+    crosshead.position.y = pinY + slide;
+    rodPivot.position.y = pinY + slide;
+    rodPivot.rotation.x = Math.atan2(-pinZ, slide);
+    seamD += dt * 1.7 * machineState.run * 0.3;
+    const [sy, sz] = beltPath(seamD);
+    seam.position.set(2.29, sy, sz);
+  });
+  hotspots.add(guard, {
+    hint: 'E — 敲敲飞轮护栏',
+    onActivate: () => {
+      audio.sfxAt('clank', -2.9, -5.9, 0.8, 3);
+      machineState.run = 0.35; // 打个嗝，随后被恢复更新器拉回 1
+      setTimeout(() => audio.sfxAt('creak', -2.9, -5.9, 0.35, 3), 340);
+      ui.caption('它听见了，但它不打算停。', 3400);
+    }
   });
 
   // 蒸汽（拉杆触发时喷发）
@@ -690,6 +830,82 @@ export function build(ctx) {
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
   group.add(boilerRoom);
+
+  // ---------- 泄压总管 —— 东墙的锈蚀集汽包（v1.4 P2 rustSet 五通道） ----------
+  // 卧式总管 + 三根立管肘弯进砖墙 + 青铜泄压手轮 + 地面滴水盘；
+  // 转动手轮 → 本厅喷汽 + 大机器泄气减速 + 隔壁锅炉房三块压力表狂跳（跨房连锁）
+  const manifold = new THREE.Group();
+  const maniRust = rustMat({ seed: 63, rust: 0.7, repX: 2, repY: 1 });
+  const header = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 2.5, 16), maniRust);
+  header.rotation.x = Math.PI / 2;
+  manifold.add(header);
+  const riserGeos = [];
+  for (const rz of [-0.85, 0, 0.85]) {
+    riserGeos.push(xform(new THREE.CylinderGeometry(0.075, 0.075, 1.15, 12), 0, 0.65, rz));
+    riserGeos.push(xform(new THREE.TorusGeometry(0.14, 0.075, 8, 8, Math.PI / 2), 0.14, 1.225, rz, 0, 0, Math.PI / 2));
+    riserGeos.push(xform(new THREE.CylinderGeometry(0.075, 0.075, 0.35, 12), 0.31, 1.365, rz, 0, 0, Math.PI / 2));
+    riserGeos.push(xform(new THREE.CylinderGeometry(0.105, 0.105, 0.05, 12), 0, 0.35, rz));
+  }
+  // 墙装抱箍 ×2：半环箍带 + 双横撑到砖墙（总管不再悬浮）
+  for (const bz of [-0.55, 0.55]) {
+    riserGeos.push(xform(new THREE.TorusGeometry(0.175, 0.022, 6, 14, Math.PI), 0, 0, bz, 0, 0, Math.PI / 2));
+    riserGeos.push(xform(new THREE.BoxGeometry(0.3, 0.055, 0.055), 0.15, 0.175, bz));
+    riserGeos.push(xform(new THREE.BoxGeometry(0.3, 0.055, 0.055), 0.15, -0.175, bz));
+  }
+  manifold.add(mergedMesh(riserGeos, maniRust));
+  const reliefBody = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.3, 12), pipeMat);
+  reliefBody.rotation.z = Math.PI / 2;
+  reliefBody.position.set(-0.24, 0, 0.4);
+  manifold.add(reliefBody);
+  const bronzeMat = new THREE.MeshStandardMaterial({
+    color: 0x7a5a30, roughness: 0.4, metalness: 0.9, envMapIntensity: 1.1
+  });
+  const hwGeos = [xform(new THREE.TorusGeometry(0.13, 0.02, 8, 20), 0, 0, 0, 0, Math.PI / 2, 0)];
+  for (let i = 0; i < 3; i++) {
+    hwGeos.push(xform(new THREE.CylinderGeometry(0.012, 0.012, 0.25, 6), 0, 0, 0, (i / 3) * Math.PI, 0, 0));
+  }
+  hwGeos.push(xform(new THREE.SphereGeometry(0.035, 8, 6), 0, 0, 0));
+  hwGeos.push(xform(new THREE.CylinderGeometry(0.015, 0.015, 0.16, 6), 0.07, 0, 0, 0, 0, Math.PI / 2));
+  const handwheel = mergedMesh(hwGeos, bronzeMat);
+  handwheel.position.set(-0.44, 0, 0.4);
+  manifold.add(handwheel);
+  manifold.position.set(S / 2 - 0.35, 1.15, 1.7);
+  group.add(manifold);
+  const panBox = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.09, 0.6), maniRust);
+  panBox.position.set(S / 2 - 0.55, 0.045, 1.7);
+  const panWater = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.5, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x0a0c0d, roughness: 0.07, metalness: 0.1, envMapIntensity: 1.5 })
+  );
+  panWater.rotation.x = -Math.PI / 2;
+  panWater.position.set(S / 2 - 0.55, 0.092, 1.7);
+  group.add(panBox, panWater);
+  const ventSteam = smokeLayer(10, { x: 0.5, z: 0.9 }, {
+    opacity: 0, size: 1.3, yBase: 0.1, ySpread: 1.6, color: 0xdde2e6
+  });
+  ventSteam.position.set(S / 2 - 0.75, 1.2, 1.7);
+  group.add(ventSteam);
+  updaters.push(ventSteam.userData.update);
+  const vent = { v: 0 };
+  updaters.push((dt) => {
+    if (vent.v > 0) {
+      vent.v -= dt;
+      handwheel.rotation.x += dt * 6;
+    }
+    ventSteam.material.opacity = Math.max(0, Math.min(vent.v, 1)) * 0.3;
+  });
+  hotspots.add(handwheel, {
+    hint: 'E — 泄压手轮',
+    onActivate: () => {
+      vent.v = 3.6;
+      pressure.surge = 4.0; // 连锁：锅炉房三块压力表同时狂跳
+      machineState.run = 0.5; // 大机器泄了口气，再自己缓过来
+      audio.sfxAt('clank', S / 2 - 0.4, 1.7, 0.7, 3);
+      setTimeout(() => audio.sfxAt('steam', S / 2 - 0.6, 1.7, 0.95, 4), 240);
+      setTimeout(() => audio.sfx('steamfar', 0.5), 1400);
+      ui.caption('这栋楼松了一口气。隔壁的表都知道了。', 4200);
+    }
+  });
 
   // ---------- 彩蛋：暖气炉里的小舞台 ----------
   const stageGlow = new THREE.PointLight(0xfff9ec, 0, 12, 1.6);
