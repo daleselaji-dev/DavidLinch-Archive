@@ -9,7 +9,7 @@ import {
   neonSign, micStand, smokeLayer, dustField, lightCone, quotePlaque, vitrine,
   velvetMaterial, zoneTrigger, rectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
-  woodMat, fabricMat
+  woodMat, fabricMat, rng
 } from './kit.js';
 import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -132,6 +132,50 @@ export function build(ctx) {
   const cone = lightCone(0.35, 1.7, 5.2, 0xdfe6ff, 0.07);
   cone.position.set(0, 3.1, -D / 2 + 2.3);
   group.add(cone);
+  // v1.4 二遍：舞台生活痕迹——返听音箱楔（网面朝话筒）+ 话筒线沿台面
+  // 拖去侧幕（悬链小弯 + 两道胶带压线）；舞台从「布景」变「刚用过的台」
+  const wedge = new THREE.Group();
+  wedge.add(new THREE.Mesh(roundedBoxGeo(0.56, 0.32, 0.4, 0.03),
+    new THREE.MeshStandardMaterial({ color: 0x101014, roughness: 0.7 })));
+  const grilleTex = canvasTexture(64, (g2, s) => {
+    g2.fillStyle = '#08080a';
+    g2.fillRect(0, 0, s, s);
+    g2.fillStyle = '#1e1e26';
+    for (let yy = 4; yy < s; yy += 8) {
+      for (let xx = 4; xx < s; xx += 8) {
+        g2.beginPath();
+        g2.arc(xx, yy, 2.2, 0, Math.PI * 2);
+        g2.fill();
+      }
+    }
+  });
+  const grille = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.48, 0.26),
+    new THREE.MeshStandardMaterial({ map: grilleTex, roughness: 0.9 })
+  );
+  grille.position.z = 0.203;
+  wedge.add(grille);
+  wedge.rotation.order = 'YXZ';
+  wedge.rotation.set(-0.55, -2.45, 0);
+  wedge.position.set(1.18, 0.7, -D / 2 + 3.42);
+  group.add(wedge);
+  const cablePath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.07, 0.565, -D / 2 + 2.42),
+    new THREE.Vector3(0.52, 0.565, -D / 2 + 2.88),
+    new THREE.Vector3(0.34, 0.565, -D / 2 + 3.34),
+    new THREE.Vector3(-1.5, 0.565, -D / 2 + 3.62),
+    new THREE.Vector3(-3.5, 0.565, -D / 2 + 3.28),
+    new THREE.Vector3(-4.25, 0.565, -D / 2 + 2.95)
+  ]);
+  const cable = new THREE.Mesh(
+    new THREE.TubeGeometry(cablePath, 44, 0.011, 6),
+    new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.92 })
+  );
+  group.add(cable);
+  group.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.15, 0.005, 0.07), -0.6, 0.567, -D / 2 + 3.56, 0, 0.35, 0),
+    xform(new THREE.BoxGeometry(0.15, 0.005, 0.07), -2.9, 0.567, -D / 2 + 3.4, 0, -0.5, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x18181c, roughness: 0.85 })));
 
   // 幕绳 —— 拉一下，后幕全幅打个寒颤，脚灯跟着亮一拍
   const pullRope = new THREE.Group();
@@ -243,6 +287,72 @@ export function build(ctx) {
       light.intensity = 2.6 * f * dimState.warm;
       glow.material.emissiveIntensity = 3.4 * f * Math.max(dimState.warm, 0.12);
     });
+  });
+
+  // v1.4 二遍：桌面生活痕迹——玻璃烟灰缸/威士忌残杯/搁着的烟（seeded 摆位，
+  // 各桌不重样：一张干净、一杯已空；烬头按「有人在抽」的节奏明灭）
+  const setR = rng(41);
+  const TABLE_TOP = 0.805;
+  const ashProfile = [
+    new THREE.Vector2(0.0, 0.0), new THREE.Vector2(0.06, 0.005), new THREE.Vector2(0.063, 0.03),
+    new THREE.Vector2(0.05, 0.034), new THREE.Vector2(0.015, 0.013), new THREE.Vector2(0.0, 0.012)
+  ];
+  const glassProfile = [
+    new THREE.Vector2(0.0, 0.0), new THREE.Vector2(0.036, 0.003), new THREE.Vector2(0.04, 0.012),
+    new THREE.Vector2(0.042, 0.092), new THREE.Vector2(0.038, 0.092), new THREE.Vector2(0.036, 0.02),
+    new THREE.Vector2(0.0, 0.014)
+  ];
+  const ashGeos = [];
+  const glassGeos = [];
+  const liquorGeos = [];
+  const cigGeos = [];
+  const emberGeos = [];
+  tablePos.forEach(([x, z], i) => {
+    const aa = setR() * Math.PI * 2;
+    if (i !== 4) {
+      const ax = x + Math.cos(aa) * 0.3;
+      const az = z + Math.sin(aa) * 0.3;
+      ashGeos.push(xform(new THREE.LatheGeometry(ashProfile, 14), ax, TABLE_TOP, az));
+      if (i === 0 || i === 3) {
+        const ca = setR() * Math.PI * 2;
+        const cg = new THREE.CylinderGeometry(0.0034, 0.0034, 0.072, 6);
+        cg.rotateZ(Math.PI / 2);
+        cg.rotateY(-ca);
+        cigGeos.push(xform(cg, ax, TABLE_TOP + 0.035, az));
+        emberGeos.push(xform(new THREE.SphereGeometry(0.0044, 6, 5),
+          ax + Math.cos(ca) * 0.037, TABLE_TOP + 0.035, az + Math.sin(ca) * 0.037));
+      }
+    }
+    if (i === 1 || i === 3 || i === 4) {
+      const ga = setR() * Math.PI * 2;
+      const gx = x + Math.cos(ga) * 0.33;
+      const gz = z + Math.sin(ga) * 0.33;
+      glassGeos.push(xform(new THREE.LatheGeometry(glassProfile, 14), gx, TABLE_TOP, gz));
+      if (i !== 4) liquorGeos.push(xform(new THREE.CylinderGeometry(0.031, 0.033, 0.03, 12), gx, TABLE_TOP + 0.023, gz));
+    }
+  });
+  group.add(
+    mergedMesh(ashGeos, new THREE.MeshPhysicalMaterial({
+      color: 0xbfd0d8, roughness: 0.08, transparent: true, opacity: 0.42,
+      side: THREE.DoubleSide, envMapIntensity: 1.5
+    })),
+    mergedMesh(glassGeos, new THREE.MeshPhysicalMaterial({
+      color: 0xd6e2ea, roughness: 0.06, transparent: true, opacity: 0.38,
+      side: THREE.DoubleSide, envMapIntensity: 1.6
+    })),
+    mergedMesh(liquorGeos, new THREE.MeshPhysicalMaterial({
+      color: 0x8a4a10, roughness: 0.05, transparent: true, opacity: 0.88, envMapIntensity: 1.2
+    })),
+    mergedMesh(cigGeos, new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.85 }))
+  );
+  const emberMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0a06, emissive: 0xff5a20, emissiveIntensity: 1.6
+  });
+  group.add(mergedMesh(emberGeos, emberMat));
+  updaters.push((dt, t) => {
+    // 烟烬呼吸：慢波（搁着阴燃）+ 偶发亮起（像有人低头吸了一口）
+    const drag = Math.max(0, Math.sin(t * 0.43) - 0.88) * 8;
+    emberMat.emissiveIntensity = 1.1 + Math.sin(t * 2.6) * 0.35 + drag * 2.2;
   });
 
   // "深蓝时刻"开关 —— 一盏桌灯是热点
