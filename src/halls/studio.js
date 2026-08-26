@@ -888,6 +888,58 @@ export function build(ctx) {
       if (blindState.open) ui.caption('外面在下雨。', 3200);
     }
   });
+  // v1.9 抛光第 9 遍·窗外的怪谈：偶尔有一辆车从楼下的巷子开过——
+  // 车灯透过百叶在对面墙上扫一道条纹光，轮胎碾着湿路由远及近再远。
+  // 只在叶片开着时看得见（关着时那辆车也过，只是与你无关）。
+  const sweepTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const grd = g.createLinearGradient(0, 0, s, 0);
+    grd.addColorStop(0, 'rgba(255,228,190,0)');
+    grd.addColorStop(0.35, 'rgba(255,228,190,0.6)');
+    grd.addColorStop(0.65, 'rgba(255,228,190,0.6)');
+    grd.addColorStop(1, 'rgba(255,228,190,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, s, s);
+    // 抠出百叶的 12 道暗缝（墙上的投影和窗上的叶片同一套节拍）
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = 'rgba(0,0,0,0.88)';
+    for (let i = 0; i < 12; i++) {
+      g.fillRect(0, i * (s / 12) + (s / 12) * 0.55, s, (s / 12) * 0.45);
+    }
+  });
+  const sweep = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.5),
+    new THREE.MeshBasicMaterial({
+      map: sweepTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+  sweep.position.set(-W / 2 + 0.03, 1.9, -3.4);
+  sweep.rotation.y = Math.PI / 2;
+  group.add(sweep);
+  const carLight = new THREE.PointLight(0xffd9a8, 0, 9, 1.8);
+  carLight.position.set(W / 2 - 0.5, 2.0, -3.4);
+  group.add(carLight);
+  const carState = { timer: 34 + Math.random() * 40, t: -1 };
+  const CAR_DUR = 4.6;
+  updaters.push((dt) => {
+    if (carState.t < 0) {
+      if (blindState.v < 0.5) return;
+      carState.timer -= dt;
+      if (carState.timer > 0) return;
+      carState.timer = 70 + Math.random() * 55;
+      carState.t = 0;
+      audio.sfxAt('carpass', W / 2, -3.4, 0.55, 12);
+      return;
+    }
+    carState.t += dt;
+    const p = Math.min(1, carState.t / CAR_DUR);
+    const env = Math.pow(Math.sin(p * Math.PI), 1.6);
+    sweep.material.opacity = env * 0.8 * blindState.v;
+    sweep.position.z = -5.4 + p * 3.8;
+    sweep.rotation.z = 0.1 - p * 0.2; // 光斑掠过时的轻微斜切（车在动，不是灯在动）
+    carLight.intensity = env * 5.5;
+    carLight.position.z = -5.0 + p * 3.2;
+    if (p >= 1) { carState.t = -1; sweep.material.opacity = 0; carLight.intensity = 0; }
+  });
 
   // 墙上的两幅暗色抽象画（原创程序化）
   for (const [z, seed] of [[1.2, 3], [4.0, 8]]) {

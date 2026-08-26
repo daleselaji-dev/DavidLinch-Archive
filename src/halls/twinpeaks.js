@@ -780,6 +780,54 @@ export function build(ctx) {
       ui.caption('不知道是谁的。还热。', 3600);
     }
   });
+  // v1.9 抛光第 9 遍·幕后的怪谈：人在红房间里待着，每 55–100s
+  // 有什么东西贴着帷幕外侧走过一段——布被从外面顶出一道人形的鼓，
+  // 慢慢挪过去又平回去（同料绒布椭球从褶皱里长出来，抽象无面目）。
+  // 只在你在场时发生：没人看，它不走。
+  // 与幕布同料同色——读出来靠的是「平滑鼓面打断褶皱节奏」，不是换色
+  const rrWalker = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 18), gateMat);
+  rrWalker.scale.set(0.05, 0.85, 0.3);
+  rrWalker.visible = false;
+  redRoom.add(rrWalker);
+  const rrWalk = { timer: 26 + Math.random() * 38, t: -1, phi0: 0, dir: 1, said: false };
+  const RR_WALK_DUR = 5.2;
+  updaters.push((dt) => {
+    if (rrWalk.t < 0) {
+      if (Math.hypot(player.x + 20, player.z + 16) > 5.6) return;
+      rrWalk.timer -= dt;
+      if (rrWalk.timer > 0) return;
+      rrWalk.timer = 55 + Math.random() * 45;
+      rrWalk.t = 0;
+      rrWalk.dir = Math.random() < 0.5 ? -1 : 1;
+      // 走段收在帷幕弧内（小径缺口两侧各留 0.35rad 安全边）
+      const a0 = entryA + gapArc / 2;
+      const span = Math.PI * 2 - gapArc;
+      rrWalk.phi0 = a0 + 0.35 + Math.random() * (span - 0.7 - 1.5);
+      if (rrWalk.dir < 0) rrWalk.phi0 += 1.5;
+      rrWalker.visible = true;
+      audio.sfxAt('tassel',
+        -20 + Math.cos(rrWalk.phi0) * 5.45, -16 + Math.sin(rrWalk.phi0) * 5.45, 0.24, 6);
+      if (!rrWalk.said) {
+        rrWalk.said = true;
+        ui.caption('有东西贴着布走。', 3800);
+      }
+      return;
+    }
+    const pPrev = rrWalk.t / RR_WALK_DUR;
+    rrWalk.t += dt;
+    const p = Math.min(1, rrWalk.t / RR_WALK_DUR);
+    const phi = rrWalk.phi0 + rrWalk.dir * 1.5 * p;
+    // 两端从布里长出来再沉回去；中途带一点走路的起伏
+    const swell = Math.min(1, Math.min(p, 1 - p) * 5.5);
+    rrWalker.position.set(
+      Math.cos(phi) * 5.5, 1.0 + Math.sin(rrWalk.t * 5.8) * 0.04, Math.sin(phi) * 5.5);
+    rrWalker.rotation.y = -phi;
+    rrWalker.scale.set(0.05 + 0.21 * swell, 0.85, 0.3);
+    if (pPrev < 0.48 && p >= 0.48) {
+      audio.sfxAt('tassel', -20 + Math.cos(phi) * 5.45, -16 + Math.sin(phi) * 5.45, 0.2, 6);
+    }
+    if (p >= 1) { rrWalk.t = -1; rrWalker.visible = false; }
+  });
   group.add(redRoom);
 
   // ============================================================

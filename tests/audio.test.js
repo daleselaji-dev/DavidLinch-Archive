@@ -137,7 +137,7 @@ describe('v1.4 阶段 5 新音色（配套阶段 3/4 新交互；源码审计）
 
 describe('v1.9 阶段 2 新音色（配套七厅两件新交互；源码审计）', () => {
   const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
-  const NEW_V19 = ['flamegut', 'woodknock', 'porcelain', 'sharpen', 'tassel', 'glasswipe', 'chainrattle', 'tapewhirr'];
+  const NEW_V19 = ['flamegut', 'woodknock', 'porcelain', 'sharpen', 'tassel', 'glasswipe', 'chainrattle', 'tapewhirr', 'carpass'];
   it.each(NEW_V19)('音色 %s 已实现', (name) => {
     expect(src).toContain(`case '${name}'`);
   });
