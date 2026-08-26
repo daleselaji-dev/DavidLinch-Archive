@@ -341,6 +341,14 @@ export class AudioEngine {
         tone('sine', 58, 34, 0.22, 0.3);
         tone('sine', 52, 30, 0.26, 0.34, 0.42);
         break;
+      case 'scrape': { // 金属刮擦（v1.8 拐角惊吓）: 宽带擦噪拖行下坠 + 双声高位金属啸 + 尾端石屑
+        const f = noise('pink', 0.9, 'bandpass', 950, 3, 0.16, 0, 0.16);
+        f.frequency.linearRampToValueAtTime(340, t + 0.85);
+        tone('sawtooth', 2140, 1580, 0.5, 0.016, 0.08);
+        tone('sawtooth', 3260, 2380, 0.32, 0.011, 0.18);
+        noise('white', 0.06, 'highpass', 4300, 2, 0.045, 0.76);
+        break;
+      }
       case 'scare': { // 惊吓主体: 失谐锯齿簇 + 噪声墙 + 次声坠落
         for (const f of [92, 97, 184, 189, 371]) {
           tone('sawtooth', f, f * 0.42, 1.15, 0.11);

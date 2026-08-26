@@ -194,3 +194,18 @@
 | 2026-08-26 10:44 | 2026-08-26 10:56 | 41/42 | essays.js：NARRATIONS 重写为讲解员导览（24–96 字/≤3 句/事实锚点/全馆 ≤620 字）+ DOCENT 随行讲解层（六条引语注解）；kit.quoteStandUpdater 驻足 1.6s 低声补讲；overlay.showPlaque 只留名言（note/aside 退场）；彩蛋 +5（摸帷幕/台座光涌/浓缩杯/场记板/绒垫原木），普查 122，INTERACTIVE_MIN 重锁 -1 | 同上 |
 | 2026-08-26 10:56 | 2026-08-26 11:50 | 验证 | 单测重写：turnscare.test.js ×11（甩头/慢转/小甩/未上膛/区外/15fps/单帧突变/冷却/force/参数一致）+ narration.test.js 讲解员组 + mulholland-path 武装区守卫——211 用例全绿；npm run smoke 全绿；**运行时冒烟首跑红**：swiftshader ≈2.5fps 且 dt 钳 0.1s → 游戏时钟只有真实 1/4~1/10，armTime 1s 要十几秒真实时间才上膛，15s 预算不够——写临时探针（debug-scare.cjs，逐秒报机位+帧率）定位后把冒烟预算放到 40s + 每 3s 补甩，复跑全绿：「转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口」 | commit `bb0f293`；三连全绿 |
 | 2026-08-26 11:50 | 2026-08-26 12:0x | 文档/发布 | 门禁 39–43 入册 + TESTING（转身惊吓复现步骤/边界抽查/交互密度 122）+ CHANGELOG v1.7.0 + README/BUILD 同步 + mulholland 冒烟阈值收严 17；`npm run dist:win` 重打包 1.7.0 双 exe + SHA256SUMS 重写 | commit（本条）+ release/ 三件 |
+
+## v1.8 —— 拐角后面的东西（穆赫兰道惊吓大升级）
+
+**设计意图**：v1.7 的转身惊吓是「你自己吓自己」，但主惊吓不该依赖玩家恰好
+甩头——原作的戏剧位置是**拐过那个拐角**。v1.8 主触发改为拐角朝向触发
+（zoneTrigger 系），转身惊吓降级保留为第二重扳机；同时把惊吓从「一拍冲脸」
+升级成**多幕节奏**（预兆→留白→顿挪现身→扑近），形体从帷形人影升级为
+更细的拐角魅影。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-26 13:42 | 2026-08-26 13:50 | 0 | 从 1.7.0 tip（436b668，非 main——main 已被过时 PR#3 污染）建分支；npm ci；基线 211 单测复跑全绿；通读 mulholland/kit 惊吓与冒烟链路，确认 walkPath 同步步进只暴露终点位（zone 触发只认渲染帧采样）——冒烟可用「停在区外一步→再走进区」实现自然触发断言 | 分支 `cursor/mulholland-corner-scare-180-a993`；vitest 211 绿 |
+| 2026-08-26 13:50 | 2026-08-26 14:05 | 44/45 | kit 三件：`cornerTrigger`（圆区 + lookAt 视锥 ±fov/2，卷绕安全，背向不触发，75s 冷却可重复）、`lurchEase`（阶梯缓动纯函数：每步前 42% smoothstep 快挪其余停住）、`cornerWraith`（车削主身非对称后处理：背侧驼峰/兜帽埋头 + 13 条 seeded 裙裾破布条 + 双段垂臂独立枢轴，setLurch/setRush 两套身体语言）；audio `scrape` 金属刮擦（bandpass 擦噪下坠 + 双高位啸 + 尾端石屑）；mulholland：CORNER_SCARE/SCARE_BEATS/WAKE_POINT 数据导出、doCornerScare 多幕 later 链（panic 灯狂闪→灭 + 双层 duck 抽真空留白 + 刮擦/心跳渐密 + 剪影光 + 顿挪→扑近→shock→黑幕→错位）、恐惧拍让位主惊吓、场景二级细节（墙角刮痕交互 + 地面拖痕焦斑）、eggs `corner-scare` | commit `c0fe468` |
+| 2026-08-26 14:05 | 2026-08-26 14:1x | 验证 | `tests/cornerscare.test.js` ×27 + audio v1.8 组 ×2 → **240 用例全绿**；npm run smoke 全绿；electron 冒烟改两段断言（走进拐角区自然引爆 → 传回巷口；再走空地 spinYaw 断言转身扳机保留，拐角 75s 冷却防复触发）+ INTERACTIVE_MIN mulholland 17→18——xvfb 运行时冒烟全绿：「拐角惊吓自然触发 OK」「转身惊吓自然触发 OK」、mulholland 交互 19、206 mesh/98.5k tris/21 灯预算内、彩蛋 corner-scare/turn-scare/alley-dread 三连引爆 | 冒烟日志全绿 |
+| 2026-08-26 14:1x | 2026-08-26 14:2x | 46/文档 | 门禁 44–46 入册；CHANGELOG v1.8.0；TESTING（拐角复现步骤零剧透版/边界抽查/两重惊吓冒烟说明/密度 123）；README（拐角主惊吓/123 交互/58 音色）；BUILD/版本 1.8.0；WORKLOG 本段；exe 重打包交由发布流程（门禁 46 留一项未勾） | commit（本条） |

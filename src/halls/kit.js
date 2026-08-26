@@ -874,6 +874,171 @@ export function veiledFigure(height = 2.25) {
 }
 
 /**
+ * 拐角魅影 —— v1.8 拐角惊吓主体（抽象无面目，比帷形人影更细一级）。
+ * 车削主身之上做非对称后处理：肩背向后隆起一坨驼峰、头前倾埋进
+ * 兜帽（任何角度都读不出脸，只有「一个佝偻的人形」）；裙裾下摆
+ * 一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 + 收尖
+ * 手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
+ * 极暗红内衬自发光：剪影光下只读出轮廓，闪光拍里读出体积。
+ * userData: { pivot, mat, setLurch(s,t) 顿挪体态, setRush(k,t) 扑近形变 }
+ */
+export function cornerWraith(height = 2.35) {
+  const group = new THREE.Group();
+  const pivot = new THREE.Group();
+  group.add(pivot);
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0x050307, roughness: 0.92, metalness: 0,
+    sheen: 0.55, sheenColor: 0x1c0812, sheenRoughness: 0.55,
+    emissive: 0x140208, emissiveIntensity: 0.4
+  });
+  const H = height;
+  // 主身：裙裾→收腰→胸背→缩颈→兜帽头（连续车削剖面，48 段光滑）
+  const prof = [
+    [0.36, 0], [0.355, 0.02], [0.315, 0.09], [0.26, 0.22], [0.21, 0.36],
+    [0.175, 0.5], [0.16, 0.58], [0.185, 0.68], [0.205, 0.76], [0.17, 0.8],
+    [0.1, 0.83], [0.078, 0.85], [0.105, 0.885], [0.115, 0.93],
+    [0.085, 0.972], [0.001, 1.0]
+  ].map(([r, y]) => new THREE.Vector2(r * H * 0.5, y * H));
+  const geo = new THREE.LatheGeometry(prof, 48);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    const u = y / H;
+    if (r > 1e-4) {
+      const a = Math.atan2(z, x);
+      // 布褶只在下身；肩颈头保持光洁（与帷形人影同语言，褶更深一点）
+      const fall = Math.max(0, 1 - u / 0.72);
+      const fold = 1 + Math.sin(a * 8) * 0.05 * fall + Math.sin(a * 3 + 2.1) * 0.034 * fall;
+      pos.setX(i, x * fold);
+      pos.setZ(i, z * fold);
+    }
+    // 非对称化（lookAt 后 +z 朝玩家）：驼峰向背侧（-z）隆起、头向玩家侧前倾——
+    // 平滑钟形衰减，不破坏光滑法线
+    const humpB = Math.exp(-Math.pow((u - 0.72) / 0.1, 2));
+    const headF = Math.exp(-Math.pow((u - 0.95) / 0.07, 2));
+    pos.setZ(i, pos.getZ(i) - humpB * H * 0.055 + headF * H * 0.05);
+    pos.setY(i, y - headF * H * 0.02); // 头微微垂下去
+  }
+  geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, mat);
+  pivot.add(body);
+  // 裙裾破布条：一圈 seeded 长短错落的收尖布条（合并单 mesh）
+  const wr = rng(83);
+  const fringeGeos = [];
+  for (let i = 0; i < 13; i++) {
+    const a = (i / 13) * Math.PI * 2 + wr() * 0.3;
+    const fr = H * 0.168 + wr() * H * 0.02;
+    const fl = 0.14 + wr() * 0.2;
+    const cone = new THREE.ConeGeometry(0.028 + wr() * 0.014, fl, 5);
+    cone.translate(0, -fl / 2, 0);
+    fringeGeos.push(xform(cone,
+      Math.cos(a) * fr, 0.1 + wr() * 0.05, Math.sin(a) * fr,
+      (wr() - 0.5) * 0.5, 0, (wr() - 0.5) * 0.5));
+  }
+  const fringe = mergedMesh(fringeGeos, mat);
+  pivot.add(fringe);
+  // 过长垂臂 ×2：肩点枢轴（可摆）→ 上下两段微屈 + 收尖手锥，指尖近地
+  const mkArm = (side) => {
+    const arm = new THREE.Group();
+    const upLen = H * 0.3;
+    const loLen = H * 0.32;
+    const up = new THREE.CylinderGeometry(0.03, 0.042, upLen, 8);
+    up.translate(0, -upLen / 2, 0);
+    const lo = new THREE.CylinderGeometry(0.022, 0.03, loLen, 8);
+    lo.translate(0, -loLen / 2, 0);
+    const hand = new THREE.ConeGeometry(0.045, 0.2, 6);
+    hand.translate(0, -0.1, 0);
+    arm.add(mergedMesh([
+      xform(up, 0, 0, 0, 0.1, 0, side * -0.16),
+      xform(lo, side * upLen * 0.15, -upLen * 0.98, upLen * 0.1, -0.06, 0, side * 0.1),
+      xform(hand, side * upLen * 0.18, -upLen * 0.98 - loLen * 0.99, upLen * 0.06)
+    ], mat));
+    arm.position.set(side * H * 0.115, H * 0.79, -H * 0.01);
+    pivot.add(arm);
+    return arm;
+  };
+  const armL = mkArm(-1);
+  const armR = mkArm(1);
+  pivot.rotation.z = 0.06; // 常态就歪着——最不对劲的一度
+  group.userData.pivot = pivot;
+  group.userData.mat = mat;
+  /** 顿挪体态：s 为 lurchEase 后的阶梯进度——挪的时候侧倾/沉肩/臂拖摆，
+   *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。 */
+  group.userData.setLurch = (s, t = 0) => {
+    const beat = Math.sin(s * Math.PI * 6);
+    pivot.rotation.x = 0.12;
+    pivot.rotation.z = 0.06 + beat * 0.075;
+    pivot.position.y = Math.abs(beat) * 0.035;
+    armL.rotation.x = -0.08 + beat * 0.1;
+    armR.rotation.x = -0.08 - beat * 0.1;
+    armL.rotation.z = 0.05 * beat;
+    armR.rotation.z = 0.05 * beat;
+  };
+  /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆。 */
+  group.userData.setRush = (k, t = 0) => {
+    pivot.rotation.x = 0.12 + 0.3 * k;
+    pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
+    pivot.position.y = 0;
+    armL.rotation.x = -0.08 - 0.55 * k;
+    armR.rotation.x = -0.08 - 0.55 * k;
+    body.scale.set(1 + k * 0.1, 1, 1 + k * 0.1);
+    fringe.scale.set(1 + k * 0.22, 1, 1 + k * 0.22);
+  };
+  return group;
+}
+
+/**
+ * 顿挪缓动（v1.8 拐角惊吓）：把 [0,1] 进度切成 steps 步——每步只在
+ * 前 duty 段用 smoothstep 快挪，其余时间死死停住。「黑影一顿一顿
+ * 从拐角后挪出来」靠的就是这条曲线（纯函数，顿挪性质可单测）。
+ */
+export function lurchEase(k, steps = 3, duty = 0.42) {
+  const kk = Math.min(1, Math.max(0, k));
+  const seg = Math.min(steps - 1, Math.floor(kk * steps));
+  const local = Math.min(1, (kk * steps - seg) / duty);
+  const e = local * local * (3 - 2 * local);
+  return (seg + e) / steps;
+}
+
+/**
+ * 拐角触发器（v1.8 惊吓主机制）—— 玩家走进拐角触发区、且视线落进
+ * 「即将看见」方向的 ±fov/2 锥内即触发：转过拐角、垃圾箱与后门
+ * 方向即将入画的那一步就是扳机。背向穿区（原路北归）不触发；
+ * 面朝墙进区的，转回那个方向的瞬间触发。冷却后可重复。
+ * zone: { x, z, r } 圆形区；lookAt: { x, z } 视线目标点。
+ * 返回 { update(pose, dt), force() }；pose = { x, z, yaw }。
+ */
+export function cornerTrigger(zone, lookAt, onFire, { fov = 2.6, cooldown = 75 } = {}) {
+  let coolT = 0;
+  const r2 = zone.r * zone.r;
+  return {
+    update(pose, dt = 0.016) {
+      if (coolT > 0) { coolT -= dt; return; }
+      const dx = pose.x - zone.x;
+      const dz = pose.z - zone.z;
+      if (dx * dx + dz * dz > r2) return;
+      // 视线方向（yaw 0 → -z）与目标方向的夹角（卷绕安全）
+      const want = Math.atan2(-(lookAt.x - pose.x), -(lookAt.z - pose.z));
+      let d = pose.yaw - want;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      if (Math.abs(d) <= fov / 2) {
+        coolT = cooldown;
+        onFire();
+      }
+    },
+    /** 冒烟测试直接引爆 */
+    force() {
+      coolT = cooldown;
+      onFire();
+    }
+  };
+}
+
+/**
  * 转身触发器（v1.7 惊吓核心机制）—— 玩家在指定区域驻留
  * armTime 秒「上膛」后，快速转身/突然回看（滑动时间窗内累计
  * yaw 转角冲过阈值）即触发。不踩圈、不按键：回头那一下才是扳机。

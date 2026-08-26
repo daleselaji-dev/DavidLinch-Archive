@@ -89,12 +89,11 @@ function createWindow() {
         }).catch(() => {});
         // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28 / v1.7 门禁 42）：
         // 每厅非导航可交互物 ≥ 阈值，且逐一激活（onActivate 全链无异常）
-        // 后才放行去下一厅。v1.7 增补后重锁普查-1：
-        // 大厅 +2（帷幕触摸/独石光缝）、穆赫兰道 +2（台边浓缩/场记板）、
-        // 双峰 +1（绒垫原木）
+        // 后才放行去下一厅。v1.8 增补后重锁普查-1：
+        // 穆赫兰道 +1（墙角刮痕）
         const INTERACTIVE_MIN = {
           lobby: 11, archive: 23, eraserhead: 16, bluevelvet: 14,
-          twinpeaks: 17, mulholland: 17, studio: 17
+          twinpeaks: 17, mulholland: 18, studio: 17
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -109,66 +108,110 @@ function createWindow() {
           console.error(`[smoke] 交互检查失败 ${hall}: ${err && err.message}`);
           app.exit(1);
         });
-        // v1.6 门禁 37 / v1.7 门禁 40：穆赫兰道后巷通路走通性 + 转身惊吓
-        // 自然触发断言。walkPath 把真实玩家逐帧走过 路→右侧便道→票亭
-        // 转角→暗巷→背后空地（全程 bounds 钳制，撞墙即失败）；站定
-        // 1.6s（> armTime 上膛）后 spinYaw(π) 模拟猛回头——转身触发器
-        // 在下一渲染帧看到 yaw 突变即自然引爆，空间错位应把玩家移回
-        // 巷口 (9.7, 9.5)。
+        // v1.6 门禁 37 / v1.7 门禁 40 / v1.8 门禁 44：穆赫兰道后巷通路
+        // 走通性 + 两重惊吓自然触发断言。
+        // ① 拐角惊吓（v1.8 主触发）：walkPath 把真实玩家逐帧走过
+        //    路→右侧便道→票亭转角→暗巷（停在拐角触发区北缘外），再一步
+        //    走进拐角区——南行朝向天然落在「垃圾箱·后门」视锥内，
+        //    cornerTrigger 在下一渲染帧自然引爆多幕序列（实时钟 ~6.5s），
+        //    空间错位应把玩家移回巷口 (9.7, 9.5)。
+        // ② 转身惊吓（v1.7 保留第二扳机）：再走到空地站定点，站定
+        //    1.6s（> armTime 上膛）后 spinYaw(π) 模拟猛回头——turnTrigger
+        //    看到 yaw 突变即自然引爆，同样移回巷口。拐角触发器 75s
+        //    冷却（游戏时钟）保证第二段路过拐角区不复触发。
+        const pollUntilWake = (label, budgetMs, onWake, onTick) => {
+          const t0 = Date.now();
+          const poll = () => {
+            win.webContents.executeJavaScript(
+              '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+            ).then((at) => {
+              if (at === '9.7,9.5') {
+                onWake();
+              } else if (Date.now() - t0 > budgetMs) {
+                console.error(`[smoke] ${label} 未完成（机位 ${at}，期望 9.7,9.5）`);
+                app.exit(1);
+              } else {
+                if (onTick) onTick();
+                setTimeout(poll, 500);
+              }
+            }).catch((err) => {
+              console.error(`[smoke] ${label} 断言失败`, err && err.message ? err.message : err);
+              app.exit(1);
+            });
+          };
+          setTimeout(poll, 800);
+        };
         const maybeWalkTest = (done) => {
           if (hall !== 'mulholland') { done(); return; }
-          const route = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -29.5], [2.0, -30.3]]);
-          win.webContents.executeJavaScript(`window.__SV__.walkPath(${route})`, true).then((r) => {
-            console.log(`[smoke] 后巷走通性 mulholland: ${JSON.stringify(r)}`);
-            if (!r || !r.ok) {
-              console.error('[smoke] 后巷通路不通：玩家撞墙走不到空地站定点');
+          // ① 走到拐角触发区北缘外一步（zone 圆心 9.25,-25.9 r2.3 → 北缘 z≈-23.6）
+          const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -23.2]]);
+          win.webContents.executeJavaScript(`window.__SV__.walkPath(${routeA})`, true).then((rA) => {
+            console.log(`[smoke] 后巷走通性（至拐角前）mulholland: ${JSON.stringify(rA)}`);
+            if (!rA || !rA.ok) {
+              console.error('[smoke] 后巷通路不通：玩家撞墙走不到拐角');
               app.exit(1);
               return;
             }
-            // 站定上膛（armTime 1s 按游戏时钟计；swiftshader ≈1–2.5fps 且
-            // dt 钳 0.1s → 游戏时间只有真实时间的 1/4~1/10，上膛可能要
-            // 十几秒真实时间）。每 3s 甩一次头（真人也会再回头），累计角
-            // 每次重新拉满，等 dwell 追上 armTime 那一甩即自然引爆；
-            // 总预算 40s 覆盖全巡检内存压力下的最低帧率。
-            const spin = () =>
-              win.webContents.executeJavaScript('window.__SV__.spinYaw(Math.PI)', true).then(() => {
-                console.log('[smoke] 模拟猛回头 spinYaw(π)：等待转身惊吓自然触发…');
-              }).catch((err) => {
-                console.error('[smoke] spinYaw 执行失败', err && err.message ? err.message : err);
+            // 再一步走进拐角区（面朝南——垃圾箱·后门方向在视锥内），
+            // 下一渲染帧 cornerTrigger 自然引爆（不靠 triggerEggs 强制）
+            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -25.9]])', true).then((rB) => {
+              if (!rB || !rB.ok) {
+                console.error('[smoke] 走进拐角触发区失败');
                 app.exit(1);
+                return;
+              }
+              console.log('[smoke] 已走进拐角触发区：等待拐角惊吓多幕序列自然触发…');
+              // 多幕序列 later 链按实时钟走（~6.5s）+ 软渲染冗余 → 预算 40s
+              pollUntilWake('拐角惊吓', 40000, () => {
+                console.log('[smoke] 拐角惊吓自然触发 OK：转过拐角 → 灯闪/刮擦/心跳 → 留白 → 顿挪现身 → 扑近 → 空间错位移回巷口 (9.7,9.5)');
+                setTimeout(turnScareTest, 1600); // 等状态机归零再测第二扳机
               });
-            setTimeout(() => {
-              spin();
-              const t0 = Date.now();
-              let lastSpin = t0;
-              const poll = () => {
-                win.webContents.executeJavaScript(
-                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
-                ).then((at) => {
-                  if (at === '9.7,9.5') {
-                    console.log('[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)');
-                    setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
-                  } else if (Date.now() - t0 > 40000) {
-                    console.error(`[smoke] 猛回头后惊吓未完成（机位 ${at}，期望 9.7,9.5）`);
-                    app.exit(1);
-                  } else {
-                    if (Date.now() - lastSpin > 3000) {
-                      lastSpin = Date.now();
-                      spin();
-                    }
-                    setTimeout(poll, 500);
-                  }
-                }).catch((err) => {
-                  console.error('[smoke] 后巷断言失败', err && err.message ? err.message : err);
-                  app.exit(1);
-                });
-              };
-              setTimeout(poll, 800);
-            }, 4000);
+            }).catch((err) => {
+              console.error('[smoke] walkPath(拐角) 执行失败', err && err.message ? err.message : err);
+              app.exit(1);
+            });
           }).catch((err) => {
             console.error('[smoke] walkPath 执行失败', err && err.message ? err.message : err);
             app.exit(1);
           });
+          // ② v1.7 转身惊吓保留断言：走到空地站定点 → 站定上膛 → 猛回头。
+          // 站定上膛（armTime 1s 按游戏时钟计；swiftshader ≈1–2.5fps 且
+          // dt 钳 0.1s → 游戏时间只有真实时间的 1/4~1/10）。每 3s 甩一次头，
+          // 等 dwell 追上 armTime 那一甩即自然引爆；预算 40s。
+          const turnScareTest = () => {
+            const routeC = JSON.stringify([[9.3, -12.8], [9.3, -29.5], [2.0, -30.3]]);
+            win.webContents.executeJavaScript(`window.__SV__.walkPath(${routeC})`, true).then((rC) => {
+              console.log(`[smoke] 后巷走通性（至空地站定点）mulholland: ${JSON.stringify(rC)}`);
+              if (!rC || !rC.ok) {
+                console.error('[smoke] 后巷通路不通：玩家撞墙走不到空地站定点');
+                app.exit(1);
+                return;
+              }
+              const spin = () =>
+                win.webContents.executeJavaScript('window.__SV__.spinYaw(Math.PI)', true).then(() => {
+                  console.log('[smoke] 模拟猛回头 spinYaw(π)：等待转身惊吓自然触发…');
+                }).catch((err) => {
+                  console.error('[smoke] spinYaw 执行失败', err && err.message ? err.message : err);
+                  app.exit(1);
+                });
+              setTimeout(() => {
+                spin();
+                let lastSpin = Date.now();
+                pollUntilWake('转身惊吓', 40000, () => {
+                  console.log('[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)');
+                  setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
+                }, () => {
+                  if (Date.now() - lastSpin > 3000) {
+                    lastSpin = Date.now();
+                    spin();
+                  }
+                });
+              }, 4000);
+            }).catch((err) => {
+              console.error('[smoke] walkPath(空地) 执行失败', err && err.message ? err.message : err);
+              app.exit(1);
+            });
+          };
         };
         const proceed = () => {
           // 全量交互激活 → 彩蛋触发（都放在截屏之后，避免反转/熄灯污染画面存档）

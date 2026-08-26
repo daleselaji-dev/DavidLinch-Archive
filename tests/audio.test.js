@@ -135,6 +135,20 @@ describe('v1.4 阶段 5 新音色（配套阶段 3/4 新交互；源码审计）
   });
 });
 
+describe('v1.8 拐角惊吓音色（源码审计）', () => {
+  const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+
+  it('金属刮擦 scrape 已实现（多幕第一幕与顿挪步点用）', () => {
+    expect(src).toContain("case 'scrape'");
+  });
+
+  it('scrape 与 heartbeat 已在穆赫兰道接线（每种至少一处调用）', () => {
+    const hall = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
+    expect(hall).toContain("'scrape'");
+    expect(hall).toContain("'heartbeat'");
+  });
+});
+
 describe('v1.3 脚步系统（七种地面材质 + 逐厅映射）', () => {
   const engineSrc = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
   const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
