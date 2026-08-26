@@ -1610,9 +1610,31 @@ export function memorialStele({ mats } = {}) {
   const H = 2.9;
   const W = 1.06;
   const D = 0.36;
-  // 碑身：圆角独石（近黑抛光，clearcoat 拾取吊灯的高光走线）
+  // 碑身：圆角独石（近黑抛光，clearcoat 拾取吊灯的高光走线）。
+  // v1.9 抛光第 4 遍：垂直流纹粗糙度贴图——洗光打上来时反光沿石纹
+  // 断成一条条走线，不再是一整片白板（近景可读的「石性」）
+  const steleRough = canvasTexture(256, (g2, s) => {
+    g2.fillStyle = 'rgb(61,61,61)';
+    g2.fillRect(0, 0, s, s);
+    const r2 = rng(53);
+    for (let v = 0; v < 26; v++) {
+      let x = r2() * s;
+      const bright = r2() > 0.45;
+      g2.strokeStyle = bright
+        ? `rgba(${118 + (r2() * 30) | 0},${118 + (r2() * 30) | 0},${118 + (r2() * 30) | 0},0.55)`
+        : 'rgba(34,34,34,0.5)';
+      g2.lineWidth = 0.8 + r2() * 3.2;
+      g2.beginPath();
+      g2.moveTo(x, -4);
+      for (let y = 0; y <= s; y += 16) {
+        x += (r2() - 0.5) * 7;
+        g2.lineTo(x, y);
+      }
+      g2.stroke();
+    }
+  });
   const steleMat = new THREE.MeshPhysicalMaterial({
-    color: 0x171015, roughness: 0.24, metalness: 0.3,
+    color: 0x171015, roughness: 1.0, roughnessMap: steleRough, metalness: 0.3,
     clearcoat: 0.7, clearcoatRoughness: 0.22, envMapIntensity: 1.35
   });
   const body = roundedBoxMesh(W, H, D, 0.045, steleMat);

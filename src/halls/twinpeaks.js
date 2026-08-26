@@ -618,7 +618,13 @@ export function build(ctx) {
       p.array[i * 3 + 1] += Math.sin(t * 0.5 + s2.vy) * dt * 0.06;
       p.array[i * 3 + 2] += Math.cos(t * 0.19 + s2.p * 2) * s2.vz * dt;
       const pulse = Math.max(0, Math.sin(t * s2.w + s2.p)) ** 8;
-      const k2 = 0.06 + pulse * 0.94;
+      let k2 = 0.06 + pulse * 0.94;
+      // v1.9 抛光第 4 遍：萤火怕人——离玩家 3.2m 内按距离平方压暗，
+      // 免得游到镜头跟前糊成一团绿斑（sizeAttenuation 下近点会撑得很大）
+      const fdx = p.array[i * 3] - player.x;
+      const fdz = p.array[i * 3 + 2] - player.z;
+      const near = Math.min(1, (fdx * fdx + fdz * fdz) / 10.24);
+      k2 *= near * near;
       c.array[i * 3] = 0.75 * k2;
       c.array[i * 3 + 1] = k2;
       c.array[i * 3 + 2] = 0.55 * k2;

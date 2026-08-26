@@ -422,6 +422,40 @@ export function build(ctx) {
   }
   updaters.push((dt, t) => sign.userData.flicker(t, 11));
 
+  // v1.9 抛光第 4 遍：侧墙壁灯 ×4——两侧原是大片黑绒里的空。
+  // 上开口小铜盏各泼一汪暖光上墙（光池给侧墙"深度"），
+  // 灯芯珠露出盏口一点；光随呼吸微涨落，偶尔有一盏咽一下。
+  {
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: 0x241a12, roughness: 0.6, metalness: 0.6, side: THREE.DoubleSide
+    });
+    const beadMat = new THREE.MeshStandardMaterial({
+      color: 0x110a06, emissive: 0xffc890, emissiveIntensity: 2.8, toneMapped: true
+    });
+    const shellGeos = [];
+    const beadGeos = [];
+    const sconceLights = [];
+    for (const [sx, sz] of [[-W / 2 + 0.16, -4.9], [-W / 2 + 0.16, 4.9], [W / 2 - 0.16, -4.9], [W / 2 - 0.16, 4.9]]) {
+      const inward = sx < 0 ? 1 : -1;
+      shellGeos.push(
+        xform(new THREE.BoxGeometry(0.03, 0.34, 0.15), sx - inward * 0.05, 3.0, sz),
+        xform(new THREE.CylinderGeometry(0.13, 0.045, 0.2, 10, 1, true), sx, 3.05, sz)
+      );
+      beadGeos.push(xform(new THREE.SphereGeometry(0.035, 8, 6), sx, 3.16, sz));
+      const pl = new THREE.PointLight(0xffc890, 3.4, 5.5, 2);
+      pl.position.set(sx + inward * 0.2, 3.36, sz);
+      group.add(pl);
+      sconceLights.push(pl);
+    }
+    group.add(mergedMesh(shellGeos, shellMat), mergedMesh(beadGeos, beadMat));
+    updaters.push((dt, t) => {
+      for (let i = 0; i < sconceLights.length; i++) {
+        const dip = Math.sin(t * 0.23 + i * 2.1) > 0.996 ? 0.45 : 1;
+        sconceLights[i].intensity = (3.3 + Math.sin(t * 0.7 + i * 1.7) * 0.3) * dip;
+      }
+    });
+  }
+
   // 观众席小圆桌 + 桌灯（艺术二遍：车削黄铜杆 + 鼓形织物罩，去"圆锥即灯罩"观感）
   const lamps = [];
   const tableMat = new THREE.MeshStandardMaterial({
