@@ -65,6 +65,34 @@ describe('v1.3 材质工厂导出面', () => {
   });
 });
 
+describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
+  const src = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
+
+  it('P1 AO 通道：aoFromHeight 已导出且 setFrom 装配 aoMap', () => {
+    expect(typeof kit.aoFromHeight).toBe('function');
+    expect(src).toContain('aoMap: aoFromHeight(');
+    expect(src).toContain('tex.channel = 0');
+  });
+
+  it('P1 金属度通道：拉丝金属组带 metalnessMap（禁单值大色块）', () => {
+    expect(src).toMatch(/metal[\s\S]{0,900}nStrength: 0\.6, metal/);
+    expect(src).toContain('mat.metalnessMap = set.metalnessMap');
+  });
+
+  it.each(['marbleSet', 'boomerangSet', 'rustSet'])('P2 新纹理组 %s 已导出', (name) => {
+    expect(typeof kit[name]).toBe('function');
+  });
+
+  it.each(['marbleMat', 'boomerangMat', 'rustMat'])('P2 新材质工厂 %s 已导出', (name) => {
+    expect(typeof kit[name]).toBe('function');
+  });
+
+  it('P7 双层体积光锥 lightCone2 已导出（内芯+外晕+同步调制）', () => {
+    expect(typeof kit.lightCone2).toBe('function');
+    expect(src).toContain('setStrength');
+  });
+});
+
 describe('v1.3 道具预制体库导出面', () => {
   const PROPS = [
     'chandelier', 'fluorescentFixture', 'cardCatalog', 'jukebox', 'sedanCar',

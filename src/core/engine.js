@@ -52,6 +52,7 @@ export class Engine {
       scanline: this.lynchPass.uniforms.uScanline.value,
       aberration: this.lynchPass.uniforms.uAberration.value
     };
+    this._lookHalation = this.lynchPass.uniforms.uHalation.value;
     this.quality = 'high';
     this._fps = { frames: 0, acc: 0, value: 60 };
     this._running = false;
@@ -63,13 +64,14 @@ export class Engine {
   setQuality(q) {
     this.quality = q;
     this.bloomPass.enabled = q === 'high';
-    // 低画质档（PRODUCTION_PLAN G9）：胶片颗粒/扫描线/色差减半——
-    // 省全屏噪声哈希与偏移三采样的带宽，同时保住"胶片感"的底色
+    // 低画质档（PRODUCTION_PLAN G9/P9）：胶片颗粒/扫描线/色差减半 + 关 halation——
+    // 省全屏噪声哈希、偏移三采样与六向亮部采样的带宽，同时保住"胶片感"的底色
     const k = q === 'high' ? 1 : 0.5;
     const u = this.lynchPass.uniforms;
     u.uGrain.value = this._postBase.grain * k;
     u.uScanline.value = this._postBase.scanline * k;
     u.uAberration.value = this._postBase.aberration * k;
+    u.uHalation.value = q === 'high' ? this._lookHalation : 0;
     this.resize();
   }
 
@@ -93,14 +95,28 @@ export class Engine {
     return () => this.updaters.delete(fn);
   }
 
-  /** 展厅画面基调: 饱和度 / 色调 / 雾 */
-  setLook({ saturation = 1, tint = 0xffffff, fogColor = 0x050307, fogDensity = 0.03, bg = fogColor, exposure = 1.05, bloom = 0.85 } = {}) {
-    this.lynchPass.uniforms.uSaturation.value = saturation;
-    this.lynchPass.uniforms.uTintColor.value.set(tint);
+  /**
+   * 展厅画面基调: 饱和度 / 色调 / 雾 / 曝光 / 泛光
+   * v1.4：+grade 三段电影分级 { lift:[r,g,b], gamma:[r,g,b], gain:[r,g,b] }
+   *       +halation 胶片光晕强度（低画质档自动归零）
+   */
+  setLook({
+    saturation = 1, tint = 0xffffff, fogColor = 0x050307, fogDensity = 0.03,
+    bg = fogColor, exposure = 1.05, bloom = 0.85, grade = null, halation = 0.14
+  } = {}) {
+    const u = this.lynchPass.uniforms;
+    u.uSaturation.value = saturation;
+    u.uTintColor.value.set(tint);
     this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
     this.scene.background = new THREE.Color(bg);
     this.renderer.toneMappingExposure = exposure;
     this.bloomPass.strength = bloom;
+    const gr = grade || {};
+    u.uLift.value.fromArray(gr.lift || [0, 0, 0]);
+    u.uGamma.value.fromArray(gr.gamma || [1, 1, 1]);
+    u.uGain.value.fromArray(gr.gain || [1, 1, 1]);
+    this._lookHalation = halation;
+    u.uHalation.value = this.quality === 'high' ? halation : 0;
   }
 
   get fps() {

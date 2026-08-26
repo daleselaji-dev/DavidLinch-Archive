@@ -417,6 +417,22 @@ export function lightCone(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.0
   return new THREE.Mesh(geo, mat);
 }
 
+/**
+ * 双层体积光锥（v1.4 P7）：内芯亮 + 外晕柔，
+ * userData.setStrength(k) 供交互/闪烁调制两层同步。
+ */
+export function lightCone2(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.055) {
+  const g = new THREE.Group();
+  const outer = lightCone(topR, bottomR, height, color, opacity);
+  const inner = lightCone(topR * 0.42, bottomR * 0.52, height * 0.985, color, opacity * 2.2);
+  g.add(outer, inner);
+  g.userData.setStrength = (k) => {
+    outer.material.opacity = opacity * k;
+    inner.material.opacity = opacity * 2.2 * k;
+  };
+  return g;
+}
+
 // ---------- 建筑构件 ----------
 export function floorMesh(w, d, material) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
@@ -951,13 +967,66 @@ export function normalFromHeight(heightCanvas, strength = 1.4, repeatX = 1, repe
   return texOf(out, repeatX, repeatY);
 }
 
-/** 三通道纹理组装配 */
-function setFrom(albedo, height, rough, { repX = 1, repY = 1, nStrength = 1.4 } = {}) {
-  return {
+/**
+ * 高度图 → AO 贴图（v1.4 P1 五通道）。
+ * 两尺度环绕盒模糊求邻域均值：比邻域低 → 处于凹处 → 遮蔽变暗。
+ * 环绕采样保平铺；输出灰度 canvas 纹理（channel=0 与主 UV 共用）。
+ */
+export function aoFromHeight(heightCanvas, strength = 1.0, repeatX = 1, repeatY = 1) {
+  const s = heightCanvas.width;
+  const src = heightCanvas.getContext('2d').getImageData(0, 0, s, s).data;
+  const h = new Float32Array(s * s);
+  for (let i = 0; i < s * s; i++) h[i] = src[i * 4] / 255;
+  const blur = (input, radius) => {
+    const tmp = new Float32Array(s * s);
+    const out = new Float32Array(s * s);
+    const norm = 1 / (radius * 2 + 1);
+    for (let y = 0; y < s; y++) {
+      let acc = 0;
+      for (let k = -radius; k <= radius; k++) acc += input[y * s + ((k + s * 8) % s)];
+      for (let x = 0; x < s; x++) {
+        tmp[y * s + x] = acc * norm;
+        acc += input[y * s + ((x + radius + 1) % s)] - input[y * s + ((x - radius + s * 8) % s)];
+      }
+    }
+    for (let x = 0; x < s; x++) {
+      let acc = 0;
+      for (let k = -radius; k <= radius; k++) acc += tmp[((k + s * 8) % s) * s + x];
+      for (let y = 0; y < s; y++) {
+        out[y * s + x] = acc * norm;
+        acc += tmp[((y + radius + 1) % s) * s + x] - tmp[((y - radius + s * 8) % s) * s + x];
+      }
+    }
+    return out;
+  };
+  const near = blur(h, Math.max(1, Math.round(s * 0.012)));
+  const wide = blur(h, Math.max(3, Math.round(s * 0.045)));
+  const out = document.createElement('canvas');
+  out.width = out.height = s;
+  const g = out.getContext('2d');
+  const img = g.createImageData(s, s);
+  for (let i = 0; i < s * s; i++) {
+    const occ = Math.max(0, (near[i] - h[i]) * 1.7 + (wide[i] - h[i]) * 0.9) * strength;
+    const v = Math.round(Math.max(0.25, Math.min(1, 1 - occ * 2.4)) * 255);
+    img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = texOf(out, repeatX, repeatY);
+  tex.channel = 0; // aoMap 默认 uv1——强制与主 UV 共用，几何无需 uv1
+  return tex;
+}
+
+/** 纹理组装配（v1.4：三通道 → 五通道，+aoMap，可选 +metalnessMap） */
+function setFrom(albedo, height, rough, { repX = 1, repY = 1, nStrength = 1.4, aoStrength = 1.0, metal = null } = {}) {
+  const set = {
     map: texOf(albedo, repX, repY),
     normalMap: normalFromHeight(height, nStrength, repX, repY),
-    roughnessMap: texOf(rough, repX, repY)
+    roughnessMap: texOf(rough, repX, repY),
+    aoMap: aoFromHeight(height, aoStrength, repX, repY)
   };
+  if (metal) set.metalnessMap = texOf(metal, repX, repY);
+  return set;
 }
 
 /** 确定性污渍/磨损（seeded 版 grime） */
@@ -1161,7 +1230,24 @@ export function metalBrushedSet({
   const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
   const height = canvasOf(size, (g, s) => draw(g, s, 'height'));
   const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
-  return setFrom(albedo, height, rough, { repX, repY, nStrength: 0.6 });
+  // v1.4 P1：金属度通道——高接触区磨掉镀层露出暗底（禁止单值 metalness）
+  const metal = canvasOf(size, (g, s) => {
+    g.fillStyle = 'rgb(236,236,236)';
+    g.fillRect(0, 0, s, s);
+    const rm = rng(seed + 4);
+    for (let i = 0; i < 24; i++) {
+      const rad = 4 + rm() * s * 0.09;
+      const grad = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+      grad.addColorStop(0, `rgba(112,112,112,${0.22 + rm() * 0.3})`);
+      grad.addColorStop(1, 'rgba(112,112,112,0)');
+      g.save();
+      g.translate(rm() * s, rm() * s);
+      g.fillStyle = grad;
+      g.fillRect(-rad, -rad, rad * 2, rad * 2);
+      g.restore();
+    }
+  });
+  return setFrom(albedo, height, rough, { repX, repY, nStrength: 0.6, metal });
 }
 
 // ---------- 织物三通道组 ----------
@@ -1420,11 +1506,242 @@ export function leatherSet(color = [64, 20, 28], { size = 256, seed = 27, repX =
   return setFrom(albedo, height, rough, { repX, repY, nStrength: 1.1 });
 }
 
+// ---------- v1.4 新材质组 ----------
+
+/**
+ * 脉络大理石五通道组（P2，大厅名片）。
+ * 主脉 = 随机游走折线 + 软阴影晕开；次脉细亮；云斑大软渐变；
+ * 抛光面低粗糙 + 踩踏磨损带略糙；脉络微凹。
+ */
+export function marbleSet({
+  base = [226, 221, 211], veinA = [88, 90, 102], veinB = [176, 165, 146],
+  size = 1024, seed = 33, repX = 1, repY = 1, gloss = 0.8, nStrength = 0.7
+} = {}) {
+  const r = rng(seed);
+  const veins = [];
+  for (let i = 0; i < 7; i++) {
+    const pts = [{ u: r(), v: r() * 0.2 - 0.1 }];
+    const drift = (r() - 0.5) * 0.24;
+    for (let k = 0; k < 15; k++) {
+      const p = pts[pts.length - 1];
+      pts.push({ u: p.u + drift + (r() - 0.5) * 0.1, v: p.v + 0.07 + r() * 0.05 });
+    }
+    veins.push({ pts, w: 1.2 + r() * 2.6, major: r() < 0.55, branch: r() });
+  }
+  const clouds = [];
+  for (let i = 0; i < 14; i++) clouds.push({ u: r(), v: r(), rad: 0.08 + r() * 0.22, warm: r() < 0.4, a: 0.05 + r() * 0.09 });
+  const wearR = rng(seed + 1);
+  const wears = [];
+  for (let i = 0; i < 6; i++) wears.push({ u: wearR(), v: wearR(), rad: 0.1 + wearR() * 0.2, a: 0.2 + wearR() * 0.3 });
+  const draw = (g, s, mode) => {
+    if (mode === 'albedo') g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
+    else if (mode === 'height') g.fillStyle = 'rgb(128,128,128)';
+    else g.fillStyle = `rgb(${Math.round(150 - gloss * 110)},${Math.round(150 - gloss * 110)},${Math.round(150 - gloss * 110)})`;
+    g.fillRect(0, 0, s, s);
+    if (mode === 'albedo') {
+      for (const c of clouds) {
+        const grad = g.createRadialGradient(c.u * s, c.v * s, 0, c.u * s, c.v * s, c.rad * s);
+        const col = c.warm ? `${base[0] - 18},${base[1] - 22},${base[2] - 28}` : `${base[0] - 26},${base[1] - 24},${base[2] - 18}`;
+        grad.addColorStop(0, `rgba(${col},${c.a})`);
+        grad.addColorStop(1, `rgba(${col},0)`);
+        g.fillStyle = grad;
+        g.beginPath(); g.arc(c.u * s, c.v * s, c.rad * s, 0, 7); g.fill();
+      }
+    }
+    for (const vn of veins) {
+      const col = vn.major ? veinA : veinB;
+      if (mode === 'albedo') {
+        g.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${vn.major ? 0.62 : 0.34})`;
+        g.shadowColor = `rgba(${col[0]},${col[1]},${col[2]},0.4)`;
+        g.shadowBlur = vn.major ? 7 : 3;
+      } else if (mode === 'height') {
+        g.strokeStyle = 'rgba(110,110,110,0.7)';
+        g.shadowColor = 'rgba(110,110,110,0.4)';
+        g.shadowBlur = 4;
+      } else {
+        g.strokeStyle = 'rgba(210,210,210,0.4)';
+        g.shadowBlur = 0;
+      }
+      g.lineWidth = vn.w * (mode === 'height' ? 1.6 : 1);
+      g.beginPath();
+      vn.pts.forEach((p, i) => {
+        const x = ((p.u % 1) + 1) % 1 * s;
+        const y = ((p.v % 1) + 1) % 1 * s;
+        if (i === 0 || Math.abs(y - ((vn.pts[i - 1].v % 1) + 1) % 1 * s) > s * 0.5) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      });
+      g.stroke();
+      g.shadowBlur = 0;
+      // 次生细脉从主脉分岔
+      if (vn.major && mode !== 'rough') {
+        const bi = Math.floor(vn.branch * (vn.pts.length - 4)) + 2;
+        const bp = vn.pts[bi];
+        g.lineWidth = 0.8;
+        g.beginPath();
+        g.moveTo(((bp.u % 1) + 1) % 1 * s, ((bp.v % 1) + 1) % 1 * s);
+        g.lineTo(((bp.u + 0.14) % 1) * s, ((bp.v + 0.06) % 1) * s);
+        g.stroke();
+      }
+    }
+    if (mode === 'rough') {
+      // 踩踏磨损带：抛光被磨钝（值升高）
+      for (const w of wears) {
+        const grad = g.createRadialGradient(w.u * s, w.v * s, 0, w.u * s, w.v * s, w.rad * s);
+        grad.addColorStop(0, `rgba(128,128,128,${w.a})`);
+        grad.addColorStop(1, 'rgba(128,128,128,0)');
+        g.fillStyle = grad;
+        g.beginPath(); g.arc(w.u * s, w.v * s, w.rad * s, 0, 7); g.fill();
+      }
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => { draw(g, s, 'albedo'); grimeR(g, s, rng(seed + 2), { stains: 6, scratches: 8, alpha: 0.03 }); });
+  const height = canvasOf(size >> 1, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size >> 1, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength, aoStrength: 0.7 });
+}
+
+/**
+ * 五十年代 boomerang 层压板五通道组（P2，diner 台面欠账）。
+ * 散布回旋镖形 ×3 色调 + 细碎斑点；层压板高光滑，仅斑点微扰。
+ */
+export function boomerangSet({
+  bg = [238, 230, 210], tones = ['#c9b89a', '#8f0e1e', '#3a4652'],
+  size = 512, seed = 37, count = 46, repX = 3, repY = 3
+} = {}) {
+  const r = rng(seed);
+  const items = [];
+  for (let i = 0; i < count; i++) {
+    items.push({ u: r(), v: r(), rot: r() * Math.PI * 2, L: 0.028 + r() * 0.03, t: Math.floor(r() * 3) });
+  }
+  const specks = [];
+  for (let i = 0; i < 320; i++) specks.push({ u: r(), v: r(), rad: 0.4 + r() * 1.1, a: 0.1 + r() * 0.2 });
+  const toneCols = tones;
+  const draw = (g, s, mode) => {
+    if (mode === 'albedo') g.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+    else if (mode === 'height') g.fillStyle = 'rgb(128,128,128)';
+    else g.fillStyle = 'rgb(64,64,64)';
+    g.fillRect(0, 0, s, s);
+    for (const it of items) {
+      const L = it.L * s;
+      g.save();
+      g.translate(it.u * s, it.v * s);
+      g.rotate(it.rot);
+      if (mode === 'albedo') g.fillStyle = toneCols[it.t];
+      else if (mode === 'height') g.fillStyle = 'rgb(132,132,132)';
+      else g.fillStyle = 'rgb(72,72,72)';
+      g.beginPath();
+      g.moveTo(-L, 0);
+      g.quadraticCurveTo(0, -L * 0.66, L, 0);
+      g.quadraticCurveTo(0, -L * 0.3, -L, 0);
+      g.closePath();
+      g.fill();
+      g.restore();
+    }
+    for (const sp of specks) {
+      if (mode === 'albedo') g.fillStyle = `rgba(60,54,44,${sp.a * 0.5})`;
+      else if (mode === 'height') g.fillStyle = `rgba(140,140,140,${sp.a})`;
+      else g.fillStyle = `rgba(90,90,90,${sp.a})`;
+      g.beginPath(); g.arc(sp.u * s, sp.v * s, sp.rad, 0, 7); g.fill();
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size >> 1, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size >> 1, (g, s) => draw(g, s, 'rough'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength: 0.4, aoStrength: 0.4 });
+}
+
+/**
+ * 锈蚀铁皮五通道组（P2，锅炉房/夜街）。
+ * 锈斑簇（多层橙褐渐变）+ 垂直流挂 + 点蚀；金属度：裸铁高、锈层低。
+ */
+export function rustSet({
+  base = 112, size = 512, seed = 41, repX = 2, repY = 2, rust = 0.55, nStrength = 1.7
+} = {}) {
+  const r = rng(seed);
+  const patches = [];
+  const n = Math.round(20 + rust * 22);
+  for (let i = 0; i < n; i++) {
+    patches.push({ u: r(), v: r(), rad: 0.03 + r() * 0.1, t: r(), drip: r() < 0.5 ? 0.08 + r() * 0.22 : 0 });
+  }
+  const pits = [];
+  for (let i = 0; i < 160; i++) pits.push({ u: r(), v: r(), rad: 0.6 + r() * 1.6, t: r() });
+  const rows = [];
+  for (let i = 0; i < 64; i++) rows.push((r() - 0.5) * 26);
+  const rustCol = (t) => t < 0.45 ? [96, 48, 22] : t < 0.8 ? [128, 66, 30] : [74, 40, 26];
+  const draw = (g, s, mode) => {
+    // 底：竖向拉丝钢
+    for (let y = 0; y < s; y++) {
+      const v = rows[Math.floor((y / s) * rows.length)];
+      if (mode === 'albedo') g.fillStyle = `rgb(${base + v},${base + v + 2},${base + v + 5})`;
+      else if (mode === 'height') g.fillStyle = 'rgb(128,128,128)';
+      else if (mode === 'rough') g.fillStyle = `rgb(${Math.round(138 + v * 0.5)},${Math.round(138 + v * 0.5)},${Math.round(138 + v * 0.5)})`;
+      else g.fillStyle = 'rgb(232,232,232)';
+      g.fillRect(0, y, s, 1);
+    }
+    for (const p of patches) {
+      const [cr, cg, cb] = rustCol(p.t);
+      const grad = g.createRadialGradient(p.u * s, p.v * s, 0, p.u * s, p.v * s, p.rad * s);
+      if (mode === 'albedo') {
+        grad.addColorStop(0, `rgba(${cr},${cg},${cb},0.92)`);
+        grad.addColorStop(0.7, `rgba(${cr - 20},${cg - 12},${cb - 8},0.6)`);
+        grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+      } else if (mode === 'height') {
+        grad.addColorStop(0, 'rgba(148,148,148,0.9)');
+        grad.addColorStop(1, 'rgba(128,128,128,0)');
+      } else if (mode === 'rough') {
+        grad.addColorStop(0, 'rgba(226,226,226,0.95)');
+        grad.addColorStop(1, 'rgba(138,138,138,0)');
+      } else {
+        grad.addColorStop(0, 'rgba(26,26,26,0.95)');
+        grad.addColorStop(1, 'rgba(232,232,232,0)');
+      }
+      g.fillStyle = grad;
+      g.beginPath(); g.arc(p.u * s, p.v * s, p.rad * s, 0, 7); g.fill();
+      // 流挂：从锈斑往下淌
+      if (p.drip > 0 && mode !== 'height') {
+        const lg = g.createLinearGradient(0, p.v * s, 0, (p.v + p.drip) * s);
+        if (mode === 'albedo') {
+          lg.addColorStop(0, `rgba(${cr - 14},${cg - 8},${cb - 4},0.5)`);
+          lg.addColorStop(1, `rgba(${cr - 14},${cg - 8},${cb - 4},0)`);
+        } else if (mode === 'rough') {
+          lg.addColorStop(0, 'rgba(215,215,215,0.6)');
+          lg.addColorStop(1, 'rgba(215,215,215,0)');
+        } else {
+          lg.addColorStop(0, 'rgba(40,40,40,0.6)');
+          lg.addColorStop(1, 'rgba(40,40,40,0)');
+        }
+        g.fillStyle = lg;
+        g.fillRect((p.u - 0.008) * s, p.v * s, 0.016 * s, p.drip * s);
+      }
+    }
+    for (const p of pits) {
+      if (mode === 'albedo') g.fillStyle = `rgba(20,14,10,${0.3 + p.t * 0.35})`;
+      else if (mode === 'height') g.fillStyle = 'rgb(96,96,96)';
+      else if (mode === 'rough') g.fillStyle = 'rgb(230,230,230)';
+      else g.fillStyle = 'rgb(120,120,120)';
+      g.beginPath(); g.arc(p.u * s, p.v * s, p.rad, 0, 7); g.fill();
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size >> 1, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
+  const metal = canvasOf(size >> 1, (g, s) => draw(g, s, 'metal'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength, aoStrength: 1.2, metal });
+}
+
 // ---------- PBR 材质工厂 ----------
 function applySet(mat, set, normalScale = 0.8) {
   mat.map = set.map;
   mat.normalMap = set.normalMap;
   mat.roughnessMap = set.roughnessMap;
+  if (set.aoMap) {
+    mat.aoMap = set.aoMap;
+    mat.aoMapIntensity = 0.85;
+  }
+  if (set.metalnessMap) {
+    mat.metalnessMap = set.metalnessMap;
+    mat.metalness = 1.0; // 实际金属度交给贴图空间变化（P1 禁单值大色块）
+  }
   mat.normalScale = new THREE.Vector2(normalScale, normalScale);
   return mat;
 }
@@ -1547,6 +1864,43 @@ export function chevronMat(colA, colB, opts = {}) {
     envMapIntensity: opts.env ?? 1.1
   });
   return applySet(mat, chevronSet(colA, colB, opts), opts.normalScale ?? 0.7);
+}
+
+/** 脉络大理石（抛光 clearcoat + 踩踏磨损，大厅名片） */
+export function marbleMat(opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? 0xffffff,
+    roughness: 1.0,
+    metalness: 0.02,
+    clearcoat: opts.clearcoat ?? 0.5,
+    clearcoatRoughness: 0.14,
+    envMapIntensity: opts.env ?? 1.35
+  });
+  return applySet(mat, marbleSet(opts), opts.normalScale ?? 0.45);
+}
+
+/** 五十年代层压板（boomerang 纹样，diner 台面） */
+export function boomerangMat(opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    roughness: 1.0,
+    metalness: 0.0,
+    clearcoat: opts.clearcoat ?? 0.65,
+    clearcoatRoughness: 0.18,
+    envMapIntensity: opts.env ?? 1.2
+  });
+  return applySet(mat, boomerangSet(opts), 0.35);
+}
+
+/** 锈蚀铁皮（金属度贴图：裸铁高/锈层低） */
+export function rustMat(opts = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: opts.color ?? 0xffffff,
+    roughness: 1.0,
+    metalness: 1.0,
+    envMapIntensity: opts.env ?? 0.85
+  });
+  return applySet(mat, rustSet(opts), opts.normalScale ?? 1.0);
 }
 
 /** 静水/镜面水（微波纹法线，userData.update 缓慢流动） */
