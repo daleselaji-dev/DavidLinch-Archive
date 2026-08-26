@@ -168,6 +168,92 @@ export function build(ctx) {
     }
   });
 
+  // 廊灯检修牌（v1.9 件 2）：第五盏荧光灯（z=6）末端垂一条黄铜珠链，
+  // 链尾一枚检修吊牌——格线排得整整齐齐，签名栏全是空的。
+  // E → 拉一下：这盏灯咽一口气熄了，一秒后自己亮回来。牌子荡很久。
+  const svcRig = new THREE.Group(); // 枢轴在灯具末端（摆动即真实钟摆）
+  {
+    const beadGeos = [xform(new THREE.CylinderGeometry(0.0022, 0.0022, 1.86, 5), 0, -0.93, 0)];
+    for (let i = 0; i < 22; i++) {
+      beadGeos.push(xform(new THREE.SphereGeometry(0.0058, 6, 5), 0, -0.045 - i * 0.083, 0));
+    }
+    svcRig.add(mergedMesh(beadGeos, M.brass));
+    const tagTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#d8cdb2';
+      g.fillRect(0, 0, s, s);
+      // 卡沿磨圆的脏边
+      g.strokeStyle = 'rgba(96,80,58,0.5)';
+      g.lineWidth = 6;
+      g.strokeRect(1, 1, s - 2, s - 2);
+      // 表格：日期列 + 签名列（全部空着）
+      g.strokeStyle = 'rgba(70,58,42,0.65)';
+      g.lineWidth = 1;
+      for (let y = 30; y < s - 10; y += 12) {
+        g.beginPath(); g.moveTo(10, y); g.lineTo(s - 10, y); g.stroke();
+      }
+      g.beginPath(); g.moveTo(s * 0.44, 22); g.lineTo(s * 0.44, s - 12); g.stroke();
+      // 表头两短杠（不写字，克制）
+      g.fillStyle = 'rgba(70,58,42,0.75)';
+      g.fillRect(16, 18, s * 0.2, 3);
+      g.fillRect(s * 0.5, 18, s * 0.26, 3);
+      // 日期列里三行潦草短划（有人来过，只是没签名）
+      const r = rng(59);
+      g.strokeStyle = 'rgba(52,44,34,0.6)';
+      for (const row of [0, 1, 2]) {
+        g.lineWidth = 1.4;
+        g.beginPath();
+        let px = 14;
+        const py = 37 + row * 12;
+        g.moveTo(px, py);
+        for (let i = 0; i < 5; i++) {
+          px += 4 + r() * 5;
+          g.lineTo(px, py - 2 + r() * 4);
+        }
+        g.stroke();
+      }
+      // 铆孔铜圈
+      g.fillStyle = 'rgba(30,24,16,0.9)';
+      g.beginPath(); g.arc(s / 2, 10, 4.5, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(150,120,60,0.9)';
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(s / 2, 10, 6, 0, 7); g.stroke();
+    });
+    const svcTag = new THREE.Mesh(
+      roundedBoxGeo(0.085, 0.128, 0.004, 0.006, 2),
+      new THREE.MeshStandardMaterial({ map: tagTex, roughness: 0.85 })
+    );
+    svcTag.position.set(0, -1.93, 0);
+    svcTag.rotation.y = 0.2;
+    svcRig.add(svcTag);
+    svcRig.position.set(0.16, 4.6, 7.15);
+    group.add(svcRig);
+    const svcState = { pullT: -1, amp: 0 };
+    updaters.push((dt, t) => {
+      if (svcState.amp > 0.001) svcState.amp *= Math.pow(0.5, dt / 2.2); // 半衰期 2.2s 的真实晃荡
+      svcRig.rotation.x = Math.sin(t * 1.1) * 0.012 + Math.sin(t * 3.4) * svcState.amp;
+      svcRig.rotation.z = Math.sin(t * 0.9 + 2) * 0.01 + Math.cos(t * 3.1) * svcState.amp * 0.6;
+      if (svcState.pullT < 0) return;
+      svcState.pullT += dt;
+      if (svcState.pullT > 1.0 && tubes[4].dead === 1) {
+        tubes[4].dead = 0; // 一秒后自己亮回来
+        audio.sfx('fluor', 0.55);
+      }
+      if (svcState.pullT > 1.2) svcState.pullT = -1;
+    });
+    hotspots.add(svcTag, {
+      hint: 'E — 检修吊牌',
+      onActivate: () => {
+        if (svcState.pullT >= 0) return;
+        svcState.pullT = 0;
+        svcState.amp = 0.14;
+        tubes[4].dead = 1;
+        audio.sfxAt('switch', 0.16, 7.15, 0.4, 3);
+        audio.sfx('fluor', 0.4);
+        setTimeout(() => ui.caption('上次检修没有签名。', 3400), 1500);
+      }
+    });
+  }
+
   // 作品灯牌 —— 按年代沿两壁排布（事实性档案）
   const films = filmsSorted();
   films.forEach((film, i) => {
@@ -628,6 +714,118 @@ export function build(ctx) {
       ui.caption('盖下去的日期是空白的。', 3400);
     }
   });
+
+  // ---------- 阅览桌文具组 v2（v1.9 件 1）：卡片盒 + 放大镜 + 玻璃镇纸 ----------
+  // 桌子由「一盏灯一枚章」变成有人常年伏案的位置。
+  // 卡片盒：木壳 + 黄铜包边 + 标签框，盒里卡片挤到只剩一指空隙，
+  // 三张没归位的斜插着，一枚分隔舌片翘出来。
+  const boxWood = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [34, 21, 12], planks: 1, size: 128 }), roughness: 0.55
+  });
+  const cardBox = new THREE.Group();
+  cardBox.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.24, 0.012, 0.16), 0, 0.006, 0),
+    xform(new THREE.BoxGeometry(0.24, 0.1, 0.012), 0, 0.05, -0.074),
+    xform(new THREE.BoxGeometry(0.24, 0.1, 0.012), 0, 0.05, 0.074),
+    xform(new THREE.BoxGeometry(0.012, 0.1, 0.16), -0.114, 0.05, 0),
+    xform(new THREE.BoxGeometry(0.012, 0.1, 0.16), 0.114, 0.05, 0)
+  ], boxWood));
+  cardBox.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.244, 0.014, 0.02), 0, 0.096, -0.07),
+    xform(new THREE.BoxGeometry(0.244, 0.014, 0.02), 0, 0.096, 0.07),
+    // 正面标签框（空的——本该写着这一盒是什么）
+    xform(new THREE.BoxGeometry(0.07, 0.05, 0.004), 0, 0.055, 0.082)
+  ], M.brass));
+  const cardBlockMat = new THREE.MeshStandardMaterial({
+    map: canvasTexture(64, (g, s) => {
+      g.fillStyle = '#ddd2b8';
+      g.fillRect(0, 0, s, s);
+      g.strokeStyle = 'rgba(90,76,56,0.5)';
+      g.lineWidth = 1;
+      const r = rng(31);
+      for (let x = 2; x < s; x += 2 + r() * 2) {
+        g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (r() - 0.5) * 3, s); g.stroke();
+      }
+    }), roughness: 0.9
+  });
+  const cardBlock = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.075, 0.13), cardBlockMat);
+  cardBlock.position.y = 0.05;
+  cardBox.add(cardBlock);
+  const loose = mergedMesh([
+    xform(new THREE.BoxGeometry(0.002, 0.1, 0.125), -0.055, 0.06, 0, 0, 0, 0.22),
+    xform(new THREE.BoxGeometry(0.002, 0.1, 0.125), 0.02, 0.062, 0, 0, 0, -0.14),
+    xform(new THREE.BoxGeometry(0.002, 0.098, 0.125), 0.07, 0.058, 0, 0, 0, 0.09),
+    // 分隔舌片（深色，翘出来一角）
+    xform(new THREE.BoxGeometry(0.003, 0.105, 0.05), -0.02, 0.064, -0.035, 0, 0, -0.05)
+  ], new THREE.MeshStandardMaterial({ color: 0xcfc0a0, roughness: 0.92, side: THREE.DoubleSide }));
+  cardBox.add(loose);
+  cardBox.position.set(-0.62, 0.78, 0.12);
+  cardBox.rotation.y = 0.18;
+  readTable.add(cardBox);
+  // 放大镜：黄铜圈 + 玻璃片 + 车削木柄，镜面平躺在桌上
+  const magnifier = new THREE.Group();
+  magnifier.add(mergedMesh([
+    xform(new THREE.TorusGeometry(0.055, 0.008, 8, 26), 0, 0.012, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.012, 0.009, 0.035, 8), 0, 0.011, 0.072, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.007, 0.007, 0.014, 8), 0, 0.011, 0.2, Math.PI / 2, 0, 0)
+  ], M.brass));
+  const magHandle = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.008, 0), new THREE.Vector2(0.0125, 0.03), new THREE.Vector2(0.0135, 0.06),
+      new THREE.Vector2(0.011, 0.09), new THREE.Vector2(0.0075, 0.105)
+    ], 12), M.darkWood
+  );
+  magHandle.rotation.x = -Math.PI / 2;
+  magHandle.position.set(0, 0.011, 0.088);
+  magnifier.add(magHandle);
+  const magLens = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 0.006, 22),
+    new THREE.MeshStandardMaterial({
+      color: 0xd8e4dc, transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1,
+      emissive: 0x9fdba8, emissiveIntensity: 0, depthWrite: false
+    })
+  );
+  magLens.position.y = 0.012;
+  magnifier.add(magLens);
+  magnifier.position.set(0.04, 0.782, 0.27);
+  magnifier.rotation.y = -0.62;
+  readTable.add(magnifier);
+  const magState = { t: -1 };
+  updaters.push((dt) => {
+    if (magState.t < 0) return;
+    magState.t += dt;
+    const u = magState.t;
+    if (u > 2.2) { magState.t = -1; magLens.material.emissiveIntensity = 0; magnifier.rotation.x = 0; return; }
+    // 镜片接住台灯的绿：一口亮起缓落 + 镜身晃两下摆平
+    magLens.material.emissiveIntensity = Math.sin(Math.min(1, u / 1.6) * Math.PI) * 1.4;
+    magnifier.rotation.x = Math.sin(u * 16) * 0.05 * Math.max(0, 1 - u / 0.8);
+  });
+  hotspots.add(magLens, {
+    hint: 'E — 放大镜',
+    onActivate: () => {
+      if (magState.t >= 0) return;
+      magState.t = 0;
+      audio.sfxAt('iceclink', -2.8, -13.7, 0.35, 3);
+      setTimeout(() => ui.caption('镜片是热的。', 3000), 700);
+    }
+  });
+  // 玻璃镇纸：绒毡底座 + 玻璃穹顶，里面悬着一粒烟色的泪滴
+  const pwFelt = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.052, 0.01, 18),
+    new THREE.MeshStandardMaterial({ color: 0x3a1418, roughness: 0.95 }));
+  pwFelt.position.set(0.62, 0.785, 0.2);
+  const pwDome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.046, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xcfdce4, transparent: true, opacity: 0.3, roughness: 0.04, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.08
+    })
+  );
+  pwDome.position.set(0.62, 0.79, 0.2);
+  const pwSeed = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x14100e, roughness: 0.3 }));
+  pwSeed.scale.set(0.7, 1.25, 0.7);
+  pwSeed.position.set(0.62, 0.812, 0.2);
+  readTable.add(pwFelt, pwDome, pwSeed);
 
   // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
   const projector = filmProjector({ mats: M });
