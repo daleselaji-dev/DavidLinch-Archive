@@ -317,6 +317,32 @@ window.__SV__ = {
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
   /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹） */
   player: () => ({ x: controls.yawObject.position.x, z: controls.yawObject.position.z }),
+  /**
+   * 冒烟（v1.6 门禁 37）：把真实玩家沿路点逐帧「走」过去——每步 7cm、
+   * 每步过当前展厅的 bounds 钳制，不瞬移不作弊。撞墙走不到即 ok:false。
+   * 终点若落在区域触发器内，下一渲染帧会像真人走进去一样自然触发。
+   */
+  walkPath: (waypoints, speed = 4.2) => {
+    if (!current) return { ok: false, reason: 'no-hall' };
+    const p = controls.yawObject.position;
+    const dt = 1 / 60;
+    for (const [wx, wz] of waypoints) {
+      let guard = 0;
+      while (Math.hypot(wx - p.x, wz - p.z) > 0.3) {
+        if (++guard > 2600) {
+          return { ok: false, x: +p.x.toFixed(2), z: +p.z.toFixed(2), target: [wx, wz] };
+        }
+        const dx = wx - p.x;
+        const dz = wz - p.z;
+        const d = Math.hypot(dx, dz) || 1;
+        p.x += (dx / d) * speed * dt;
+        p.z += (dz / d) * speed * dt;
+        if (current.built.bounds) current.built.bounds(p);
+      }
+    }
+    controls.velocity.set(0, 0, 0);
+    return { ok: true, x: +p.x.toFixed(2), z: +p.z.toFixed(2) };
+  },
   /** 冒烟测试：逐一激活当前展厅全部非导航交互（onActivate 链不得抛错），返回激活数 */
   activateAll: () => {
     let n = 0;
@@ -329,5 +355,5 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
-  version: '1.5.0'
+  version: '1.6.0'
 };

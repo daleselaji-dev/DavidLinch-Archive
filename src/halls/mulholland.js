@@ -10,7 +10,7 @@ import {
   smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
   darkFigure, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
-  asphaltMat, woodMat, rng
+  asphaltMat, woodMat, concreteMat, rng
 } from './kit.js';
 import { propMats, theaterSeats, ticketBooth, phoneBooth, streetLampV2, dressingMirror } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -31,13 +31,23 @@ export const meta = {
   }
 };
 
-// 场地: 夜路区 + 剧场内部 + 右侧暗巷 + 剧场背后的空地（彩蛋区）
+// 场地: 夜路区 + 剧场内部 + 建筑右侧便道 + 暗巷 + 剧场背后的空地（彩蛋区）
+// v1.6 后巷通路修通：v1.5 的路面（maxX 4.6）与暗巷（minX 8.4）之间只有北端
+// z∈[6.5,12.5] 一个无标记缺口——玩家沿路走到剧场想右拐即撞 x=4.6 的隐形墙。
+// 现在建筑右侧全段是一条水泥便道：路上任何一点右拐 → 便道南下 →
+// 绕过票亭转角 → 进巷（沿巷东移了电话亭，巷宽 1.7m 不再穿模杂物）→ 空地。
 const ROAD = { minX: -4.6, maxX: 4.6, minZ: -13.6, maxZ: 19 };
 const ROOM = { minX: -7.2, maxX: 7.2, minZ: -25.6, maxZ: -14.2 };
 const DOOR = { minX: -1.35, maxX: 1.35, minZ: -14.9, maxZ: -13.2 };
-const SHOULDER = { minX: 4.6, maxX: 11.0, minZ: 6.5, maxZ: 12.5 };  // 路肩缺口
-const ALLEY = { minX: 8.4, maxX: 11.0, minZ: -31.5, maxZ: 6.5 };    // 暗巷
-const BACKLOT = { minX: -10.5, maxX: 11.0, minZ: -33.0, maxZ: -27.6 }; // 背后空地
+const WALKWAY = { minX: 4.6, maxX: 8.4, minZ: -12.0, maxZ: 10.3 };    // 建筑右侧便道（票亭以北）
+const CORNER = { minX: 6.3, maxX: 10.1, minZ: -13.6, maxZ: -12.0 };   // 票亭与立面转角间的拐弯
+const ALLEY = { minX: 8.4, maxX: 10.1, minZ: -31.5, maxZ: 12.5 };     // 暗巷全段（含北巷口）
+const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后空地（避开垃圾箱体）
+
+// 冒烟与单测用：通路矩形并集 / 惊吓触发区 / 出生点（纯数据，可在 node 侧仿真行走）
+export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
+export const SCARE_ZONE = { x: 2.0, z: -30.3, r: 3.4 };
+export const SPAWN = { x: 0, z: 15.5, yaw: 0 };
 
 export function build(ctx) {
   const { hotspots, ui, goTo, audio, engine, player, teleport } = ctx;
@@ -64,6 +74,19 @@ export function build(ctx) {
   dirt.rotation.x = -Math.PI / 2;
   dirt.position.y = -0.03;
   group.add(dirt);
+
+  // v1.6 通路可见化：水泥服务便道沿建筑右侧铺到巷口，暗巷里接着走——
+  // 有路面的地方就是能走的地方（walkable 矩形正覆盖其上）
+  const walkPadMat = concreteMat({ base: [34, 33, 38], seed: 61, repX: 1, repY: 7, joints: 9 });
+  const walkPad = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 24.2), walkPadMat);
+  walkPad.rotation.x = -Math.PI / 2;
+  walkPad.position.set(6.5, 0.004, -1.5); // x 4.5–8.5, z -13.6–10.6：便道 + 票亭转角
+  group.add(walkPad);
+  const alleyPadMat = concreteMat({ base: [30, 29, 34], seed: 62, repX: 1, repY: 12, joints: 14 });
+  const alleyPad = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 44.2), alleyPadMat);
+  alleyPad.rotation.x = -Math.PI / 2;
+  alleyPad.position.set(9.75, 0.0045, -9.6); // x 8.5–11, z -31.7–12.5：暗巷全段
+  group.add(alleyPad);
 
   // 城市光晕地平线 + 群山剪影 + 星
   const horizon = new THREE.Mesh(
@@ -489,6 +512,66 @@ export function build(ctx) {
     chaseBulbs.material.emissiveIntensity = 1.6 + (Math.sin(t * 7) * 0.5 + 0.5) * 1.4;
   });
 
+  // v1.6 巷口引导：立面右角一块「SALIDA DE ARTISTAS →」搪瓷牌 + 罩笼工作灯——
+  // 演员出入口在建筑右侧；箭头指向暗巷，灯偶尔眨一下（in-world 引导，不用 UI 提示）
+  const stageDoorTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#101418';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#b8b2a0';
+    g.lineWidth = 5;
+    g.strokeRect(10, 66, s - 20, 124);
+    g.fillStyle = '#c8c2b0';
+    g.textAlign = 'center';
+    g.font = '700 34px Georgia, serif';
+    g.fillText('SALIDA DE', s / 2 - 22, 116);
+    g.fillText('ARTISTAS', s / 2 - 22, 156);
+    // 右向箭头（杆 + 楔头）
+    g.fillRect(s - 78, 122, 34, 10);
+    g.beginPath();
+    g.moveTo(s - 44, 112);
+    g.lineTo(s - 20, 127);
+    g.lineTo(s - 44, 142);
+    g.closePath();
+    g.fill();
+    // 搪瓷磕碰的暗斑
+    const sr = rng(71);
+    g.fillStyle = 'rgba(8,8,10,0.5)';
+    for (let i = 0; i < 9; i++) {
+      g.beginPath();
+      g.arc(14 + sr() * (s - 28), 70 + sr() * 116, 1.5 + sr() * 3.5, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+  const stageDoorMat = new THREE.MeshStandardMaterial({
+    map: stageDoorTex, transparent: true, roughness: 0.5, metalness: 0.3,
+    emissive: 0xffffff, emissiveMap: stageDoorTex, emissiveIntensity: 0.3
+  });
+  const stageDoorSign = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.15), stageDoorMat);
+  stageDoorSign.position.set(7.0, 2.6, -13.72);
+  group.add(stageDoorSign);
+  const signLamp = new THREE.PointLight(0xffc98a, 2.6, 6.5, 1.8);
+  signLamp.position.set(7.0, 3.5, -13.3);
+  const signLampBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.2 })
+  );
+  signLampBulb.position.set(7.0, 3.42, -13.55);
+  // 罩笼：半球罩 + 三根护条（合并）
+  group.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.11, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 7.0, 3.46, -13.55),
+    xform(new THREE.BoxGeometry(0.015, 0.2, 0.015), 6.92, 3.4, -13.48),
+    xform(new THREE.BoxGeometry(0.015, 0.2, 0.015), 7.08, 3.4, -13.48),
+    xform(new THREE.BoxGeometry(0.015, 0.2, 0.015), 7.0, 3.4, -13.63),
+    xform(new THREE.BoxGeometry(0.06, 0.06, 0.5), 7.0, 3.52, -13.78)
+  ], new THREE.MeshStandardMaterial({ color: 0x1c1a1e, roughness: 0.6, metalness: 0.5 })));
+  group.add(signLamp, signLampBulb);
+  updaters.push((dt, t) => {
+    const f = Math.sin(t * 16.7 + 4.1) * Math.sin(t * 5.7) > 0.93 ? 0.25 : 1;
+    signLamp.intensity = 2.6 * f;
+    signLampBulb.material.emissiveIntensity = 2.2 * f;
+    stageDoorMat.emissiveIntensity = 0.3 * (0.6 + 0.4 * f);
+  });
+
   // v1.4 P3：剧场票亭（路缘外、门厅右肩；折窗 + 票口碗 + CERRADO 牌）
   const tbooth = ticketBooth({ mats: M });
   tbooth.position.set(5.35, 0, -12.8);
@@ -595,8 +678,10 @@ export function build(ctx) {
   newsDoor.add(doorFrame);
   newsDoor.position.set(0, 0.98, 0.215);
   newsBox.add(newsDoor);
-  newsBox.position.set(4.85, 0, 6.4);
-  newsBox.rotation.y = -Math.PI / 2 - 0.06;
+  // v1.6：报箱挪到巷口铁皮墙根（原位在新便道正中会被穿模）——
+  // 顺便当了往暗巷去的第一枚路标
+  newsBox.position.set(10.62, 0, 6.1);
+  newsBox.rotation.y = Math.PI / 2 + 0.05;
   group.add(newsBox);
   const newsState = { t: -1 };
   updaters.push((dt) => {
@@ -612,7 +697,7 @@ export function build(ctx) {
     hint: 'E — 投币报箱',
     onActivate: () => {
       if (newsState.t < 0) newsState.t = 0;
-      audio.sfxAt('springdoor', 4.85, 6.4, 0.75, 3);
+      audio.sfxAt('springdoor', 10.62, 6.1, 0.75, 3);
       ui.caption('头版是空白的。日期也是。', 3400);
     }
   });
@@ -789,17 +874,24 @@ export function build(ctx) {
   group.add(fenceR);
 
   // ---------- 暗巷与背后空地（彩蛋区） ----------
-  // 巷口一盏将熄的壁灯
+  // v1.6：两盏壁灯共用一个 kill 通道——巷中恐惧拍与惊吓主体都会把整条巷按进黑里
+  const lampKill = { v: 0 };
+  // 巷口一盏将熄的壁灯（v1.6 挂上铁皮墙：支臂 + 灯座，不再悬空）
   const alleyLamp = new THREE.PointLight(0xffc98a, 3.5, 9, 1.8);
-  alleyLamp.position.set(9.6, 3.4, -6);
+  alleyLamp.position.set(11.05, 3.4, -6);
   const alleyBulb = new THREE.Mesh(
     new THREE.SphereGeometry(0.07, 8, 8),
     new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.4 })
   );
   alleyBulb.position.copy(alleyLamp.position);
   group.add(alleyLamp, alleyBulb);
+  group.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.5, 0.05, 0.05), 11.32, 3.52, -6),
+    xform(new THREE.CylinderGeometry(0.035, 0.05, 0.12, 8), 11.05, 3.5, -6),
+    xform(new THREE.BoxGeometry(0.05, 0.4, 0.12), 11.55, 3.42, -6)
+  ], new THREE.MeshStandardMaterial({ color: 0x1c1a1e, roughness: 0.6, metalness: 0.5 })));
   updaters.push((dt, t) => {
-    const f = Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1;
+    const f = (Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1) * (1 - lampKill.v);
     alleyLamp.intensity = 3.5 * f;
     alleyBulb.material.emissiveIntensity = 2.4 * f;
   });
@@ -813,10 +905,22 @@ export function build(ctx) {
   alleyBulb2.position.copy(alleyLamp2.position);
   group.add(alleyLamp2, alleyBulb2);
   updaters.push((dt, t) => {
-    const f = Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1;
+    const f = (Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1) * (1 - lampKill.v);
     alleyLamp2.intensity = 3.0 * f;
     alleyBulb2.material.emissiveIntensity = 2.2 * f;
   });
+  // v1.6 巷中恐惧拍（声先于影）：走到巷子中段，两盏灯同时熄一口气——
+  // 黑里有一次呼吸；灯回来的时候，什么都没有。为主惊吓垫的第一拍。
+  const dreadTrig = zoneTrigger({ x: 9.3, z: -21.5, r: 2.6 }, () => {
+    lampKill.v = 1;
+    audio.sfx('lampoff', 0.3);
+    later(() => audio.sfx('breath', 0.55), 700);
+    later(() => {
+      lampKill.v = 0;
+      audio.sfx('lampon', 0.2);
+    }, 2200);
+  }, { cooldown: 90 });
+  updaters.push((dt) => dreadTrig.update(player, dt));
   // 板条箱堆（三只错位叠放，板条纹木箱）
   const crateMat = new THREE.MeshStandardMaterial({
     map: canvasTexture(128, (g, s) => {
@@ -945,8 +1049,9 @@ export function build(ctx) {
   updaters.push(ventSteam.userData.update);
 
   // 巷内电话亭 v2（立柱框架 + 玻璃 + 折门 + 螺旋话线；不通向任何地方）
+  // v1.6：贴到铁皮墙根（walkable 收到 x≤10.1，玩家从亭前经过而不再穿进亭身）
   const booth = phoneBooth({ mats: M });
-  booth.position.set(10.2, 0, -18);
+  booth.position.set(10.72, 0, -18);
   booth.rotation.y = -Math.PI / 2;
   group.add(booth);
   const boothState = { open: 0, target: 0 };
@@ -983,7 +1088,7 @@ export function build(ctx) {
     onActivate: () => {
       dialState.t = 1.2;
       audio.sfx('clank', 0.22);
-      later(() => audio.sfxAt('ratchet', 10.2, -18, 0.85), 580);
+      later(() => audio.sfxAt('ratchet', 10.72, -18, 0.85), 580);
     }
   });
 
@@ -997,12 +1102,13 @@ export function build(ctx) {
     if (scare.phase !== 0) return;
     scare.phase = 1;
     scare.t = 0;
-    // 世界的声音被抽走；后门灯熄灭
+    // 世界的声音被抽走；后门灯与整条巷的壁灯一起熄灭
     audio.duck(1.6, 0.02, 3.2);
     backLampState.on = 0;
+    lampKill.v = 1;
     later(() => audio.sfx('heartbeat', 0.9), 220);
     later(() => {
-      // 形体从垃圾箱后面扑出——滑向玩家面前 1.1 米处
+      // 形体从垃圾箱后面扑出——滑向玩家面前 1.1 米处（只给你 0.65 秒）
       scare.phase = 2;
       scare.t = 0;
       scare.from.set(dumpster.position.x + 0.6, 0, dumpster.position.z - 0.4);
@@ -1011,21 +1117,23 @@ export function build(ctx) {
       figure.position.copy(scare.from);
       figure.visible = true;
       audio.sfx('scare');
+      audio.sfx('thud', 1.0);
       engine.shock(1, 0.9, 0x1a0000);
     }, 1500);
     later(() => {
       // 黑幕 + 空间错位：醒来时你已回到巷口
       figure.visible = false;
       ui.fade(true);
-    }, 2350);
+    }, 2150);
     later(() => {
       teleport(9.7, 9.5, Math.PI); // 巷口，背对来路
       ui.fade(false);
       backLampState.on = 1;
+      lampKill.v = 0;
       audio.sfx('whisper', 0.7);
       ui.caption('你梦见过这个地方。现在，它也梦见了你。', 5200);
       scare.phase = 0; // 允许再次触发（zoneTrigger 冷却控制频率）
-    }, 3100);
+    }, 2900);
   };
   updaters.push((dt) => {
     if (scare.phase === 2) {
@@ -1036,7 +1144,7 @@ export function build(ctx) {
       figure.rotation.z = Math.sin(scare.t * 60) * 0.1; // 高频痉挛
     }
   });
-  const scareTrig = zoneTrigger({ x: 2.0, z: -30.3, r: 3.4 }, doScare, { cooldown: 45 });
+  const scareTrig = zoneTrigger(SCARE_ZONE, doScare, { cooldown: 45 });
   updaters.push((dt) => scareTrig.update(player, dt));
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
@@ -1456,11 +1564,14 @@ export function build(ctx) {
 
   return {
     group,
-    spawn: { x: 0, z: 15.5, yaw: 0 },
-    bounds: multiRectBounds([ROAD, ROOM, DOOR, SHOULDER, ALLEY, BACKLOT]),
-    // 脚步材质分区：剧场厅内（含门廊）=地毯；路面/路肩/暗巷/背后空地=沥青
+    spawn: SPAWN,
+    bounds: multiRectBounds(WALK_RECTS),
+    // 脚步材质分区：剧场厅内（含门廊）=地毯；便道/暗巷=水泥；
+    // 背后空地=泥土；路面=沥青
     surfaceAt: (x, z) => {
       if (z <= DOOR.maxZ && x >= ROOM.minX && x <= ROOM.maxX && z >= ROOM.minZ) return 'carpet';
+      if (z <= BACKLOT.maxZ && x < ALLEY.minX) return 'dirt';
+      if (x > ROAD.maxX) return 'concrete';
       return 'asphalt';
     },
     // 混响分区：剧场厅内=绒面房间尾音；夜路/巷/空地=干外景
@@ -1469,7 +1580,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'backlot-scare': scareTrig },
+    eggs: { 'backlot-scare': scareTrig, 'alley-dread': dreadTrig },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);

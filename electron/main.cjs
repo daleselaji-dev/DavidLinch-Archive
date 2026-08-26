@@ -109,6 +109,45 @@ function createWindow() {
           console.error(`[smoke] 交互检查失败 ${hall}: ${err && err.message}`);
           app.exit(1);
         });
+        // v1.6 门禁 37：穆赫兰道后巷通路走通性 + 惊吓自然触发断言。
+        // walkPath 把真实玩家逐帧走过 路→右侧便道→票亭转角→暗巷→背后空地，
+        // 全程被 bounds 钳制（撞墙即失败）；终点落在触发圈内，下一帧惊吓
+        // 自然引爆，2.9s 后空间错位应把玩家移回巷口 (9.7, 9.5)。
+        const maybeWalkTest = (done) => {
+          if (hall !== 'mulholland') { done(); return; }
+          const route = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -29.5], [2.0, -30.3]]);
+          win.webContents.executeJavaScript(`window.__SV__.walkPath(${route})`, true).then((r) => {
+            console.log(`[smoke] 后巷走通性 mulholland: ${JSON.stringify(r)}`);
+            if (!r || !r.ok) {
+              console.error('[smoke] 后巷通路不通：玩家撞墙走不到惊吓触发点');
+              app.exit(1);
+              return;
+            }
+            const t0 = Date.now();
+            const poll = () => {
+              win.webContents.executeJavaScript(
+                '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+              ).then((at) => {
+                if (at === '9.7,9.5') {
+                  console.log('[smoke] 惊吓自然触发 OK：走进触发圈 → 空间错位移回巷口 (9.7,9.5)');
+                  setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
+                } else if (Date.now() - t0 > 9000) {
+                  console.error(`[smoke] 走进触发圈后惊吓未完成（机位 ${at}，期望 9.7,9.5）`);
+                  app.exit(1);
+                } else {
+                  setTimeout(poll, 500);
+                }
+              }).catch((err) => {
+                console.error('[smoke] 后巷断言失败', err && err.message ? err.message : err);
+                app.exit(1);
+              });
+            };
+            setTimeout(poll, 800);
+          }).catch((err) => {
+            console.error('[smoke] walkPath 执行失败', err && err.message ? err.message : err);
+            app.exit(1);
+          });
+        };
         const proceed = () => {
           // 全量交互激活 → 彩蛋触发（都放在截屏之后，避免反转/熄灯污染画面存档）
           win.webContents.executeJavaScript(
@@ -162,7 +201,7 @@ function createWindow() {
             win.webContents.executeJavaScript(uiScript, true).then((r) => {
               clearTimeout(deadline);
               console.log(`[smoke] UI 交互冒烟: ${r}`);
-              console.log('[smoke] 运行时冒烟通过：启动 → 七厅装载 → 彩蛋触发 → UI/旁白交互全部完成');
+              console.log('[smoke] 运行时冒烟通过：启动 → 七厅装载 → 后巷走通+惊吓自然触发 → 彩蛋触发 → UI/旁白交互全部完成');
               app.exit(0);
             }).catch((err) => {
               clearTimeout(deadline);
@@ -204,10 +243,10 @@ function createWindow() {
               } catch (err) {
                 console.error('[smoke] 截屏失败', err);
               }
-              proceed();
+              maybeWalkTest(proceed);
             }, Number(process.env.SV_SHOT_DELAY || 3500) + firstShotExtra);
           } else {
-            proceed();
+            maybeWalkTest(proceed);
           }
         });
       }
