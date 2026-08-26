@@ -169,6 +169,29 @@ export function build(ctx) {
   }
   group.add(mergedMesh(palmGeos, new THREE.MeshBasicMaterial({ color: 0x030209, fog: false })));
 
+  // v1.4 六遍：夜航班机——一粒红航行灯 + 一粒白频闪，90s 一班缓缓划过
+  // 城市光晕上空（LKG 上空永远有一架飞机在去别处的路上）
+  const planeGrp = new THREE.Group();
+  const navRed = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5),
+    new THREE.MeshBasicMaterial({ color: 0xff2a1e, fog: false, transparent: true }));
+  const strobe = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 5),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0 }));
+  strobe.position.x = 0.9; // 机尾频闪离航行灯一点距离——「有个看不见的机身」
+  planeGrp.add(navRed, strobe);
+  planeGrp.visible = false;
+  group.add(planeGrp);
+  updaters.push((dt, t) => {
+    const cyc = t % 90;
+    if (cyc > 58) { planeGrp.visible = false; return; }
+    planeGrp.visible = true;
+    const u = cyc / 58;
+    const az = -1.1 + u * 2.4; // 从剧场左肩后划向路的尽头
+    planeGrp.position.set(Math.cos(az) * 96, 40 + Math.sin(u * Math.PI) * 5, Math.sin(az) * 96);
+    navRed.material.opacity = Math.sin(t * 3.4) > -0.2 ? 0.9 : 0.25; // 红灯呼吸闪
+    const sw = t % 1.4;
+    strobe.material.opacity = sw < 0.07 || (sw > 0.16 && sw < 0.23) ? 1 : 0; // 双闪频闪
+  });
+
   // 路灯 v2（凹槽柱 + 泪滴灯头；一盏坏了，嗡嗡作响地闪）
   const lampData = [];
   for (let i = 0; i < 5; i++) {

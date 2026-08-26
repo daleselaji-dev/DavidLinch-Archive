@@ -358,10 +358,58 @@ export function build(ctx) {
   const fogLayer = smokeLayer(120, { x: 70, z: 70 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
-  const fireflies = dustField(90, { x: 44, y: 3, z: 44 }, { color: 0xbfffa8, size: 0.09, opacity: 0.8 });
+  // v1.4 六遍：萤火虫 v2——从「发光的灰」升级成真萤火：每只有自己的闪烁相位
+  // （sin^8 尖脉冲、几秒一亮）+ 低空慢游走（不再像灰尘那样往下落）
+  const ffCount = 44;
+  const ffGeo = new THREE.BufferGeometry();
+  const ffPos = new Float32Array(ffCount * 3);
+  const ffSeed = [];
+  const ffR = rng(97);
+  for (let i = 0; i < ffCount; i++) {
+    const a = ffR() * Math.PI * 2;
+    const r = 3 + ffR() * 18;
+    ffPos[i * 3] = Math.cos(a) * r;
+    ffPos[i * 3 + 1] = 0.35 + ffR() * 1.4;
+    ffPos[i * 3 + 2] = Math.sin(a) * r;
+    ffSeed.push({
+      w: 0.9 + ffR() * 1.6, p: ffR() * Math.PI * 2,
+      vx: (ffR() - 0.5) * 0.3, vz: (ffR() - 0.5) * 0.3, vy: ffR() * Math.PI * 2
+    });
+  }
+  ffGeo.setAttribute('position', new THREE.BufferAttribute(ffPos, 3));
+  ffGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(ffCount * 3), 3));
+  const ffTex = canvasTexture(32, (g, s) => {
+    const rad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    rad.addColorStop(0, 'rgba(255,255,255,1)');
+    rad.addColorStop(0.4, 'rgba(255,255,255,0.5)');
+    rad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = rad;
+    g.fillRect(0, 0, s, s);
+  });
+  const fireflies = new THREE.Points(ffGeo, new THREE.PointsMaterial({
+    size: 0.14, transparent: true, vertexColors: true, map: ffTex,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
   group.add(fireflies);
   const freeze = { on: false };
-  updaters.push((dt, t) => { if (!freeze.on) fireflies.userData.update(dt, t); });
+  updaters.push((dt, t) => {
+    if (freeze.on) return;
+    const p = ffGeo.attributes.position;
+    const c = ffGeo.attributes.color;
+    for (let i = 0; i < ffCount; i++) {
+      const s2 = ffSeed[i];
+      p.array[i * 3] += Math.sin(t * 0.23 + s2.p * 3) * s2.vx * dt;
+      p.array[i * 3 + 1] += Math.sin(t * 0.5 + s2.vy) * dt * 0.06;
+      p.array[i * 3 + 2] += Math.cos(t * 0.19 + s2.p * 2) * s2.vz * dt;
+      const pulse = Math.max(0, Math.sin(t * s2.w + s2.p)) ** 8;
+      const k2 = 0.06 + pulse * 0.94;
+      c.array[i * 3] = 0.75 * k2;
+      c.array[i * 3 + 1] = k2;
+      c.array[i * 3 + 2] = 0.55 * k2;
+    }
+    p.needsUpdate = true;
+    c.needsUpdate = true;
+  });
 
   // ============================================================
   // ② 红房间氛围区（几何抽象：折线地板 + 红帷幕 + 扶手椅）
