@@ -664,6 +664,62 @@ export class AudioEngine {
         noise('white', 0.5, 'highpass', 2400, 1, 0.02, 2.1, 0.18);    // 水花碎响
         break;
       }
+      case 'winch': { // 吊灯绞盘（v1.10）：摇柄棘轮圈 + 钢缆绷紧上行呻吟 + 滑轮吱鸣 + 自重接管
+        for (let i = 0; i < 8; i++) {
+          tone('square', 118, 104, 0.035, 0.02, i * 0.16);
+          noise('pink', 0.045, 'bandpass', 900 + (i % 2) * 180, 4, 0.038, i * 0.16);
+        }
+        tone('sine', 74, 96, 1.1, 0.05, 0.1);
+        tone('sine', 1080, 1010, 0.5, 0.014, 0.5);
+        noise('brown', 0.4, 'lowpass', 240, 1, 0.05, 1.1, 0.1);
+        break;
+      }
+      case 'wallbox': { // 卡座点唱盒（v1.10）：投币簧 + 曲目牌翻页嗒嗒（密到疏）+ 机芯醒来的低哼
+        tone('square', 2600, 2400, 0.02, 0.02);
+        for (let i = 0; i < 5; i++) {
+          noise('white', 0.02, 'bandpass', 3000 - i * 240, 6, 0.03, 0.16 + i * 0.09);
+          tone('square', 180, 160, 0.02, 0.012, 0.16 + i * 0.09);
+        }
+        tone('sine', 96, 100, 0.8, 0.03, 0.7);
+        tone('sine', 192, 200, 0.7, 0.014, 0.75);
+        break;
+      }
+      case 'lockerclang': { // 铁皮更衣柜（v1.10）：门簧锐鸣 + 哐当闭合 + 空腔铁皮余振
+        tone('square', 1650, 1520, 0.06, 0.03);
+        noise('white', 0.04, 'highpass', 3400, 2, 0.04);
+        tone('sine', 96, 60, 0.3, 0.16, 0.42);
+        noise('brown', 0.16, 'lowpass', 400, 1, 0.1, 0.42);
+        tone('sine', 340, 328, 0.5, 0.03, 0.44);
+        tone('sine', 512, 490, 0.36, 0.02, 0.46);
+        break;
+      }
+      case 'waterlap': { // 接水桶被碰（v1.10）：桶沿一声 + 水在铁皮里晃两拍（第二拍更轻）+ 迟到的一滴
+        tone('sine', 520, 470, 0.14, 0.04);
+        noise('pink', 0.4, 'bandpass', 620, 2.4, 0.05, 0.06, 0.1);
+        tone('sine', 300, 380, 0.3, 0.026, 0.1);
+        noise('pink', 0.3, 'bandpass', 540, 2.6, 0.036, 0.5, 0.1);
+        tone('sine', 1900, 2300, 0.08, 0.02, 0.95);
+        break;
+      }
+      case 'callbell': { // 候场呼叫铃（v1.10）：两短一长电铃（铃锤连击近似）+ 继电器收拍
+        for (const [d, len] of [[0, 0.14], [0.26, 0.14], [0.52, 0.5]]) {
+          const hits = Math.floor(len / 0.024);
+          for (let i = 0; i < hits; i++) {
+            tone('square', 2350, 2280, 0.02, 0.016, d + i * 0.024);
+          }
+          tone('sine', 1180, 1160, len + 0.1, 0.02, d);
+        }
+        tone('square', 900, 860, 0.02, 0.02, 1.1);
+        break;
+      }
+      case 'latchsnap': { // 皮箱锁扣（v1.10）：簧压蓄力 + 双扣错拍弹开 + 皮革腔体微震
+        noise('pink', 0.05, 'bandpass', 1400, 3, 0.03);
+        tone('square', 2100, 1900, 0.025, 0.03, 0.07);
+        tone('square', 2350, 2100, 0.025, 0.028, 0.19);
+        tone('sine', 210, 170, 0.16, 0.05, 0.08);
+        noise('brown', 0.12, 'lowpass', 300, 1, 0.04, 0.2);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

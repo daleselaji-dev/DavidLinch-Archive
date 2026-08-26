@@ -793,6 +793,152 @@ export function build(ctx) {
     });
   }
 
+  // ============================================================
+  // v1.10 二级细节·lobby 件 1：吊灯绞盘——东柱内侧的黄铜绞盘站，
+  // 钢缆上顶经滑轮吊住中央吊灯（剧场吊挂语言：这盏灯是能放下来
+  // 擦的）。E → 摇柄转、吊灯一顿一顿降半米又升回、轻微晃。
+  // ============================================================
+  {
+    const winch = new THREE.Group();
+    // 背板（贴柱）+ 鼓 + 缠好的缆 + 棘轮爪
+    winch.add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x241318, roughness: 0.55, metalness: 0.3 })));
+    // 鼓用独立材质克隆——热点高亮脉冲不许把整馆黄铜一起点亮
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 14), M.brass.clone());
+    drum.rotation.x = Math.PI / 2;
+    drum.position.z = 0.13;
+    winch.add(drum);
+    const wound = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.16, 12),
+      new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5, metalness: 0.75 }));
+    wound.rotation.x = Math.PI / 2;
+    wound.position.z = 0.13;
+    winch.add(wound);
+    winch.add(mergedMesh([
+      // 棘轮齿盘 + 制动爪
+      xform(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 18), 0, 0, 0.245, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.03, 0.1, 0.02), 0.1, 0.11, 0.245, 0, 0, 0.5)
+    ], M.brass));
+    // 摇柄（枢轴在鼓轴上）：曲臂 + 木握
+    const crankPivot = new THREE.Group();
+    crankPivot.position.z = 0.26;
+    crankPivot.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.018, 0.018, 0.06, 8), 0, 0, 0.03, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.03, 0.17, 0.025), 0, -0.07, 0.06),
+      xform(new THREE.CylinderGeometry(0.016, 0.016, 0.09, 8), 0, -0.14, 0.1, Math.PI / 2, 0, 0)
+    ], M.brass));
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.07, 10),
+      woodMat({ base: [30, 18, 12], planks: 1, size: 128, seed: 91 }));
+    grip.rotation.x = Math.PI / 2;
+    grip.position.set(0, -0.14, 0.12);
+    crankPivot.add(grip);
+    winch.add(crankPivot);
+    // 装在西柱（k=4，圆心角 π）内侧面，把手朝厅心——与东侧留声机
+    // 对望的机务角；东柱留给流苏束带，不同柱说不同的话
+    winch.position.set(-(R - 1.24), 1.15, 0);
+    winch.rotation.y = Math.PI / 2;
+    group.add(winch);
+    // 立缆：绞盘顶 → 柱上滑轮；横缆：滑轮 → 吊灯毂（微垂悬链）
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.45, metalness: 0.8 });
+    const pulleyY = 7.9;
+    group.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.008, 0.008, pulleyY - 1.35, 6), -(R - 1.27), (pulleyY + 1.15) / 2 - 0.1, 0),
+      xform(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), -(R - 1.27), pulleyY, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.04, 0.12, 0.1), -(R - 1.2), pulleyY + 0.02, 0)
+    ], cableMat));
+    const spanCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(-(R - 1.27), pulleyY + 0.04, 0),
+      new THREE.Vector3(-(R - 1.27) / 2, 7.0, 0),
+      new THREE.Vector3(-0.3, 7.22, 0)
+    );
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(spanCurve, 20, 0.008, 6), cableMat));
+    // 绞盘时间线：一顿一顿降半米（棘轮感）→ 悬半拍 → 匀速升回 + 轻晃
+    const winchState = { t: -1 };
+    updaters.push((dt) => {
+      if (winchState.t < 0) return;
+      winchState.t += dt;
+      const u = winchState.t;
+      if (u > 5.2) {
+        winchState.t = -1;
+        lustre.position.y = 6.55;
+        lustre.rotation.x = 0;
+        return;
+      }
+      let drop;
+      if (u < 1.8) {
+        // 下行分 6 格，每格只在前 40% 走（棘轮顿挪）
+        const k = u / 1.8;
+        const step = Math.floor(k * 6);
+        const inStep = Math.min(1, (k * 6 - step) / 0.4);
+        drop = (step + inStep) / 6;
+      } else if (u < 2.6) drop = 1;
+      else drop = Math.max(0, 1 - (u - 2.6) / 2.4);
+      lustre.position.y = 6.55 - drop * 0.45;
+      lustre.rotation.x = Math.sin(u * 3.1) * 0.012 * drop;
+      crankPivot.rotation.z = u < 1.8 ? -u * 7 : (u < 2.6 ? -1.8 * 7 : -1.8 * 7 + (u - 2.6) * 5.25);
+    });
+    hotspots.add(drum, {
+      hint: 'E — 吊灯绞盘',
+      onActivate: () => {
+        if (winchState.t >= 0) return;
+        winchState.t = 0;
+        audio.sfxAt('winch', -(R - 1.24), 0, 0.8);
+        setTimeout(() => audio.sfx('creak', 0.25), 900);
+        ui.caption('绞盘还记得灯的重量。', 3400);
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 二级细节·lobby 件 2：碑阶上的白花——一支马蹄莲平放在
+  // 台阶前缘，没有花瓶，没有名字。E → 花身轻颤，一枚白瓣离开它。
+  // ============================================================
+  {
+    const strayLily = callaLily(lilyShared);
+    strayLily.position.set(0.85, 0.31, 2.05);
+    strayLily.rotation.set(-Math.PI / 2 + 0.12, 0.5, 0.6);
+    group.add(strayLily);
+    // 命中代理（花太细，射线难打）
+    const lilyHit = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.3),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+    lilyHit.position.set(0.85, 0.34, 2.05);
+    group.add(lilyHit);
+    const strayPetal = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.055),
+      new THREE.MeshStandardMaterial({
+        color: 0xe9e2d2, roughness: 0.6, transparent: true, opacity: 0, side: THREE.DoubleSide
+      }));
+    strayPetal.visible = false;
+    group.add(strayPetal);
+    const lilyState = { t: -1, once: false };
+    updaters.push((dt) => {
+      if (lilyState.t < 0) return;
+      lilyState.t += dt;
+      const u = lilyState.t;
+      if (u > 2.2) {
+        lilyState.t = -1;
+        strayPetal.visible = false;
+        strayLily.rotation.z = 0.6;
+        return;
+      }
+      strayLily.rotation.z = 0.6 + Math.sin(u * 6.5) * 0.05 * Math.max(0, 1 - u * 0.8);
+      strayPetal.visible = true;
+      const fall = u * u * 0.1;
+      strayPetal.position.set(0.95 + u * 0.07, Math.max(0.26, 0.42 - fall), 2.12 + Math.sin(u * 2.8) * 0.03);
+      strayPetal.rotation.set(u * 1.8, u * 1.2, Math.sin(u * 3.5) * 0.7);
+      strayPetal.material.opacity = u < 0.15 ? u / 0.15 : Math.max(0, 1 - Math.max(0, u - 1.4) / 0.7);
+    });
+    hotspots.add(lilyHit, {
+      hint: 'E — 台阶上的白花',
+      onActivate: () => {
+        if (lilyState.t < 0) lilyState.t = 0;
+        audio.sfxAt('tassel', 0.85, 2.05, 0.3);
+        if (!lilyState.once) {
+          lilyState.once = true;
+          ui.caption('一支白花。不在名册上。', 3600);
+        }
+      }
+    });
+  }
+
   // v1.5 减法：伞架退场（与衣帽架重复的「有人来过」件，
   // 还正好立在出生点到纪念碑的视线上）——同一句话说一遍就够
 
