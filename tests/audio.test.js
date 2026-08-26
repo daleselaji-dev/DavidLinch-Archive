@@ -119,17 +119,17 @@ describe('v1.3 新交互音色（源码审计：合成器 switch 分支存在）
 
 describe('v1.4 阶段 5 新音色（配套阶段 3/4 新交互；源码审计）', () => {
   const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
-  it.each(['coin', 'springdoor', 'ladderroll', 'flutter', 'stamp', 'iceclink', 'jostle'])(
+  it.each(['coin', 'springdoor', 'ladderroll', 'flutter', 'stamp', 'iceclink', 'jostle', 'thunder'])(
     '音色 %s 已实现', (name) => {
       expect(src).toContain(`case '${name}'`);
     }
   );
 
   it('新音色已在展厅接线（每种至少一处调用）', () => {
-    const halls = ['mulholland', 'archive', 'twinpeaks', 'bluevelvet', 'lobby']
+    const halls = ['mulholland', 'archive', 'twinpeaks', 'bluevelvet', 'lobby', 'studio']
       .map((h) => readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8'))
       .join('\n');
-    for (const name of ['coin', 'springdoor', 'ladderroll', 'flutter', 'stamp', 'iceclink', 'jostle']) {
+    for (const name of ['coin', 'springdoor', 'ladderroll', 'flutter', 'stamp', 'iceclink', 'jostle', 'thunder']) {
       expect(halls).toContain(`'${name}'`);
     }
   });

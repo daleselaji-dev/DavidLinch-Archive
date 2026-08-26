@@ -474,7 +474,12 @@ export function build(ctx) {
     dropTex.offset.y -= dt * 0.14;
     rainLayer.material.opacity += (blindState.v * 0.85 - rainLayer.material.opacity) * Math.min(1, dt * 3);
     blindState.flash = Math.max(0, blindState.flash - dt * 3.2);
-    if (blindState.v > 0.5 && Math.random() < dt * 0.045) blindState.flash = 1;
+    if (blindState.v > 0.5 && Math.random() < dt * 0.045) {
+      blindState.flash = 1;
+      // v1.4 阶段 5：闪电之后隔 0.7–2.1s 传来远雷，越迟越远越轻（声画距离感）
+      const delayS = 0.7 + Math.random() * 1.4;
+      setTimeout(() => audio.sfxAt('thunder', W / 2, -3.4, 0.75 - delayS * 0.24, 10), delayS * 1000);
+    }
     winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75 + blindState.flash * 2.2;
     moonSliver.intensity = 2.4 + blindState.v * 3.2 + blindState.flash * 9;
     // 叶片开着时从窗那边叠续雨声坡（3.4s 音长 / 2s 重触发 → 连成雨幕）

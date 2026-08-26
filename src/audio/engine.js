@@ -542,6 +542,13 @@ export class AudioEngine {
         tone('sine', 320, 250, 0.06, 0.04, 0.16);
         break;
       }
+      case 'thunder': { // 远雷：一记闷裂 + 长尾滚动 + 次声沉降（音量随闪电延迟衰减）
+        noise('white', 0.25, 'bandpass', 700, 1.2, 0.09, 0, 0.02);
+        noise('brown', 2.8, 'lowpass', 120, 0.8, 0.2, 0.06, 0.5);
+        noise('brown', 2.2, 'lowpass', 80, 1, 0.11, 1.2, 0.7);
+        tone('sine', 44, 26, 1.8, 0.09, 0.1);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;
