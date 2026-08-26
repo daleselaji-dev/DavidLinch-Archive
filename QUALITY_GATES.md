@@ -698,6 +698,59 @@ DOCENT 配套）。✅ 全绿。
 
 ---
 
+### 51. 画质 v1.10 —— 第 0 拍 / 尘埃流 / 呼吸全馆化 / 湿反射（v1.10 新增）
+- [ ] **C1 开幕点灯序列 v2「第 0 拍」**：黑场里碑前长明灯先独亮（一粒火
+      先醒），0.9s 后吊灯错拍跟上；收口「尘埃醒来」（光尘层透明度 0→常值
+      缓升）——模块级只演一次、openGate 乘法闸与颤动/blackout 互不干扰保持
+- [ ] **C2 体积光锥尘埃流**：lightCone 系加程序化竖向尘埃条纹纹理滚动
+      （缓慢下沉 + 随 breath 微呼吸），三处英雄光锥（大厅纪念台/蓝丝绒舞台/
+      穆赫兰道剧场聚光）；低档自动退素色锥
+- [ ] **C3 尘埃呼吸全馆化**：archive/eraserhead/bluevelvet/studio 四厅粒子层
+      接 `engine.breath`（只改 opacity 零带宽），与 v1.9 三厅同一相位体系
+- [ ] **C4 湿润反射**：mulholland 巷口积水洼（暗玻湿面 + ILLUSIÓN 霓虹倒影
+      微漾，顶点级动画）——拐角惊吓区氛围加厚，触发逻辑零改动
+- [ ] **C5 电影分级复核**：逐厅默认机位截屏对比微调，发现回归先修再继续
+- [ ] **C6 低档回退**：以上新效果低档保留或自动降强度，零新增每像素带宽；
+      自动降档（5s@<32fps）与 Q 锁定保持
+
+**验证方式**：截屏对比 + 源码审读 + `--smoke` 全绿。
+
+### 52. 逐厅英雄资产再增件 + 交互 ≥146（v1.10 新增）
+- [ ] PRODUCTION_PLAN §2 清单每厅 ≥2 件新增/重做（绞盘/白花、点唱盒/望远镜、
+      歌单/蒙布镜、积水洼/呼叫铃、转椅/行李箱、更衣柜/接水桶、
+      阅读器/索引灯箱——允许抛光轮调整，终版入册）
+- [ ] 全馆非导航交互 ≥146（v1.9 143 → +3 以上）；新交互全部 ≥2 通道反馈、
+      字幕 ≤22 字零剧透；每厅连锁 ≥2 保持
+- [ ] INTERACTIVE_MIN 重锁终版普查 -1；activateAll 七厅全量激活无异常
+- [ ] 既有彩蛋/通路/两重惊吓不回退（拐角/转身惊吓自然触发断言每遍全绿；
+      cornerscare/turnscare/mulholland-path 单测不放宽）
+- [ ] 性能预算保持 240/240k/40 硬断言全绿；逐厅终版实测入 PRODUCTION_PLAN §5.1
+
+**验证方式**：`xvfb-run npx electron . --smoke` 逐厅统计全绿 + 截屏复核 + 普查表。
+
+### 53. 音景 v1.10 —— 新合成音色 ≥3 + 零采样（v1.10 新增）
+- [ ] 新合成音色 ≥3 种（候选：winch/lockerclang/waterlap/wallbox/callbell/
+      latchsnap，按需落地终版入册）——全部与新交互配套接线、sfxAt 位置化；
+      分层反馈（主音+尾音/持续层）
+- [ ] audio.test.js 音色审计扩展（新音色实现 + 接线扫描）；参数域安全
+- [ ] 零采样扫描保持全绿（compliance：src/ 与 electron/ 零图像/音频/视频文件）
+
+**验证方式**：`npm test` audio 组 + 冒烟 activateAll 不抛错。
+
+### 54. Release 1.10.0（v1.10 新增）
+- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
+      三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）
+- [ ] WORKLOG v1.10 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）
+- [ ] 版本 bump 1.10.0（package.json + `__SV__.version` 一致，dist 产物内核对）；
+      CHANGELOG v1.10.0（说明取 1.10 而非 2.0 的理由）
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` + Setup NSIS 双目标
+      （wine 交叉打包；`file` PE32 校验）+ `SHA256SUMS.txt` 重写；
+      旧版 1.9.0 exe 从本分支移除防混淆
+- [ ] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.10.0」
+- [ ] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.10.0
+
+---
+
 ## 补充说明：关于「PS5 级别」
 v1.2 曾以门禁 17 落地第一版清单；v1.3 以门禁 21 升级为 PS4-tier（三通道 PBR/
 Sobel 法线/各向异性）；**v1.4 以门禁 26 的 P1–P10 定义 PS5-tier**（五通道 PBR/
