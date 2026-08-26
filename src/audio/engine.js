@@ -542,6 +542,16 @@ export class AudioEngine {
         tone('sine', 320, 250, 0.06, 0.04, 0.16);
         break;
       }
+      case 'coalrattle': { // 煤块滚落：干硬碰撞串（密到疏、音高渐落）+ 低闷落定 + 碎屑滑动尾
+        for (let i = 0; i < 6; i++) {
+          const d = i * 0.05 + i * i * 0.014;
+          noise('white', 0.03, 'bandpass', 1900 - i * 170, 6, 0.05 - i * 0.005, d, 0.003);
+          tone('triangle', 250 + (i % 3) * 55, 185, 0.045, 0.026, d);
+        }
+        noise('brown', 0.22, 'lowpass', 260, 1, 0.07, 0.4);
+        noise('pink', 0.35, 'bandpass', 900, 2, 0.02, 0.44, 0.08);
+        break;
+      }
       case 'thunder': { // 远雷：一记闷裂 + 长尾滚动 + 次声沉降（音量随闪电延迟衰减）
         noise('white', 0.25, 'bandpass', 700, 1.2, 0.09, 0, 0.02);
         noise('brown', 2.8, 'lowpass', 120, 0.8, 0.2, 0.06, 0.5);

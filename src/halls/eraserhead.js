@@ -907,6 +907,121 @@ export function build(ctx) {
   annexLamp.position.set(-S / 2 - 2.2, H - 1.4, 0);
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
+
+  // ---------- 煤角（v1.4 四遍）：炉子烧了五十年，煤终于进了场 ----------
+  // 北墙投煤口 + 斜溜槽 → 锅炉腹侧煤堆（flatShading 晶面在余烬光里发亮）
+  // + 插着的铁锹；E → 锹柄晃 + 两块煤滚落 + 炉膛应了一口亮（连锁）
+  const COAL_X = -S / 2 - 3.2;
+  const coalMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0a0d, roughness: 0.32, metalness: 0.55,
+    flatShading: true, envMapIntensity: 1.8
+  });
+  const cr = rng(53);
+  const pileGeo = new THREE.IcosahedronGeometry(0.75, 1);
+  {
+    const pp = pileGeo.attributes.position;
+    for (let i = 0; i < pp.count; i++) {
+      const k = 1 + (cr() - 0.5) * 0.5;
+      pp.setXYZ(i, pp.getX(i) * k, Math.max(0.02, pp.getY(i) * k * 0.55 + 0.12), pp.getZ(i) * k);
+    }
+    pileGeo.computeVertexNormals();
+  }
+  const pile = new THREE.Mesh(pileGeo, coalMat);
+  pile.position.set(COAL_X, 0, -1.85);
+  boilerRoom.add(pile);
+  // 散落煤块（seeded，堆脚一圈）
+  const lumpGeos = [];
+  for (let i = 0; i < 7; i++) {
+    const a = cr() * Math.PI * 2;
+    const r = 0.8 + cr() * 0.45;
+    lumpGeos.push(xform(
+      new THREE.IcosahedronGeometry(0.05 + cr() * 0.06, 0),
+      COAL_X + Math.cos(a) * r, 0.05, -1.85 + Math.sin(a) * r * 0.7,
+      cr() * 3, cr() * 3, 0
+    ));
+  }
+  boilerRoom.add(mergedMesh(lumpGeos, coalMat));
+  // 投煤口 + 斜溜槽（锈蚀 U 槽：底板 + 双侧翼 + 单撑）
+  const chuteRust = rustMat({ seed: 21, rust: 0.82, repX: 1, repY: 2 });
+  chuteRust.color = new THREE.Color(0x8a8378); // 冷灯下压暗——重铁不该反纸白
+  const hatchGeos = [
+    xform(new THREE.BoxGeometry(0.62, 0.62, 0.07), COAL_X, 2.42, -2.56),
+    xform(new THREE.BoxGeometry(0.5, 0.5, 0.03), COAL_X, 2.6, -2.49, -0.35, 0, 0) // 虚掩的翻板
+  ];
+  const chuteGeos = [
+    xform(new THREE.BoxGeometry(0.5, 0.03, 1.55), 0, 0, 0),
+    xform(new THREE.BoxGeometry(0.03, 0.16, 1.55), -0.25, 0.08, 0),
+    xform(new THREE.BoxGeometry(0.03, 0.16, 1.55), 0.25, 0.08, 0)
+  ];
+  for (const gg of chuteGeos) {
+    gg.rotateX(1.12);
+    gg.translate(COAL_X, 1.62, -2.2);
+  }
+  chuteGeos.push(xform(new THREE.BoxGeometry(0.05, 0.9, 0.05), COAL_X - 0.2, 0.85, -2.35));
+  boilerRoom.add(mergedMesh([...hatchGeos, ...chuteGeos], chuteRust));
+  // 铁锹：插进堆里，锹柄斜向步道
+  const shovel = new THREE.Group();
+  const shovelBlade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.03), M.iron);
+  shovelBlade.position.y = 0.13;
+  const shovelShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 1.15, 8), M.darkWood);
+  shovelShaft.position.y = 0.7;
+  const shovelGrip = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.16, 8), M.darkWood);
+  shovelGrip.rotation.x = Math.PI / 2;
+  shovelGrip.position.y = 1.27;
+  shovel.add(shovelBlade, shovelShaft, shovelGrip);
+  shovel.position.set(COAL_X + 0.55, 0.3, -1.6);
+  shovel.rotation.z = -0.42;
+  shovel.rotation.x = 0.1;
+  boilerRoom.add(shovel);
+  // 滚落煤块两粒（平时藏着；激活时从堆顶滚到堆脚）
+  const rollers = [0, 1].map((i) => {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07 - i * 0.015, 0), coalMat);
+    m.visible = false;
+    boilerRoom.add(m);
+    return m;
+  });
+  const coal = { flare: 0, wobble: 0, roll: -1 };
+  updaters.push((dt, t) => {
+    if (coal.flare > 0) {
+      // 连锁：炉膛/余烬应一口亮——写在炉火更新器之后，做加法不覆盖
+      furnaceLight.intensity += coal.flare * 4;
+      emberMat.emissiveIntensity += coal.flare * 0.7;
+      emberLight.intensity += coal.flare * 1.4;
+      coal.flare = Math.max(0, coal.flare - dt * 0.55);
+    }
+    if (coal.wobble > 0) {
+      coal.wobble -= dt;
+      shovel.rotation.z = -0.42 + Math.sin(t * 26) * 0.07 * Math.max(0, coal.wobble);
+    }
+    if (coal.roll >= 0) {
+      coal.roll += dt;
+      const k = Math.min(1, coal.roll / 0.85);
+      const ease = 1 - (1 - k) * (1 - k);
+      rollers.forEach((m, i) => {
+        const dir = i === 0 ? 0.72 : 0.46; // 滚不到步道格栅上
+
+        m.visible = true;
+        m.position.set(
+          COAL_X + 0.15 + ease * 0.85 * dir,
+          Math.max(0.05, 0.82 - ease * 0.77 + Math.abs(Math.sin(k * Math.PI * 2.2)) * 0.05 * (1 - k)),
+          -1.85 + ease * (i === 0 ? 0.5 : -0.4)
+        );
+        m.rotation.x += dt * 9 * (1 - k * 0.6);
+        m.rotation.z += dt * 7 * (1 - k * 0.6);
+      });
+      if (k >= 1) coal.roll = -1;
+    }
+  });
+  hotspots.add(shovelShaft, {
+    hint: 'E — 插在煤堆里的铁锹',
+    onActivate: () => {
+      coal.wobble = 0.8;
+      coal.roll = 0;
+      coal.flare = 1;
+      audio.sfxAt('coalrattle', COAL_X, -1.85, 0.6, 5);
+      ui.caption('炉子还记得煤的味道。', 3600);
+    }
+  });
   group.add(boilerRoom);
 
   // ---------- 泄压总管 —— 东墙的锈蚀集汽包（v1.4 P2 rustSet 五通道） ----------
