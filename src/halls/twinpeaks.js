@@ -259,6 +259,69 @@ export function build(ctx) {
   );
   cup.position.set(3.8, 0.77, 3.2);
   group.add(stump, cup);
+  // v1.4 阶段 4：空地边缘的枯树桩鸮 —— 黑暗里两粒微光的眼睛；
+  // E → 眼睛亮起、头无声地转过来对准你，一声近似翅膀的耳语（它先看见你的）
+  const snag = new THREE.Group();
+  const barkMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [30, 22, 14], planks: 1, size: 128 }), roughness: 0.95
+  });
+  snag.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.09, 0.15, 3.4, 10), 0, 1.7, 0),
+    xform(new THREE.CylinderGeometry(0.028, 0.045, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
+    xform(new THREE.CylinderGeometry(0.02, 0.035, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05)
+  ], barkMat));
+  const owl = new THREE.Group();
+  const owlBody = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.09, 0.02), new THREE.Vector2(0.115, 0.12),
+      new THREE.Vector2(0.095, 0.24), new THREE.Vector2(0.07, 0.3), new THREE.Vector2(0.075, 0.34),
+      new THREE.Vector2(0.05, 0.38), new THREE.Vector2(0.001, 0.39)
+    ], 12),
+    new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 })
+  );
+  const tuftGeo = new THREE.ConeGeometry(0.018, 0.05, 6);
+  owl.add(owlBody, mergedMesh([
+    xform(tuftGeo, -0.045, 0.4, 0, 0, 0, 0.25),
+    xform(tuftGeo, 0.045, 0.4, 0, 0, 0, -0.25)
+  ], owlBody.material));
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x050403, emissive: 0xffb45e, emissiveIntensity: 1.15
+  });
+  const eyes = mergedMesh([
+    xform(new THREE.SphereGeometry(0.02, 8, 6), -0.035, 0.315, 0.075),
+    xform(new THREE.SphereGeometry(0.02, 8, 6), 0.035, 0.315, 0.075)
+  ], eyeMat);
+  owl.add(eyes);
+  owl.position.set(0.62, 3.12, 0.12);
+  owl.rotation.y = 0.5;
+  snag.add(owl);
+  snag.position.set(-6.3, 0, 5.7);
+  group.add(snag);
+  const owlState = { t: -1, blink: 0 };
+  updaters.push((dt, t) => {
+    // 偶发眨眼（微光一灭一亮）
+    owlState.blink = Math.random() < dt * 0.12 ? 0.18 : Math.max(0, owlState.blink - dt);
+    if (owlState.t < 0) {
+      eyeMat.emissiveIntensity = owlState.blink > 0 ? 0.06 : 1.15 + Math.sin(t * 1.3) * 0.18;
+      return;
+    }
+    owlState.t += dt;
+    const k = owlState.t;
+    if (k >= 3.2) { owlState.t = -1; return; }
+    eyeMat.emissiveIntensity = 1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.2));
+    // 头（整只）无声转过来对准空地中心，再缓缓转回去
+    const face = Math.atan2(6.3 - 0.62, -5.7 - 0.12);
+    const aim = k < 2.2 ? face : 0.5;
+    owl.rotation.y += (aim - owl.rotation.y) * Math.min(1, dt * (k < 0.6 ? 10 : 1.4));
+  });
+  hotspots.add(owlBody, {
+    hint: 'E — 树梢上的一双眼睛',
+    onActivate: () => {
+      if (owlState.t < 0) owlState.t = 0;
+      audio.sfxAt('whisper', -6.3, 5.7, 0.5, 5);
+      ui.caption('它先看见你的。', 3200);
+    }
+  });
   const cupSteam = smokeLayer(6, { x: 0.1, z: 0.1 }, { opacity: 0.06, size: 0.5, yBase: 0.9, ySpread: 0.5, color: 0xffffff });
   cupSteam.position.set(3.8, 0, 3.2);
   group.add(cupSteam);
@@ -729,6 +792,34 @@ export function build(ctx) {
     railGeos.push(xform(new THREE.CylinderGeometry(0.04, 0.05, 0.02, 10), 30.27, 0.28, z, 0, 0, Math.PI / 2));
   }
   dinerInner.add(mergedMesh(railGeos, M.brass));
+
+  // v1.4 阶段 4：柜台服务铃 —— 按一下没人应，派柜自己转了一圈（连锁）
+  const dingBell = new THREE.Group();
+  dingBell.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.07, 0.078, 0.018, 16), 0, 0.009, 0),
+    xform(new THREE.SphereGeometry(0.058, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.02, 0)
+  ], M.chrome));
+  const dingBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), M.brass);
+  dingBtn.position.y = 0.08;
+  dingBell.add(dingBtn);
+  dingBell.position.set(30.68, 1.13, -5.7);
+  dinerInner.add(dingBell);
+  const dingState = { t: -1 };
+  updaters.push((dt) => {
+    if (dingState.t < 0) return;
+    dingState.t += dt;
+    dingBtn.position.y = 0.08 - Math.max(0, Math.sin(Math.min(dingState.t * 12, Math.PI))) * 0.012;
+    if (dingState.t > 0.3) dingState.t = -1;
+  });
+  hotspots.add(dingBell.children[0], {
+    hint: 'E — 服务铃',
+    onActivate: () => {
+      dingState.t = 0;
+      audio.sfxAt('bell', 30.68, -5.7, 0.55, 4);
+      setTimeout(() => { pcaseState.spin = 1.3; }, 600);
+      ui.caption('没有人应。派自己转了一圈。', 3400);
+    }
+  });
 
   // 靠窗卡座（对坐高背红皮长凳 + 铬柱层压桌 + 百叶暗窗 + 咖啡）
   const boothVinyl = new THREE.MeshPhysicalMaterial({

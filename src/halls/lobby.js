@@ -454,6 +454,161 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.4 阶段 4 交互带：伞架 / 衣帽架（进门处的"有人来过"）
+  // ============================================================
+  // 黄铜伞架 —— 滴水盘 + 束环立架 + 三把收拢的伞（两黑一红）
+  // E → 整架哐啷一晃，红伞拧了半圈（谁动过它？）
+  const umbStand = new THREE.Group();
+  umbStand.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.24, 0), new THREE.Vector2(0.235, 0.025), new THREE.Vector2(0.2, 0.04),
+      new THREE.Vector2(0.205, 0.05), new THREE.Vector2(0.02, 0.055)
+    ], 20),
+    M.brass
+  ));
+  umbStand.add(mergedMesh([
+    xform(new THREE.TorusGeometry(0.16, 0.014, 8, 22), 0, 0.62, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 8), 0.16, 0.32, 0),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 8), -0.08, 0.32, 0.139),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 8), -0.08, 0.32, -0.139)
+  ], M.brass));
+  // 三把伞：两把黑伞烘焙合并成 3 个共享 mesh（省 draw call），红伞独立成组可拧
+  const canopyPts = [
+    new THREE.Vector2(0.001, 0.78), new THREE.Vector2(0.012, 0.72), new THREE.Vector2(0.05, 0.42),
+    new THREE.Vector2(0.062, 0.18), new THREE.Vector2(0.05, 0.1), new THREE.Vector2(0.055, 0.06)
+  ];
+  const mkCanopyGeo = () => new THREE.LatheGeometry(canopyPts, 10);
+  const mkShaftGeo = () => {
+    const g = new THREE.CylinderGeometry(0.008, 0.008, 1.06, 8);
+    g.translate(0, 0.5, 0);
+    return g;
+  };
+  const mkTipGeo = () => {
+    const g = new THREE.ConeGeometry(0.009, 0.07, 8);
+    g.translate(0, 1.06, 0);
+    return g;
+  };
+  const mkHandleGeo = () => {
+    const g = new THREE.TorusGeometry(0.045, 0.011, 8, 14, Math.PI);
+    g.rotateZ(Math.PI);
+    g.translate(0.045, 0.02, 0);
+    return g;
+  };
+  const umbChromeMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 0.3, metalness: 0.9 });
+  const umbHandleMat = new THREE.MeshStandardMaterial({ color: 0x2a1608, roughness: 0.5 });
+  const UA = [0.09, 0.06, 0.05, 0, 0, -0.1];
+  const UB = [-0.07, 0.06, 0.1, 0.09, 0.4, 0.08];
+  umbStand.add(
+    mergedMesh([xform(mkCanopyGeo(), ...UA), xform(mkCanopyGeo(), ...UB)],
+      new THREE.MeshStandardMaterial({ color: 0x0c0d11, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.7 })),
+    mergedMesh([
+      xform(mkShaftGeo(), ...UA), xform(mkTipGeo(), ...UA),
+      xform(mkShaftGeo(), ...UB), xform(mkTipGeo(), ...UB)
+    ], umbChromeMat),
+    mergedMesh([xform(mkHandleGeo(), ...UA), xform(mkHandleGeo(), ...UB)], umbHandleMat)
+  );
+  const umbRed = new THREE.Group();
+  umbRed.add(
+    new THREE.Mesh(mkCanopyGeo(),
+      new THREE.MeshStandardMaterial({ color: 0x8f1120, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.7 })),
+    mergedMesh([mkShaftGeo(), mkTipGeo()], umbChromeMat),
+    new THREE.Mesh(mkHandleGeo(), umbHandleMat)
+  );
+  umbRed.position.set(-0.03, 0.06, -0.1);
+  umbRed.rotation.set(-0.08, 1.2, 0.06);
+  umbStand.add(umbRed);
+  umbStand.position.set(1.9, 0, 7.9);
+  group.add(umbStand);
+  const umbState = { t: -1 };
+  updaters.push((dt) => {
+    if (umbState.t < 0) return;
+    umbState.t += dt;
+    const decay = Math.max(0, 1 - umbState.t * 0.9);
+    if (decay <= 0) { umbState.t = -1; umbStand.rotation.z = 0; umbRed.rotation.y = 1.2; return; }
+    umbStand.rotation.z = Math.sin(umbState.t * 21) * 0.03 * decay;
+    umbRed.rotation.y = 1.2 + Math.sin(umbState.t * 4.2) * 1.4 * (1 - decay);
+  });
+  hotspots.add(umbStand.children[0], {
+    hint: 'E — 伞架',
+    onActivate: () => {
+      umbState.t = 0;
+      audio.sfxAt('clank', 1.9, 7.9, 0.35, 3);
+      setTimeout(() => audio.sfxAt('creak', 1.9, 7.9, 0.3, 3), 220);
+      ui.caption('外面没有在下雨。里面也没有。', 3400);
+    }
+  });
+
+  // 衣帽架 —— 车削立杆 + 四支黄铜挂钩 + 他的深色大衣与浅檐帽
+  // E → 大衣荡一下、帽子晃一晃 + 一声耳语（有人刚把它挂上，或正要取走）
+  const coatTree = new THREE.Group();
+  coatTree.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.22, 0), new THREE.Vector2(0.2, 0.03), new THREE.Vector2(0.05, 0.08),
+      new THREE.Vector2(0.028, 0.6), new THREE.Vector2(0.024, 1.75), new THREE.Vector2(0.05, 1.82),
+      new THREE.Vector2(0.02, 1.88), new THREE.Vector2(0.001, 1.93)
+    ], 14),
+    woodMat({ base: [26, 16, 10], planks: 1, size: 128, seed: 71, gloss: 0.5 })
+  ));
+  const hookGeos = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    hookGeos.push(xform(new THREE.CylinderGeometry(0.011, 0.011, 0.17, 8),
+      Math.cos(a) * 0.085, 1.68, Math.sin(a) * 0.085, Math.PI / 2 - 0.5, a + Math.PI / 2, 0));
+    hookGeos.push(xform(new THREE.SphereGeometry(0.018, 8, 6),
+      Math.cos(a) * 0.155, 1.72, Math.sin(a) * 0.155));
+  }
+  coatTree.add(mergedMesh(hookGeos, M.brass));
+  // 大衣：垂坠的深色形体（肩头挂点 → 下摆微张），略带不对称
+  const coatPivot = new THREE.Group();
+  const coat = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.02, 0), new THREE.Vector2(0.13, -0.06), new THREE.Vector2(0.17, -0.3),
+      new THREE.Vector2(0.15, -0.7), new THREE.Vector2(0.19, -1.12), new THREE.Vector2(0.17, -1.16)
+    ], 12),
+    new THREE.MeshStandardMaterial({ color: 0x101014, roughness: 0.82, envMapIntensity: 0.5 })
+  );
+  coat.scale.set(1, 1, 0.62);
+  coatPivot.add(coat);
+  coatPivot.position.set(0.14, 1.7, 0.06);
+  coatPivot.rotation.y = 0.9;
+  coatTree.add(coatPivot);
+  // 浅檐帽：帽檐 + 帽冠（顶部微凹）
+  const hatPivot = new THREE.Group();
+  const hatMat = new THREE.MeshStandardMaterial({ color: 0x17141a, roughness: 0.9 });
+  const hat = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.15, 0.16, 0.012, 18), 0, 0.006, 0),
+    xform(new THREE.LatheGeometry([
+      new THREE.Vector2(0.1, 0), new THREE.Vector2(0.095, 0.07), new THREE.Vector2(0.07, 0.1),
+      new THREE.Vector2(0.03, 0.105), new THREE.Vector2(0.045, 0.09), new THREE.Vector2(0.001, 0.088)
+    ], 16), 0, 0.01, 0)
+  ], hatMat);
+  hatPivot.add(hat);
+  hatPivot.position.set(-0.1, 1.85, -0.05);
+  hatPivot.rotation.set(0.16, 0, -0.12);
+  coatTree.add(hatPivot);
+  coatTree.position.set(5.1, 0, -3.1);
+  group.add(coatTree);
+  const coatState = { t: -1 };
+  updaters.push((dt) => {
+    if (coatState.t < 0) return;
+    coatState.t += dt;
+    const decay = Math.max(0, 1 - coatState.t * 0.55);
+    if (decay <= 0) { coatState.t = -1; coatPivot.rotation.x = 0; hatPivot.rotation.z = -0.12; return; }
+    coatPivot.rotation.x = Math.sin(coatState.t * 5.2) * 0.22 * decay;
+    coatPivot.rotation.z = Math.sin(coatState.t * 3.8 + 0.7) * 0.12 * decay;
+    hatPivot.rotation.z = -0.12 + Math.sin(coatState.t * 8.5) * 0.1 * decay;
+  });
+  hotspots.add(coat, {
+    hint: 'E — 挂着的大衣',
+    onActivate: () => {
+      coatState.t = 0;
+      audio.sfxAt('creak', 5.1, -3.1, 0.3, 3);
+      setTimeout(() => audio.sfx('whisper', 0.35), 500);
+      ui.caption('扣子系到最上面一颗。他总是这样。', 3800);
+    }
+  });
+
   // 氛围: 地面烟雾 + 光尘
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
   group.add(smoke);

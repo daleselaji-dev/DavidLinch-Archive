@@ -245,11 +245,14 @@ export function build(ctx) {
   tbooth.rotation.y = -Math.PI / 2; // 折窗面向夜路
   group.add(tbooth);
   const tbState = { k: 0, target: 0 };
+  const coinFlare = { v: 0 };
   updaters.push((dt, t) => {
     tbState.k += (tbState.target - tbState.k) * Math.min(1, dt * 3.2);
     tbooth.userData.setFold(tbState.k);
-    tbooth.userData.bulbMat.emissiveIntensity = 1.6 + tbState.k * 1.6 + Math.sin(t * 11) * 0.1;
-    tbooth.userData.light.intensity = 1.6 + tbState.k * 2.4;
+    if (coinFlare.v > 0) coinFlare.v = Math.max(0, coinFlare.v - dt * 0.9);
+    tbooth.userData.bulbMat.emissiveIntensity =
+      1.6 + tbState.k * 1.6 + Math.sin(t * 11) * 0.1 + coinFlare.v * 2.4;
+    tbooth.userData.light.intensity = 1.6 + tbState.k * 2.4 + coinFlare.v * 2.6;
     tbooth.userData.signMat.emissiveIntensity = 0.9 * (Math.sin(t * 12.7) > 0.94 ? 0.35 : 1);
   });
   hotspots.add(tbooth.userData.windowHit, {
@@ -260,6 +263,108 @@ export function build(ctx) {
       audio.sfxAt('clank', 4.9, -12.8, 0.5, 3);
       later(() => audio.sfxAt('creak', 4.9, -12.8, 0.4, 3), 300);
       if (opening) ui.caption('窗口折开了。没有人卖票，也没有人查票。', 4200);
+    }
+  });
+  // v1.4 阶段 4：往票口碗里丢一枚硬币 —— 硬币划一道弧落进黄铜碟，
+  // 亭里的灯应声亮了一拍（连锁：动画 + 两声 + 灯 + 短句）
+  const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.004, 12), M.brass);
+  coin.visible = false;
+  group.add(coin);
+  const coinState = { t: -1 };
+  updaters.push((dt) => {
+    if (coinState.t < 0) return;
+    coinState.t += dt * 2.2;
+    const k = coinState.t;
+    if (k >= 1.35) { coin.visible = false; coinState.t = -1; return; }
+    const kk = Math.min(k, 1);
+    coin.visible = true;
+    coin.position.set(
+      4.3 + kk * 0.53,
+      1.42 + Math.sin(kk * Math.PI) * 0.38 - kk * 0.24,
+      -12.74 - kk * 0.06
+    );
+    coin.rotation.x += dt * 16;
+    coin.scale.setScalar(k > 1 ? Math.max(0.001, 1 - (k - 1) * 2.8) : 1);
+  });
+  hotspots.add(tbooth.userData.bowl, {
+    hint: 'E — 丢一枚硬币',
+    onActivate: () => {
+      if (coinState.t < 0) coinState.t = 0;
+      audio.sfxAt('switch', 4.6, -12.8, 0.18, 3);
+      later(() => {
+        audio.sfxAt('chime', 4.83, -12.8, 0.5, 4);
+        coinFlare.v = 1;
+      }, 430);
+      ui.caption('找零不会来了。', 3200);
+    }
+  });
+
+  // v1.4 阶段 4：路缘报箱 —— 洛杉矶街头的投币报箱；
+  // E → 门盖弹开一条缝又被弹簧拽回（哐当 + 闷响），头版是空白的
+  const newsBox = new THREE.Group();
+  const newsBodyMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(128, 96, 40), color: 0x27404f, roughness: 0.5, metalness: 0.6, envMapIntensity: 0.9
+  });
+  const newsBody = roundedBoxMesh(0.56, 0.52, 0.42, 0.025, newsBodyMat);
+  newsBody.position.y = 0.78;
+  newsBox.add(newsBody);
+  newsBox.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.045, 0.55, 0.045), -0.22, 0.27, 0.15),
+    xform(new THREE.BoxGeometry(0.045, 0.55, 0.045), 0.22, 0.27, 0.15),
+    xform(new THREE.BoxGeometry(0.045, 0.55, 0.045), -0.22, 0.27, -0.15),
+    xform(new THREE.BoxGeometry(0.045, 0.55, 0.045), 0.22, 0.27, -0.15),
+    xform(new THREE.BoxGeometry(0.5, 0.04, 0.36), 0, 0.03, 0),
+    // 投币器小盒（门侧上缘）
+    xform(new THREE.BoxGeometry(0.09, 0.12, 0.05), 0.18, 1.0, 0.235)
+  ], newsBodyMat));
+  // 弹簧门（铰链在上沿；窗里一份空头版）
+  const newsDoor = new THREE.Group();
+  const paperTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#ddd6c2';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#1a1518';
+    g.font = '700 17px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillText('EL SUEÑO', s / 2, 24);
+    g.font = '9px Georgia, serif';
+    g.fillText('· DIARIO DE LA NOCHE ·', s / 2, 38);
+    g.fillStyle = 'rgba(26,21,24,0.24)';
+    g.fillRect(12, 50, s - 24, 14);
+    g.fillRect(12, 72, s - 60, 8);
+    g.fillRect(12, 86, s - 40, 8);
+    g.fillRect(12, 100, s - 76, 8);
+  });
+  const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.36, 0.02), newsBodyMat);
+  const paper = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.36, 0.28),
+    new THREE.MeshStandardMaterial({ map: paperTex, roughness: 0.9 })
+  );
+  paper.position.z = 0.011;
+  doorFrame.add(paper);
+  doorFrame.position.y = -0.18;
+  newsDoor.add(doorFrame);
+  newsDoor.position.set(0, 0.98, 0.215);
+  newsBox.add(newsDoor);
+  newsBox.position.set(4.85, 0, 6.4);
+  newsBox.rotation.y = -Math.PI / 2 - 0.06;
+  group.add(newsBox);
+  const newsState = { t: -1 };
+  updaters.push((dt) => {
+    if (newsState.t < 0) return;
+    newsState.t += dt;
+    const k = newsState.t;
+    if (k >= 0.9) { newsDoor.rotation.x = 0; newsState.t = -1; return; }
+    // 快开慢弹：前 0.25s 拉开，随后弹簧拽回带两次余振
+    const open = k < 0.25 ? Math.sin((k / 0.25) * Math.PI / 2) : Math.cos((k - 0.25) * 9) * Math.exp(-(k - 0.25) * 5);
+    newsDoor.rotation.x = -0.55 * Math.max(0, open);
+  });
+  hotspots.add(newsBody, {
+    hint: 'E — 投币报箱',
+    onActivate: () => {
+      if (newsState.t < 0) newsState.t = 0;
+      audio.sfxAt('clank', 4.85, 6.4, 0.45, 3);
+      later(() => audio.sfxAt('thud', 4.85, 6.4, 0.4, 3), 340);
+      ui.caption('头版是空白的。日期也是。', 3400);
     }
   });
 

@@ -59,10 +59,11 @@ function createWindow() {
       if (message.includes('[sv] hall-loaded')) {
         const hall = message.split(' ').pop();
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
-        // 输出场景统计并校验性能预算（QUALITY_GATES 22，v1.3 收紧：
-        // meshes ≤ 220 / tris ≤ 200k / 动态光源 ≤ 40）
-        const MESH_BUDGET = 220;
-        const TRI_BUDGET = 200000;
+        // 输出场景统计并校验性能预算（QUALITY_GATES 22 / v1.4 门禁 30：
+        // PS5-tier 预算按 PRODUCTION_PLAN §6 上调至
+        // meshes ≤ 240 / tris ≤ 240k / 动态光源 ≤ 40，仍为硬门禁）
+        const MESH_BUDGET = 240;
+        const TRI_BUDGET = 240000;
         const LIGHT_BUDGET = 40;
         win.webContents.executeJavaScript(
           `(() => {
@@ -86,12 +87,12 @@ function createWindow() {
             app.exit(1);
           }
         }).catch(() => {});
-        // 交互密度门禁（QUALITY_GATES 20）：每厅非导航可交互物 ≥ 阈值，
+        // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28）：每厅非导航可交互物 ≥ 阈值，
         // 且逐一激活（onActivate 全链无异常）后才放行去下一厅
-        // v1.3 终版普查：10/18/12/11/13/12/11 —— 阈值锁在普查值 -1，防回退
+        // v1.4 阶段 4 普查：12/21/14/14/15/14/16（总 106 ≥ 105）—— 阈值锁在普查值 -1，防回退
         const INTERACTIVE_MIN = {
-          lobby: 9, archive: 18, eraserhead: 11, bluevelvet: 10,
-          twinpeaks: 12, mulholland: 10, studio: 13
+          lobby: 11, archive: 20, eraserhead: 13, bluevelvet: 13,
+          twinpeaks: 14, mulholland: 13, studio: 15
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true

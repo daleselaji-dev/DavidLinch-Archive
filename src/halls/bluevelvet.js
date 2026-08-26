@@ -715,16 +715,118 @@ export function build(ctx) {
   });
   // 连锁：乐队醒着时，台口脚灯洗亮、聚光缓慢呼吸——整个舞台在等一个歌手；
   // 吧台吊灯同时收暗（歌厅暗场规矩），停机全部复原
+  // v1.4 阶段 4：脚灯三档情绪拨盘（暖场 / 蓝场 / 熄灯）叠乘在乐队连锁上
+  const FOOT_MODES = [
+    { color: new THREE.Color(0xffc48a), glow: 1.0, cap: null },
+    { color: new THREE.Color(0x7a9aff), glow: 0.9, cap: '台口换成了蓝场。这里的规矩。' },
+    { color: new THREE.Color(0xffc48a), glow: 0.06, cap: '脚灯熄了。舞台在黑里等。' }
+  ];
+  const footMode = { idx: 0 };
   updaters.push((dt, t) => {
     const k = Math.min(1, dt * 1.6);
-    footWash.intensity += ((jukeState.on ? 7 : 3) - footWash.intensity) * k;
+    const mode = FOOT_MODES[footMode.idx];
+    footWash.intensity += ((jukeState.on ? 7 : 3) * mode.glow - footWash.intensity) * k;
     footLights.material.emissiveIntensity +=
-      ((jukeState.on ? 3.8 : 2.4) - footLights.material.emissiveIntensity) * k;
+      ((jukeState.on ? 3.8 : 2.4) * mode.glow - footLights.material.emissiveIntensity) * k;
+    footWash.color.lerp(mode.color, k);
+    footLights.material.emissive.lerp(mode.color, k);
     const breathe = jukeState.on ? 1 + Math.sin(t * 0.9) * 0.16 : 1;
     spot.intensity += ((jukeState.on ? 82 : 60) * breathe - spot.intensity) * k;
     for (const pl of pendantLights) pl.intensity += ((jukeState.on ? 1.0 : 2.6) - pl.intensity) * k;
     pendantBulbMat.emissiveIntensity += ((jukeState.on ? 1.0 : 2.6) - pendantBulbMat.emissiveIntensity) * k;
     for (const c of pendantCones) c.material.opacity += ((jukeState.on ? 0.028 : 0.05) - c.material.opacity) * k;
+  });
+  // 拨盘面板：舞台前脸右端的黄铜小面板 + 旋钮（E → 循环三档，后幕轻应一下）
+  const footPlate = new THREE.Group();
+  const fpBack = roundedBoxMesh(0.16, 0.22, 0.03, 0.01, brassMat);
+  const fpKnob = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.042, 0.035, 12),
+    new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.4, metalness: 0.6 })
+  );
+  fpKnob.rotation.x = Math.PI / 2;
+  fpKnob.position.z = 0.03;
+  const fpTick = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.026, 0.01),
+    new THREE.MeshStandardMaterial({ color: 0xf2e9dc, emissive: 0xf2e9dc, emissiveIntensity: 0.4 }));
+  fpTick.position.set(0, 0.024, 0.048);
+  fpKnob.add(fpTick);
+  footPlate.add(fpBack, fpKnob);
+  footPlate.position.set(4.02, 0.32, -D / 2 + 4.11);
+  group.add(footPlate);
+  updaters.push((dt) => {
+    const target = -footMode.idx * (Math.PI * 2 / 3);
+    fpKnob.rotation.y += (target - fpKnob.rotation.y) * Math.min(1, dt * 9);
+  });
+  hotspots.add(fpBack, {
+    hint: 'E — 脚灯拨盘',
+    onActivate: () => {
+      footMode.idx = (footMode.idx + 1) % FOOT_MODES.length;
+      audio.sfxAt('switch', 4.0, -D / 2 + 4.1, 0.6, 3);
+      curtainShudder.t = 0;
+      curtainShudder.e = Math.max(curtainShudder.e, 0.25);
+      const cap = FOOT_MODES[footMode.idx].cap;
+      if (cap) ui.caption(cap, 3400);
+    }
+  });
+
+  // ---------- 香槟冰桶（包厢旁；v1.4 阶段 4） ----------
+  // 三腿黄铜架 + 车削银桶卷唇 + 深绿瓶斜倚：E → 桶身一晃、瓶子磕了一下桶壁
+  const bucketGrp = new THREE.Group();
+  const legGeos2 = [];
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    legGeos2.push(xform(new THREE.CylinderGeometry(0.014, 0.017, 0.78, 8),
+      Math.cos(a) * 0.19, 0.38, Math.sin(a) * 0.19, Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22));
+  }
+  legGeos2.push(xform(new THREE.TorusGeometry(0.21, 0.013, 8, 20), 0, 0.72, 0, Math.PI / 2, 0, 0));
+  legGeos2.push(xform(new THREE.TorusGeometry(0.24, 0.011, 8, 20), 0, 0.3, 0, Math.PI / 2, 0, 0));
+  bucketGrp.add(mergedMesh(legGeos2, brassMat));
+  const bucketSway = new THREE.Group();
+  const bucket = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.09, 0), new THREE.Vector2(0.14, 0.05), new THREE.Vector2(0.185, 0.2),
+      new THREE.Vector2(0.2, 0.3), new THREE.Vector2(0.215, 0.315), new THREE.Vector2(0.2, 0.325),
+      new THREE.Vector2(0.19, 0.31)
+    ], 20),
+    new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 128, 40), color: 0xb9bec6,
+      roughness: 0.24, metalness: 0.95, envMapIntensity: 1.5
+    })
+  );
+  const bottle = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.055, 0), new THREE.Vector2(0.058, 0.2), new THREE.Vector2(0.05, 0.26),
+      new THREE.Vector2(0.02, 0.32), new THREE.Vector2(0.017, 0.42), new THREE.Vector2(0.023, 0.44),
+      new THREE.Vector2(0.001, 0.445)
+    ], 14),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x0d2416, roughness: 0.12, metalness: 0.05,
+      clearcoat: 0.8, clearcoatRoughness: 0.1, envMapIntensity: 1.4
+    })
+  );
+  bottle.position.set(0.05, 0.16, 0);
+  bottle.rotation.z = -0.42;
+  bucketSway.add(bucket, bottle);
+  bucketSway.position.y = 0.42;
+  bucketGrp.add(bucketSway);
+  bucketGrp.position.set(6.85, 0, 3.75);
+  group.add(bucketGrp);
+  const bucketState = { t: -1 };
+  updaters.push((dt) => {
+    if (bucketState.t < 0) return;
+    bucketState.t += dt;
+    const decay = Math.max(0, 1 - bucketState.t * 0.7);
+    if (decay <= 0) { bucketState.t = -1; bucketSway.rotation.z = 0; bottle.rotation.z = -0.42; return; }
+    bucketSway.rotation.z = Math.sin(bucketState.t * 13) * 0.05 * decay;
+    bottle.rotation.z = -0.42 + Math.sin(bucketState.t * 9 + 0.8) * 0.1 * decay;
+  });
+  hotspots.add(bucket, {
+    hint: 'E — 香槟冰桶',
+    onActivate: () => {
+      if (bucketState.t < 0) bucketState.t = 0;
+      audio.sfxAt('clank', 6.85, 3.75, 0.22, 3);
+      setTimeout(() => audio.sfxAt('chime', 6.85, 3.75, 0.16, 3), 260);
+      ui.caption('冰早就化了。酒还在等人。', 3400);
+    }
   });
 
   // 引语展签（本厅唯一文字展签）
