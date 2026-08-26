@@ -98,6 +98,30 @@ export function build(ctx) {
     col.position.set(Math.cos(a) * (R - 0.9), 0, Math.sin(a) * (R - 0.9));
     group.add(col);
   }
+  // 柱础 + 柱颈（v1.4 §2.3 最后一笔欠账）：
+  // 八角双级脉络大理石柱础（与镶边带同石种、各柱随角度自转对齐圆心）、
+  // 鎏金束环两道——柱颈一道贴住梁下，柱脚一道正好补上柱身与基座间的装配缝
+  const plinthMat = marbleMat({
+    base: [30, 26, 33], veinA: [168, 170, 182], veinB: [110, 98, 88],
+    size: 256, seed: 61, gloss: 0.82, env: 1.2, normalScale: 0.35
+  });
+  const plinthGeos = [];
+  const collarGeos = [];
+  for (let k = 0; k < 6; k++) {
+    const a = -Math.PI / 2 + Math.PI / 6 + (k * Math.PI) / 3;
+    const px = Math.cos(a) * (R - 0.9);
+    const pz = Math.sin(a) * (R - 0.9);
+    plinthGeos.push(xform(new THREE.CylinderGeometry(0.6, 0.66, 0.12, 8), px, 0.06, pz, 0, a, 0));
+    plinthGeos.push(xform(new THREE.CylinderGeometry(0.5, 0.58, 0.07, 8), px, 0.155, pz, 0, a, 0));
+    collarGeos.push(xform(new THREE.TorusGeometry(0.285, 0.02, 8, 22), px, 7.82, pz, Math.PI / 2, 0, 0));
+    collarGeos.push(xform(new THREE.TorusGeometry(0.3, 0.05, 10, 22), px, 0.4, pz, Math.PI / 2, 0, 0));
+  }
+  group.add(mergedMesh(plinthGeos, plinthMat), mergedMesh(collarGeos, goldMat));
+  // 天花线脚的鎏金内圈——把柱环的金色语言带上穹顶
+  const roseGilt = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.028, 8, 48), goldMat);
+  roseGilt.rotation.x = Math.PI / 2;
+  roseGilt.position.y = 8.27;
+  group.add(roseGilt);
 
   // 中央纪念台（v1.4：深色抛光大理石叠级 + 鎏金沿——碑座与地面同石种呼应）
   const daisMat = marbleMat({
