@@ -132,6 +132,60 @@ export function build(ctx) {
   const stainB = stainMesh(87, 0.95);
   stainB.position.set(3.4, 0.007, -5.0);  // 北墙管道下方滴痕
   group.add(stainA, stainB);
+  // v1.9 抛光第 2 遍：安全通道磨损黄线——从入口斜引向大机器，
+  // 两道边线被脚底磨得断断续续，尽头一截斜纹警示带。
+  // （谁的脚磨掉的？这里从来只有你一个访客。）
+  const laneTex = canvasTexture(256, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    // 本厅 saturation 0.09 近乎黑白——黄色只剩明度，直接用亮浅漆立线
+    const yellow = 'rgba(228,208,150,0.9)';
+    g.fillStyle = yellow;
+    g.fillRect(10, 0, 9, s);
+    g.fillRect(s - 19, 0, 9, s);
+    // 尽头斜纹警示带
+    g.save();
+    g.beginPath();
+    g.rect(10, 0, s - 20, 26);
+    g.clip();
+    for (let x = -30; x < s + 30; x += 16) {
+      g.beginPath();
+      g.moveTo(x, 26);
+      g.lineTo(x + 18, 0);
+      g.lineTo(x + 26, 0);
+      g.lineTo(x + 8, 26);
+      g.closePath();
+      g.fill();
+    }
+    g.restore();
+    // 磨蚀：几百粒 destination-out 斑蚀 + 中段大块磨秃
+    g.globalCompositeOperation = 'destination-out';
+    const r = rng(73);
+    for (let i = 0; i < 420; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      g.fillStyle = `rgba(0,0,0,${0.35 + r() * 0.55})`;
+      g.fillRect(x, y, 1.5 + r() * 4, 1 + r() * 3);
+    }
+    for (let i = 0; i < 7; i++) {
+      const y = r() * s;
+      const grad = g.createRadialGradient(14 + (i % 2) * (s - 28), y, 2, 14 + (i % 2) * (s - 28), y, 14 + r() * 18);
+      grad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, s, s);
+    }
+    g.globalCompositeOperation = 'source-over';
+  });
+  const lane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.7, 8.9),
+    new THREE.MeshStandardMaterial({
+      map: laneTex, transparent: true, depthWrite: false, roughness: 0.85,
+      polygonOffset: true, polygonOffsetFactor: -1
+    })
+  );
+  lane.rotation.set(-Math.PI / 2, 0, 0.295);
+  lane.position.set(-1.3, 0.006, 1.25);
+  group.add(lane);
 
   // 砖墙（v1.3 三通道：砖缝法线 + 逐砖粗糙度；西墙留出锅炉房门洞）
   const wallMat = brickMat({ tint: [36, 34, 38], seed: 11, repX: 4, repY: 2 });

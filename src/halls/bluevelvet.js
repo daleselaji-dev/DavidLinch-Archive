@@ -401,10 +401,25 @@ export function build(ctx) {
     onActivate: () => ui.showFilm('blue-velvet')
   });
 
-  // 霓虹招牌
+  // 霓虹招牌（v1.9 抛光第 2 遍：加深色衬板——白芯不再被雾吃掉，
+  // 字形贴着板立起来，像真夜店门头那样有个「家」）
   const sign = neonSign('THE BLUE ROOM', { color: '#4f74ff', size: 0.72 });
   sign.position.set(0, 5.35, -D / 2 + 1.1);
   group.add(sign);
+  {
+    const signW = sign.children[0].geometry.parameters.width;
+    const signBack = roundedBoxMesh(signW * 0.78, 0.52, 0.05, 0.02,
+      new THREE.MeshStandardMaterial({ color: 0x060810, roughness: 0.85, metalness: 0.2 }));
+    signBack.position.set(0, 5.35, -D / 2 + 1.06);
+    // 衬板双吊杆（挂进幕顶的黑里）
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0x1a1c26, roughness: 0.6, metalness: 0.7 });
+    const rods = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.015, 0.015, 1.4, 8), -signW * 0.3, 6.3, 0),
+      xform(new THREE.CylinderGeometry(0.015, 0.015, 1.4, 8), signW * 0.3, 6.3, 0)
+    ], rodMat);
+    rods.position.z = -D / 2 + 1.06;
+    group.add(signBack, rods);
+  }
   updaters.push((dt, t) => sign.userData.flicker(t, 11));
 
   // 观众席小圆桌 + 桌灯（艺术二遍：车削黄铜杆 + 鼓形织物罩，去"圆锥即灯罩"观感）

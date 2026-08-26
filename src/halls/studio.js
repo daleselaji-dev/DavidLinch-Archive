@@ -1706,6 +1706,119 @@ export function build(ctx) {
   updaters.push(dust.userData.update);
   group.add(new THREE.AmbientLight(0x2a1c12, 1.1));
 
+  // v1.9 抛光第 2 遍：门边挂历——日期格排得整整齐齐，
+  // 月份栏是空的，红圈画在格子外面。E → 掀开下半页看一眼，又落回来。
+  const calBoard = roundedBoxMesh(0.32, 0.46, 0.014, 0.006,
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [50, 34, 20], planks: 1, size: 128 }), roughness: 0.8 }));
+  calBoard.position.set(1.62, 1.78, 6.42);
+  group.add(calBoard);
+  // 日期格页（画两次：翻页正面一次、底下露出的那页一次——一模一样）
+  const drawCalGrid = (g, s) => {
+    g.strokeStyle = 'rgba(74,60,44,0.85)';
+    g.fillStyle = 'rgba(52,44,32,0.95)';
+    g.font = '7px monospace';
+    g.textAlign = 'left';
+    g.lineWidth = 0.8;
+    let day = 1;
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 7; col++) {
+        const x = 8 + col * 16;
+        const y = 68 + row * 11;
+        g.strokeRect(x, y, 16, 11);
+        if (day <= 31) g.fillText(String(day++), x + 2, y + 8.5);
+      }
+    }
+  };
+  const calTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#e9e2d0';
+    g.fillRect(0, 0, s, s);
+    // 上半：褪色的山影小图（程序化，晒得快看不见）
+    g.fillStyle = 'rgba(120,130,140,0.35)';
+    g.beginPath();
+    g.moveTo(8, 52);
+    g.lineTo(34, 26);
+    g.lineTo(52, 44);
+    g.lineTo(76, 20);
+    g.lineTo(s - 8, 50);
+    g.lineTo(s - 8, 54);
+    g.lineTo(8, 54);
+    g.closePath();
+    g.fill();
+    g.fillStyle = 'rgba(160,150,130,0.25)';
+    g.fillRect(8, 8, s - 16, 46);
+    // 月份栏：空白（只留两侧装订点）
+    g.fillStyle = 'rgba(60,50,40,0.8)';
+    g.fillRect(s / 2 - 22, 60, 1.5, 5);
+    g.fillRect(s / 2 + 22, 60, 1.5, 5);
+    // 下半（被翻页盖住，掀开才见）：同一张日期格
+    drawCalGrid(g, s);
+    // 红圈：画在格子外面的空白边上
+    g.strokeStyle = 'rgba(150,30,34,0.85)';
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.ellipse(s - 14, 62, 9, 6, 0.3, 0, 7);
+    g.stroke();
+  });
+  // 翻页正面：同一张格子（画布竖向 2 倍拉伸补偿 0.27×0.2 平面的长宽比）
+  const calFlapTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#e6dfcc';
+    g.fillRect(0, 0, s, s);
+    g.save();
+    g.scale(1, 2);
+    g.translate(0, -64);
+    drawCalGrid(g, s);
+    g.restore();
+  });
+  const calPad = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.27, 0.4),
+    new THREE.MeshStandardMaterial({ map: calTex, roughness: 0.9 })
+  );
+  calPad.position.set(1.62, 1.77, 6.4);
+  calPad.rotation.y = Math.PI;
+  group.add(calPad);
+  // 可翻的下半页（枢轴在页中缝；平时微微离墙）
+  const calFlap = new THREE.Group();
+  const flapMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.27, 0.2),
+    new THREE.MeshStandardMaterial({ map: calFlapTex, roughness: 0.9, side: THREE.DoubleSide })
+  );
+  flapMesh.position.y = -0.1;
+  calFlap.add(flapMesh);
+  calFlap.position.set(1.62, 1.77, 6.39);
+  calFlap.rotation.y = Math.PI;
+  calFlap.rotation.x = 0.06;
+  group.add(calFlap);
+  // 挂绳钉：一粒黄铜钉 + 双股绳到板顶两角
+  group.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.009, 8, 6), 1.62, 2.06, 6.42),
+    xform(new THREE.CylinderGeometry(0.0022, 0.0022, 0.1, 5), 1.55, 2.03, 6.425, 0, 0, 0.5),
+    xform(new THREE.CylinderGeometry(0.0022, 0.0022, 0.1, 5), 1.69, 2.03, 6.425, 0, 0, -0.5)
+  ], new THREE.MeshStandardMaterial({ color: 0x8a6f3a, roughness: 0.5, metalness: 0.8 })));
+  const calState = { t: -1 };
+  updaters.push((dt, t) => {
+    // 常态：下半页贴着墙极轻地呼吸（房间有穿堂气）
+    if (calState.t < 0) {
+      calFlap.rotation.x = 0.06 + Math.sin(t * 1.7) * 0.012;
+      return;
+    }
+    calState.t += dt;
+    const u = calState.t;
+    if (u > 2.4) { calState.t = -1; return; }
+    // 掀起（0.5s）→ 悬 0.8s → 落回带两跳
+    const lift = u < 0.5 ? (u / 0.5) : u < 1.3 ? 1 : Math.max(0, 1 - (u - 1.3) / 0.8);
+    const settle = u > 1.9 ? Math.sin((u - 1.9) * 22) * 0.08 * (2.4 - u) : 0;
+    calFlap.rotation.x = 0.06 + lift * 2.2 + settle;
+  });
+  hotspots.add(calPad, {
+    hint: 'E — 挂历',
+    onActivate: () => {
+      if (calState.t >= 0) return;
+      calState.t = 0;
+      audio.sfxAt('flutter', 1.62, 6.4, 0.5, 3);
+      later(() => ui.caption('哪个月都不是。', 3200), 900);
+    }
+  });
+
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, D / 2 - 0.55);
