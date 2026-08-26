@@ -760,11 +760,35 @@ export function build(ctx) {
     }
   });
 
-  // 柜台杂物组（纸巾盒/番茄酱/糖罐/菜单牌）
+  // 柜台杂物组 v2（纸巾盒探纸/玻璃番茄酱+芥末/糖罐可见糖面/盐胡椒/吸管杯/帐篷菜单）
   const clutter = counterClutter({ mats: M });
   clutter.position.set(30.7, 1.11, -8.4);
   clutter.rotation.y = -Math.PI / 2;
   dinerInner.add(clutter);
+  // 糖罐可摇：罐身晃两下、糖面沉一线（多摇会回弹——糖是有限的，好奇心不是）
+  const sugarJar = clutter.userData.sugar;
+  const sugarState = { shake: 0, level: 1 };
+  updaters.push((dt, t) => {
+    if (sugarState.shake > 0) {
+      sugarState.shake -= dt;
+      const k = Math.max(0, sugarState.shake);
+      sugarJar.rotation.z = Math.sin(t * 34) * 0.16 * k;
+      sugarJar.rotation.x = Math.cos(t * 27) * 0.1 * k;
+    } else if (sugarJar.rotation.z !== 0) {
+      sugarJar.rotation.set(0, 0, 0);
+    }
+    const targetY = 0.032 - (1 - sugarState.level) * 0.02;
+    sugarJar.userData.core.position.y += (targetY - sugarJar.userData.core.position.y) * Math.min(1, dt * 4);
+  });
+  hotspots.add(sugarJar, {
+    hint: 'E — 摇一摇糖罐',
+    onActivate: () => {
+      sugarState.shake = 0.55;
+      sugarState.level = sugarState.level > 0.25 ? sugarState.level - 0.25 : 1;
+      audio.sfxAt('jostle', 30.7, -8.4, 0.4, 3);
+      if (sugarState.level === 1) ui.caption('糖又满了。没人看见它是怎么满的。', 3400);
+    }
+  });
 
   // 吊扇（拉链开关 → 转/停）
   const fan = ceilingFan({ mats: M });

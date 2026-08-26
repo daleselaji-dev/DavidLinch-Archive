@@ -1025,31 +1025,153 @@ export function ceilingFan({ mats } = {}) {
 export function counterClutter({ mats } = {}) {
   const M = mats || propMats();
   const g = new THREE.Group();
-  // 纸巾盒（铬）
-  const napkin = mergedMesh([
-    xform(roundedBoxGeo(0.16, 0.12, 0.07, 0.015), 0, 0.06, 0),
-    xform(new THREE.BoxGeometry(0.12, 0.015, 0.01), 0, 0.125, 0)
-  ], M.chrome);
-  // 番茄酱瓶（车削 + 红盖）
-  const ketchGeo = lathe([[0.0, 0], [0.032, 0.004], [0.036, 0.1], [0.02, 0.15], [0.014, 0.2]], 12);
-  const ketchup = new THREE.Mesh(ketchGeo, new THREE.MeshPhysicalMaterial({
-    color: 0x6e1010, roughness: 0.25, clearcoat: 0.7, envMapIntensity: 1.2
-  }));
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.02, 10),
-    new THREE.MeshStandardMaterial({ color: 0xd4243c, roughness: 0.5 }));
-  cap.position.y = 0.21;
-  ketchup.add(cap);
+  // ---- 纸巾盒 v2：铬壳圆角 + 底缘裙，顶缝里探出两张微皱白纸巾（行纹纹理） ----
+  const napkin = new THREE.Group();
+  napkin.add(mergedMesh([
+    xform(roundedBoxGeo(0.17, 0.125, 0.075, 0.018), 0, 0.068, 0),
+    xform(new THREE.BoxGeometry(0.18, 0.014, 0.086), 0, 0.007, 0)
+  ], M.chrome));
+  const napTex = canvasTexture(64, (g2, s) => {
+    g2.fillStyle = '#eceadf';
+    g2.fillRect(0, 0, s, s);
+    g2.strokeStyle = 'rgba(126,120,106,0.55)';
+    g2.lineWidth = 1;
+    for (let i = 0; i < 10; i++) {
+      g2.beginPath();
+      g2.moveTo(0, 4 + i * 6);
+      g2.lineTo(s, 2 + i * 6 + Math.sin(i * 2.4) * 3);
+      g2.stroke();
+    }
+  });
+  napkin.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.11, 0.05, 0.007), 0, 0.148, -0.005, 0.07, 0, 0.05),
+    xform(new THREE.BoxGeometry(0.11, 0.042, 0.006), 0, 0.145, 0.006, -0.12, 0, -0.04)
+  ], new THREE.MeshStandardMaterial({ map: napTex, roughness: 0.95 })));
+  g.add(napkin);
+  // ---- 番茄酱瓶 v2：曲肩玻璃瓶（收颈再外翻口）+ 纸标签环 + 白螺纹盖 ----
+  const ketchup = new THREE.Group();
+  ketchup.add(new THREE.Mesh(
+    lathe([
+      [0.0, 0], [0.034, 0.004], [0.038, 0.09], [0.03, 0.13],
+      [0.017, 0.155], [0.015, 0.2], [0.017, 0.206]
+    ], 14),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x6e1010, roughness: 0.22, clearcoat: 0.8, envMapIntensity: 1.3
+    })
+  ));
+  const kLabelTex = canvasTexture(128, (g2, s) => {
+    g2.fillStyle = '#efe4cd';
+    g2.fillRect(0, 0, s, s);
+    g2.strokeStyle = '#8f0e1e';
+    g2.lineWidth = 3;
+    g2.strokeRect(38, 30, 52, 62);
+    g2.fillStyle = '#8f0e1e';
+    g2.font = '700 13px Georgia, serif';
+    g2.textAlign = 'center';
+    g2.fillText('TOMATO', 64, 56);
+    g2.font = '700 11px Georgia, serif';
+    g2.fillText('CATSUP', 64, 74);
+  });
+  const kLabel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0392, 0.0392, 0.062, 14, 1, true),
+    new THREE.MeshStandardMaterial({ map: kLabelTex, roughness: 0.85 })
+  );
+  kLabel.position.y = 0.062;
+  kLabel.rotation.y = Math.PI; // 标签正面朝吧凳
+  const kCap = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.022, 12),
+    new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 0.55 }));
+  kCap.position.y = 0.215;
+  ketchup.add(kLabel, kCap);
   ketchup.position.set(0.16, 0, 0.02);
-  // 糖罐（玻璃 + 铬盖）
-  const sugarGeo = lathe([[0.0, 0], [0.03, 0.003], [0.034, 0.07], [0.028, 0.1]], 12);
-  const sugar = new THREE.Mesh(sugarGeo, new THREE.MeshPhysicalMaterial({
-    color: 0xdfe8ee, roughness: 0.08, transparent: true, opacity: 0.5, envMapIntensity: 1.4
-  }));
-  const sugarCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.018, 12), M.chrome);
-  sugarCap.position.y = 0.11;
-  sugar.add(sugarCap);
+  g.add(ketchup);
+  // 芥末挤瓶作伴（锥嘴，微清漆免塑料感）
+  const mustard = new THREE.Mesh(
+    lathe([
+      [0.0, 0], [0.029, 0.003], [0.031, 0.115], [0.013, 0.148],
+      [0.007, 0.175], [0.003, 0.19]
+    ], 12),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xb98a12, roughness: 0.42, clearcoat: 0.35, envMapIntensity: 1.0
+    })
+  );
+  mustard.position.set(0.213, 0, -0.015);
+  mustard.rotation.y = 0.6;
+  g.add(mustard);
+  // ---- 糖罐 v2：玻璃身 + 罐内可见糖面（白芯）+ 铬盖带斜嘴；E 可摇（见展厅接线） ----
+  const sugar = new THREE.Group();
+  sugar.add(new THREE.Mesh(
+    lathe([[0.0, 0], [0.032, 0.003], [0.036, 0.05], [0.033, 0.095], [0.028, 0.104]], 14),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xdfe8ee, roughness: 0.08, transparent: true, opacity: 0.42, envMapIntensity: 1.4,
+      side: THREE.DoubleSide
+    })
+  ));
+  const sugarCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.028, 0.031, 0.058, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf2eee4, roughness: 1 })
+  );
+  sugarCore.position.y = 0.032;
+  sugar.add(sugarCore);
+  sugar.add(mergedMesh([
+    xform(lathe([[0.028, 0], [0.031, 0.012], [0.01, 0.03]], 12), 0, 0.104, 0),
+    xform(new THREE.CylinderGeometry(0.006, 0.008, 0.03, 8), 0.014, 0.128, 0, 0, 0, -0.5)
+  ], M.chrome));
   sugar.position.set(-0.15, 0, 0.04);
-  // 立式菜单牌
+  sugar.userData.core = sugarCore;
+  g.add(sugar);
+  g.userData.sugar = sugar;
+  // ---- 盐 & 胡椒一对（奶白玻璃 / 透明玻璃 + 黑椒芯，铬孔盖合并） ----
+  const spProfile = [[0.0, 0], [0.019, 0.002], [0.022, 0.048], [0.014, 0.064]];
+  const salt = new THREE.Mesh(lathe(spProfile, 10), new THREE.MeshPhysicalMaterial({
+    color: 0xf4f1e6, roughness: 0.3, envMapIntensity: 1.0
+  }));
+  salt.position.set(-0.205, 0, -0.02);
+  const pepper = new THREE.Mesh(lathe(spProfile, 10), new THREE.MeshPhysicalMaterial({
+    color: 0xdfe8ee, roughness: 0.12, transparent: true, opacity: 0.5, envMapIntensity: 1.2
+  }));
+  const pepCore = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.034, 8),
+    new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 1 }));
+  pepCore.position.y = 0.02;
+  pepper.add(pepCore);
+  pepper.position.set(-0.235, 0, 0.022);
+  g.add(salt, pepper, mergedMesh([
+    xform(lathe([[0.019, 0], [0.014, 0.014], [0.005, 0.02]], 10), -0.205, 0.064, -0.02),
+    xform(lathe([[0.019, 0], [0.014, 0.014], [0.005, 0.02]], 10), -0.235, 0.064, 0.022)
+  ], M.chrome));
+  // ---- 吸管杯：玻璃筒 + 四支斜插纸吸管（红条纹） ----
+  const strawTex = canvasTexture(32, (g2, s) => {
+    g2.fillStyle = '#f0ece2';
+    g2.fillRect(0, 0, s, s);
+    g2.strokeStyle = '#b8202e';
+    g2.lineWidth = 5;
+    for (let x = -s; x < s * 2; x += 12) {
+      g2.beginPath(); g2.moveTo(x, s); g2.lineTo(x + s, 0); g2.stroke();
+    }
+  });
+  const strawR = rng(7);
+  const strawGeos = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.7;
+    strawGeos.push(xform(
+      new THREE.CylinderGeometry(0.004, 0.004, 0.17, 6),
+      Math.cos(a) * 0.014, 0.1, Math.sin(a) * 0.014,
+      (strawR() - 0.5) * 0.5, 0, (strawR() - 0.5) * 0.5
+    ));
+  }
+  const strawCup = new THREE.Group();
+  strawCup.add(
+    new THREE.Mesh(
+      lathe([[0.0, 0], [0.03, 0.003], [0.033, 0.09], [0.035, 0.095]], 12),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xdfe8ee, roughness: 0.08, transparent: true, opacity: 0.4,
+        envMapIntensity: 1.4, side: THREE.DoubleSide
+      })
+    ),
+    mergedMesh(strawGeos, new THREE.MeshStandardMaterial({ map: strawTex, roughness: 0.9 }))
+  );
+  strawCup.position.set(-0.075, 0, -0.045);
+  g.add(strawCup);
+  // ---- 菜单牌 v2：A 字帐篷折卡（双面斜板 + 顶脊，立得住） ----
   const menuTex = canvasTexture(128, (g2, s) => {
     g2.fillStyle = '#efe6d2';
     g2.fillRect(0, 0, s, s);
@@ -1063,13 +1185,15 @@ export function counterClutter({ mats } = {}) {
     g2.lineWidth = 4;
     g2.strokeRect(8, 8, s - 16, s - 16);
   });
-  const menu = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.12, 0.12),
-    new THREE.MeshStandardMaterial({ map: menuTex, roughness: 0.7, side: THREE.DoubleSide })
-  );
-  menu.position.set(0.02, 0.07, -0.05);
-  menu.rotation.x = -0.15;
-  g.add(napkin, ketchup, sugar, menu);
+  const menuMat = new THREE.MeshStandardMaterial({ map: menuTex, roughness: 0.7, side: THREE.DoubleSide });
+  const menu = mergedMesh([
+    xform(new THREE.PlaneGeometry(0.12, 0.115), 0, 0.056, -0.023, -0.38, 0, 0),
+    xform(new THREE.PlaneGeometry(0.12, 0.115), 0, 0.056, 0.023, 0.38 + Math.PI, 0, 0),
+    xform(new THREE.BoxGeometry(0.12, 0.006, 0.01), 0, 0.11, 0)
+  ], menuMat);
+  menu.position.set(0.02, 0, -0.075);
+  menu.rotation.y = 0.08;
+  g.add(menu);
   return g;
 }
 
