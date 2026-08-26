@@ -1,15 +1,19 @@
 // ============================================================
 // 《穆赫兰道》展厅 —— NIGHT ROAD & THE ILLUSION THEATER
 // 夜路 + 路灯 + 剧场 + 蓝色立方体 (梦境反转交互)
-// 惊吓（v1.7 重做）：不再踩圈触发——在暗巷深段/背后空地，
-// 你突然回头的那一下，那个东西已经在你转过去的方向上扑来。
+// 惊吓（v1.8 主触发改拐角）：贴原作戏剧位置——沿暗巷走到尽头、
+// 转过拐角、垃圾箱与后门方向即将入画的那一步就是扳机（zoneTrigger
+// 系拐角朝向触发为主）。多幕节奏：灯闪/抽真空/金属刮擦/心跳 →
+// 留白 → 黑影从拐角后一顿一顿挪出 → 加速扑近 → 闷击黑幕错位传送。
+// v1.7 转身惊吓保留为暗巷深段/空地的第二重扳机（猛回头仍会中招）。
 // （原创程序化惊吓，无镜头复刻、无对白引用）
 // ============================================================
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
   smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
-  veiledFigure, zoneTrigger, turnTrigger, multiRectBounds,
+  veiledFigure, cornerWraith, zoneTrigger, turnTrigger, cornerTrigger, lurchEase,
+  multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
   asphaltMat, woodMat, concreteMat, rng
 } from './kit.js';
@@ -47,8 +51,30 @@ const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后
 
 // 冒烟与单测用：通路矩形并集 / 惊吓武装区 / 出生点（纯数据，可在 node 侧仿真行走）
 export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
-// v1.7 转身惊吓：武装区 = 暗巷深段 + 剧场背后空地。区内驻留 armTime
-// 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发——不踩圈、不按键。
+// v1.8 拐角惊吓（主触发）：巷尾拐角触发区——垃圾箱·后门方向即将
+// 入画的那一步就是扳机。顺巷南行视线自然落进 ±fov/2 锥内即触发；
+// 背向北归穿区不触发；面朝墙进区的，转回那个方向的瞬间触发。
+export const CORNER_SCARE = {
+  zone: { x: 9.25, z: -25.9, r: 2.3 },   // 暗巷尽头、剧场东南拐角前
+  lookAt: { x: 4.2, z: -30.6 },          // 垃圾箱与后门所在的西南方向
+  fov: 2.6,                              // ±74.5°：顺巷南行必然在锥内
+  cooldown: 75
+};
+// v1.8 多幕节奏时间线（ms，实时钟）：灯闪/抽真空/刮擦/心跳 → 留白 →
+// 顿挪现身 → 加速扑近 → 闷击闪帧 → 黑幕 → 空间错位。单测断言节拍次序与留白。
+export const SCARE_BEATS = {
+  dread: 0,        // 灯狂闪→死 + 声音抽真空 + 拐角一声长刮擦 + 心跳
+  hush: 1500,      // 留白：万籁俱寂，什么都不发生
+  lurch: 2200,     // 黑影从拐角后一顿一顿挪出（剪影光起）
+  rush: 4600,      // 加速扑近（0.5s 冲到脸前）
+  shock: 5100,     // 闷击 + uShock 后处理冲击 + 暗红闪帧
+  blackout: 5600,  // 黑幕
+  wake: 6500       // 空间错位：醒来已被移回巷口
+};
+// 惊吓后的空间错位落点（巷口，背对来路；在一切触发区之外）
+export const WAKE_POINT = { x: 9.7, z: 9.5 };
+// v1.7 转身惊吓（保留为第二重扳机）：武装区 = 暗巷深段 + 剧场背后空地。
+// 区内驻留 armTime 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发。
 export const SCARE_REGION = [
   { minX: 8.4, maxX: 10.1, minZ: -31.5, maxZ: -16.0 },  // 暗巷深段（恐惧拍之后）
   { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 } // 剧场背后空地
@@ -884,7 +910,9 @@ export function build(ctx) {
 
   // ---------- 暗巷与背后空地（彩蛋区） ----------
   // v1.6：两盏壁灯共用一个 kill 通道——巷中恐惧拍与惊吓主体都会把整条巷按进黑里
+  // v1.8：再加一个 panic 通道——拐角惊吓第一幕整巷灯狂闪（然后才死）
   const lampKill = { v: 0 };
+  const lampPanic = { v: 0 };
   // 巷口一盏将熄的壁灯（v1.6 挂上铁皮墙：支臂 + 灯座，不再悬空）
   const alleyLamp = new THREE.PointLight(0xffc98a, 3.5, 9, 1.8);
   alleyLamp.position.set(11.05, 3.4, -6);
@@ -900,7 +928,8 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.05, 0.4, 0.12), 11.55, 3.42, -6)
   ], new THREE.MeshStandardMaterial({ color: 0x1c1a1e, roughness: 0.6, metalness: 0.5 })));
   updaters.push((dt, t) => {
-    const f = (Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1) * (1 - lampKill.v);
+    let f = (Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1) * (1 - lampKill.v);
+    if (lampPanic.v > 0) f = (Math.sin(t * 46) * Math.sin(t * 13.1) > -0.15 ? 1.5 : 0.04) * (1 - lampKill.v);
     alleyLamp.intensity = 3.5 * f;
     alleyBulb.material.emissiveIntensity = 2.4 * f;
   });
@@ -914,17 +943,20 @@ export function build(ctx) {
   alleyBulb2.position.copy(alleyLamp2.position);
   group.add(alleyLamp2, alleyBulb2);
   updaters.push((dt, t) => {
-    const f = (Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1) * (1 - lampKill.v);
+    let f = (Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1) * (1 - lampKill.v);
+    if (lampPanic.v > 0) f = (Math.sin(t * 41 + 1.3) * Math.sin(t * 11.7) > -0.15 ? 1.4 : 0.04) * (1 - lampKill.v);
     alleyLamp2.intensity = 3.0 * f;
     alleyBulb2.material.emissiveIntensity = 2.2 * f;
   });
   // v1.6 巷中恐惧拍（声先于影）：走到巷子中段，两盏灯同时熄一口气——
   // 黑里有一次呼吸；灯回来的时候，什么都没有。为主惊吓垫的第一拍。
   const dreadTrig = zoneTrigger({ x: 9.3, z: -21.5, r: 2.6 }, () => {
+    if (scare.phase !== 0) return; // 主惊吓进行中，恐惧拍让位
     lampKill.v = 1;
     audio.sfx('lampoff', 0.3);
     later(() => audio.sfx('breath', 0.55), 700);
     later(() => {
+      if (scare.phase !== 0) return; // 灯已归主惊吓管，别中途点亮
       lampKill.v = 0;
       audio.sfx('lampon', 0.2);
     }, 2200);
@@ -1101,16 +1133,129 @@ export function build(ctx) {
     }
   });
 
-  // ---------- 惊吓：THE THING BEHIND YOU（v1.7 转身触发）----------
-  // v1.6 的「走进圈里触发」退场。现在唯一的扳机是你自己的脖子：
-  // 在暗巷深段/背后空地驻留 1s 上膛之后，任何一次甩头式回望
-  // （半秒内转过约 180°），那个东西已经在你转过去的方向上、
-  // 离你 4.6 米、正在扑来——转身与看见之间没有间隙。
+  // ---------- 惊吓 v1.8 主触发：THE THING AROUND THE CORNER ----------
+  // 贴原作戏剧位置：沿暗巷走到尽头，垃圾箱·后门方向即将入画的那一步
+  // 就是扳机（cornerTrigger 拐角朝向触发；背向北归穿区不触发）。
+  // 多幕节奏（SCARE_BEATS 实时钟）：整巷灯狂闪→死 + 声音抽真空 +
+  // 拐角一声长刮擦 + 心跳 → 留白 → 黑影从拐角后一顿一顿挪出
+  // （剪影光只给轮廓）→ 加速扑近 → 闷击 + uShock 冲击 + 暗红闪帧 →
+  // 黑幕 → 空间错位移回巷口。冷却后可重复。
   const figure = veiledFigure(2.3);
   figure.visible = false;
   group.add(figure);
-  const scare = { phase: 0, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
+  const wraith = cornerWraith(2.35);
+  wraith.visible = false;
+  group.add(wraith);
+  // 剪影光：拐角后一盏冷背光——黑影挪出时只读出轮廓，读不出任何细节
+  const rimLight = new THREE.PointLight(0x9fb7ff, 0, 11, 1.6);
+  rimLight.position.set(5.6, 2.4, -29.8);
+  group.add(rimLight);
+  const rimState = { on: 0 };
+  updaters.push((dt) => {
+    rimLight.intensity += (rimState.on * 6.5 - rimLight.intensity) * Math.min(1, dt * 7);
+  });
+  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处
+  const LURK_HIDE = new THREE.Vector3(6.4, 0, -28.6);
+  const LURK_OUT = new THREE.Vector3(8.7, 0, -26.4);
+  const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
 
+  // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还
+  const wakeUp = (caption) => {
+    teleport(WAKE_POINT.x, WAKE_POINT.z, Math.PI);
+    ui.fade(false);
+    backLampState.on = 1;
+    lampKill.v = 0;
+    audio.sfx('whisper', 0.7);
+    ui.caption(caption, 5200);
+    scare.phase = 0;
+    scare.sub = null;
+  };
+
+  const doCornerScare = () => {
+    if (scare.phase !== 0) return;
+    scare.phase = 2;
+    scare.sub = 'dread';
+    scare.t = 0;
+    const B = SCARE_BEATS;
+    // 第一幕：整巷灯狂闪 + 世界的声音塌下去 + 拐角一声长刮擦 + 两记心跳
+    lampPanic.v = 1;
+    audio.duck(1.2, 0.12, 1.6);
+    audio.sfxAt('scrape', 8.4, -26.6, 0.85, 5);
+    audio.sfx('heartbeat', 0.45);
+    later(() => audio.sfx('heartbeat', 0.55), 750);
+    later(() => { // 闪够了：整巷按进黑里，后门看护灯同灭
+      lampPanic.v = 0;
+      lampKill.v = 1;
+      backLampState.on = 0;
+      audio.sfx('lampoff', 0.35);
+    }, 950);
+    // 第二幕（hush → lurch 为留白）：更深一层抽真空——万籁俱寂，什么都不发生
+    later(() => audio.duck(0.55, 0.02, 1.5), B.hush);
+    // 第三幕：剪影光起，黑影从拐角后一顿一顿挪出（每步一声刮擦 + 落定闷响）
+    later(() => {
+      scare.sub = 'lurch';
+      scare.t = 0;
+      wraith.position.copy(LURK_HIDE);
+      wraith.visible = true;
+      rimState.on = 1;
+    }, B.lurch);
+    for (const [i, off] of [50, 750, 1450].entries()) {
+      later(() => audio.sfxAt('scrape', 8.5, -26.5, 0.5 + i * 0.12, 4), B.lurch + off);
+      later(() => audio.sfxAt('thud', 8.5, -26.5, 0.22 + i * 0.06, 4), B.lurch + off + 260);
+    }
+    // 心跳渐密——追着顿挪加速
+    for (const [i, off] of [200, 800, 1330, 1780, 2140].entries()) {
+      later(() => audio.sfx('heartbeat', 0.42 + i * 0.08), B.lurch + off);
+    }
+    // 第四幕：加速扑近（从黑影当前位置直线冲到脸前）
+    later(() => {
+      scare.sub = 'rush';
+      scare.t = 0;
+      const pv = pose ? pose() : { x: player.x, z: player.z, yaw: 0 };
+      scare.from.copy(wraith.position);
+      const dx = pv.x - wraith.position.x;
+      const dz = pv.z - wraith.position.z;
+      const d = Math.hypot(dx, dz) || 1;
+      scare.to.set(pv.x - (dx / d) * 0.85, 0, pv.z - (dz / d) * 0.85);
+      audio.sfx('scare');
+      audio.sfx('breath', 0.85);
+    }, B.rush);
+    later(() => { // 扑到脸前：闷击 + 后处理冲击 + 暗红闪帧
+      audio.sfx('thud', 1.0);
+      engine.shock(1, 0.9, 0x1a0000);
+    }, B.shock);
+    later(() => { // 黑幕
+      wraith.visible = false;
+      rimState.on = 0;
+      ui.fade(true);
+    }, B.blackout);
+    later(() => wakeUp('有些拐角，不该拐过去。'), B.wake);
+  };
+  updaters.push((dt, t) => {
+    if (scare.phase !== 2) return;
+    scare.t += dt;
+    if (scare.sub === 'rush') {
+      const k = Math.min(1, scare.t / 0.5); // 0.5s 加速冲到脸前
+      wraith.position.lerpVectors(scare.from, scare.to, k * k);
+      wraith.lookAt(player.x, 1.5, player.z);
+      wraith.userData.setRush(k, t);
+    } else if (scare.sub === 'lurch' && wraith.visible) {
+      const s = lurchEase(Math.min(1, scare.t / 2.1), 3); // 名义 2.1s 三顿挪完
+      wraith.position.lerpVectors(LURK_HIDE, LURK_OUT, s);
+      wraith.lookAt(player.x, 1.5, player.z);
+      wraith.userData.setLurch(s, t); // 侧倾/沉肩/臂拖摆——平台段全身冻住
+    }
+  });
+  const cornerTrig = cornerTrigger(CORNER_SCARE.zone, CORNER_SCARE.lookAt, doCornerScare,
+    { fov: CORNER_SCARE.fov, cooldown: CORNER_SCARE.cooldown });
+  updaters.push((dt) => {
+    if (pose) cornerTrig.update(pose(), dt);
+  });
+
+  // ---------- 惊吓 v1.7（保留第二扳机）：THE THING BEHIND YOU ----------
+  // 在暗巷深段/背后空地驻留 1s 上膛之后，任何一次甩头式回望
+  // （半秒内转过约 180°），那个东西已经在你转过去的方向上、
+  // 离你 4.6 米、正在扑来——转身与看见之间没有间隙。
   const doScare = () => {
     if (scare.phase !== 0) return;
     scare.phase = 1;
@@ -1139,15 +1284,7 @@ export function build(ctx) {
       figure.visible = false;
       ui.fade(true);
     }, 1000);
-    later(() => {
-      teleport(9.7, 9.5, Math.PI); // 巷口，背对来路
-      ui.fade(false);
-      backLampState.on = 1;
-      lampKill.v = 0;
-      audio.sfx('whisper', 0.7);
-      ui.caption('有些东西只在你回头时存在。', 5200);
-      scare.phase = 0; // 冷却后可再次触发（turnTrigger 控制频率）
-    }, 1750);
+    later(() => wakeUp('有些东西只在你回头时存在。'), 1750);
   };
   updaters.push((dt, t) => {
     if (scare.phase !== 1) return;
@@ -1161,6 +1298,81 @@ export function build(ctx) {
   updaters.push((dt) => {
     if (pose) turnTrig.update(pose(), dt);
   });
+
+  // ---------- v1.8 场景二级细节：拐角会说话 ----------
+  // ① 后墙拐角根的刮痕组（南面，从拐角后往外拖的方向）——E → 一声很近的
+  // 刮擦 + 半拍后黑里一次呼吸（它听见你摸了它的墙）
+  const scratchTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const sr = rng(89);
+    g.lineCap = 'round';
+    for (let i = 0; i < 7; i++) {
+      const y0 = 14 + sr() * (s - 40);
+      const drift = 8 + sr() * 22;
+      g.strokeStyle = `rgba(${168 + (sr() * 40) | 0},${160 + (sr() * 30) | 0},${150 + (sr() * 30) | 0},${0.28 + sr() * 0.3})`;
+      g.lineWidth = 1.2 + sr() * 2.2;
+      g.beginPath();
+      g.moveTo(s - 6, y0);
+      g.quadraticCurveTo(s * 0.55, y0 + drift * 0.4, 8 + sr() * 14, y0 + drift);
+      g.stroke();
+    }
+    // 尽头三道并排的短抓痕（更深）
+    g.strokeStyle = 'rgba(190,180,164,0.55)';
+    g.lineWidth = 2.6;
+    for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.moveTo(16, 44 + i * 12);
+      g.lineTo(40, 52 + i * 12);
+      g.stroke();
+    }
+  });
+  const scratch = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.5, 1.0),
+    new THREE.MeshStandardMaterial({
+      map: scratchTex, transparent: true, roughness: 0.85,
+      emissive: 0xffffff, emissiveMap: scratchTex, emissiveIntensity: 0.06
+    })
+  );
+  scratch.position.set(7.35, 1.3, -26.67);
+  scratch.rotation.y = Math.PI;
+  group.add(scratch);
+  hotspots.add(scratch, {
+    hint: 'E — 墙角的刮痕',
+    onActivate: () => {
+      audio.sfxAt('scrape', 7.35, -26.7, 0.45, 3);
+      later(() => audio.sfx('breath', 0.35), 700);
+      ui.caption('刮痕比你高，还在变多。', 4200);
+    }
+  });
+  // ② 拐角后的地面拖痕 + 焦黑蹲踞斑（它等的地方）——纯细节，不加交互
+  const dragTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const dr = rng(97);
+    // 蹲踞斑：一团焦黑（多层半透圆叠出边缘不齐）
+    for (let i = 0; i < 9; i++) {
+      g.fillStyle = `rgba(4,3,6,${0.16 + dr() * 0.14})`;
+      g.beginPath();
+      g.ellipse(34 + dr() * 10, s - 32 + dr() * 8, 16 + dr() * 12, 10 + dr() * 8, dr(), 0, Math.PI * 2);
+      g.fill();
+    }
+    // 拖痕：往拐角方向的几道平行擦线
+    for (let i = 0; i < 5; i++) {
+      g.strokeStyle = `rgba(10,8,12,${0.3 + dr() * 0.25})`;
+      g.lineWidth = 2 + dr() * 3;
+      g.beginPath();
+      g.moveTo(28 + dr() * 14, s - 30 - dr() * 10);
+      g.lineTo(s - 8, 18 + dr() * 16);
+      g.stroke();
+    }
+  });
+  const dragMark = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.6, 2.6),
+    new THREE.MeshBasicMaterial({ map: dragTex, transparent: true, opacity: 0.85, depthWrite: false })
+  );
+  dragMark.rotation.x = -Math.PI / 2;
+  dragMark.rotation.z = 0.35;
+  dragMark.position.set(7.2, 0.011, -27.6);
+  group.add(dragMark);
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
   const chalkTex = canvasTexture(256, (g, s) => {
@@ -1718,7 +1930,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'turn-scare': turnTrig, 'alley-dread': dreadTrig },
+    eggs: { 'corner-scare': cornerTrig, 'turn-scare': turnTrig, 'alley-dread': dreadTrig },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);
