@@ -91,9 +91,10 @@ function createWindow() {
         // 且逐一激活（onActivate 全链无异常）后才放行去下一厅
         // v1.4 阶段 4 普查：12/21/14/14/15/14/16（总 106 ≥ 105）—— 阈值锁在普查值 -1，防回退
         // v1.4 终版普查 -1（实测 12/23/14/14/16/14/16）
+        // v1.4 五遍后普查：13/24/16/15/17/15/17（合计 117）——阈值锁普查-1
         const INTERACTIVE_MIN = {
-          lobby: 11, archive: 22, eraserhead: 13, bluevelvet: 13,
-          twinpeaks: 15, mulholland: 13, studio: 15
+          lobby: 12, archive: 23, eraserhead: 15, bluevelvet: 14,
+          twinpeaks: 16, mulholland: 14, studio: 16
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true

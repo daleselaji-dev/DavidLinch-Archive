@@ -329,20 +329,21 @@
 **验证方式**：截屏对照 + commit 链 + 源码审读。
 
 ### 28. 交互密度 ≥105 + 连锁 ≥2/厅（v1.4 新增）
-- [x] 全馆非导航交互 **109 ≥105**（lobby 12 / archive 23 / eraserhead 14 /
-      bluevelvet 14 / studio 16 / twinpeaks 16 / mulholland 14）；
-      每厅 ≥10，双峰 16 / 房间 16 / 档案 23 ≥14
+- [x] 全馆非导航交互 **117 ≥105**（lobby 13 / archive 24 / eraserhead 16 /
+      bluevelvet 15 / studio 17 / twinpeaks 17 / mulholland 15）；
+      每厅 ≥13（第五遍抛光后普查）
 - [x] 每厅连锁 ≥2 条（服务铃→派柜自转、泄压手轮→跨房压力表、投币→亭灯闪、
-      乐队→脚灯+吊灯+后幕、调光→吊灯+体积锥+顶光、图书梯→轮转+落定……）
+      乐队→脚灯+吊灯+后幕、调光→吊灯+体积锥+顶光、图书梯→轮转+落定、
+      低音提琴→聚光吸气、总闸→全屋灯塌+机器拖慢+自弹回、气送管→远响+回舱……）
 - [x] 新交互全部 ≥2 通道反馈；activateAll 七厅全量激活无异常（冒烟输出）
-- [x] 冒烟阈值锁定在终版普查 -1：INTERACTIVE_MIN lobby 11 / archive 22 /
-      eraserhead 13 / bluevelvet 13 / studio 15 / twinpeaks 15 / mulholland 13
+- [x] 冒烟阈值锁定在终版普查 -1：INTERACTIVE_MIN lobby 12 / archive 23 /
+      eraserhead 15 / bluevelvet 14 / studio 16 / twinpeaks 16 / mulholland 14
 
 **验证方式**：`xvfb-run npx electron . --smoke` 逐厅输出交互统计且全绿。
 
 ### 29. 音景/配乐 v1.4 抛光（v1.4 新增）
-- [x] 新合成音色 **9 种 ≥6**：coin/springdoor/ladderroll/flutter/stamp/iceclink/
-      jostle/thunder/drip（audio.test.js 源码审计 + 展厅接线普查断言）
+- [x] 新合成音色 **11 种 ≥6**：coin/springdoor/ladderroll/flutter/stamp/iceclink/
+      jostle/thunder/drip/coalrattle/pluck（audio.test.js 源码审计 + 展厅接线普查断言）
 - [x] 连锁反馈声分层：主音 + 空间尾音 + 持续层（如 flutter+900ms 远 hoot、
       stamp 自带抬起→压落时间线、thunder 随闪电延迟衰减距离感）
 - [x] sfxAt 位置化/程序化混响四预设/七种脚步/爵士层全部保持；零采样扫描全绿
