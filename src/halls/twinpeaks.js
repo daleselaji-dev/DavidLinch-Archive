@@ -11,7 +11,7 @@ import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
   zoneTrigger, zonesBounds, pineGeometryMaterial,
-  roundedBoxMesh, mergedMesh, xform, rockMesh,
+  roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
   chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
 } from './kit.js';
@@ -145,7 +145,16 @@ export function build(ctx) {
   ], new THREE.MeshBasicMaterial({ color: 0x03060d, fog: false }));
   group.add(peaks);
 
-  // ---------- 松林（实例化，避开可逛分区） ----------
+  // ---------- 松林（实例化，避开可逛分区 + 视线走廊） ----------
+  // v1.4 修正：树的散布是非种子随机——瀑布盆地里偶尔会长出一棵巨松
+  // 把整面水幕挡死（撞见与否全凭运气）。眺望台的「望」必须成立：
+  // 瀑布盆地与观景镜→锯木厂的视线走廊内不落树
+  const TREE_EXCL = [
+    { minX: 3.5, maxX: 20.5, minZ: -49, maxZ: -28.4 },
+    { minX: 17, maxX: 36, minZ: -44, maxZ: -30 }
+  ];
+  const inTreeExcl = (x, z) =>
+    TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
   const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
   const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
@@ -160,7 +169,7 @@ export function build(ctx) {
     const r = 6 + Math.pow(Math.random(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
-    if (insideWalkable(x, z)) continue;
+    if (insideWalkable(x, z) || inTreeExcl(x, z)) continue;
     const s = 0.8 + Math.random() * 2.4;
     dummy.position.set(x, 2.1 * s + 0.9, z);
     dummy.scale.setScalar(s);
@@ -955,42 +964,88 @@ export function build(ctx) {
   rail3.position.set(17.1, 0.16, -25.7);
   rail3.rotation.y = Math.PI / 2;
   overlook.add(rail1, rail2, rail3);
-  // 峡谷崖壁剪影
-  for (const [x, z, s] of [[2, -40, 7], [22, -42, 8], [12, -48, 10]]) {
+  // 峡谷崖壁剪影（背景崖 z 向压扁——v1.3 它的前脸鼓到 -36，
+  // 把水幕下半段整个吞掉；压扁后立在水幕正后方只当幕布）
+  for (const [x, z, s, zs] of [[2, -40, 7, 1], [22, -42, 8, 1], [12, -49, 10, 0.55]]) {
     const cliff = rockMesh(s, 0x0a0e14);
     cliff.position.set(x, s * 0.35, z);
+    cliff.scale.z = zs;
     overlook.add(cliff);
   }
-  // 瀑布（滚动水纹）
+  // 瀑布 v2：弧面双层水幕（圆柱扇面，水体有了横向鼓度）——
+  // 水缕整周期正弦摆（上下无缝滚动）+ 短亮泡珠（滚动方向终于可见：向下）
   const fallsTex = canvasTexture(256, (g, s) => {
     g.fillStyle = '#0c141c';
     g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 130; i++) {
-      const x = Math.random() * s;
-      const w = 1 + Math.random() * 3;
-      const a = 0.14 + Math.random() * 0.4;
-      g.fillStyle = `rgba(214,232,246,${a})`;
-      g.fillRect(x, 0, w, s);
+    const fr = rng(83);
+    for (let i = 0; i < 110; i++) {
+      const x0 = fr() * s;
+      const w = 1 + fr() * 3;
+      const amp = fr() * 3.5;
+      const ph = fr() * Math.PI * 2;
+      const per = 1 + ((fr() * 2) | 0);
+      g.strokeStyle = `rgba(214,232,246,${0.1 + fr() * 0.38})`;
+      g.lineWidth = w;
+      g.beginPath();
+      for (let y = 0; y <= s; y += 8) {
+        const x = x0 + Math.sin((y / s) * Math.PI * 2 * per + ph) * amp;
+        if (y === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+    for (let i = 0; i < 150; i++) {
+      g.fillStyle = `rgba(232,244,252,${0.12 + fr() * 0.3})`;
+      g.fillRect(fr() * s, fr() * s, 1.6, 5 + fr() * 18);
     }
   }, 1, 2);
+  const FALL_R = 11;
+  const FALL_ARC = 0.68;
   const falls = new THREE.Mesh(
-    new THREE.PlaneGeometry(7.5, 15),
+    new THREE.CylinderGeometry(FALL_R, FALL_R, 15, 26, 1, true, -FALL_ARC / 2, FALL_ARC),
     new THREE.MeshBasicMaterial({ map: fallsTex, transparent: true, opacity: 0.85, toneMapped: false })
   );
-  falls.position.set(12, 6.5, -41.5);
+  falls.position.set(12, 6.5, -41.5 - FALL_R);
   overlook.add(falls);
   // 前层水幕（慢速低透明，叠出水体厚度视差）
   const fallsTex2 = fallsTex.clone();
   fallsTex2.needsUpdate = true;
   const falls2 = new THREE.Mesh(
-    new THREE.PlaneGeometry(7.1, 15),
+    new THREE.CylinderGeometry(FALL_R - 0.35, FALL_R - 0.35, 15, 26, 1, true, -FALL_ARC / 2, FALL_ARC),
     new THREE.MeshBasicMaterial({
       map: fallsTex2, transparent: true, opacity: 0.32, toneMapped: false,
       blending: THREE.AdditiveBlending, depthWrite: false
     })
   );
-  falls2.position.set(12, 6.4, -41.2);
+  falls2.position.set(12, 6.4, -41.2 - (FALL_R - 0.35));
   overlook.add(falls2);
+  // 岩鼻两处：崖体把水流顶开，下方接回流白瀑——双瀑名场面的抽象化
+  const rejoinTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const rr = rng(29);
+    for (let i = 0; i < 12; i++) {
+      const x = 6 + rr() * (s - 12);
+      const grad = g.createLinearGradient(0, 0, 0, s);
+      grad.addColorStop(0, `rgba(232,244,250,${0.5 + rr() * 0.4})`);
+      grad.addColorStop(0.55, 'rgba(232,244,250,0.25)');
+      grad.addColorStop(1, 'rgba(232,244,250,0)');
+      g.fillStyle = grad;
+      g.fillRect(x, 0, 1.5 + rr() * 2.5, s * (0.55 + rr() * 0.45));
+    }
+  });
+  const rejoinMat = new THREE.MeshBasicMaterial({
+    map: rejoinTex, transparent: true, opacity: 0.6, toneMapped: false,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const rejoinGeos = [];
+  for (const [nx, ny, ns] of [[10.1, 11.4, 1.05], [14.2, 12.3, 0.85]]) {
+    const nose = rockMesh(ns, 0x07090d);
+    nose.scale.z = 0.55;
+    nose.position.set(nx, ny, -41.35);
+    overlook.add(nose);
+    rejoinGeos.push(xform(new THREE.PlaneGeometry(ns * 1.6, 2.3), nx, ny - ns * 0.7 - 1.05, -41.02));
+  }
+  overlook.add(mergedMesh(rejoinGeos, rejoinMat));
   // 上缘白沿（水离崖那一线）+ 底部翻涌泡沫带
   const brink = new THREE.Mesh(
     new THREE.PlaneGeometry(7.6, 0.55),
@@ -1025,12 +1080,83 @@ export function build(ctx) {
   );
   foam.position.set(12, 0.72, -40.85);
   overlook.add(foam);
+  // 潭中砾石两块 + 泡沫领圈（水绕石的白——潭面不再是干净的圆盘）
+  const collarTex = foamTex.clone();
+  collarTex.repeat.set(1, 1);
+  collarTex.needsUpdate = true;
+  const collarMat = new THREE.MeshBasicMaterial({
+    map: collarTex, transparent: true, opacity: 0.45, toneMapped: false,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const collarGeos = [];
+  for (const [bx, bz, bs] of [[9.2, -38.7, 1.0], [14.6, -37.5, 0.7]]) {
+    const b = rockMesh(bs, 0x0b0f15);
+    b.position.set(bx, bs * 0.18, bz);
+    overlook.add(b);
+    const ring = new THREE.RingGeometry(bs * 0.7, bs * 1.18, 18);
+    ring.rotateX(-Math.PI / 2);
+    collarGeos.push(xform(ring, bx, 0.035, bz));
+  }
+  overlook.add(mergedMesh(collarGeos, collarMat));
+  // 撞击点雾柱：十字对板 + 呼吸胀缩（瀑底腾起的那口白汽）
+  const sprayTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const sr = rng(47);
+    for (let i = 0; i < 40; i++) {
+      const x = sr() * s;
+      const y = s * 0.25 + sr() * s * 0.75; // 下密上疏
+      const r = 6 + sr() * 16;
+      const grad = g.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, `rgba(212,232,244,${0.16 + (y / s) * 0.2})`);
+      grad.addColorStop(1, 'rgba(212,232,244,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(x, y, r, 0, 7);
+      g.fill();
+    }
+  });
+  const sprayMat = new THREE.MeshBasicMaterial({
+    map: sprayTex, transparent: true, opacity: 0.42, toneMapped: false,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const spray = mergedMesh([
+    xform(new THREE.PlaneGeometry(4.4, 3.4), 0, 0, 0),
+    xform(new THREE.PlaneGeometry(4.4, 3.4), 0, 0, 0, 0, Math.PI / 2, 0)
+  ], sprayMat);
+  spray.position.set(12, 2.0, -40.6);
+  overlook.add(spray);
+  // 月虹：平时不在——只有守望应答（水雾涨起）时才浮现的浅弧
+  // 内紫→中青→外淡金的顶点色渐变，一张几何完成光谱
+  const bowGeo = new THREE.RingGeometry(3.1, 3.9, 40, 1, Math.PI * 0.14, Math.PI * 0.72);
+  const bowPos = bowGeo.attributes.position;
+  const bowCol = new Float32Array(bowPos.count * 3);
+  for (let i = 0; i < bowPos.count; i++) {
+    const k = (Math.hypot(bowPos.getX(i), bowPos.getY(i)) - 3.1) / 0.8;
+    const c = k < 0.5
+      ? [0.55 - 0.1 * k * 2, 0.4 + 0.4 * k * 2, 0.9 + 0.05 * k * 2]
+      : [0.45 + 0.5 * (k - 0.5) * 2, 0.8 + 0.05 * (k - 0.5) * 2, 0.95 - 0.35 * (k - 0.5) * 2];
+    bowCol.set(c, i * 3);
+  }
+  bowGeo.setAttribute('color', new THREE.BufferAttribute(bowCol, 3));
+  const moonbow = new THREE.Mesh(bowGeo, new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0, toneMapped: false,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  }));
+  moonbow.position.set(12, 1.3, -37.6);
+  moonbow.rotation.x = -0.1;
+  overlook.add(moonbow);
   updaters.push((dt, t) => {
-    fallsTex.offset.y -= dt * 0.32;
-    fallsTex2.offset.y -= dt * 0.19;
+    // 滚动方向修正：offset.y += 才是纹样向下坠（v1.3 的条纹无纵向特征看不出方向）
+    fallsTex.offset.y += dt * 0.34;
+    fallsTex2.offset.y += dt * 0.21;
     foamTex.offset.x += dt * 0.05;
     brink.material.opacity = 0.4 + Math.sin(t * 7.3) * 0.07 + Math.sin(t * 16.7) * 0.05;
     foam.material.opacity = 0.45 + Math.sin(t * 4.9) * 0.1 + Math.sin(t * 11.3) * 0.06;
+    rejoinMat.opacity = 0.55 + Math.sin(t * 9.1) * 0.12;
+    collarMat.opacity = 0.4 + Math.sin(t * 3.7) * 0.1 + Math.sin(t * 8.9) * 0.05;
+    spray.scale.y = 1 + Math.sin(t * 1.7) * 0.07;
+    sprayMat.opacity = 0.38 + Math.sin(t * 2.3) * 0.08 + Math.sin(t * 5.1) * 0.05;
+    sprayTex.offset.x += dt * 0.03;
   });
   // 瀑底水潭（v1.3 静水：微波纹法线缓慢流动）+ 水雾
   const plungeMat = waterMat(0x04121c, { seed: 31, repX: 3, repY: 3 });
@@ -1082,7 +1208,12 @@ export function build(ctx) {
         const k = vigil.surge < 2.4 ? vigil.surge / 2.4 : Math.max(0, 1 - (vigil.surge - 2.4) / 3.6);
         mist.material.opacity = 0.08 + k * 0.16;
         falls2.material.opacity = 0.32 + k * 0.22;
-        if (vigil.surge > 6) vigil.surge = -1;
+        // 月虹只在水雾涨起时浮现——奖励站定八秒的人
+        moonbow.material.opacity = k * 0.38;
+        if (vigil.surge > 6) {
+          vigil.surge = -1;
+          moonbow.material.opacity = 0;
+        }
       }
     },
     force() { vigilFire(); }
