@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import {
   roundedBoxGeo, roundedBoxMesh, mergedMesh, xform, canvasTexture,
-  woodMat, brassMat, chromeMat, ironMat, leatherMat, fabricMat, rng
+  woodMat, brassMat, chromeMat, ironMat, fabricMat, rng
 } from './kit.js';
 
 /** 每厅一次性创建的共享材质组（切厅时随 group 一并 dispose） */
@@ -422,9 +422,44 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
 export function theaterSeats({ rows = 3, cols = 6, dx = 0.86, dz = 1.05, mats } = {}) {
   const M = mats || propMats();
   const g = new THREE.Group();
-  const cushMat = leatherMat([70, 14, 22], { seed: 61 });
+  // v1.4 P3：皮面 → 织纹坐垫（fabric weave + sheen，旧剧场的绒布椅）
+  const cushMat = fabricMat('#43101c', '#571522', {
+    seed: 61, repX: 2, repY: 2, sheenColor: 0xd08080, normalScale: 1.1
+  });
+  // v1.4 P3：座号牌图集（一张 256 画布 4×2 格，全部座牌合并单 mesh 共用）
+  const plateAtlas = canvasTexture(256, (g2, s) => {
+    for (let n = 0; n < 8; n++) {
+      const cx = (n % 4) * (s / 4);
+      const cy = Math.floor(n / 4) * (s / 2);
+      const grad = g2.createLinearGradient(cx, cy, cx, cy + s / 2);
+      grad.addColorStop(0, '#a8854e');
+      grad.addColorStop(0.5, '#8a6c3c');
+      grad.addColorStop(1, '#6e5530');
+      g2.fillStyle = grad;
+      g2.fillRect(cx + 2, cy + 2, s / 4 - 4, s / 2 - 4);
+      g2.strokeStyle = '#4a3820';
+      g2.lineWidth = 4;
+      g2.strokeRect(cx + 6, cy + 6, s / 4 - 12, s / 2 - 12);
+      g2.fillStyle = '#241a0c';
+      g2.font = 'bold 74px Georgia, serif';
+      g2.textAlign = 'center';
+      g2.textBaseline = 'middle';
+      g2.fillText(String(n + 1), cx + s / 8, cy + s / 4 + 4);
+    }
+  });
+  const plateCell = (n) => {
+    const pg = new THREE.PlaneGeometry(0.088, 0.058);
+    const uv = pg.attributes.uv;
+    const col = n % 4;
+    const row = Math.floor(n / 4);
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, (col + uv.getX(i)) / 4, 1 - (row + (1 - uv.getY(i))) / 2);
+    }
+    return pg;
+  };
   const frameGeos = [];
   const cushGeos = [];
+  const plateGeos = [];
   let special = null;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -436,6 +471,8 @@ export function theaterSeats({ rows = 3, cols = 6, dx = 0.86, dz = 1.05, mats } 
       // 扶手木条
       frameGeos.push(xform(new THREE.CylinderGeometry(0.032, 0.032, 0.5, 8), x - dx / 2 + 0.06, 0.6, z, Math.PI / 2, 0, 0));
       if (c === cols - 1) frameGeos.push(xform(new THREE.CylinderGeometry(0.032, 0.032, 0.5, 8), x + dx / 2 - 0.06, 0.6, z, Math.PI / 2, 0, 0));
+      // 座号牌（靠背顶，朝入场方向；随靠背同角度后仰，离面 8mm 防深度打架）
+      plateGeos.push(xform(plateCell(c % 8), x, 0.935, z + 0.333, -0.18, 0, 0));
       const isSpecial = r === 1 && c === 2;
       if (isSpecial) {
         // 可交互座椅：翻起状态的坐垫单独成 mesh
@@ -455,9 +492,19 @@ export function theaterSeats({ rows = 3, cols = 6, dx = 0.86, dz = 1.05, mats } 
       cushGeos.push(xform(roundedBoxGeo(0.62, 0.13, 0.5, 0.05), x, 0.44, z - 0.04, -0.06, 0, 0));
       cushGeos.push(xform(roundedBoxGeo(0.62, 0.62, 0.13, 0.05), x, 0.72, z + 0.3, -0.18, 0, 0));
     }
+    // v1.4 P3：整排踏脚杆（铸铁管贯通全排 + 两端支耳）
+    const railLen = cols * dx - 0.14;
+    const railZ = r * dz - 0.3;
+    frameGeos.push(xform(new THREE.CylinderGeometry(0.018, 0.018, railLen, 8), 0, 0.14, railZ, 0, 0, Math.PI / 2));
+    frameGeos.push(xform(new THREE.BoxGeometry(0.03, 0.1, 0.03), -railLen / 2, 0.1, railZ));
+    frameGeos.push(xform(new THREE.BoxGeometry(0.03, 0.1, 0.03), railLen / 2, 0.1, railZ));
   }
   g.add(mergedMesh(frameGeos, M.iron));
   g.add(mergedMesh(cushGeos, cushMat));
+  g.add(mergedMesh(plateGeos, new THREE.MeshStandardMaterial({
+    map: plateAtlas, roughness: 0.34, metalness: 0.85, envMapIntensity: 1.3,
+    emissive: 0xffc98a, emissiveMap: plateAtlas, emissiveIntensity: 0.22
+  })));
   if (special) g.add(special);
   // 排灯（走道侧小灯珠）
   const domeMat = new THREE.MeshStandardMaterial({
@@ -473,6 +520,141 @@ export function theaterSeats({ rows = 3, cols = 6, dx = 0.86, dz = 1.05, mats } 
   g.add(mergedMesh(domeGeos, domeMat));
   g.userData.specialSeat = special;
   g.userData.domeMat = domeMat;
+  return g;
+}
+
+// ============================================================
+// 穆赫兰道 —— 剧场票亭（v1.4 P3）
+// 部件：底座 / 板壁芯板 / 四角立柱 + 双层顶檐 / 三面整玻 /
+//       柜台 + 车削票口碗（黄铜浅碟）/ 二折折窗（可动）/
+//       TICKETS 楣牌 / CERRADO 挂牌 / 内亮灯泡
+// ============================================================
+export function ticketBooth({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const frameCol = new THREE.MeshStandardMaterial({ color: 0x2a1218, roughness: 0.55, metalness: 0.25 });
+  // 底座 + 下半板壁
+  const plinth = roundedBoxMesh(1.18, 0.14, 1.08, 0.02, frameCol);
+  plinth.position.y = 0.07;
+  const body = roundedBoxMesh(1.06, 0.96, 0.96, 0.03, M.darkWood);
+  body.position.y = 0.62;
+  g.add(plinth, body);
+  // 凹入芯板（前双 + 侧单，合并）
+  g.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.38, 0.6, 0.02), -0.24, 0.62, 0.485),
+    xform(new THREE.BoxGeometry(0.38, 0.6, 0.02), 0.24, 0.62, 0.485),
+    xform(new THREE.BoxGeometry(0.02, 0.6, 0.68), -0.535, 0.62, 0),
+    xform(new THREE.BoxGeometry(0.02, 0.6, 0.68), 0.535, 0.62, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x1a0e12, roughness: 0.75 })));
+  // 四角立柱 + 双层顶檐
+  const postGeos = [];
+  for (const [x, z] of [[-0.5, 0.45], [0.5, 0.45], [-0.5, -0.45], [0.5, -0.45]]) {
+    postGeos.push(xform(new THREE.BoxGeometry(0.09, 1.25, 0.09), x, 1.72, z));
+  }
+  postGeos.push(xform(roundedBoxGeo(1.12, 0.08, 1.02, 0.02), 0, 2.32, 0));
+  postGeos.push(xform(roundedBoxGeo(1.24, 0.16, 1.14, 0.03), 0, 2.44, 0));
+  g.add(mergedMesh(postGeos, frameCol));
+  // 三面整玻（背 + 两侧）
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x9fb4c8, transparent: true, opacity: 0.16, roughness: 0.08,
+    metalness: 0, envMapIntensity: 1.5, side: THREE.DoubleSide
+  });
+  g.add(mergedMesh([
+    xform(new THREE.PlaneGeometry(0.92, 1.16), 0, 1.7, -0.45),
+    xform(new THREE.PlaneGeometry(0.82, 1.16), -0.5, 1.7, 0, 0, Math.PI / 2, 0),
+    xform(new THREE.PlaneGeometry(0.82, 1.16), 0.5, 1.7, 0, 0, Math.PI / 2, 0)
+  ], glassMat));
+  // 柜台 + 票口碗（车削浅碟，凹面朝上）
+  const sill = roundedBoxMesh(1.18, 0.07, 0.34, 0.02, M.darkWood);
+  sill.position.set(0, 1.14, 0.52);
+  g.add(sill);
+  const bowlMat = M.brass.clone();
+  bowlMat.side = THREE.DoubleSide;
+  const bowl = new THREE.Mesh(lathe([
+    [0.002, 0], [0.055, 0.008], [0.085, 0.03], [0.1, 0.052], [0.105, 0.055]
+  ], 18), bowlMat);
+  bowl.position.set(0, 1.178, 0.52);
+  g.add(bowl);
+  g.userData.bowl = bowl;
+  // 二折折窗：左扇铰在左立柱，右扇铰在左扇右缘
+  const mkPane = () => {
+    const p = new THREE.Group();
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.94), glassMat);
+    glass.position.set(0.23, 0, 0);
+    p.add(glass, mergedMesh([
+      xform(new THREE.BoxGeometry(0.46, 0.04, 0.035), 0.23, 0.47, 0),
+      xform(new THREE.BoxGeometry(0.46, 0.04, 0.035), 0.23, -0.47, 0),
+      xform(new THREE.BoxGeometry(0.04, 0.98, 0.035), 0.01, 0, 0),
+      xform(new THREE.BoxGeometry(0.04, 0.98, 0.035), 0.45, 0, 0)
+    ], frameCol));
+    return { p, glass };
+  };
+  const paneL = mkPane();
+  paneL.p.position.set(-0.46, 1.68, 0.47);
+  const paneR = mkPane();
+  paneR.p.position.set(0.46, 0, 0);
+  paneL.p.add(paneR.p);
+  g.add(paneL.p);
+  g.userData.foldL = paneL.p;
+  g.userData.foldR = paneR.p;
+  g.userData.windowHit = paneR.glass;
+  /** k=0 合拢，k=1 全折开（左扇内摆 + 右扇回折） */
+  g.userData.setFold = (k) => {
+    paneL.p.rotation.y = k * 1.15;
+    paneR.p.rotation.y = -k * 2.15;
+  };
+  // TICKETS 楣牌（自发光；x 向 0.25 压缩补偿 1:4 长条平面）
+  const signTex = canvasTexture(256, (g2, s) => {
+    g2.fillStyle = '#160a10';
+    g2.fillRect(0, 0, s, s);
+    g2.setTransform(0.25, 0, 0, 1, 0, 0);
+    g2.fillStyle = '#ffd9a8';
+    g2.textAlign = 'center';
+    g2.textBaseline = 'middle';
+    g2.font = 'bold 88px Georgia, serif';
+    g2.fillText('T I C K E T S', s * 2, s / 2);
+    g2.setTransform(1, 0, 0, 1, 0, 0);
+  });
+  const signMat = new THREE.MeshStandardMaterial({
+    map: signTex, emissive: 0xffffff, emissiveMap: signTex, emissiveIntensity: 0.9, roughness: 0.5
+  });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.25), signMat);
+  sign.position.set(0, 2.44, 0.578);
+  g.add(sign);
+  g.userData.signMat = signMat;
+  // CERRADO 挂牌（微歪，挂在折窗后）
+  const cardTex = canvasTexture(128, (g2, s) => {
+    g2.fillStyle = '#e8ddc4';
+    g2.fillRect(0, 0, s, s);
+    g2.strokeStyle = '#6a5230';
+    g2.lineWidth = 5;
+    g2.strokeRect(6, 6, s - 12, s - 12);
+    g2.setTransform(0.62, 0, 0, 1, 0, 0);
+    g2.fillStyle = '#332414';
+    g2.textAlign = 'center';
+    g2.textBaseline = 'middle';
+    g2.font = 'bold 30px Georgia, serif';
+    g2.fillText('C E R R A D O', (s / 2) / 0.62, s / 2);
+    g2.setTransform(1, 0, 0, 1, 0, 0);
+  });
+  const closedCard = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.22, 0.12),
+    new THREE.MeshStandardMaterial({ map: cardTex, roughness: 0.7, side: THREE.DoubleSide })
+  );
+  closedCard.position.set(0.1, 1.5, 0.42);
+  closedCard.rotation.z = 0.07;
+  g.add(closedCard);
+  // 内亮灯泡（暖光小球 + 点光）
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0x1a120a, emissive: 0xffd9a8, emissiveIntensity: 1.6
+  });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), bulbMat);
+  bulb.position.set(0, 2.14, 0);
+  const light = new THREE.PointLight(0xffd9a8, 1.6, 3.6, 1.8);
+  light.position.set(0, 2.05, 0);
+  g.add(bulb, light);
+  g.userData.bulbMat = bulbMat;
+  g.userData.light = light;
   return g;
 }
 

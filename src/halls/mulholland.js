@@ -10,9 +10,9 @@ import {
   smokeLayer, dustField, lightCone, quotePlaque, vitrine,
   darkFigure, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
-  asphaltMat, woodMat
+  asphaltMat, woodMat, rng
 } from './kit.js';
-import { propMats, theaterSeats, phoneBooth, streetLampV2, dressingMirror } from './props.js';
+import { propMats, theaterSeats, ticketBooth, phoneBooth, streetLampV2, dressingMirror } from './props.js';
 import { quoteById } from '../data/essays.js';
 
 export const meta = {
@@ -22,7 +22,13 @@ export const meta = {
   narration: 'mulholland',
   space: 'outdoor',
   floorSfx: 'asphalt',
-  look: { saturation: 0.96, tint: 0xf5eee6, fogColor: 0x0a0705, fogDensity: 0.04, bg: 0x030204, exposure: 1.0, bloom: 0.9 }
+  look: {
+    saturation: 0.96, tint: 0xf5eee6, fogColor: 0x0a0705, fogDensity: 0.04,
+    bg: 0x030204, exposure: 1.0, bloom: 0.9,
+    // v1.4 P4/P5：梦境紫红暗部 + 暖高光（好莱坞夜与霓虹的双重性）
+    halation: 0.16,
+    grade: { lift: [0.014, 0.004, 0.016], gamma: [1.0, 1.0, 1.03], gain: [1.05, 1.0, 0.96] }
+  }
 };
 
 // 场地: 夜路区 + 剧场内部 + 右侧暗巷 + 剧场背后的空地（彩蛋区）
@@ -97,6 +103,35 @@ export function build(ctx) {
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   group.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xaebdff, size: 0.5, transparent: true, opacity: 0.7, fog: false })));
+
+  // v1.4 P8 远景中层：城市屋脊剪影环（比群山近一层）+ 洛城水塔
+  // 层次：路面 → 护栏 → 屋脊环(r≈62–70) → 群山(r≈78) → 地平线光晕(r=120)
+  const skyGeos = [];
+  const srng = rng(31);
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + srng() * 0.16;
+    const gap = srng() < 0.18;
+    const w = 6 + srng() * 10;
+    const h = 2.2 + srng() * 4.6;
+    const r = 62 + srng() * 8;
+    const second = srng();
+    const jitter = srng() * 2 - 1;
+    if (gap) continue; // 留出天际缺口（消耗同样多的随机数保持确定性）
+    skyGeos.push(xform(new THREE.BoxGeometry(w, h, 1.2), Math.cos(a) * r, h / 2 - 0.5, Math.sin(a) * r, 0, -a + Math.PI / 2, 0));
+    if (second < 0.4) {
+      skyGeos.push(xform(new THREE.BoxGeometry(w * 0.3, h * 0.5, 1.2),
+        Math.cos(a) * r + jitter, h + h * 0.25 - 0.5, Math.sin(a) * r, 0, -a + Math.PI / 2, 0));
+    }
+  }
+  // 水塔：四腿 + 桶身 + 锥顶（剧场左肩上方的老好莱坞屋顶标配）
+  const wtX = -26;
+  const wtZ = -50;
+  skyGeos.push(xform(new THREE.CylinderGeometry(2.6, 2.8, 3.6, 10), wtX, 9.4, wtZ));
+  skyGeos.push(xform(new THREE.CylinderGeometry(0.2, 2.4, 1.6, 10), wtX, 12.0, wtZ));
+  for (const [lx, lz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) {
+    skyGeos.push(xform(new THREE.BoxGeometry(0.4, 7.6, 0.4), wtX + lx, 3.8, wtZ + lz));
+  }
+  group.add(mergedMesh(skyGeos, new THREE.MeshBasicMaterial({ color: 0x030209, fog: false })));
 
   // 路灯 v2（凹槽柱 + 泪滴灯头；一盏坏了，嗡嗡作响地闪）
   const lampData = [];
@@ -202,6 +237,30 @@ export function build(ctx) {
   group.add(chaseBulbs);
   updaters.push((dt, t) => {
     chaseBulbs.material.emissiveIntensity = 1.6 + (Math.sin(t * 7) * 0.5 + 0.5) * 1.4;
+  });
+
+  // v1.4 P3：剧场票亭（路缘外、门厅右肩；折窗 + 票口碗 + CERRADO 牌）
+  const tbooth = ticketBooth({ mats: M });
+  tbooth.position.set(5.35, 0, -12.8);
+  tbooth.rotation.y = -Math.PI / 2; // 折窗面向夜路
+  group.add(tbooth);
+  const tbState = { k: 0, target: 0 };
+  updaters.push((dt, t) => {
+    tbState.k += (tbState.target - tbState.k) * Math.min(1, dt * 3.2);
+    tbooth.userData.setFold(tbState.k);
+    tbooth.userData.bulbMat.emissiveIntensity = 1.6 + tbState.k * 1.6 + Math.sin(t * 11) * 0.1;
+    tbooth.userData.light.intensity = 1.6 + tbState.k * 2.4;
+    tbooth.userData.signMat.emissiveIntensity = 0.9 * (Math.sin(t * 12.7) > 0.94 ? 0.35 : 1);
+  });
+  hotspots.add(tbooth.userData.windowHit, {
+    hint: 'E — 售票折窗',
+    onActivate: () => {
+      const opening = tbState.target < 0.5;
+      tbState.target = opening ? 1 : 0;
+      audio.sfxAt('clank', 4.9, -12.8, 0.5, 3);
+      later(() => audio.sfxAt('creak', 4.9, -12.8, 0.4, 3), 300);
+      if (opening) ui.caption('窗口折开了。没有人卖票，也没有人查票。', 4200);
+    }
   });
 
   // ---------- 剧场外壳（侧墙/后墙——暗巷贴着它走） ----------
