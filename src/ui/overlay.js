@@ -3,7 +3,7 @@
 // 所有动态文本一律通过 textContent 注入（XSS 安全）。
 // ============================================================
 import { FILMS, filmById, filmsSorted, ARTIST } from '../data/filmography.js';
-import { QUOTES, LEGAL, ABOUT_RENDER } from '../data/essays.js';
+import { QUOTES, LEGAL } from '../data/essays.js';
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -41,6 +41,9 @@ export class UI {
     this.hintBar = el('div', 'hud-hint', '');
     this.captionBar = el('div', 'hud-caption', '');
     this.fpsBar = el('div', 'hud-fps', 'FPS —');
+    // 引语立牌卡片：走近立牌才浮现，走开即隐（show, don't tell）
+    this.plaqueCard = el('div', 'plaque-card');
+    this._plaqueId = null;
 
     const dock = el('div', 'hud-dock');
     const mkBtn = (label, key, fn) => {
@@ -85,7 +88,7 @@ export class UI {
     act.addEventListener('click', () => this.o.onAct());
     touch.append(this.stick, act);
 
-    this.hud.append(title, this.hallLabel, this.crosshair, this.hintBar, this.captionBar, this.fpsBar, dock, touch);
+    this.hud.append(title, this.hallLabel, this.crosshair, this.hintBar, this.captionBar, this.fpsBar, this.plaqueCard, dock, touch);
     this._bindStick();
   }
 
@@ -135,6 +138,30 @@ export class UI {
     this.captionBar.textContent = text;
     this.captionBar.classList.add('on');
     this._captionTimer = setTimeout(() => this.captionBar.classList.remove('on'), ms);
+  }
+
+  /**
+   * 走近引语立牌 → 浮现卡片：只有那句话与出处（v1.7）。
+   * 背景与访谈语境不塞进弹层——由讲解旁白在你驻足后低声补上。
+   * 不挂满墙，不先说话——你不走过去，它什么都不是。
+   */
+  showPlaque(q) {
+    if (!q) return;
+    if (this._plaqueId !== q.id) {
+      this._plaqueId = q.id;
+      this.plaqueCard.replaceChildren();
+      this.plaqueCard.append(el('p', 'pc-zh', '「' + q.zh + '」'));
+      this.plaqueCard.append(el('p', 'pc-en', q.en));
+      this.plaqueCard.append(el('p', 'pc-src', '— DAVID LYNCH · ' + q.source));
+    }
+    if (!this.plaqueCard.classList.contains('on')) {
+      this.plaqueCard.classList.add('on');
+      this.o.audio.sfx('page', 0.35);
+    }
+  }
+
+  hidePlaque() {
+    this.plaqueCard.classList.remove('on');
   }
 
   fade(dark) { this.fader.classList.toggle('clear', !dark); }
@@ -304,7 +331,7 @@ export class UI {
 
   // ---------------- 留言墙 ----------------
   openGuestbook() {
-    const body = this._openModal('guestbook', '留言墙 GUESTBOOK · 本地持久化');
+    const body = this._openModal('guestbook', '留言墙 GUESTBOOK');
     body.replaceChildren();
 
     const form = el('form', 'gb-form');
@@ -394,8 +421,6 @@ export class UI {
     body.replaceChildren();
     body.append(el('div', 'legal-badge', LEGAL.badge));
     for (const p of LEGAL.paras) body.append(el('p', null, p));
-    body.append(el('h3', null, ABOUT_RENDER.title));
-    for (const p of ABOUT_RENDER.paras) body.append(el('p', null, p));
   }
 
   openHelp() {
@@ -412,7 +437,7 @@ export class UI {
       ['G', '留言墙'],
       ['C', '版权合规'],
       ['M', '静音开关'],
-      ['V', '旁白模式：字母显现 → 爵士+字母 → 语音+字母 → 关'],
+      ['V', '旁白模式：字母显现 → 低语+字母 → 爵士+字母 → 关'],
       ['Q', '画质高/低'],
       ['F', 'FPS 显示'],
       ['Esc', '关闭面板 / 解锁鼠标']

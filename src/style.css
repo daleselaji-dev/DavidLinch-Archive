@@ -183,6 +183,31 @@ html, body {
   100% { opacity: 1; }
 }
 
+/* ---------- 走近立牌卡片（show, don't tell） ---------- */
+.plaque-card {
+  position: absolute; right: 30px; top: 50%;
+  transform: translateY(-50%) translateX(14px);
+  width: min(330px, 72vw);
+  padding: 18px 20px 14px;
+  background: rgba(10, 5, 7, 0.82);
+  border-left: 2px solid rgba(201, 163, 92, 0.75);
+  font-family: var(--font-title);
+  color: var(--ivory);
+  opacity: 0;
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  pointer-events: none; z-index: 23;
+}
+.plaque-card.on { opacity: 1; transform: translateY(-50%) translateX(0); }
+.pc-zh { font-size: 17px; line-height: 1.9; letter-spacing: 0.07em; margin-bottom: 10px; }
+.pc-en { font-style: italic; font-size: 12px; line-height: 1.65; color: var(--ivory-dim); margin-bottom: 12px; }
+.pc-note { font-size: 12.5px; line-height: 1.75; color: rgba(242, 233, 220, 0.85); margin-bottom: 3px; }
+.pc-aside { font-size: 12.5px; line-height: 1.75; color: rgba(201, 163, 92, 0.92); margin-bottom: 12px; }
+.pc-src {
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.1em;
+  color: rgba(201, 163, 92, 0.7); text-align: right;
+}
+
 /* HUD 按钮列 */
 .hud-dock {
   position: absolute; top: 14px; right: 14px;
@@ -351,6 +376,8 @@ body.touch .touch-ui { display: block; }
   .hud-hint { bottom: 168px; font-size: 10px; padding: 6px 12px; letter-spacing: 0.12em; }
   .hud-caption { bottom: 210px; font-size: 12px; }
   .letters-box { bottom: 248px; font-size: 14px; line-height: 1.9; letter-spacing: 0.1em; }
+  .plaque-card { right: 10px; top: 30%; width: 60vw; padding: 12px 14px 10px; }
+  .pc-zh { font-size: 14px; }
   .stick { bottom: 60px; }
   .touch-act { bottom: 78px; }
   .tl-item { grid-template-columns: 56px 1fr; }

@@ -9,12 +9,12 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
-  quotePlaque, zoneTrigger,
+  quoteStand, quoteStandUpdater, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'studio',
@@ -1461,7 +1461,7 @@ export function build(ctx) {
       radioState.on = 1;
       audio.sfx('radio', 1);
       audio.sfx('whisper', 0.8);
-      ui.caption('📻 它播的不是天气。是一个名字。你的。', 5200);
+      ui.caption('它播的不是天气。是一个名字。你的。', 5200);
     }, 1000));
     eggTimers.push(setTimeout(() => {
       lampState.on = prevLamp;
@@ -1472,11 +1472,14 @@ export function build(ctx) {
   const radioTrig = zoneTrigger({ x: -7.0, z: -5.2, r: 1.35 }, radioEgg, { cooldown: 45 });
   updaters.push((dt) => radioTrig.update(player, dt));
 
-  // ---------- 展签（全厅仅一块，短原话） ----------
-  const q1 = quotePlaque(quoteById('you'), '#ffb25e');
+  // ---------- 引语立牌（全厅仅一座，走近才显影） ----------
+  const q1 = quoteStand(quoteById('you'), '#ffb25e');
   q1.position.set(2.2, 0, -5.6);
   q1.rotation.y = 0.35;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.you
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()

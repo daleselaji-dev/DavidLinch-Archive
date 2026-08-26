@@ -6,13 +6,13 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
-  smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
+  smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
   concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'eraserhead',
@@ -1270,12 +1270,15 @@ export function build(ctx) {
     blackout.v = 1;
     machineState.run = 0;
     audio.duck(1.2, 0.04, 2.4);
+    // v1.6 声先于影：歌先从黑里传出来，隔一拍台口才亮
+    stageTimers.push(setTimeout(() => {
+      audio.sfx('lullaby', 0.8);
+    }, 600));
     stageTimers.push(setTimeout(() => {
       stageGlow.intensity = 14;
       tinyFigure.visible = true;
-      audio.sfx('lullaby', 0.8);
       ui.caption('机器停了。那支歌不是唱给你听的。', 5200);
-    }, 1100));
+    }, 1600));
     stageTimers.push(setTimeout(() => {
       stageGlow.intensity = 0;
       tinyFigure.visible = false;
@@ -1321,11 +1324,14 @@ export function build(ctx) {
     }
   });
 
-  // 引语展签（本厅唯一文字展签：费城）
-  const q1 = quotePlaque(quoteById('philly'), '#9fb4c7');
+  // 引语立牌（本厅唯一文字件：费城，走近才显影）
+  const q1 = quoteStand(quoteById('philly'), '#9fb4c7');
   q1.position.set(-5.6, 0, 2.2);
   q1.rotation.y = 1.35;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration: ctx.narration, docent: DOCENT.philly
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()
