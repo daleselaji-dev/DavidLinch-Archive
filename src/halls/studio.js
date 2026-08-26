@@ -23,7 +23,13 @@ export const meta = {
   narration: 'studio',
   space: 'room',
   floorSfx: 'wood',
-  look: { saturation: 1.02, tint: 0xffeeda, fogColor: 0x0d0806, fogDensity: 0.042, bg: 0x070403, exposure: 1.05, bloom: 0.75 }
+  look: {
+    saturation: 1.02, tint: 0xffeeda, fogColor: 0x0d0806, fogDensity: 0.042,
+    bg: 0x070403, exposure: 1.05, bloom: 0.75,
+    // v1.4 P4/P5：琥珀暗部 + 暖木高光（一个人深夜工作的房间）
+    halation: 0.14,
+    grade: { lift: [0.014, 0.008, 0.002], gamma: [1.02, 1.0, 0.97], gain: [1.06, 1.01, 0.94] }
+  }
 };
 
 const W = 16.5;
@@ -126,6 +132,80 @@ export function build(ctx) {
   ], caseWood);
   legGeo.dispose();
   desk.add(deskTop, deskLegs);
+  // v1.4 P3 工作桌 v2：三面裙板（前面留抽屉口）——桌子有了结构，不再是板加四腿
+  desk.add(mergedMesh([
+    xform(new THREE.BoxGeometry(3.1, 0.16, 0.05), 0, 0.735, -0.58),
+    xform(new THREE.BoxGeometry(1.05, 0.16, 0.05), -1.025, 0.735, 0.58),
+    xform(new THREE.BoxGeometry(1.05, 0.16, 0.05), 1.025, 0.735, 0.58),
+    xform(new THREE.BoxGeometry(0.05, 0.16, 1.1), -1.55, 0.735, 0),
+    xform(new THREE.BoxGeometry(0.05, 0.16, 1.1), 1.55, 0.735, 0)
+  ], caseWood));
+  // 可拉抽屉：圆角前脸 + 黄铜拉手 + 抽屉斗 + 里面一支会滚的铅笔
+  const drawer = new THREE.Group();
+  const drawerFront = roundedBoxMesh(0.96, 0.15, 0.03, 0.008, caseWood);
+  const drawerBoxMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [30, 20, 11], planks: 1, size: 128 }), roughness: 0.8
+  });
+  const drawerBox = mergedMesh([
+    xform(new THREE.BoxGeometry(0.9, 0.02, 0.62), 0, -0.06, -0.33),
+    xform(new THREE.BoxGeometry(0.02, 0.11, 0.62), -0.44, -0.015, -0.33),
+    xform(new THREE.BoxGeometry(0.02, 0.11, 0.62), 0.44, -0.015, -0.33),
+    xform(new THREE.BoxGeometry(0.9, 0.11, 0.02), 0, -0.015, -0.63)
+  ], drawerBoxMat);
+  const drawerKnob = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), M.brass);
+  drawerKnob.position.set(0, 0, 0.03);
+  const pencil = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.007, 0.007, 0.19, 6),
+    new THREE.MeshStandardMaterial({ color: 0xc8a018, roughness: 0.55 })
+  );
+  pencil.position.set(0.08, -0.04, -0.3);
+  pencil.rotation.z = Math.PI / 2;
+  drawer.add(drawerFront, drawerBox, drawerKnob, pencil);
+  drawer.position.set(0, 0.735, 0.585);
+  desk.add(drawer);
+  const drawerState = { open: 0, target: 0, roll: 0 };
+  updaters.push((dt) => {
+    drawerState.open += (drawerState.target - drawerState.open) * Math.min(1, dt * 5);
+    drawer.position.z = 0.585 + drawerState.open * 0.36;
+    if (drawerState.roll > 0) {
+      drawerState.roll = Math.max(0, drawerState.roll - dt);
+      pencil.rotation.x += dt * 11 * drawerState.roll;
+      pencil.position.z = -0.3 - Math.sin(drawerState.roll * Math.PI) * 0.04;
+    }
+  });
+  hotspots.add(drawerFront, {
+    hint: 'E — 桌子的抽屉',
+    onActivate: () => {
+      const opening = drawerState.target < 0.5;
+      drawerState.target = opening ? 1 : 0;
+      drawerState.roll = 0.7;
+      audio.sfxAt('creak', -6.4, -1.4, 0.4, 3);
+      later(() => audio.sfxAt(opening ? 'clank' : 'thud', -6.4, -1.4, 0.3, 3), 240);
+      if (opening) ui.caption('抽屉里只有一支铅笔。', 3000);
+    }
+  });
+  // 桌面器物重排：一叠错角的稿纸（打字行痕）+ 合上的小笔记本
+  const pageTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#e4dcc8';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(40,34,26,0.55)';
+    const r = rng(53);
+    for (let y = 18; y < s - 12; y += 9) {
+      const w = s * (0.42 + r() * 0.42);
+      g.fillRect(12, y, w, 1.6);
+    }
+  });
+  const pageGeo = new THREE.BoxGeometry(0.24, 0.0035, 0.32);
+  desk.add(mergedMesh([
+    xform(pageGeo, 0.62, 0.909, 0.28, 0, 0.16, 0),
+    xform(pageGeo, 0.61, 0.913, 0.26, 0, -0.1, 0),
+    xform(pageGeo, 0.64, 0.917, 0.27, 0, 0.04, 0)
+  ], new THREE.MeshStandardMaterial({ map: pageTex, roughness: 0.9 })));
+  const notebook = roundedBoxMesh(0.14, 0.025, 0.2, 0.008,
+    new THREE.MeshStandardMaterial({ color: 0x2a1214, roughness: 0.6 }));
+  notebook.position.set(1.28, 0.917, -0.28);
+  notebook.rotation.y = -0.22;
+  desk.add(notebook);
   desk.position.set(-6.4, 0, -1.4);
   desk.rotation.y = Math.PI / 2;
   group.add(desk);
@@ -356,15 +436,47 @@ export function build(ctx) {
   winHit.position.set(W / 2 - 0.16, 2.1, -3.4);
   const moonSliver = new THREE.PointLight(0x8ea6c9, 2.4, 7, 1.9);
   moonSliver.position.set(W / 2 - 0.8, 2.1, -3.4);
-  windowGroup.add(winFrame, winGlow, blinds, wand, winHit, moonSliver);
+  // v1.4 P3 窗雨强化：流动雨珠层（UV 下滚 + 亮珠头拖尾，叠加混合）
+  const dropTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const r = rng(52);
+    for (let i = 0; i < 26; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const len = 5 + r() * 18;
+      const grad = g.createLinearGradient(x, y - len, x, y);
+      grad.addColorStop(0, 'rgba(200,224,255,0)');
+      grad.addColorStop(0.8, 'rgba(200,224,255,0.26)');
+      grad.addColorStop(1, 'rgba(234,246,255,0.5)');
+      g.fillStyle = grad;
+      g.fillRect(x - 0.7, y - len, 1.5, len);
+      g.fillStyle = 'rgba(234,246,255,0.55)';
+      g.fillRect(x - 1, y, 2.2, 2.6);
+    }
+  });
+  const rainLayer = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.3, 1.5),
+    new THREE.MeshBasicMaterial({
+      map: dropTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  rainLayer.position.set(W / 2 - 0.105, 2.1, -3.4);
+  rainLayer.rotation.y = -Math.PI / 2;
+  windowGroup.add(winFrame, winGlow, blinds, wand, winHit, moonSliver, rainLayer);
   group.add(windowGroup);
-  const blindState = { open: false, v: 0, rainT: 99 };
+  const blindState = { open: false, v: 0, rainT: 99, flash: 0 };
   updaters.push((dt) => {
     blindState.v += ((blindState.open ? 1 : 0) - blindState.v) * Math.min(1, dt * 3.2);
     const tilt = 1.12 - blindState.v * 1.0;
     for (const slat of slats) slat.rotation.z = tilt;
-    winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75;
-    moonSliver.intensity = 2.4 + blindState.v * 3.2;
+    // 雨珠沿玻璃下滑；偶发一记远处闪电（只在叶片开着时看得见）
+    dropTex.offset.y -= dt * 0.14;
+    rainLayer.material.opacity += (blindState.v * 0.85 - rainLayer.material.opacity) * Math.min(1, dt * 3);
+    blindState.flash = Math.max(0, blindState.flash - dt * 3.2);
+    if (blindState.v > 0.5 && Math.random() < dt * 0.045) blindState.flash = 1;
+    winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75 + blindState.flash * 2.2;
+    moonSliver.intensity = 2.4 + blindState.v * 3.2 + blindState.flash * 9;
     // 叶片开着时从窗那边叠续雨声坡（3.4s 音长 / 2s 重触发 → 连成雨幕）
     if (blindState.v > 0.35) {
       blindState.rainT += dt;
@@ -608,6 +720,130 @@ export function build(ctx) {
         audio.sfx('curtain', 0.4);
         ui.caption('画开始自己生长。', 3000);
       }
+    }
+  });
+
+  // ---------- v1.4 P3：颜料台（画架旁的小推台）----------
+  // 台面/下层板/四腿 + 调色板（六坨顶点色颜料 + 可长出的新颜料）
+  // + 调色刀组 ×3（铬刀身/木柄分材质合并）+ 颜料管 ×4（一支立着）+ 洗笔罐
+  const cart = new THREE.Group();
+  const cartTop = roundedBoxMesh(0.85, 0.05, 0.55, 0.015, caseWood);
+  cartTop.position.y = 0.74;
+  const cartShelf = roundedBoxMesh(0.78, 0.04, 0.48, 0.01, caseWood);
+  cartShelf.position.y = 0.28;
+  const cartLegGeo = new THREE.CylinderGeometry(0.018, 0.022, 0.74, 8);
+  const cartLegs = mergedMesh([
+    xform(cartLegGeo, -0.38, 0.37, -0.22), xform(cartLegGeo, 0.38, 0.37, -0.22),
+    xform(cartLegGeo, -0.38, 0.37, 0.22), xform(cartLegGeo, 0.38, 0.37, 0.22)
+  ], caseWood);
+  cartLegGeo.dispose();
+  cart.add(cartTop, cartShelf, cartLegs);
+  // 调色板（薄椭圆木板）
+  const paletteGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.012, 20);
+  paletteGeo.scale(1.25, 1, 0.85);
+  const palette = new THREE.Mesh(paletteGeo, new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [96, 74, 44], planks: 1, size: 128 }), roughness: 0.6
+  }));
+  palette.position.set(-0.18, 0.775, -0.02);
+  palette.rotation.y = 0.3;
+  cart.add(palette);
+  // 颜料坨（顶点色合并单 mesh：镉红/赭石/象牙/深褐/蓝黑/翠绿 + 颜料管口小帽）
+  const daubGeos = [];
+  const addDaub = (x, y, z, hex, r = 0.016) => {
+    const dgeo = new THREE.SphereGeometry(r, 8, 6);
+    dgeo.scale(1, 0.5, 1);
+    const g2 = xform(dgeo, x, y, z);
+    dgeo.dispose();
+    const col = new THREE.Color(hex);
+    const n = g2.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b;
+    }
+    g2.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    daubGeos.push(g2);
+  };
+  const daubCols = [0xb22218, 0xc08a2a, 0xe8e0cc, 0x4a3018, 0x1a2232, 0x1e5038];
+  daubCols.forEach((hex, i) => {
+    const a = 0.6 + (i / 6) * Math.PI * 1.5;
+    addDaub(-0.18 + Math.cos(a) * 0.115, 0.787, -0.02 + Math.sin(a) * 0.08, hex);
+  });
+  // 调色刀组：铬刀身 + 木柄（两组材质各一合并）
+  const bladeGeo = new THREE.BoxGeometry(0.028, 0.003, 0.1);
+  const handleGeo = new THREE.CylinderGeometry(0.008, 0.01, 0.07, 8);
+  cart.add(mergedMesh([
+    xform(bladeGeo, 0.22, 0.77, -0.13, 0, 0.4, 0),
+    xform(bladeGeo, 0.26, 0.77, -0.04, 0, 0.1, 0),
+    xform(bladeGeo, 0.24, 0.77, 0.06, 0, -0.25, 0)
+  ], M.chrome));
+  cart.add(mergedMesh([
+    xform(handleGeo, 0.28, 0.775, -0.155, Math.PI / 2, 0, -0.4),
+    xform(handleGeo, 0.335, 0.775, -0.047, Math.PI / 2, 0, -0.1),
+    xform(handleGeo, 0.295, 0.775, 0.078, Math.PI / 2, 0, 0.25)
+  ], new THREE.MeshStandardMaterial({ color: 0x241708, roughness: 0.7 })));
+  bladeGeo.dispose();
+  handleGeo.dispose();
+  // 颜料管 ×4（三躺一立；躺管带压瘪尾）+ 管口小色帽并入顶点色 mesh
+  const tubeGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.085, 10);
+  const tailGeo = new THREE.BoxGeometry(0.03, 0.005, 0.015);
+  cart.add(mergedMesh([
+    xform(tubeGeo, 0.02, 0.782, 0.17, Math.PI / 2, 0, 0.3),
+    xform(tailGeo, 0.035, 0.782, 0.215, 0, 0.3, 0),
+    xform(tubeGeo, -0.08, 0.782, 0.19, Math.PI / 2, 0, -0.5),
+    xform(tailGeo, -0.105, 0.782, 0.23, 0, -0.5, 0),
+    xform(tubeGeo, 0.1, 0.782, 0.21, Math.PI / 2, 0, 0.9),
+    xform(tailGeo, 0.06, 0.782, 0.24, 0, 0.9, 0),
+    xform(tubeGeo, -0.32, 0.807, 0.19)
+  ], M.chrome));
+  tubeGeo.dispose();
+  tailGeo.dispose();
+  addDaub(0.006, 0.782, 0.129, 0xb22218, 0.011);
+  addDaub(-0.067, 0.782, 0.152, 0x1e5038, 0.011);
+  addDaub(0.126, 0.782, 0.194, 0x1a2232, 0.011);
+  cart.add(mergedMesh(daubGeos, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.3, envMapIntensity: 0.9
+  })));
+  // 洗笔罐（玻璃 + 浑浊的水）
+  const jar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.046, 0.14, 12),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xcfe0e8, transparent: true, opacity: 0.22, roughness: 0.08, envMapIntensity: 1.4
+    })
+  );
+  jar.position.set(-0.33, 0.84, -0.16);
+  const murk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.044, 0.042, 0.09, 12),
+    new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 0.4, transparent: true, opacity: 0.9 })
+  );
+  murk.position.set(-0.33, 0.818, -0.16);
+  cart.add(jar, murk);
+  // 新颜料（E → 在调色板中心长出一坨没干的颜色）
+  const freshDaub = new THREE.Mesh(
+    new THREE.SphereGeometry(0.018, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xd4243c, roughness: 0.22 })
+  );
+  freshDaub.scale.set(0.001, 0.0005, 0.001);
+  freshDaub.position.set(-0.18, 0.782, -0.02);
+  cart.add(freshDaub);
+  const freshState = { t: -1, idx: 0 };
+  updaters.push((dt) => {
+    if (freshState.t < 0) return;
+    freshState.t = Math.min(1, freshState.t + dt * 2.4);
+    const k = 1 - Math.pow(1 - freshState.t, 3);
+    freshDaub.scale.set(k, k * 0.5, k);
+  });
+  cart.position.set(-5.8, 0, -5.45);
+  cart.rotation.y = 0.5;
+  group.add(cart);
+  hotspots.add(palette, {
+    hint: 'E — 调色板',
+    onActivate: () => {
+      freshState.t = 0;
+      freshState.idx++;
+      freshDaub.material.color.setHex([0xd4243c, 0xc08a2a, 0x1e5038, 0x1a2232][freshState.idx % 4]);
+      freshDaub.scale.set(0.001, 0.0005, 0.001);
+      audio.sfxAt('gurgle', -5.8, -5.45, 0.35, 3);
+      ui.caption('颜料还没干。', 2800);
     }
   });
 
