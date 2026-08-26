@@ -552,6 +552,16 @@ export class AudioEngine {
         noise('pink', 0.35, 'bandpass', 900, 2, 0.02, 0.44, 0.08);
         break;
       }
+      case 'pluck': { // 低音提琴拨弦小走句：D2 → A2；基频起振 + 双泛音 + 指皮擦弦 + 木腔共鸣尾
+        for (const [f0, d] of [[73.4, 0], [110, 0.62]]) {
+          tone('sine', f0, f0 * 0.982, 1.0, 0.17, d);
+          tone('triangle', f0 * 2.005, f0 * 2, 0.42, 0.05, d);
+          tone('sine', f0 * 3.01, f0 * 3, 0.2, 0.022, d);
+          noise('brown', 0.05, 'lowpass', 320, 1, 0.05, d, 0.004);
+        }
+        noise('brown', 1.3, 'lowpass', 140, 0.8, 0.03, 0.05, 0.1);
+        break;
+      }
       case 'thunder': { // 远雷：一记闷裂 + 长尾滚动 + 次声沉降（音量随闪电延迟衰减）
         noise('white', 0.25, 'bandpass', 700, 1.2, 0.09, 0, 0.02);
         noise('brown', 2.8, 'lowpass', 120, 0.8, 0.2, 0.06, 0.5);

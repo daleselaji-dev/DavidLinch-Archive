@@ -178,6 +178,111 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.15, 0.005, 0.07), -2.9, 0.567, -D / 2 + 3.4, 0, -0.5, 0)
   ], new THREE.MeshStandardMaterial({ color: 0x18181c, roughness: 0.85 })));
 
+  // v1.4 五遍：歇着的低音提琴——琴身 8 字挤出轮廓 + 琴颈/弦轴卷首 +
+  // 琴马/系弦板/四弦 + 尾针，斜倚在圆凳上；凳面搁着琴弓。
+  // E → 琴身轻晃 + 四弦颤 + 低音拨弦小走句（D2→A2）+ 聚光应一口气
+  const bassGrp = new THREE.Group();
+  const bassShape = new THREE.Shape();
+  bassShape.moveTo(0, 0);
+  bassShape.quadraticCurveTo(0.46, 0.02, 0.44, 0.3);
+  bassShape.quadraticCurveTo(0.42, 0.52, 0.2, 0.6);
+  bassShape.quadraticCurveTo(0.3, 0.66, 0.31, 0.84);
+  bassShape.quadraticCurveTo(0.3, 1.05, 0.09, 1.1);
+  bassShape.lineTo(-0.09, 1.1);
+  bassShape.quadraticCurveTo(-0.3, 1.05, -0.31, 0.84);
+  bassShape.quadraticCurveTo(-0.3, 0.66, -0.2, 0.6);
+  bassShape.quadraticCurveTo(-0.42, 0.52, -0.44, 0.3);
+  bassShape.quadraticCurveTo(-0.46, 0.02, 0, 0);
+  const bassWood = new THREE.MeshPhysicalMaterial({
+    color: 0x53250e, roughness: 0.32, clearcoat: 0.65, clearcoatRoughness: 0.25, envMapIntensity: 1.2
+  });
+  const bassBody = new THREE.Mesh(new THREE.ExtrudeGeometry(bassShape, {
+    depth: 0.2, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2
+  }), bassWood);
+  bassBody.position.set(0, 0.1, -0.1);
+  bassGrp.add(bassBody);
+  const ebony = new THREE.MeshStandardMaterial({ color: 0x0c0a0a, roughness: 0.3, envMapIntensity: 1.1 });
+  // f 孔一对（斜置窄条抽象）+ 琴马 + 系弦板
+  bassGrp.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.022, 0.2, 0.006), -0.15, 0.76, 0.145, 0, 0, 0.18),
+    xform(new THREE.BoxGeometry(0.022, 0.2, 0.006), 0.15, 0.76, 0.145, 0, 0, -0.18),
+    xform(new THREE.BoxGeometry(0.24, 0.08, 0.02), 0, 0.72, 0.15),
+    xform(new THREE.BoxGeometry(0.085, 0.22, 0.015), 0, 0.33, 0.15, -0.06, 0, 0)
+  ], ebony));
+  // 琴颈 + 指板 + 弦轴箱 + 卷首 + 四弦轴
+  const neckGeos = [
+    xform(new THREE.CylinderGeometry(0.03, 0.034, 0.74, 10), 0, 1.58, -0.02, 0.06, 0, 0),
+    xform(new THREE.BoxGeometry(0.056, 0.66, 0.018), 0, 1.56, 0.015, 0.06, 0, 0),
+    xform(new THREE.BoxGeometry(0.06, 0.17, 0.05), 0, 1.98, 0.005, 0.06, 0, 0),
+    xform(new THREE.SphereGeometry(0.045, 10, 8), 0, 2.08, 0.02, 0, 0, 0, 0.9),
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.14, 6), -0.05, 1.94, 0.005, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.14, 6), 0.05, 2.0, 0.005, 0, 0, Math.PI / 2),
+    // 尾针
+    xform(new THREE.CylinderGeometry(0.008, 0.004, 0.16, 6), 0, 0.07, -0.1)
+  ];
+  bassGrp.add(mergedMesh(neckGeos, ebony));
+  // 四弦（略随琴颈前倾）
+  const bassStrings = mergedMesh(
+    [-0.034, -0.0115, 0.0115, 0.034].map((sx) =>
+      xform(new THREE.CylinderGeometry(0.0032, 0.0032, 1.5, 4), sx, 1.18, 0.1, -0.085, 0, 0)),
+    new THREE.MeshStandardMaterial({ color: 0xb8bcc4, roughness: 0.35, metalness: 0.9 })
+  );
+  bassGrp.add(bassStrings);
+  // 靠着后幕歇：底端尾针点地、卷首埋进丝绒褶皱里
+  bassGrp.position.set(-3.35, 0.55, -D / 2 + 0.9);
+  bassGrp.rotation.set(-0.12, 0.35, -0.05);
+  group.add(bassGrp);
+  // 圆凳（座面 + 三腿）+ 搁着的琴弓（弓杆渐细 + 马尾白 + 弓根块）
+  const stool = new THREE.Group();
+  stool.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.23, 0.23, 0.05, 16), 0, 0.6, 0),
+    xform(new THREE.CylinderGeometry(0.018, 0.024, 0.6, 8), -0.14, 0.3, 0, 0, 0, 0.1),
+    xform(new THREE.CylinderGeometry(0.018, 0.024, 0.6, 8), 0.11, 0.3, -0.11, 0.1, 0, -0.06),
+    xform(new THREE.CylinderGeometry(0.018, 0.024, 0.6, 8), 0.11, 0.3, 0.11, -0.1, 0, -0.06),
+    xform(new THREE.TorusGeometry(0.15, 0.012, 6, 14), 0, 0.2, 0, Math.PI / 2, 0, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x241109, roughness: 0.5 })));
+  stool.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.007, 0.004, 0.8, 6), 0, 0.64, 0, 0, 0, Math.PI / 2 - 0.08),
+    xform(new THREE.BoxGeometry(0.05, 0.032, 0.022), 0.37, 0.625, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x140c08, roughness: 0.45 })));
+  stool.position.set(-2.55, 0.55, -D / 2 + 1.5);
+  stool.rotation.y = 0.3;
+  group.add(stool);
+  // 侧台冷蓝小灯：让琴的剪影与琴弦在暗处有一条读得出的轮廓
+  const bassRim = new THREE.PointLight(0x9fb2ff, 2.6, 4.5, 1.7);
+  bassRim.position.set(-2.9, 2.4, -D / 2 + 1.8);
+  group.add(bassRim);
+  const bassState = { t: -1 };
+  updaters.push((dt) => {
+    if (bassState.t < 0) return;
+    bassState.t += dt;
+    const decay = Math.max(0, 1 - bassState.t * 0.45);
+    if (decay <= 0) {
+      bassState.t = -1;
+      bassGrp.rotation.z = -0.05;
+      bassStrings.rotation.z = 0;
+      return;
+    }
+    bassGrp.rotation.z = -0.05 + Math.sin(bassState.t * 5.4) * 0.02 * decay;
+    bassStrings.rotation.z = Math.sin(bassState.t * 31) * 0.008 * decay;
+  });
+  hotspots.add(bassBody, {
+    hint: 'E — 歇着的低音提琴',
+    onActivate: () => {
+      bassState.t = 0;
+      audio.sfxAt('pluck', -3.35, -D / 2 + 0.9, 0.65, 6);
+      // 连锁：聚光跟着低音吸一口气（缓亮缓落，不打断呼吸更新器基线）
+      const s0 = spot.intensity;
+      let k = 0;
+      const iv = setInterval(() => {
+        k += 1;
+        spot.intensity = s0 * (1 + Math.sin((k / 24) * Math.PI) * 0.35);
+        if (k >= 24) { clearInterval(iv); spot.intensity = s0; }
+      }, 55); // 1.3s 自清，无需入 teardown 表
+      ui.caption('贝斯手去抽烟了。琴还醒着。', 4200);
+    }
+  });
+
   // 幕绳 —— 拉一下，后幕全幅打个寒颤，脚灯跟着亮一拍
   const pullRope = new THREE.Group();
   const ropeCord = new THREE.Mesh(
