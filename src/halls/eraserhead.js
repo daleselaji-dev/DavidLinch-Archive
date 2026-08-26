@@ -267,6 +267,96 @@ export function build(ctx) {
   flangeGeo.dispose();
   group.add(mergedMesh(flangeGeos, pipeMat));
 
+  // 管线阀牌（v1.9 件 2）：y1.7 管上五枚黄铜圆牌挂链垂下——钢印编号
+  // 7 / 12 / 19 / 4，第四枚是空白的。牌子跟着这栋楼的震动常年微晃。
+  // E 空白那枚 → 五枚连锁摆起来 + 号牌串响 +「没编号的这一路，还热着。」
+  const TAG_Y = 1.7;
+  const TAG_Z = -S / 2 + 0.35;
+  const tagDefs = [
+    { x: 0.8, num: '7' }, { x: 1.6, num: '12' }, { x: 2.5, num: '19' },
+    { x: 3.3, num: '' }, { x: 4.2, num: '4' }
+  ];
+  const tagStates = [];
+  let blankDisc = null;
+  for (let ti = 0; ti < tagDefs.length; ti++) {
+    const { x, num } = tagDefs[ti];
+    const tag = new THREE.Group();
+    // 挂环绕管 + 三节小链（相对枢轴 = 管轴心）
+    tag.add(mergedMesh([
+      xform(new THREE.TorusGeometry(0.105, 0.006, 6, 14), 0, 0, 0, 0, Math.PI / 2, 0),
+      xform(new THREE.TorusGeometry(0.016, 0.0045, 6, 10), 0, -0.118, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.TorusGeometry(0.016, 0.0045, 6, 10), 0, -0.144, 0, 0, Math.PI / 2, 0),
+      xform(new THREE.TorusGeometry(0.016, 0.0045, 6, 10), 0, -0.17, 0, Math.PI / 2, 0, 0)
+    ], pipeMat));
+    const tagTex = canvasTexture(64, (g, s) => {
+      const r = rng(ti * 7 + 3);
+      g.fillStyle = '#cabf9e';
+      g.fillRect(0, 0, s, s);
+      // 边缘氧化黯圈 + 划痕
+      g.strokeStyle = 'rgba(70,54,26,0.45)';
+      g.lineWidth = 5;
+      g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 3, 0, 7); g.stroke();
+      g.strokeStyle = 'rgba(60,48,26,0.3)';
+      g.lineWidth = 0.7;
+      for (let i = 0; i < 7; i++) {
+        g.beginPath();
+        g.moveTo(r() * s, r() * s);
+        g.lineTo(r() * s, r() * s);
+        g.stroke();
+      }
+      // 穿链孔
+      g.fillStyle = 'rgba(20,16,10,0.9)';
+      g.beginPath(); g.arc(s / 2, 10, 3.4, 0, 7); g.fill();
+      // 钢印编号（空白牌只留一块更深的氧化云——像被摘掉过什么）
+      if (num) {
+        g.fillStyle = 'rgba(44,34,16,0.88)';
+        g.font = 'bold 26px monospace';
+        g.textAlign = 'center';
+        g.fillText(num, s / 2, s / 2 + 12);
+      } else {
+        const grad = g.createRadialGradient(s / 2, s / 2 + 6, 2, s / 2, s / 2 + 6, 16);
+        grad.addColorStop(0, 'rgba(84,64,30,0.5)');
+        grad.addColorStop(1, 'rgba(84,64,30,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, s, s);
+      }
+    });
+    // 圆柱端盖 UV 与竖挂朝向差 90°——旋转贴图对正钢印
+    tagTex.center.set(0.5, 0.5);
+    tagTex.rotation = Math.PI / 2;
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.006, 16),
+      new THREE.MeshStandardMaterial({
+        map: tagTex, color: num ? 0xc9ae6a : 0xa08648, roughness: 0.38, metalness: 0.85, envMapIntensity: 1.1
+      })
+    );
+    disc.rotation.x = Math.PI / 2;
+    disc.position.set(0, -0.225, 0);
+    tag.add(disc);
+    if (!num) blankDisc = disc;
+    tag.position.set(x, TAG_Y, TAG_Z);
+    group.add(tag);
+    tagStates.push({ tag, phase: ti * 1.7, rate: 1.05 + ti * 0.14, jolt: 0 });
+  }
+  updaters.push((dt, t) => {
+    for (const ts of tagStates) {
+      if (ts.jolt > 0) ts.jolt = Math.max(0, ts.jolt - dt * 0.55);
+      // 常年微晃（机器震动传上来）+ 触发时的连锁大摆（衰减正弦）
+      ts.tag.rotation.x = Math.sin(t * ts.rate + ts.phase) * 0.035 +
+        ts.jolt * Math.sin((1 - ts.jolt) * 14 + ts.phase) * 0.55 * ts.jolt;
+    }
+  });
+  hotspots.add(blankDisc, {
+    hint: 'E — 空白的阀牌',
+    onActivate: () => {
+      for (let i = 0; i < tagStates.length; i++) {
+        setTimeout(() => { tagStates[i].jolt = 1; }, Math.abs(i - 3) * 90);
+      }
+      audio.sfxAt('jostle', 3.3, TAG_Z, 0.55, 3);
+      setTimeout(() => ui.caption('没编号的这一路，还热着。', 3600), 800);
+    }
+  });
+
   // 大机器 v2 —— 真曲柄连杆机构（v1.4 P3 英雄资产）：
   // 飞轮（轮辋+六辐+轮毂+曲柄销+扇形配重）→ 连杆 → 十字头（双导轨）→ 活塞杆
   // → 立式汽缸（法兰/缸盖螺栓/填料函，铸铁立柱承托）；
@@ -822,44 +912,141 @@ export function build(ctx) {
   const fusebox = fuseBox({ mats: M });
   fusebox.position.set(-S / 2 - 2.4, 1.7, -2.5);
   boilerRoom.add(fusebox);
-  // 压力表 ×3（表盘 + 指针）
+  // 压力表组 v2（v1.9 件 1）：珐琅表盘 + 黄铜表圈 + 玻璃罩 + 剑形指针带尾配重
+  // + 取压短管从罐皮接出（截止旋塞 + 猪尾缓冲弯）——三块表第一次真正
+  // 接在锅炉上。E 中间那块 → 指针猛一格再弹回：表针不同意。
   const gaugeNeedles = [];
+  const gaugeIronGeos = [];
+  const gaugeBrassGeos = [];
+  const gaugeGlassGeos = [];
+  const GX = -S / 2 - 3.42; // 表盘面基准 x
+  const needleMat = new THREE.MeshStandardMaterial({ color: 0x8f0e1e, roughness: 0.35, metalness: 0.4 });
+  let midDial = null;
   for (const [z, seed] of [[-1.4, 1], [0, 4], [1.4, 7]]) {
+    // 珐琅盘面：老化白瓷 + 主/副刻度 + 数字圈 + 红区楔 + 一道发丝裂纹
     const dial = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.16, 0.16, 0.05, 18),
+      new THREE.CylinderGeometry(0.15, 0.15, 0.014, 22),
       new THREE.MeshStandardMaterial({
-        map: canvasTexture(64, (g, s) => {
-          g.fillStyle = '#d8d2c4';
-          g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 2, 0, 7); g.fill();
-          g.strokeStyle = '#222';
-          for (let i = 0; i < 9; i++) {
-            const a = -Math.PI * 0.75 + (i / 8) * Math.PI * 1.5;
-            g.beginPath();
-            g.moveTo(s / 2 + Math.cos(a) * (s / 2 - 8), s / 2 + Math.sin(a) * (s / 2 - 8));
-            g.lineTo(s / 2 + Math.cos(a) * (s / 2 - 14), s / 2 + Math.sin(a) * (s / 2 - 14));
-            g.stroke();
+        map: canvasTexture(128, (g, s) => {
+          const r = rng(seed * 13 + 5);
+          g.fillStyle = '#e8e2d2';
+          g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 1, 0, 7); g.fill();
+          // 珐琅老化：边缘茶渍云 + 狐斑点
+          for (let i = 0; i < 8; i++) {
+            const a = r() * Math.PI * 2;
+            const rr = s * (0.34 + r() * 0.13);
+            const grad = g.createRadialGradient(s / 2 + Math.cos(a) * rr, s / 2 + Math.sin(a) * rr, 0,
+              s / 2 + Math.cos(a) * rr, s / 2 + Math.sin(a) * rr, 6 + r() * 9);
+            grad.addColorStop(0, 'rgba(150,128,92,0.16)');
+            grad.addColorStop(1, 'rgba(150,128,92,0)');
+            g.fillStyle = grad;
+            g.fillRect(0, 0, s, s);
           }
+          // 红区楔（超压末段）
+          g.fillStyle = 'rgba(140,22,26,0.8)';
+          g.beginPath();
+          g.moveTo(s / 2, s / 2);
+          g.arc(s / 2, s / 2, s / 2 - 7, Math.PI * 0.52, Math.PI * 0.75);
+          g.closePath(); g.fill();
+          g.fillStyle = '#e8e2d2';
+          g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 17, 0, 7); g.fill();
+          // 主刻度 9 + 副刻度 + 数字
+          g.strokeStyle = '#2a2620';
+          g.fillStyle = '#2a2620';
+          g.font = 'bold 9px monospace';
+          g.textAlign = 'center';
+          for (let i = 0; i < 33; i++) {
+            const a = Math.PI * 0.75 + (i / 32) * Math.PI * 1.5;
+            const major = i % 4 === 0;
+            g.lineWidth = major ? 2 : 0.8;
+            g.beginPath();
+            g.moveTo(s / 2 + Math.cos(a) * (s / 2 - 7), s / 2 + Math.sin(a) * (s / 2 - 7));
+            g.lineTo(s / 2 + Math.cos(a) * (s / 2 - (major ? 15 : 11)), s / 2 + Math.sin(a) * (s / 2 - (major ? 15 : 11)));
+            g.stroke();
+            if (major) {
+              g.fillText(String((i / 4) * 4),
+                s / 2 + Math.cos(a) * (s / 2 - 23), s / 2 + Math.sin(a) * (s / 2 - 23) + 3);
+            }
+          }
+          // 中心毂圈 + 厂标弧点
+          g.lineWidth = 1;
+          g.beginPath(); g.arc(s / 2, s / 2, 5, 0, 7); g.stroke();
+          for (let i = 0; i < 5; i++) {
+            g.fillRect(s / 2 - 8 + i * 4, s * 0.68, 1.6, 1.6);
+          }
+          // 一道发丝裂纹（从边缘游进来）
+          g.strokeStyle = 'rgba(90,80,66,0.5)';
+          g.lineWidth = 0.7;
+          g.beginPath();
+          let cx = s * (0.1 + r() * 0.15);
+          let cy = s * (0.24 + r() * 0.2);
+          g.moveTo(cx, cy);
+          for (let i = 0; i < 4; i++) {
+            cx += 6 + r() * 8;
+            cy += (r() - 0.4) * 10;
+            g.lineTo(cx, cy);
+          }
+          g.stroke();
         }),
-        roughness: 0.4
+        roughness: 0.32
       })
     );
     dial.rotation.z = Math.PI / 2;
-    dial.position.set(-S / 2 - 3.42, 2.2, z);
-    const needle = new THREE.Mesh(
-      new THREE.BoxGeometry(0.01, 0.12, 0.01),
-      new THREE.MeshStandardMaterial({ color: 0x8f0e1e })
+    dial.position.set(GX, 2.2, z);
+    if (z === 0) midDial = dial;
+    // 铁壳 + 罐皮接管（截止旋塞体 + 手柄）+ 猪尾缓冲弯
+    gaugeIronGeos.push(
+      xform(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 18), GX - 0.045, 2.2, z, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.19, 0.19, 0.016, 18), GX - 0.085, 2.2, z, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.022, 0.022, 0.62, 10), GX - 0.38, 2.2, z, 0, 0, Math.PI / 2)
     );
-    needle.position.set(-S / 2 - 3.38, 2.2, z);
+    gaugeBrassGeos.push(
+      // 表圈
+      xform(new THREE.TorusGeometry(0.152, 0.016, 8, 26), GX + 0.012, 2.2, z, 0, Math.PI / 2, 0),
+      // 截止旋塞：塞体 + 斜向小手柄
+      xform(new THREE.CylinderGeometry(0.034, 0.034, 0.06, 10), GX - 0.42, 2.2, z, 0, 0, Math.PI / 2),
+      xform(new THREE.BoxGeometry(0.012, 0.06, 0.014), GX - 0.42, 2.245, z, 0.35, 0, 0),
+      // 猪尾缓冲弯（XY 面 4/5 圈，垂在接管下方）
+      xform(new THREE.TorusGeometry(0.046, 0.0135, 8, 16, Math.PI * 1.65), GX - 0.22, 2.14, z, Math.PI * 0.6, 0, 0)
+    );
+    // 玻璃罩（压扁球面——先压扁再挪位，顺序反了会把位置一起缩掉）
+    const glassGeo = new THREE.SphereGeometry(0.15, 16, 10);
+    glassGeo.scale(0.32, 1, 1);
+    gaugeGlassGeos.push(xform(glassGeo, GX + 0.02, 2.2, z));
+    // 剑形指针：渐细刃 + 尾配重 + 毂（枢轴在盘心，绕 x 扫盘面）
+    const needle = mergedMesh([
+      xform(new THREE.BoxGeometry(0.011, 0.125, 0.007), 0, 0.055, 0),
+      xform(new THREE.BoxGeometry(0.007, 0.05, 0.007), 0, 0.028, 0, 0, 0, 0.32),
+      xform(new THREE.BoxGeometry(0.016, 0.038, 0.008), 0, -0.03, 0),
+      xform(new THREE.CylinderGeometry(0.015, 0.015, 0.02, 10), 0, 0, 0, 0, 0, Math.PI / 2)
+    ], needleMat);
+    needle.position.set(GX + 0.012, 2.2, z);
     boilerRoom.add(dial, needle);
-    gaugeNeedles.push({ needle, seed });
+    gaugeNeedles.push({ needle, seed, kick: 0 });
   }
+  const gaugeCaseMat = new THREE.MeshStandardMaterial({ color: 0x26262b, roughness: 0.5, metalness: 0.7 });
+  boilerRoom.add(mergedMesh(gaugeIronGeos, gaugeCaseMat));
+  boilerRoom.add(mergedMesh(gaugeBrassGeos, M.brass));
+  boilerRoom.add(mergedMesh(gaugeGlassGeos, new THREE.MeshStandardMaterial({
+    color: 0xcfe0ea, transparent: true, opacity: 0.13, roughness: 0.08, metalness: 0.2, depthWrite: false
+  })));
   const pressure = { surge: 0 };
   updaters.push((dt, t) => {
     if (pressure.surge > 0) pressure.surge -= dt;
     const s2 = Math.max(0, Math.min(pressure.surge, 1));
-    for (const { needle, seed } of gaugeNeedles) {
-      needle.rotation.x = Math.sin(t * 0.7 + seed) * 0.8 + Math.sin(t * 5.3 + seed * 2) * 0.1 +
-        s2 * Math.sin(t * 21 + seed * 3) * 0.7;
+    for (const gn of gaugeNeedles) {
+      if (gn.kick > 0) gn.kick = Math.max(0, gn.kick - dt * 2.4);
+      gn.needle.rotation.x = Math.sin(t * 0.7 + gn.seed) * 0.8 + Math.sin(t * 5.3 + gn.seed * 2) * 0.1 +
+        s2 * Math.sin(t * 21 + gn.seed * 3) * 0.7 +
+        gn.kick * Math.sin(gn.kick * 14) * 0.9;
+    }
+  });
+  hotspots.add(midDial, {
+    hint: 'E — 敲敲表盘',
+    onActivate: () => {
+      gaugeNeedles[1].kick = 1;
+      audio.sfxAt('porcelain', GX, 0, 0.4, 3);
+      setTimeout(() => ui.caption('表针不同意。', 3000), 700);
     }
   });
   // 锅炉房蒸汽与灯
