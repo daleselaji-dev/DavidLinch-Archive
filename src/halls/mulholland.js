@@ -132,6 +132,42 @@ export function build(ctx) {
     skyGeos.push(xform(new THREE.BoxGeometry(0.4, 7.6, 0.4), wtX + lx, 3.8, wtZ + lz));
   }
   group.add(mergedMesh(skyGeos, new THREE.MeshBasicMaterial({ color: 0x030209, fog: false })));
+  // v1.4 三遍：棕榈剪影 ×7（洛城天际线的睫毛）——三段渐斜细干（每段续着上段的倾斜
+  // 累积出弧度）+ crown 六至八支锥形蕉叶（从近平展到深垂头，seeded 不重样）
+  const palmGeos = [];
+  const prng = rng(59);
+  for (let p = 0; p < 7; p++) {
+    const a = (p / 7) * Math.PI * 2 + 0.3 + prng() * 0.55;
+    const r = 55 + prng() * 9;
+    const px = Math.cos(a) * r;
+    const pz = Math.sin(a) * r;
+    const hT = 8.5 + prng() * 5.5;
+    const leanA = prng() * Math.PI * 2;
+    const lean = 0.04 + prng() * 0.09;
+    const seg = hT / 3;
+    let ox = 0;
+    let oz = 0;
+    for (let sgm = 0; sgm < 3; sgm++) {
+      palmGeos.push(xform(
+        new THREE.CylinderGeometry(0.16 - sgm * 0.03, 0.2 - sgm * 0.03, seg + 0.3, 5),
+        px + ox, seg * sgm + seg / 2, pz + oz
+      ));
+      ox += Math.cos(leanA) * lean * seg;
+      oz += Math.sin(leanA) * lean * seg;
+    }
+    const cx = px + ox;
+    const cz = pz + oz;
+    const nf = 6 + ((prng() * 3) | 0);
+    for (let f = 0; f < nf; f++) {
+      const af = (f / nf) * Math.PI * 2 + prng() * 0.5;
+      const tilt = 0.95 + prng() * 0.85;
+      const fl = 2.2 + prng() * 1.3;
+      const cone = new THREE.ConeGeometry(0.16, fl, 4);
+      cone.translate(0, fl / 2, 0);
+      palmGeos.push(xform(cone, cx, hT, cz, 0, Math.PI - af, tilt));
+    }
+  }
+  group.add(mergedMesh(palmGeos, new THREE.MeshBasicMaterial({ color: 0x030209, fog: false })));
 
   // 路灯 v2（凹槽柱 + 泪滴灯头；一盏坏了，嗡嗡作响地闪）
   const lampData = [];
