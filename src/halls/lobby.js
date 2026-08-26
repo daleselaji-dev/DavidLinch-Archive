@@ -510,6 +510,73 @@ export function build(ctx) {
       audio.sfx(dim.stops[dim.idx] < prev ? 'lampoff' : 'lampon', 0.3);
     }
   });
+  // v1.9 抛光第 8 遍·触痕层：调光面板四周的指痕晕——手油把漆面
+  // 蹭出一圈暗亮，右下最重（够旋钮的那只手）；被摸得最多的地方
+  // 反而最亮。这个馆每晚都有人调过灯，只是你没见过他们。
+  {
+    const smudgeTex = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const sr = rng(73);
+      // 面板（0.16×0.24）在贴图里的投影区：64±22 / 64±38——
+      // 晕必须围着它长，长在它背后的部分玩家永远看不见
+      const px0 = 42, px1 = 86, py0 = 26, py1 = 102;
+      for (let i = 0; i < 170; i++) {
+        const side = sr();
+        let cx, cy;
+        if (side < 0.5) {          // 右缘最重（够旋钮的那只手）
+          cx = px1 + Math.pow(sr(), 1.6) * 26;
+          cy = py0 + sr() * (py1 - py0) * 1.08;
+        } else if (side < 0.72) {  // 左缘
+          cx = px0 - Math.pow(sr(), 1.6) * 18;
+          cy = py0 + sr() * (py1 - py0);
+        } else if (side < 0.88) {  // 下缘
+          cx = px0 + sr() * (px1 - px0);
+          cy = py1 + Math.pow(sr(), 1.6) * 16;
+        } else {                   // 上缘最轻
+          cx = px0 + sr() * (px1 - px0);
+          cy = py0 - Math.pow(sr(), 1.6) * 12;
+        }
+        const rr3 = 1.5 + sr() * 3;
+        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, rr3);
+        grd.addColorStop(0, `rgba(196,176,142,${0.06 + sr() * 0.07})`);
+        grd.addColorStop(1, 'rgba(196,176,142,0)');
+        g.fillStyle = grd;
+        g.beginPath();
+        g.arc(cx, cy, rr3, 0, Math.PI * 2);
+        g.fill();
+      }
+      // 右缘外两道下行擦痕（手每次都从同一处收回去）
+      g.lineCap = 'round';
+      for (let w = 0; w < 2; w++) {
+        const wx = px1 + 7 + w * 9 + sr() * 3;
+        g.strokeStyle = `rgba(210,192,158,${0.1 + sr() * 0.05})`;
+        g.lineWidth = 4 + sr() * 3;
+        g.beginPath();
+        g.moveTo(wx, 46 + sr() * 8);
+        g.quadraticCurveTo(wx + 3, 70, wx - 2, 92 + sr() * 8);
+        g.stroke();
+      }
+      // 指腹磨亮的一小块（面板右缘外，手最常落的地方）
+      const shine = g.createRadialGradient(px1 + 9, 60, 0, px1 + 9, 60, 12);
+      shine.addColorStop(0, 'rgba(228,212,180,0.22)');
+      shine.addColorStop(1, 'rgba(228,212,180,0)');
+      g.fillStyle = shine;
+      g.beginPath();
+      g.arc(px1 + 9, 60, 12, 0, Math.PI * 2);
+      g.fill();
+    });
+    const smudge = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.4),
+      new THREE.MeshStandardMaterial({
+        map: smudgeTex, transparent: true, roughness: 0.42, depthWrite: false,
+        // 柱身漆面近黑：给一丝自发光当作手油泛起的暗亮（同桌面残环做法）
+        emissive: 0xc4b08e, emissiveMap: smudgeTex, emissiveIntensity: 0.12
+      }));
+    // 贴在柱面（r=13.3）与面板（r=13.26）之间，随面板同向
+    const colA = -Math.PI / 2 + Math.PI / 6;
+    smudge.position.set(Math.cos(colA) * (R - 1.215), 1.35, Math.sin(colA) * (R - 1.215));
+    smudge.rotation.y = dimmer.rotation.y;
+    group.add(smudge);
+  }
 
   // 迎宾铃 —— 一按，六扇门齐声增亮一拍（连锁反馈；入口右翼）
   const bellTable = new THREE.Mesh(

@@ -575,6 +575,56 @@ export function build(ctx) {
     color: 0x1a0a06, emissive: 0xff5a20, emissiveIntensity: 1.6
   });
   group.add(mergedMesh(emberGeos, emberMat));
+  // v1.9 抛光第 8 遍·触痕层：桌面干掉的杯底水渍环——酒杯挪过几次，
+  // 环就叠了几圈；断口和浓淡都不一样。第 5 张（干净桌）一圈也没有。
+  const stainRingTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const rr2 = rng(59);
+    g.lineCap = 'round';
+    // 外圈主环（杯底立缘蒸干的最后一线，最实）
+    for (let seg = 0; seg < 16; seg++) {
+      const a0 = rr2() * Math.PI * 2;
+      const sweep = 0.6 + rr2() * 1.8;
+      g.strokeStyle = `rgba(216,198,170,${0.4 + rr2() * 0.24})`;
+      g.lineWidth = 3 + rr2() * 3.2;
+      g.beginPath();
+      g.arc(s / 2, s / 2, s * 0.42 - rr2() * 4, a0, a0 + sweep);
+      g.stroke();
+    }
+    // 内侧偏心副环（杯子挪过一次留下的一半淡影）
+    const ox = (rr2() - 0.5) * 14, oy = (rr2() - 0.5) * 14;
+    for (let seg = 0; seg < 7; seg++) {
+      const a0 = rr2() * Math.PI * 2;
+      g.strokeStyle = `rgba(216,198,170,${0.15 + rr2() * 0.13})`;
+      g.lineWidth = 2 + rr2() * 2;
+      g.beginPath();
+      g.arc(s / 2 + ox, s / 2 + oy, s * 0.3 - rr2() * 3, a0, a0 + 0.4 + rr2() * 1.1);
+      g.stroke();
+    }
+  });
+  // 深蓝光线下贴图几乎不受光——给一丝自发光让残环在灯下可读（与巷内粉笔记号同法）
+  const stainRingMat = new THREE.MeshStandardMaterial({
+    map: stainRingTex, transparent: true, roughness: 0.5, depthWrite: false,
+    emissive: 0xd4c2a6, emissiveMap: stainRingTex, emissiveIntensity: 0.13,
+    polygonOffset: true, polygonOffsetFactor: -1
+  });
+  const stainRingGeos = [];
+  const stainRingR = rng(67);
+  tablePos.forEach(([x, z], i) => {
+    if (i === 4) return; // 干净的那张，连痕都替它擦了
+    const n = 1 + Math.floor(stainRingR() * 2);
+    for (let k = 0; k < n; k++) {
+      const ra = stainRingR() * Math.PI * 2;
+      const rd = stainRingR() * 0.3;
+      const sc = 0.09 + stainRingR() * 0.04;
+      stainRingGeos.push(xform(
+        new THREE.PlaneGeometry(sc, sc),
+        x + Math.cos(ra) * rd, TABLE_TOP + 0.0015, z + Math.sin(ra) * rd,
+        -Math.PI / 2, 0, stainRingR() * Math.PI * 2
+      ));
+    }
+  });
+  group.add(mergedMesh(stainRingGeos, stainRingMat));
   updaters.push((dt, t) => {
     // 烟烬呼吸：慢波（搁着阴燃）+ 偶发亮起（像有人低头吸了一口）
     const drag = Math.max(0, Math.sin(t * 0.43) - 0.88) * 8;

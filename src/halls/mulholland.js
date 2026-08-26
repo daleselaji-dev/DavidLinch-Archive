@@ -642,6 +642,54 @@ export function build(ctx) {
   tbooth.position.set(5.35, 0, -12.8);
   tbooth.rotation.y = -Math.PI / 2; // 折窗面向夜路
   group.add(tbooth);
+  // v1.9 抛光第 8 遍·触痕层：票亭北侧玻璃上一组指印——四枚指腹
+  // 一枚掌根，还有两道往下的拖痕（有人扒着玻璃往里看过）。
+  // CERRADO 之后留下的，工作灯眨的时候能看清。
+  {
+    const printTex = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const pr = rng(31);
+      const dab = (cx, cy, rx, ry, al) => {
+        // 渐变必须建在变换后的坐标系里（画布渐变取用绘制时的用户空间，
+        // 先建后 translate 会把渐变心甩到远处、椭圆只填到透明外圈）
+        g.save();
+        g.translate(cx, cy);
+        g.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
+        const grd = g.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry));
+        grd.addColorStop(0, `rgba(222,228,238,${al})`);
+        grd.addColorStop(0.7, `rgba(222,228,238,${al * 0.5})`);
+        grd.addColorStop(1, 'rgba(222,228,238,0)');
+        g.fillStyle = grd;
+        g.beginPath();
+        g.arc(0, 0, Math.max(rx, ry), 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+      };
+      // 四枚指腹排成一道浅弧 + 掌根一团
+      for (let i = 0; i < 4; i++) {
+        dab(38 + i * 15, 36 + Math.sin(i * 1.1) * 6, 5.5, 8, 0.3 + pr() * 0.12);
+      }
+      dab(60, 74, 15, 11, 0.2);
+      // 两道往下的拖痕（指尖离开玻璃前拖了一下）
+      for (const tx of [46, 62]) {
+        const grd = g.createLinearGradient(tx, 80, tx, 116);
+        grd.addColorStop(0, 'rgba(222,228,238,0.2)');
+        grd.addColorStop(1, 'rgba(222,228,238,0)');
+        g.fillStyle = grd;
+        g.fillRect(tx - 2.5, 80, 5, 36);
+      }
+    });
+    const prints = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3),
+      new THREE.MeshStandardMaterial({
+        map: printTex, transparent: true, roughness: 1, depthWrite: false, side: THREE.DoubleSide,
+        // 北面夜里几乎不受光：给一丝自发光当作街灯的余亮（同粉笔记号做法）
+        emissive: 0xdee4ee, emissiveMap: printTex, emissiveIntensity: 0.28
+      }));
+    // 北侧整玻（局部 x=+0.5 面）：贴外侧 7mm，路上走来正好看见
+    prints.position.set(0.507, 1.42, 0.08);
+    prints.rotation.y = Math.PI / 2;
+    tbooth.add(prints);
+  }
   const tbState = { k: 0, target: 0 };
   const coinFlare = { v: 0 };
   updaters.push((dt, t) => {
