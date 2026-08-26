@@ -883,7 +883,9 @@ export function build(ctx) {
     { w: 15, x: 0, z: -6, ry: 0 },
     { w: 12, x: -7.5, z: 0, ry: Math.PI / 2 },
     { w: 12, x: 7.5, z: 0, ry: -Math.PI / 2 },
-    { w: 15, x: 0, z: 6, ry: Math.PI }
+    // v1.4 修正：南幕原在 z=6（world -14）——正好埋进外立面盒体（z -14±0.25）里，
+    // 从厅内回望整面墙只剩门洞里一条布：拉进 5.45 让整幅幕摆脱立面、褶皱不穿模
+    { w: 15, x: 0, z: 5.45, ry: Math.PI }
   ];
   for (const c of cw) {
     const m = curtain(c.w, 6.4, PALETTE.velvet, Math.round(c.w * 0.65), innerVelvet);
@@ -1048,6 +1050,110 @@ export function build(ctx) {
       audio.sfx(aisleState.on ? 'lampon' : 'lampoff', 0.3);
     }
   });
+
+  // v1.4 四遍：剧场内装三件
+  // ① 整幅 Deco 地毯（贝壳扇母题错行 + 双线鎏金边框 + 角键；排椅不再踩漆木板）
+  const carpetTex = canvasTexture(512, (g, s) => {
+    g.fillStyle = '#2c0e16';
+    g.fillRect(0, 0, s, s);
+    const kr = rng(67);
+    for (let i = 0; i < 2600; i++) {
+      g.fillStyle = `rgba(${30 + kr() * 30 | 0},${10 + kr() * 14 | 0},${16 + kr() * 16 | 0},0.35)`;
+      g.fillRect(kr() * s, kr() * s, 2, 1);
+    }
+    g.strokeStyle = 'rgba(178,138,84,0.38)';
+    g.lineWidth = 2;
+    const step = s / 6;
+    for (let row = 0; row <= 6; row++) {
+      for (let col = -1; col <= 6; col++) {
+        const cx = col * step + (row % 2) * step * 0.5;
+        const cy = row * step;
+        for (let rr = 1; rr <= 3; rr++) {
+          g.beginPath();
+          g.arc(cx, cy, (rr / 3) * step * 0.42, Math.PI, Math.PI * 2);
+          g.stroke();
+        }
+      }
+    }
+    g.strokeStyle = 'rgba(198,158,96,0.85)';
+    g.lineWidth = 6;
+    g.strokeRect(18, 18, s - 36, s - 36);
+    g.lineWidth = 2.5;
+    g.strokeRect(34, 34, s - 68, s - 68);
+    g.lineWidth = 3;
+    for (const kx of [50, s - 50]) {
+      for (const ky of [50, s - 50]) {
+        g.strokeRect(kx - 11, ky - 11, 22, 22);
+      }
+    }
+  });
+  const carpet = new THREE.Mesh(
+    new THREE.PlaneGeometry(11, 8.6),
+    new THREE.MeshStandardMaterial({
+      map: carpetTex, roughness: 0.94,
+      polygonOffset: true, polygonOffsetFactor: -1
+    })
+  );
+  carpet.rotation.x = -Math.PI / 2;
+  carpet.position.set(0, 0.012, 1.7);
+  inner.add(carpet);
+  // ② 门楣 SALIDA 出口牌（西语，接住门外戏报的语言；断闸后它是厅里唯一的光）
+  const salidaTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#060e08';
+    g.fillRect(0, 0, s, s);
+    g.save();
+    g.scale(1, 2.8); // 预拉伸补偿 0.92×0.32 面板的纵向压缩
+    g.font = '700 30px Georgia, serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowColor = 'rgba(120,255,150,0.9)';
+    g.shadowBlur = 10;
+    g.fillStyle = '#a8ffbe';
+    g.fillText('SALIDA', s / 2, s / 2 / 2.8);
+    g.restore();
+  });
+  const salidaMat = new THREE.MeshStandardMaterial({
+    map: salidaTex, color: 0x0a0a0a, roughness: 0.6,
+    emissive: 0xffffff, emissiveMap: salidaTex, emissiveIntensity: 1.6
+  });
+  const salida = new THREE.Group();
+  salida.add(new THREE.Mesh(
+    new THREE.BoxGeometry(1.04, 0.42, 0.07),
+    new THREE.MeshStandardMaterial({ color: 0x14100e, roughness: 0.55, metalness: 0.4 })
+  ));
+  const salidaFace = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.32), salidaMat);
+  salidaFace.position.z = 0.04;
+  salida.add(salidaFace);
+  salida.position.set(0, 3.75, 5.1);
+  salida.rotation.y = Math.PI;
+  inner.add(salida);
+  updaters.push((dt, t) => {
+    // 老镇流器的偶发眨眼
+    salidaMat.emissiveIntensity = Math.sin(t * 17.3) * Math.sin(t * 5.1) > 0.985 ? 0.5 : 1.6;
+  });
+  // 入口墙补光：回望时南墙帷幕原本零受光，整面读成虚空——
+  // 门侧一对烛台（与台口同语言）+ 一盏门头暖光把丝绒的褶皱找回来
+  const doorSconceMat = new THREE.MeshStandardMaterial({
+    color: 0x201408, emissive: 0xffc07a, emissiveIntensity: 2.0
+  });
+  inner.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.05, 8, 6), -2.1, 2.7, 5.12),
+    xform(new THREE.SphereGeometry(0.05, 8, 6), 2.1, 2.7, 5.12),
+    xform(new THREE.CylinderGeometry(0.02, 0.03, 0.16, 8), -2.1, 2.58, 5.16),
+    xform(new THREE.CylinderGeometry(0.02, 0.03, 0.16, 8), 2.1, 2.58, 5.16)
+  ], doorSconceMat));
+  const doorGlow = new THREE.PointLight(0xffbe7e, 2.6, 7, 1.8);
+  doorGlow.position.set(0, 3.1, 4.7);
+  inner.add(doorGlow);
+  updaters.push((dt, t) => {
+    doorSconceMat.emissiveIntensity = 2.0 + Math.sin(t * 4.7 + 1.2) * 0.3;
+    doorGlow.intensity = 2.6 + Math.sin(t * 4.7 + 1.2) * 0.35;
+  });
+  // ③ 聚光柱里的浮尘——光有了质地
+  const spotDust = dustField(42, { x: 2.2, y: 5.6, z: 2.2 }, { opacity: 0.5, size: 0.035, color: 0xffe8c8 });
+  spotDust.position.set(-1.6, 0, -4.2);
+  inner.add(spotDust);
+  updaters.push(spotDust.userData.update);
 
   // 蓝色立方体 —— 梦境反转
   const pedestal = roundedBoxMesh(0.6, 1.15, 0.6, 0.04,
