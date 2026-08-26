@@ -179,3 +179,18 @@
 | 2026-08-26 09:47 | 2026-08-26 09:58 | 验证 | npm test 全绿（+mulholland-path 8 用例）；npm run smoke 全绿；xvfb electron --smoke 全绿——`后巷走通性 mulholland: ok:true`（真实玩家逐帧走完 路→便道→转角→暗巷→空地）+ 自然触发传送断言通过；截屏复核：蓝丝绒红幕烧亮/钴蓝窄锥/中央冷光池，穆赫兰道便道可见/罩灯路标；复核后回调 backdropWash 5.2/6.6 + 雾 0.055（红要更亮才「过亮」） | /tmp/shots-bv /tmp/shots-mul |
 | 2026-08-26 09:58 | 2026-08-26 10:02 | C/文档 | 全馆彩蛋复查（静默/错位/无理由物件/声先于影四标尺）：大厅/档案/双峰/蓝丝绒衣柜判定合格；橡皮头小舞台补「声先于影」（摇篮曲 600ms 先出、1600ms 才见形体）；房间收音机字幕去 📻 emoji；门禁 36–38 入册 + TESTING（后巷路线/蓝丝绒氛围抽查/走通性冒烟说明）+ CHANGELOG v1.6.0 段 + README/BUILD 版本同步 + 版本 bump 1.6.0；三连复跑全绿（194 单测 / 构建冒烟 / 运行时冒烟：走通性 ok:true + 自然触发传送 + 七厅预算内 156–194 mesh） | commit `bec1262` |
 | 2026-08-26 10:02 | 2026-08-26 10:14 | 8 | **Release 1.6.0**：本 VM 缺 wine——按 BUILD.md 坑位记录补装 wine64 + wine32:i386（NSIS stub 是 x86-32，仅 wine64 会在生成卸载器时报 syswow64\ntdll 加载失败，本轮原样复现后照方抓药）→ `npm run dist:win` EXIT=0（Portable 100.0MB + Setup 100.2MB，`file` PE32 校验 ×2 + asar 内 package.json 确认 1.6.0）→ SHA256SUMS 重写（6c7ad9d3…/863bed54…，`sha256sum -c` 自校通过）→ 旧 1.5.0 工件退场 | release/ 三件 |
+
+## v1.7 —— 完整的碑 / 转身惊吓 / 讲解员
+
+**病根诊断（对照用户反馈）**：①「中间的黑色东西显露一半」——v1.5/v1.6 的碑
+只有正面有洗光、背面素黑掉进雾里，且外围站件散摆没有构图秩序 → 半成品观感；
+②「走到圈上才惊吓」——zoneTrigger 是踩地雷，不是穆赫兰道的「回头看见」；
+③ 旁白是氛围句不是信息；④ 立牌弹层堆字。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-26 10:20 | 2026-08-26 10:38 | 39 | 大厅中央焦点：props.memorialStele v3 重写（三层收分台阶+四棱倒角+两条通高自发光侧缝+正面全高刻字面+背面烟形蚀刻浮纹）；lobby.js 新增背面洗光 steleWashB、外围站件全部退到柱环外圈与柱位对齐、帷幕触摸波纹+台座光涌两个新交互 | commit `bb0f293`（并入核心 A） |
+| 2026-08-26 10:20 | 2026-08-26 10:44 | 40 | 转身惊吓：kit.turnTrigger（yaw 滑动窗累计 ≥2.0rad/0.5s + 武装区驻留 1s + 50s 冷却）+ kit.veiledFigure（LatheGeometry 车削帷形人影，setRush 前倾冲刺）；mulholland.js 移除踩圈惊吓、SCARE_REGION（暗巷深段+空地）+ doScare（人影生成在玩家转过去的视线上 4.6m、0.42s 冲脸、灯灭/抽真空/闷击/uShock/黑幕/空间错位）；main.js 暴露 pose() 与 spinYaw() 冒烟钩子 | 同上 |
+| 2026-08-26 10:44 | 2026-08-26 10:56 | 41/42 | essays.js：NARRATIONS 重写为讲解员导览（24–96 字/≤3 句/事实锚点/全馆 ≤620 字）+ DOCENT 随行讲解层（六条引语注解）；kit.quoteStandUpdater 驻足 1.6s 低声补讲；overlay.showPlaque 只留名言（note/aside 退场）；彩蛋 +5（摸帷幕/台座光涌/浓缩杯/场记板/绒垫原木），普查 122，INTERACTIVE_MIN 重锁 -1 | 同上 |
+| 2026-08-26 10:56 | 2026-08-26 11:50 | 验证 | 单测重写：turnscare.test.js ×11（甩头/慢转/小甩/未上膛/区外/15fps/单帧突变/冷却/force/参数一致）+ narration.test.js 讲解员组 + mulholland-path 武装区守卫——211 用例全绿；npm run smoke 全绿；**运行时冒烟首跑红**：swiftshader ≈2.5fps 且 dt 钳 0.1s → 游戏时钟只有真实 1/4~1/10，armTime 1s 要十几秒真实时间才上膛，15s 预算不够——写临时探针（debug-scare.cjs，逐秒报机位+帧率）定位后把冒烟预算放到 40s + 每 3s 补甩，复跑全绿：「转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口」 | commit `bb0f293`；三连全绿 |
+| 2026-08-26 11:50 | 2026-08-26 12:0x | 文档/发布 | 门禁 39–43 入册 + TESTING（转身惊吓复现步骤/边界抽查/交互密度 122）+ CHANGELOG v1.7.0 + README/BUILD 同步 + mulholland 冒烟阈值收严 17；`npm run dist:win` 重打包 1.7.0 双 exe + SHA256SUMS 重写 | commit（本条）+ release/ 三件 |
