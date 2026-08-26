@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
-  concreteMat, brickMat, hangingBulb, rustMat, rng
+  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -1097,6 +1097,148 @@ export function build(ctx) {
       setTimeout(() => audio.sfxAt('steam', S / 2 - 0.6, 1.7, 0.95, 4), 240);
       setTimeout(() => audio.sfx('steamfar', 0.5), 1400);
       ui.caption('这栋楼松了一口气。隔壁的表都知道了。', 4200);
+    }
+  });
+
+  // v1.4 六遍：打卡钟 + 工卡架（东墙）——工厂给时间盖章的地方。
+  // 橡木钟壳 + 奶面表盘（停摆）+ 黄铜压杆；E → 压杆砸下 + stamp 一拍 +
+  // 卡片弹一下 + 工作灯眨一次 +「卡上打的都是同一分钟。」
+  const punch = new THREE.Group();
+  punch.position.set(S / 2, 0, -3.05);
+  const oakMat = woodMat({ base: [34, 22, 13], planks: 1, size: 128, seed: 47, env: 0.7 });
+  const punchCase = roundedBoxMesh(0.2, 0.88, 0.46, 0.03, oakMat);
+  punchCase.position.set(-0.12, 1.5, 0);
+  punch.add(punchCase);
+  // 表盘：奶面 + 60 刻度（无字），指针另做三维件
+  const dialTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#ddd6c2';
+    g.fillRect(0, 0, s, s);
+    const c = s / 2;
+    const fox = rng(48);
+    for (let i = 0; i < 14; i++) {
+      g.fillStyle = `rgba(120,100,66,${0.05 + fox() * 0.08})`;
+      g.beginPath();
+      g.arc(fox() * s, fox() * s, 2 + fox() * 8, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.strokeStyle = '#26221a';
+    for (let i = 0; i < 60; i++) {
+      const a = (i / 60) * Math.PI * 2;
+      const major = i % 5 === 0;
+      g.lineWidth = major ? 4 : 1.6;
+      const r0 = major ? s * 0.36 : s * 0.4;
+      g.beginPath();
+      g.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0);
+      g.lineTo(c + Math.cos(a) * s * 0.44, c + Math.sin(a) * s * 0.44);
+      g.stroke();
+    }
+    g.lineWidth = 5;
+    g.beginPath();
+    g.arc(c, c, s * 0.465, 0, Math.PI * 2);
+    g.stroke();
+  });
+  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.04, 26),
+    new THREE.MeshStandardMaterial({ map: dialTex, roughness: 0.5 }));
+  dial.rotation.z = Math.PI / 2;
+  dial.position.set(-0.225, 1.72, 0);
+  punch.add(dial);
+  const punchBrass = brassMat({ seed: 49 });
+  // 表圈 + 卡槽唇边（黄铜静件合并）
+  punch.add(mergedMesh([
+    xform(new THREE.TorusGeometry(0.157, 0.016, 8, 30), -0.246, 1.72, 0, 0, Math.PI / 2, 0),
+    xform(new THREE.BoxGeometry(0.03, 0.024, 0.17), -0.222, 1.21, 0)
+  ], punchBrass));
+  // 指针：分针停在 6、时针停在 6 与 7 之间——6:30，换班的那一分钟
+  const minGeo = new THREE.BoxGeometry(0.008, 0.118, 0.013);
+  minGeo.translate(0, -0.052, 0);
+  const hrGeo = new THREE.BoxGeometry(0.008, 0.082, 0.017);
+  hrGeo.translate(0, -0.036, 0);
+  punch.add(mergedMesh([
+    xform(minGeo, -0.252, 1.72, 0),
+    xform(hrGeo, -0.252, 1.72, 0, 0.26, 0, 0),
+    xform(new THREE.SphereGeometry(0.014, 8, 6), -0.252, 1.72, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.4, metalness: 0.6 })));
+  // 插着的工卡（打过的那张还立在槽里）
+  const punchCard = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.15, 0.095),
+    new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.85 }));
+  punchCard.rotation.x = 0.05;
+  punchCard.position.set(-0.235, 1.3, 0);
+  punch.add(punchCard);
+  // 侧压杆（黄铜臂 + 木球柄，绕安装点下砸）
+  const bkArm = new THREE.Group();
+  bkArm.position.set(-0.2, 1.5, 0.255);
+  bkArm.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.013, 0.013, 0.2, 8), -0.1, 0, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.SphereGeometry(0.021, 8, 6), 0, 0, 0)
+  ], punchBrass));
+  const bkKnob = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), oakMat);
+  bkKnob.position.set(-0.2, 0, 0);
+  bkArm.add(bkKnob);
+  punch.add(bkArm);
+  // 工卡架：木背板 + 锡皮口袋 2×4 + 五张高矮不齐的卡
+  const rackBoard = roundedBoxMesh(0.035, 0.62, 0.5, 0.012, oakMat);
+  rackBoard.position.set(-0.1, 1.5, 0.72);
+  punch.add(rackBoard);
+  const pocketGeos = [];
+  const cardGeos = [];
+  const cardRng = rng(51);
+  let slot = 0;
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 2; col++) {
+      const py = 1.28 + row * 0.15;
+      const pz = 0.72 + (col === 0 ? -0.11 : 0.11);
+      pocketGeos.push(xform(new THREE.BoxGeometry(0.012, 0.07, 0.16), -0.135, py, pz));
+      if ([0, 2, 3, 5, 6].includes(slot)) {
+        cardGeos.push(xform(new THREE.BoxGeometry(0.009, 0.12, 0.14),
+          -0.128, py + 0.035 + cardRng() * 0.014, pz, (cardRng() - 0.5) * 0.1, 0, 0));
+      }
+      slot += 1;
+    }
+  }
+  punch.add(mergedMesh(pocketGeos, new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(3), color: 0x9aa0a6, roughness: 0.42, metalness: 0.85
+  })));
+  punch.add(mergedMesh(cardGeos, new THREE.MeshStandardMaterial({ color: 0xcfc9b6, roughness: 0.88 })));
+  // 锡罩工作灯（钟与卡架之间的一小汪光——东墙原本没灯）
+  punch.add(mergedMesh([
+    xform(new THREE.ConeGeometry(0.11, 0.09, 12, 1, true), -0.3, 2.42, 0.36),
+    xform(new THREE.CylinderGeometry(0.014, 0.014, 0.34, 6), -0.13, 2.5, 0.36, 0, 0, 0.5)
+  ], pipeMat));
+  const punchBulb = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xf0ead8, emissiveIntensity: 2.6 }));
+  punchBulb.position.set(-0.3, 2.4, 0.36);
+  punch.add(punchBulb);
+  const punchLamp = new THREE.PointLight(0xe8e0cc, 1.9, 4.2, 1.8);
+  punchLamp.position.set(-0.34, 2.32, 0.36);
+  punch.add(punchLamp);
+  group.add(punch);
+  const punchState = { t: -1 };
+  updaters.push((dt) => {
+    if (punchState.t < 0) return;
+    punchState.t += dt;
+    const u = punchState.t;
+    if (u >= 1.0) {
+      punchState.t = -1;
+      bkArm.rotation.z = 0;
+      punchCard.position.y = 1.3;
+      punchLamp.intensity = 1.9;
+      return;
+    }
+    // 0–0.14s 砸下 → 0.14–0.5s 弹回带余振；卡片在击点跳 2cm 落回
+    bkArm.rotation.z = u < 0.14
+      ? -(u / 0.14) * 0.5
+      : -0.5 * Math.exp(-(u - 0.14) * 7) * Math.cos((u - 0.14) * 22);
+    const cu = Math.max(0, u - 0.12);
+    punchCard.position.y = 1.3 + Math.max(0, Math.sin(Math.min(1, cu / 0.34) * Math.PI)) * 0.022;
+    punchLamp.intensity = 1.9 * (u > 0.1 && u < 0.24 ? 0.35 : 1);
+  });
+  hotspots.add(bkKnob, {
+    hint: 'E — 打卡钟',
+    onActivate: () => {
+      if (punchState.t < 0) punchState.t = 0;
+      audio.sfxAt('stamp', S / 2 - 0.3, -3.05, 0.8, 3.5);
+      setTimeout(() => audio.sfxAt('ratchet', S / 2 - 0.3, -3.05, 0.3, 3), 340);
+      ui.caption('卡上打的都是同一分钟。', 4200);
     }
   });
 

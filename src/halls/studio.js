@@ -11,7 +11,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
-  woodMat as woodPbr, rng
+  woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -1395,6 +1395,57 @@ export function build(ctx) {
   hotspots.add(cork, {
     hint: 'E — 软木板：访客们留下的话（点击写一张）',
     onActivate: () => ui.openGuestbook()
+  });
+
+  // v1.4 六遍：导演椅（窗前）——面朝雨窗摆着，椅背朝屋里。
+  // 经典折叠 X 架：前后剪刀腿 + 侧滑木 + 扶手 + 帆布座/背；
+  // E → 椅子轻轻摇一下 + creak +「椅背上没有名字。」
+  const dirChair = new THREE.Group();
+  const dcWood = woodPbr({ base: [30, 19, 11], planks: 1, size: 128, seed: 53, env: 0.7 });
+  const dcLeg = new THREE.BoxGeometry(0.045, 0.95, 0.022);
+  dirChair.add(mergedMesh([
+    // 前后两面剪刀腿（X 在立面上）
+    ...[0.2, -0.2].flatMap((z) => [
+      xform(dcLeg, 0, 0.35, z, 0, 0, 0.5),
+      xform(dcLeg, 0, 0.35, z, 0, 0, -0.5)
+    ]),
+    // 侧滑木（左右各一条，接住前后脚）
+    xform(new THREE.BoxGeometry(0.05, 0.03, 0.52), -0.215, 0.018, 0),
+    xform(new THREE.BoxGeometry(0.05, 0.03, 0.52), 0.215, 0.018, 0),
+    // 扶手 + 靠背立柱
+    xform(new THREE.BoxGeometry(0.055, 0.022, 0.58), -0.24, 0.68, -0.02),
+    xform(new THREE.BoxGeometry(0.055, 0.022, 0.58), 0.24, 0.68, -0.02),
+    xform(new THREE.BoxGeometry(0.042, 0.4, 0.032), -0.24, 0.86, -0.24),
+    xform(new THREE.BoxGeometry(0.042, 0.4, 0.032), 0.24, 0.86, -0.24)
+  ], dcWood));
+  const dcCanvas = fabricMat('#38321f', '#2c281a', { repX: 3, repY: 3, sheen: 0.22, color: 0xb8b09a });
+  const dcBack = mergedMesh([
+    xform(new THREE.BoxGeometry(0.5, 0.016, 0.42), 0, 0.487, -0.01),
+    xform(new THREE.BoxGeometry(0.55, 0.26, 0.016), 0, 0.94, -0.245)
+  ], dcCanvas);
+  dirChair.add(dcBack);
+  dirChair.position.set(6.2, 0, -1.6);
+  dirChair.rotation.y = 2.3; // 面朝雨窗（东墙 z=-3.4），椅背给屋里
+  group.add(dirChair);
+  // 窗口冷光洒过来一点（月光落在椅背上——暗角里轮廓可读）
+  const dcSpill = new THREE.PointLight(0x9fb4d0, 1.1, 4.5, 2);
+  dcSpill.position.set(7.3, 1.8, -2.7);
+  group.add(dcSpill);
+  const dcState = { t: -1 };
+  updaters.push((dt) => {
+    if (dcState.t < 0) return;
+    dcState.t += dt;
+    const decay = Math.max(0, 1 - dcState.t * 0.8);
+    if (decay <= 0) { dcState.t = -1; dirChair.rotation.x = 0; return; }
+    dirChair.rotation.x = Math.sin(dcState.t * 7) * 0.024 * decay;
+  });
+  hotspots.add(dcBack, {
+    hint: 'E — 导演椅',
+    onActivate: () => {
+      if (dcState.t < 0) dcState.t = 0;
+      audio.sfxAt('creak', 6.2, -1.6, 0.5, 3.5);
+      ui.caption('椅背上没有名字。', 4200);
+    }
   });
 
   // ---------- 彩蛋：收音机自己醒来 ----------
