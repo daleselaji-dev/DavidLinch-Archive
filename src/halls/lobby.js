@@ -118,13 +118,51 @@ export function build(ctx) {
       if (Math.random() < 0.22) setTimeout(() => audio.sfx('whisper', 0.25), 700);
     }
   });
+  // v1.9 抛光第 1 遍：天花从「一块纯黑平圆」换成放射褶皱绒布篷顶——
+  // 48 道明暗交替褶楔向中心线脚收拢，中心暖深红、边缘沉进黑；
+  // 顶冠洗光一亮，整个穹顶像帐篷内壁一样立起来（黑洞消失）。
+  const canopyTex = canvasTexture(256, (g, s) => {
+    const c = s / 2;
+    const base = g.createRadialGradient(c, c, 6, c, c, c);
+    base.addColorStop(0, '#41121a');
+    base.addColorStop(0.5, '#240b11');
+    base.addColorStop(1, '#0b0406');
+    g.fillStyle = base;
+    g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 48; i++) {
+      const a0 = (i / 48) * Math.PI * 2;
+      const a1 = ((i + 1) / 48) * Math.PI * 2;
+      g.fillStyle = i % 2 ? 'rgba(255,178,144,0.05)' : 'rgba(0,0,0,0.17)';
+      g.beginPath();
+      g.moveTo(c, c);
+      g.arc(c, c, c, a0, a1);
+      g.closePath();
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.3)';
+    g.lineWidth = 1;
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(c, c);
+      g.lineTo(c + Math.cos(a) * c, c + Math.sin(a) * c);
+      g.stroke();
+    }
+  });
   const ceil = new THREE.Mesh(
     new THREE.CircleGeometry(R * 1.25, 40),
-    new THREE.MeshStandardMaterial({ color: 0x080405, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({
+      map: canopyTex, bumpMap: canopyTex, bumpScale: 0.35, roughness: 0.85
+    })
   );
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = 8.4;
   group.add(ceil);
+  // 幕顶鎏金收口环（压住帷头与篷顶的接缝，接住顶冠洗光）
+  const canopyRim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.08, 0.05, 8, 64), goldMat);
+  canopyRim.rotation.x = Math.PI / 2;
+  canopyRim.position.y = 7.94;
+  group.add(canopyRim);
   // 天花中央线脚（环形叠级）
   const rosette = mergedMesh([
     xform(new THREE.TorusGeometry(3.2, 0.09, 10, 48), 0, 8.3, 0, Math.PI / 2, 0, 0),

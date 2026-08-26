@@ -125,13 +125,54 @@ export function build(ctx) {
     color: 0xcfe0ff, size: 0.55, transparent: true, opacity: 0.8, fog: false
   }));
   group.add(stars);
+  // v1.9 抛光第 1 遍：月亮 v2——纯色圆盘换「临边昏暗 + 月海斑」贴图盘，
+  // 背后垫一圈叠加光晕：从贴纸变成会发潮气的夜空光源。
+  const moonTex = canvasTexture(128, (g, s) => {
+    const c = s / 2;
+    g.clearRect(0, 0, s, s);
+    const grad = g.createRadialGradient(c, c, s * 0.1, c, c, c - 1);
+    grad.addColorStop(0, 'rgba(246,244,232,1)');
+    grad.addColorStop(0.8, 'rgba(228,232,238,0.96)');
+    grad.addColorStop(1, 'rgba(192,203,220,0.8)');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(c, c, c - 1, 0, 7); g.fill();
+    const r = rng(64);
+    g.fillStyle = 'rgba(148,156,176,0.2)';
+    for (let i = 0; i < 9; i++) {
+      const a = r() * Math.PI * 2;
+      const rr = r() * s * 0.3;
+      g.beginPath();
+      g.ellipse(c + Math.cos(a) * rr, c + Math.sin(a) * rr, 6 + r() * 13, 4 + r() * 9, r() * 3, 0, 7);
+      g.fill();
+    }
+  });
   const moon = new THREE.Mesh(
     new THREE.CircleGeometry(7, 30),
-    new THREE.MeshBasicMaterial({ color: 0xe8ecf5, fog: false, toneMapped: false })
+    new THREE.MeshBasicMaterial({ map: moonTex, transparent: true, fog: false, toneMapped: false })
   );
   moon.position.set(-60, 52, -110);
   moon.lookAt(0, 1.7, 0);
   group.add(moon);
+  const haloTex = canvasTexture(128, (g, s) => {
+    const c = s / 2;
+    g.clearRect(0, 0, s, s);
+    const grad = g.createRadialGradient(c, c, s * 0.16, c, c, c - 1);
+    grad.addColorStop(0, 'rgba(186,204,232,0.34)');
+    grad.addColorStop(0.45, 'rgba(150,172,205,0.12)');
+    grad.addColorStop(1, 'rgba(150,172,205,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const moonHalo = new THREE.Mesh(
+    new THREE.CircleGeometry(17, 30),
+    new THREE.MeshBasicMaterial({
+      map: haloTex, transparent: true, blending: THREE.AdditiveBlending,
+      fog: false, toneMapped: false, depthWrite: false
+    })
+  );
+  moonHalo.position.set(-61.2, 53, -112.4); // 比月盘更远一步（透明排序垫底）
+  moonHalo.lookAt(0, 1.7, 0);
+  group.add(moonHalo);
   const moonLight = new THREE.DirectionalLight(0x8ea6c9, 0.55);
   moonLight.position.set(-30, 50, -60);
   group.add(moonLight);
