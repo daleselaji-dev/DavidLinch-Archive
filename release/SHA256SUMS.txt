@@ -1,2 +1,2 @@
-6c7ad9d32a91bed44fd32b14856e3881451bfd21e7614e4428539e364710f243  SmokeVelvet-LynchArchive-Portable-1.6.0.exe
-863bed5462582a7aaf652310a222eaae4eaaa572952a68d0e3ba45d41fa53792  SmokeVelvet-LynchArchive-Setup-1.6.0.exe
+d195ddfe8e2475697b755bdfb3b3c67756903b0fb4b93aae381e41bc840b0a0c  SmokeVelvet-LynchArchive-Portable-1.7.0.exe
+8a8a7d93bcbd1ca19df18a282966801dcba6bf6758aae210a581cdd089a92009  SmokeVelvet-LynchArchive-Setup-1.7.0.exe
