@@ -1870,6 +1870,11 @@ export function build(ctx) {
   const dust = dustField(140, { x: W, y: H, z: D }, { opacity: 0.35, size: 0.045, color: 0xffe9c8 });
   group.add(dust);
   updaters.push(dust.userData.update);
+  // v1.10 C3：房间呼吸最浅（44s 一息）——台灯光里的灰几乎不动声色
+  updaters.push(() => {
+    dust.material.opacity = 0.35 * (1 + engine.breath * 0.18);
+    haze.material.opacity = 0.04 * (1 + engine.breath * 0.12);
+  });
   group.add(new THREE.AmbientLight(0x2a1c12, 1.1));
 
   // v1.9 抛光第 2 遍：门边挂历——日期格排得整整齐齐，

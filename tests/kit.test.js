@@ -102,6 +102,17 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
     expect(typeof kit.lightCone2).toBe('function');
     expect(src).toContain('setStrength');
   });
+
+  it('v1.10 C2 光锥尘埃流：dust 选项 + updateDust（呼吸调制 + 低档退素色）', () => {
+    // 源码级审计：尘埃层存在、随呼吸调制、on=false 时归零（低档回退）
+    const seg = src.slice(src.indexOf('export function lightCone2'), src.indexOf('// ---------- 建筑构件'));
+    expect(seg).toContain('{ dust = false }');
+    expect(seg).toContain('updateDust');
+    expect(seg).toContain('breath');
+    expect(seg).toMatch(/on \? [^:]+ : 0/);
+    // 条纹贴图必须走 RepeatWrapping（滚动不撕边）
+    expect(seg).toContain('RepeatWrapping');
+  });
 });
 
 describe('v1.3 道具预制体库导出面', () => {

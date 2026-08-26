@@ -531,6 +531,69 @@ export function build(ctx) {
     marquee.userData.flicker(t, 2.2);
     marquee2.userData.flicker(t, 9.1);
   });
+  // ---------- v1.10 C4：剧场前的积水洼——湿了一夜的路把霓虹接住 ----------
+  // 暗玻般的湿面（不规则洼形 alpha）+ ILLUSIÓN 倒影微漾；
+  // 倒影亮度跟招牌同一次闪烁——坏的是同一根管子。
+  {
+    const puddleShape = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const sr = rng(41);
+      g.fillStyle = '#ffffff';
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2;
+        const cx = s / 2 + Math.cos(a) * (10 + sr() * 16);
+        const cy = s / 2 + Math.sin(a) * (6 + sr() * 10);
+        g.beginPath();
+        g.ellipse(cx, cy, 18 + sr() * 16, 11 + sr() * 9, a, 0, Math.PI * 2);
+        g.fill();
+      }
+    });
+    const streetPuddle = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.4, 2.1),
+      new THREE.MeshPhysicalMaterial({
+        color: 0x05060c, roughness: 0.05, metalness: 0.12, envMapIntensity: 1.7,
+        clearcoat: 1, clearcoatRoughness: 0.06,
+        transparent: true, alphaMap: puddleShape, depthWrite: false
+      })
+    );
+    streetPuddle.rotation.x = -Math.PI / 2;
+    streetPuddle.position.set(-2.6, 0.008, -10.2);
+    group.add(streetPuddle);
+    // 倒影字：镜像躺在水里（顶端朝向观者——真实镜面几何），加法混合
+    const rc = document.createElement('canvas');
+    rc.width = 512;
+    rc.height = 128;
+    const rg = rc.getContext('2d');
+    rg.textAlign = 'center';
+    rg.textBaseline = 'middle';
+    rg.font = '400 88px Georgia, serif';
+    for (const [blur, alpha] of [[30, 0.5], [12, 0.7]]) {
+      rg.shadowColor = '#ff2e88';
+      rg.shadowBlur = blur;
+      rg.fillStyle = `rgba(255,255,255,${alpha})`;
+      rg.fillText('ILLUSIÓN', 256, 64);
+    }
+    const reflTex = new THREE.CanvasTexture(rc);
+    const refl = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.0, 1.15),
+      new THREE.MeshBasicMaterial({
+        map: reflTex, color: 0xff2e88, transparent: true, opacity: 0.66,
+        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+        side: THREE.DoubleSide, fog: false
+      })
+    );
+    refl.rotation.x = -Math.PI / 2;
+    refl.scale.y = -1;
+    refl.position.set(-2.6, 0.014, -10.35);
+    group.add(refl);
+    const marqueeMat = marquee.children[0].material;
+    updaters.push((dt, t) => {
+      // 与招牌同闪 + 水面微漾（横向极缓伸缩 + 贴图微偏移，像风掠过水皮）
+      refl.material.opacity = 0.66 * marqueeMat.opacity * (1 + Math.sin(t * 2.1) * 0.1);
+      refl.scale.x = 1 + Math.sin(t * 1.3) * 0.014;
+      reflTex.offset.x = Math.sin(t * 0.7) * 0.003;
+    });
+  }
   // 招牌追逐灯泡链（合并单 mesh，整体呼吸闪烁）
   const chaseGeos = [];
   const chaseGeo = new THREE.SphereGeometry(0.05, 8, 6);
@@ -1788,9 +1851,11 @@ export function build(ctx) {
   stageSpot.target.position.set(-1.6, 0.7, -4.2);
   inner.add(stageSpot, stageSpot.target);
   // v1.4 P7：剧场聚光升级双层锥（内芯亮 + 外晕柔）
-  const stageCone = lightCone2(0.35, 1.5, 5.4, 0xffeedd, 0.06);
+  // v1.10 C2：聚光柱里加尘埃流——观众厅的灰在光里落
+  const stageCone = lightCone2(0.35, 1.5, 5.4, 0xffeedd, 0.06, { dust: true });
   stageCone.position.set(-1.6, 3.2, -4.2);
   inner.add(stageCone);
+  updaters.push((dt, t) => stageCone.userData.updateDust(dt, t, engine.breath, engine.quality === 'high'));
   // 台口拱架：条纹壁柱 ×2（基座/柱身/柱帽 + 竖棱）+ 双级楣梁 + 鎏金内沿
   const archWood = woodMat({ base: [30, 12, 16], planks: 1, size: 256, seed: 44, gloss: 0.6 });
   const archGeos = [];

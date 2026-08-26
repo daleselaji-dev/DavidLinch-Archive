@@ -41,7 +41,7 @@ const HALL = { minX: -W / 2 + 1, maxX: W / 2 - 1, minZ: -L / 2 + 1.9, maxZ: L / 
 const NICHE = { minX: -W / 2 - 3.4, maxX: -W / 2 + 1.2, minZ: -2.4, maxZ: 2.4 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -1419,6 +1419,11 @@ export function build(ctx) {
   const dust = dustField(200, { x: W, y: 5, z: L }, { opacity: 0.32, size: 0.04 });
   group.add(dust);
   updaters.push(dust.userData.update);
+  // v1.10 C3：长廊的灰随馆的呼吸同拍起伏（40s 一息，档案厅呼吸最浅）
+  updaters.push(() => {
+    dust.material.opacity = 0.32 * (1 + engine.breath * 0.24);
+    smoke.material.opacity = 0.03 * (1 + engine.breath * 0.16);
+  });
   group.add(new THREE.AmbientLight(0x1c2026, 1.1));
 
   return {

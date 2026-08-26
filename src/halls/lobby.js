@@ -53,9 +53,10 @@ export function build(ctx) {
   const group = new THREE.Group();
   const updaters = [];
   // 开幕点灯门（各灯组的乘法闸）：首次进馆从黑里逐组升起
+  // v1.10 C1：+flame（第 0 拍长明灯闸）+dust（收口「尘埃醒来」闸）
   const openGate = openingPlayed
-    ? { bulb: [1, 1, 1, 1, 1, 1], chand: 1, amb: 1 }
-    : { bulb: [0, 0, 0, 0, 0, 0], chand: 0, amb: 0.22 };
+    ? { bulb: [1, 1, 1, 1, 1, 1], chand: 1, amb: 1, flame: 1, dust: 1 }
+    : { bulb: [0, 0, 0, 0, 0, 0], chand: 0, amb: 0.22, flame: 0, dust: 0 };
   const opening = { t: openingPlayed ? -1 : 0 };
   openingPlayed = true;
 
@@ -218,10 +219,12 @@ export function build(ctx) {
   daisTrim.position.y = 0.24;
   group.add(daisTrim);
 
-  // 双层体积光锥（v1.4 P7：内芯亮 + 外晕柔，跟随调光档）
-  const cone = lightCone2(0.7, 3.1, 7.6, 0xf2e9dc, 0.05);
+  // 双层体积光锥（v1.4 P7：内芯亮 + 外晕柔，跟随调光档；
+  // v1.10 C2：加尘埃流——灰在光柱里落，随呼吸微涨落，低档退素色）
+  const cone = lightCone2(0.7, 3.1, 7.6, 0xf2e9dc, 0.05, { dust: true });
   cone.position.y = 4.2;
   group.add(cone);
+  updaters.push((dt, t) => cone.userData.updateDust(dt, t, engine.breath, engine.quality === 'high'));
 
   // 中央纪念碑 v3「一道光缝」（v1.7）：全高独石 + 侧棱光缝 +
   // 正面铭文/背面烟纹；关于林奇 热点
@@ -705,6 +708,7 @@ export function build(ctx) {
   flameLamp.position.set(-2.9, 0, 2.9);
   group.add(flameLamp);
   // 火苗常态颤动 + 交互「躬身再立起」时间线
+  // v1.10 C1：乘上第 0 拍闸——开幕黑场里这粒火最先醒（从火星长成火苗）
   const flameBow = { t: -1 };
   updaters.push((dt, t) => {
     let k = 1;
@@ -716,11 +720,12 @@ export function build(ctx) {
       else k = u < 0.5 ? 1 - (u / 0.5) * 0.65
         : 0.35 + Math.min(1, (u - 0.5) / 1.6) * 0.75 + Math.sin(Math.min(1, (u - 0.5) / 1.6) * Math.PI) * 0.18;
     }
+    const gk = 0.04 + 0.96 * openGate.flame;
     const jitter = 1 + Math.sin(t * 11.3) * 0.06 + Math.sin(t * 27.7) * 0.05;
-    flamePivot.scale.set(1, k * jitter, 1);
+    flamePivot.scale.set(gk, k * jitter * gk, gk);
     flamePivot.rotation.z = Math.sin(t * 7.1) * 0.05 + Math.sin(t * 17.3) * 0.03;
-    flameGlow.intensity = 2.2 * k * jitter;
-    flameOuter.material.opacity = 0.85 * (0.7 + 0.3 * k);
+    flameGlow.intensity = 2.2 * k * jitter * gk;
+    flameOuter.material.opacity = 0.85 * (0.7 + 0.3 * k) * Math.min(1, openGate.flame * 3);
   });
   hotspots.add(chimney, {
     hint: 'E — 长明灯',
@@ -990,7 +995,8 @@ export function build(ctx) {
   group.add(dust);
   updaters.push(dust.userData.update);
   updaters.push(() => {
-    dust.material.opacity = 0.4 * (1 + engine.breath * 0.3);
+    // v1.10 C1「尘埃醒来」：开幕收口时光尘才从 0 缓升到常值
+    dust.material.opacity = 0.4 * (1 + engine.breath * 0.3) * openGate.dust;
     smoke.material.opacity = 0.045 * (1 + engine.breath * 0.2);
   });
 
@@ -1010,41 +1016,52 @@ export function build(ctx) {
     kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
   });
 
-  // ---------- v1.9 B3：开幕点灯序列（只演一次的开场白） ----------
-  // 黑起 → 六盏吊灯错拍点亮（各配一声很轻的 lampon）→ 主灯组与
-  // 光锥升起（swell 一口气）→ 霓虹标题最后醒来（chime）。全程 ≈7.2s；
-  // 本次会话内重复进厅直接满灯。
-  const openingSfx = { swell: false, neon: false, sub: false };
+  // ---------- v1.9 B3 → v1.10 C1：开幕点灯序列 v2（只演一次） ----------
+  // 第 0 拍：黑场里碑前长明灯先独亮（一粒火先醒，配一声很轻的 flamegut）
+  // → 0.9s 拍空 → 六盏吊灯错拍点亮（各配 lampon）→ 主灯组与光锥升起
+  // （swell）→ 霓虹标题醒来（chime）→ 收口「尘埃醒来」（光尘 0→常值）。
+  // 全程 ≈8.0s；本次会话内重复进厅直接满灯。
+  const openingSfx = { flame: false, swell: false, neon: false, sub: false };
   updaters.push((dt) => {
     if (opening.t < 0) return;
     opening.t += dt;
     const T = opening.t;
+    // 第 0 拍：火先醒（0–0.55s 从火星长成火苗）
+    if (!openingSfx.flame && T >= 0.05) {
+      openingSfx.flame = true;
+      audio.sfxAt('flamegut', -2.9, 2.9, 0.22);
+    }
+    openGate.flame = Math.max(openGate.flame, Math.min(1, T / 0.55));
     for (let i = 0; i < 6; i++) {
-      const k = Math.min(1, Math.max(0, (T - (0.9 + i * 0.5)) / 0.35));
+      const k = Math.min(1, Math.max(0, (T - (1.3 + i * 0.5)) / 0.35));
       if (k > 0 && openGate.bulb[i] === 0) {
         audio.sfxAt('lampon', bulbs[i].position.x, bulbs[i].position.z, 0.3);
       }
       openGate.bulb[i] = Math.max(openGate.bulb[i], k);
     }
-    const kc = Math.min(1, Math.max(0, (T - 3.6) / 2.4));
+    const kc = Math.min(1, Math.max(0, (T - 4.0) / 2.4));
     openGate.chand = kc * kc * (3 - 2 * kc);
     openGate.amb = 0.22 + 0.78 * openGate.chand;
     amb.intensity = 1.4 * (0.3 + 0.7 * openGate.amb);
     rim.intensity = 22 * openGate.amb;
     steleWash.intensity = 3.4 * (0.15 + 0.85 * openGate.amb);
     steleWashB.intensity = 2.6 * (0.15 + 0.85 * openGate.amb);
-    if (T >= 3.7 && !openingSfx.swell) { openingSfx.swell = true; audio.sfx('swell', 0.4); }
-    if (T >= 6.1 && !openingSfx.neon) {
+    // 尘埃醒来：主灯升起后，光尘才在光里显形
+    openGate.dust = Math.max(openGate.dust, Math.min(1, Math.max(0, (T - 5.6) / 2.2)));
+    if (T >= 4.1 && !openingSfx.swell) { openingSfx.swell = true; audio.sfx('swell', 0.4); }
+    if (T >= 6.5 && !openingSfx.neon) {
       openingSfx.neon = true;
       title.visible = true;
       audio.sfx('chime', 0.45);
     }
-    if (T >= 6.6 && !openingSfx.sub) { openingSfx.sub = true; sub.visible = true; }
-    if (T >= 7.2) {
+    if (T >= 7.0 && !openingSfx.sub) { openingSfx.sub = true; sub.visible = true; }
+    if (T >= 8.0) {
       opening.t = -1;
       openGate.bulb = [1, 1, 1, 1, 1, 1];
       openGate.chand = 1;
       openGate.amb = 1;
+      openGate.flame = 1;
+      openGate.dust = 1;
       amb.intensity = 1.4;
       rim.intensity = 22;
       steleWash.intensity = 3.4;

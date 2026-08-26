@@ -465,14 +465,55 @@ export function lightCone(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.0
  * 双层体积光锥（v1.4 P7）：内芯亮 + 外晕柔，
  * userData.setStrength(k) 供交互/闪烁调制两层同步。
  */
-export function lightCone2(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.055) {
+export function lightCone2(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.055, { dust = false } = {}) {
   const g = new THREE.Group();
   const outer = lightCone(topR, bottomR, height, color, opacity);
   const inner = lightCone(topR * 0.42, bottomR * 0.52, height * 0.985, color, opacity * 2.2);
   g.add(outer, inner);
+  const state = { k: 1 };
+  // v1.10 C2：光柱里的尘埃流——竖向亮条纹 + 微粒缓慢下沉、随呼吸
+  // 微涨落（updateDust 第三参）；低档 updateDust(on=false) 退回素色锥
+  let dustMesh = null;
+  if (dust) {
+    const streakTex = canvasTexture(128, (gg, s) => {
+      gg.clearRect(0, 0, s, s);
+      const sr = rng(19);
+      for (let i = 0; i < 24; i++) {
+        const x = sr() * s;
+        const w = 0.8 + sr() * 2.2;
+        const grad = gg.createLinearGradient(0, 0, 0, s);
+        const a = 0.05 + sr() * 0.15;
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.5, `rgba(255,255,255,${a.toFixed(3)})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        gg.fillStyle = grad;
+        gg.fillRect(x, 0, w, s);
+      }
+      for (let i = 0; i < 80; i++) {
+        gg.fillStyle = `rgba(255,255,255,${(0.1 + sr() * 0.28).toFixed(3)})`;
+        gg.fillRect(sr() * s, sr() * s, 1.4, 1.4 + sr() * 2.2);
+      }
+    });
+    streakTex.wrapS = streakTex.wrapT = THREE.RepeatWrapping;
+    dustMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(topR * 0.8, bottomR * 0.86, height * 0.97, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color, map: streakTex, transparent: true, opacity: opacity * 1.5,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      })
+    );
+    g.add(dustMesh);
+  }
   g.userData.setStrength = (k) => {
+    state.k = k;
     outer.material.opacity = opacity * k;
     inner.material.opacity = opacity * 2.2 * k;
+  };
+  g.userData.updateDust = (dt, t, breath = 0, on = true) => {
+    if (!dustMesh) return;
+    dustMesh.material.map.offset.y -= dt * 0.016; // 灰在光里落
+    dustMesh.rotation.y = t * 0.03;
+    dustMesh.material.opacity = on ? opacity * 1.5 * state.k * (1 + breath * 0.25) : 0;
   };
   return g;
 }

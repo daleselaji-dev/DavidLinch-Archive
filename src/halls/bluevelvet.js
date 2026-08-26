@@ -41,7 +41,7 @@ const W = 19;
 const D = 15;
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player, narration } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
   const timers = [];
@@ -180,9 +180,11 @@ export function build(ctx) {
   spot.target.position.set(0, 0.6, -D / 2 + 2.3);
   group.add(spot, spot.target);
   // v1.4 P7：舞台聚光升级双层锥（内芯亮 + 外晕柔）
-  const cone = lightCone2(0.3, 1.4, 5.2, 0xaac4ff, 0.065);
+  // v1.10 C2：钴蓝光柱里加尘埃流——灰在冷光里落
+  const cone = lightCone2(0.3, 1.4, 5.2, 0xaac4ff, 0.065, { dust: true });
   cone.position.set(0, 3.1, -D / 2 + 2.3);
   group.add(cone);
+  updaters.push((dt, t) => cone.userData.updateDust(dt, t, engine.breath, engine.quality === 'high'));
   // v1.4 二遍：舞台生活痕迹——返听音箱楔（网面朝话筒）+ 话筒线沿台面
   // 拖去侧幕（悬链小弯 + 两道胶带压线）；舞台从「布景」变「刚用过的台」
   const wedge = new THREE.Group();
@@ -1526,6 +1528,11 @@ export function build(ctx) {
   const dust = dustField(140, { x: W, y: H, z: D }, { opacity: 0.35, size: 0.04, color: 0xcfd8ff });
   group.add(dust);
   updaters.push(dust.userData.update);
+  // v1.10 C3：歌厅的灰随呼吸沉浮（30s 一息）——暗场里亮的时候多一点
+  updaters.push(() => {
+    dust.material.opacity = 0.35 * (1 + engine.breath * 0.26);
+    haze.material.opacity = 0.05 * (1 + engine.breath * 0.18);
+  });
   // v1.6：环境光压暗——桌与桌之间的地板允许真正黑下去
   group.add(new THREE.AmbientLight(0x0a0e22, 0.85));
 

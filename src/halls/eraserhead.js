@@ -37,7 +37,7 @@ const MAIN = { minX: -S / 2 + 1.1, maxX: S / 2 - 1.1, minZ: -S / 2 + 1.6, maxZ: 
 const ANNEX = { minX: -S / 2 - 6.2, maxX: -S / 2 + 1.2, minZ: -2.6, maxZ: 2.6 }; // 锅炉房
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -1918,6 +1918,11 @@ export function build(ctx) {
   const dust = dustField(160, { x: S, y: H, z: S }, { opacity: 0.3, size: 0.045, color: 0xd8dce0 });
   group.add(dust);
   updaters.push(dust.userData.update);
+  // v1.10 C3：工业厅呼吸最急（26s 一息）——灰随楼的喘息明灭
+  updaters.push(() => {
+    dust.material.opacity = 0.3 * (1 + engine.breath * 0.3);
+    haze.material.opacity = 0.06 * (1 + engine.breath * 0.22);
+  });
   group.add(new THREE.AmbientLight(0x18181c, 0.55));
 
   return {
