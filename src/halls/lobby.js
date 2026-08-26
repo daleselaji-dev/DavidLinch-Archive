@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quotePlaque, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat, marbleMat, velvetMaterial
+  chevronMat, woodMat, marbleMat, velvetMaterial, rng, canvasTexture
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -672,6 +672,121 @@ export function build(ctx) {
     settee.rotation.y = Math.atan2(-sx * 2.6, 6.3);
     group.add(settee);
   }
+
+  // v1.4 五遍：纪念花圈——三脚画架 + 常青叶环 + 白花簇 + 丝绒绶带
+  // 立在碑的右后肩（瞻仰位看去正好衬着帷幕）。E → 花圈在架上轻晃，
+  // 两枚白瓣飘落（谁换的花，没有人承认）
+  const wreathEasel = new THREE.Group();
+  const easelWood = new THREE.MeshStandardMaterial({ color: 0x1a0f08, roughness: 0.55 });
+  wreathEasel.add(mergedMesh([
+    // 前腿一对（向上收拢）+ 后撑腿 + 搁圈横档 + 顶部靠档
+    xform(new THREE.CylinderGeometry(0.018, 0.024, 1.5, 8), -0.24, 0.75, 0.02, 0, 0, -0.17),
+    xform(new THREE.CylinderGeometry(0.018, 0.024, 1.5, 8), 0.24, 0.75, 0.02, 0, 0, 0.17),
+    xform(new THREE.CylinderGeometry(0.016, 0.022, 1.52, 8), 0, 0.73, -0.26, 0.36, 0, 0),
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.5, 8), 0, 0.52, 0.06, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.014, 0.014, 0.26, 8), 0, 1.3, -0.075, 0, 0, Math.PI / 2)
+  ], easelWood));
+  // 花圈枢轴：坐在搁档上、背靠顶档（微后仰）
+  const wreathPivot = new THREE.Group();
+  wreathPivot.position.set(0, 0.56, 0.1);
+  wreathPivot.rotation.x = -0.13;
+  const WR = 0.46;
+  wreathPivot.add(new THREE.Mesh(
+    new THREE.TorusGeometry(WR, 0.085, 8, 28),
+    new THREE.MeshStandardMaterial({ color: 0x0c1a0e, roughness: 0.95 })
+  ).translateY(WR + 0.05));
+  // 常青叶簇：一圈小二十面体，顶点色在两种绿之间抖动（单 mesh）
+  const wRng = rng(83);
+  const leafGeos = [];
+  for (let i = 0; i < 84; i++) {
+    const a = (i / 84) * Math.PI * 2 + (wRng() - 0.5) * 0.06;
+    const rad = WR + (wRng() - 0.5) * 0.15;
+    const blob = new THREE.IcosahedronGeometry(0.055 + wRng() * 0.05, 0);
+    const g0 = 0.16 + wRng() * 0.26; // 明度抖动（近黑绿 → 暗松绿，压掉圣诞感）
+    const cols = [];
+    for (let v = 0; v < blob.attributes.position.count; v++) cols.push(0.09 * g0, 0.3 * g0 + 0.05, 0.11 * g0);
+    blob.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    leafGeos.push(xform(blob,
+      Math.cos(a) * rad, WR + 0.05 + Math.sin(a) * rad, (wRng() - 0.5) * 0.13,
+      wRng() * Math.PI, wRng() * Math.PI, 0));
+  }
+  wreathPivot.add(mergedMesh(leafGeos, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.92, flatShading: true
+  })));
+  // 白花簇：奶白小球三三成组（单 mesh），下缘留给绶带
+  const bloomGeos = [];
+  for (let i = 0; i < 22; i++) {
+    const a = 0.5 + (i / 22) * (Math.PI * 2 - 1.0); // 底部留口
+    const rad = WR + (wRng() - 0.5) * 0.09;
+    bloomGeos.push(xform(new THREE.SphereGeometry(0.028 + wRng() * 0.02, 8, 6),
+      Math.cos(a) * rad, WR + 0.05 + Math.sin(a) * rad, 0.065 + wRng() * 0.035));
+  }
+  wreathPivot.add(mergedMesh(bloomGeos, new THREE.MeshStandardMaterial({
+    color: 0xe9e2d2, roughness: 0.62, envMapIntensity: 0.7
+  })));
+  // 丝绒绶带：斜跨一幅 + 底部垂尾一条（细金边、克制不添字）
+  const sashTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#380810';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(212,175,110,0.85)';
+    g.fillRect(0, 4, s, 2);
+    g.fillRect(0, s - 6, s, 2);
+  });
+  const sashMat = new THREE.MeshStandardMaterial({ map: sashTex, roughness: 0.55, side: THREE.DoubleSide });
+  wreathPivot.add(mergedMesh([
+    xform(new THREE.PlaneGeometry(0.13, 1.02), 0, WR + 0.05, 0.1, 0, 0, -0.68),
+    xform(new THREE.PlaneGeometry(0.13, 0.42), 0.3, 0.06, 0.1, 0.06, 0, -0.1)
+  ], sashMat));
+  wreathEasel.add(wreathPivot);
+  wreathEasel.position.set(1.75, 0, -3.05);
+  wreathEasel.rotation.y = -0.15;
+  group.add(wreathEasel);
+  // 飘落的白瓣 ×2（平时藏起；激活后错拍落下、边落边淡）
+  const petals = [];
+  for (let i = 0; i < 2; i++) {
+    const pm = new THREE.MeshStandardMaterial({
+      color: 0xe9e2d2, roughness: 0.6, transparent: true, opacity: 0, side: THREE.DoubleSide
+    });
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.05), pm);
+    p.visible = false;
+    wreathEasel.add(p);
+    petals.push({ mesh: p, t: -1, delay: i * 0.55, x0: -0.12 + i * 0.26 });
+  }
+  const wreathState = { t: -1 };
+  updaters.push((dt) => {
+    if (wreathState.t >= 0) {
+      wreathState.t += dt;
+      const decay = Math.max(0, 1 - wreathState.t * 0.5);
+      if (decay <= 0) { wreathState.t = -1; wreathPivot.rotation.z = 0; }
+      else wreathPivot.rotation.z = Math.sin(wreathState.t * 4.6) * 0.07 * decay;
+    }
+    for (const pt of petals) {
+      if (pt.t < 0) continue;
+      pt.t += dt;
+      const ft = pt.t - pt.delay;
+      if (ft < 0) continue;
+      if (ft > 2.2) { pt.t = -1; pt.mesh.visible = false; continue; }
+      pt.mesh.visible = true;
+      const fall = ft * ft * 0.22 + ft * 0.12;
+      pt.mesh.position.set(
+        pt.x0 + Math.sin(ft * 3.1) * 0.06,
+        Math.max(0.02, 0.62 - fall),
+        0.24 + ft * 0.05
+      );
+      pt.mesh.rotation.set(ft * 2.1, ft * 1.3, Math.sin(ft * 4) * 0.8);
+      pt.mesh.material.opacity = ft < 0.15 ? ft / 0.15 : Math.max(0, 1 - Math.max(0, ft - 1.5) / 0.7);
+    }
+  });
+  hotspots.add(wreathPivot.children[0], {
+    hint: 'E — 纪念花圈',
+    onActivate: () => {
+      wreathState.t = 0;
+      for (const pt of petals) pt.t = 0;
+      audio.sfxAt('creak', 1.75, -3.05, 0.22, 3);
+      setTimeout(() => audio.sfx('flutter', 0.18), 350);
+      ui.caption('白花每天都是新的。没人见过换花的人。', 4200);
+    }
+  });
 
   // 氛围: 地面烟雾 + 光尘
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
