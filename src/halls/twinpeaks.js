@@ -1019,6 +1019,46 @@ export function build(ctx) {
   pieGroup.add(plate, pie, dome);
   pieGroup.position.set(30.7, 1.12, -9.2);
   dinerInner.add(pieGroup);
+  // v1.4 六遍：切好的一角派 + 叉子（柜台另一端）——柜里那只派缺的一角在这儿。
+  // E → 碟子被推了一下（不是你推的）+ 叉子磕碟一声
+  const sliceGrp = new THREE.Group();
+  sliceGrp.add(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.02, 18),
+    new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.3 })));
+  const sliceShape = new THREE.Shape();
+  sliceShape.moveTo(0, 0);
+  sliceShape.absarc(0, 0, 0.155, -0.32, 0.32, false);
+  sliceShape.lineTo(0, 0);
+  const slice = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(sliceShape, { depth: 0.055, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.006, bevelSegments: 1 }),
+    new THREE.MeshStandardMaterial({ color: 0x8a4a1c, roughness: 0.7 })
+  );
+  slice.rotation.x = -Math.PI / 2;
+  slice.position.set(-0.085, 0.012, 0.03);
+  slice.rotation.z = 0.5;
+  sliceGrp.add(slice);
+  sliceGrp.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.012, 0.005, 0.1), 0.08, 0.016, -0.02, 0, 0.4, 0),
+    xform(new THREE.BoxGeometry(0.026, 0.005, 0.034), 0.055, 0.016, -0.075, 0, 0.4, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0xc9cdd4, roughness: 0.25, metalness: 0.9 })));
+  sliceGrp.position.set(30.66, 1.13, -6.15);
+  dinerInner.add(sliceGrp);
+  const sliceState = { t: -1 };
+  updaters.push((dt) => {
+    if (sliceState.t < 0) return;
+    sliceState.t += dt;
+    const u = sliceState.t;
+    if (u > 0.5) { sliceState.t = -1; return; }
+    sliceGrp.position.z = -6.15 - Math.sin(Math.min(1, u / 0.3) * Math.PI) * 0.035;
+    sliceGrp.rotation.y = Math.sin(u * 9) * 0.06 * (1 - u * 2);
+  });
+  hotspots.add(sliceGrp.children[0], {
+    hint: 'E — 一角樱桃派',
+    onActivate: () => {
+      if (sliceState.t < 0) sliceState.t = 0;
+      audio.sfxAt('click', 30.66, -6.15, 0.45, 3);
+      ui.caption('柜里那只派缺的一角，在这儿。没人点过它。', 4200);
+    }
+  });
   hotspots.add(dome, {
     hint: 'E — 玻璃罩下的樱桃派',
     onActivate: () => {

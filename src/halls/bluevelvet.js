@@ -737,6 +737,67 @@ export function build(ctx) {
       m.material.emissiveIntensity = 0.42 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.14;
     });
   });
+  // v1.4 六遍：吧台悬挂杯架——黄铜立柱对 + 深木顶板 + 四道倒挂杯轨 +
+  // 高脚杯倒吊一排（马天尼/红酒/浅碟三种车削剖面，缺两只——被桌上的酒杯借走了）。
+  // E → 整排轻晃、玻璃互碰细响（谁蹭过它？）
+  const rackGrp = new THREE.Group();
+  rackGrp.position.set(-8.08, 2.32, 0.8); // 枢轴放顶板处，晃动绕这里
+  rackGrp.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.018, 0.022, 1.2, 8), 0, -0.6, -1.35),
+    xform(new THREE.CylinderGeometry(0.018, 0.022, 1.2, 8), 0, -0.6, 1.35),
+    // 杯轨四道（成对细条，中缝走杯脚）
+    ...[-0.135, -0.045, 0.045, 0.135].flatMap((ox) => [
+      xform(new THREE.BoxGeometry(0.014, 0.01, 2.9), ox - 0.022, -0.045, 0),
+      xform(new THREE.BoxGeometry(0.014, 0.01, 2.9), ox + 0.022, -0.045, 0)
+    ])
+  ], brassMat));
+  rackGrp.add(new THREE.Mesh(
+    roundedBoxGeo(0.42, 0.035, 3.0, 0.012),
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [22, 13, 15], planks: 1, size: 128 }), roughness: 0.55 })
+  ));
+  const stemProfiles = [
+    // 马天尼锥 / 红酒杯 / 浅碟香槟（倒挂：脚在上 y0，口在下）
+    [[0.06, -0.19], [0.008, -0.1], [0.006, -0.012], [0.032, -0.006], [0.033, 0]],
+    [[0.055, -0.19], [0.05, -0.155], [0.028, -0.115], [0.008, -0.095], [0.006, -0.012], [0.032, -0.006], [0.033, 0]],
+    [[0.052, -0.17], [0.045, -0.125], [0.012, -0.1], [0.006, -0.012], [0.032, -0.006], [0.033, 0]]
+  ];
+  const stemRng = rng(41);
+  const stemGeos = [];
+  for (let rail = 0; rail < 4; rail++) {
+    const n = rail % 2 === 0 ? 4 : 3;
+    for (let i = 0; i < n; i++) {
+      if (rail === 2 && i === 1) continue; // 缺的那两只在卡座桌上
+      if (rail === 3 && i === 2) continue;
+      const prof = stemProfiles[(rail + i) % 3];
+      const geo = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 10);
+      stemGeos.push(xform(geo,
+        -0.135 + rail * 0.09, -0.056,
+        -1.2 + i * (2.4 / (n - 1)) + (stemRng() - 0.5) * 0.06));
+      geo.dispose();
+    }
+  }
+  rackGrp.add(mergedMesh(stemGeos, new THREE.MeshPhysicalMaterial({
+    color: 0xcfe4ff, transparent: true, opacity: 0.24, roughness: 0.06,
+    envMapIntensity: 1.8, depthWrite: false, side: THREE.DoubleSide
+  })));
+  bar.add(rackGrp);
+  const rackState = { t: -1 };
+  updaters.push((dt) => {
+    if (rackState.t < 0) return;
+    rackState.t += dt;
+    const decay = Math.max(0, 1 - rackState.t * 0.55);
+    if (decay <= 0) { rackState.t = -1; rackGrp.rotation.z = 0; return; }
+    rackGrp.rotation.z = Math.sin(rackState.t * 6.2) * 0.028 * decay;
+  });
+  hotspots.add(rackGrp.children[1], {
+    hint: 'E — 杯架',
+    onActivate: () => {
+      rackState.t = 0;
+      audio.sfxAt('iceclink', -8.08, 0.8, 0.5, 4);
+      setTimeout(() => audio.sfxAt('chime', -8.08, 0.8, 0.16, 4), 420);
+      ui.caption('杯子都口朝下。免得接住什么。', 4000);
+    }
+  });
   // 吧凳 ×3（软包 + 铬柱，合并两组）
   const stSeatGeos = [];
   const stPoleGeos = [];
