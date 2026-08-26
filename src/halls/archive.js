@@ -106,6 +106,46 @@ export function build(ctx) {
   ];
   group.add(mergedMesh(dadoGeos, new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 0.6 })));
 
+  // v1.4 四遍：跨廊分隔拱两道（z=±12.6，避开灯具/顶梁/展牌）——
+  // 48 米长廊被切成三进，纵深终于可读：壁柱 + 柱帽 + 过梁 + 黄铜细线 +
+  // 居中垂挂的双面小铜牌（菱形 + 双线框，克制不添字）
+  const archWoodMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [26, 18, 11], planks: 1, size: 128 }), roughness: 0.7
+  });
+  const archFrameGeos = [];
+  const archBrassGeos = [];
+  for (const az of [-12.6, 12.6]) {
+    for (const sx of [-1, 1]) {
+      archFrameGeos.push(xform(new THREE.BoxGeometry(0.26, 3.7, 0.34), sx * (W / 2 - 0.14), 1.85, az));
+      archFrameGeos.push(xform(new THREE.BoxGeometry(0.36, 0.2, 0.44), sx * (W / 2 - 0.15), 3.8, az));
+      archFrameGeos.push(xform(new THREE.BoxGeometry(0.34, 0.12, 0.42), sx * (W / 2 - 0.15), 0.06, az));
+    }
+    archFrameGeos.push(xform(new THREE.BoxGeometry(W, 0.55, 0.3), 0, 4.17, az));
+    archBrassGeos.push(xform(new THREE.BoxGeometry(W - 0.4, 0.05, 0.34), 0, 3.87, az));
+    archBrassGeos.push(xform(new THREE.CylinderGeometry(0.008, 0.008, 0.36, 6), -0.12, 3.72, az));
+    archBrassGeos.push(xform(new THREE.CylinderGeometry(0.008, 0.008, 0.36, 6), 0.12, 3.72, az));
+  }
+  group.add(mergedMesh(archFrameGeos, archWoodMat), mergedMesh(archBrassGeos, M.brass));
+  const archPlateTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#211508';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#c9a24e';
+    g.lineWidth = 2.5;
+    g.strokeRect(6, 14, s - 12, s - 28);
+    g.lineWidth = 1.2;
+    g.strokeRect(11, 19, s - 22, s - 38);
+    g.save();
+    g.translate(s / 2, s / 2);
+    g.rotate(Math.PI / 4);
+    g.fillStyle = '#c9a24e';
+    g.fillRect(-4.5, -4.5, 9, 9);
+    g.restore();
+  });
+  group.add(mergedMesh(
+    [-12.6, 12.6].map((az) => xform(new THREE.BoxGeometry(0.52, 0.24, 0.025), 0, 3.44, az)),
+    new THREE.MeshStandardMaterial({ map: archPlateTex, roughness: 0.5, metalness: 0.35 })
+  ));
+
   // 荧光灯具 v2（折板反光罩 + 双管 + 吊杆；顺序闪烁；彩蛋时逐管熄灭）
   const tubes = [];
   for (let i = 0; i < 7; i++) {
