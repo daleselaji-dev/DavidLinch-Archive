@@ -1107,30 +1107,120 @@ export function build(ctx) {
     onActivate: () => {
       curtainState.open = curtainState.open ? 0 : 1;
       audio.sfx('curtain');
-      ui.caption(curtainState.open ? '帘子后面：一只坐垫，一支蜡烛。' : '帘子合上了。', 3000);
+      ui.caption(curtainState.open ? '帘子后面：一只坐垫，几支蜡烛。' : '帘子合上了。', 3000);
     }
   });
 
-  // 冥想坐垫 + 蜡烛
+  // 冥想角 v2（v1.4 四遍）：草编方垫 + 真禅垫（zafu 车削鼓身 + 辐向褶裥 +
+  // 顶部布扣）+ 蜡烛新月弧 ×5（高矮胖瘦不重样、黄铜滴盘、烛芯共享火苗材质）
+  // + 香钵一只（细烟像一根悬着的线——只有深水序列外才看得清）
+  const zabuTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#8a7448';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(58,46,26,0.5)';
+    g.lineWidth = 2;
+    for (let i = 0; i < s; i += 5) {
+      g.beginPath(); g.moveTo(0, i); g.lineTo(s, i); g.stroke();
+    }
+    g.strokeStyle = 'rgba(120,100,60,0.4)';
+    for (let i = 0; i < s; i += 16) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i, s); g.stroke();
+    }
+  }, 2, 2);
+  const zabuton = roundedBoxMesh(1.2, 0.05, 1.2, 0.02,
+    new THREE.MeshStandardMaterial({ map: zabuTex, roughness: 0.95 }));
+  zabuton.position.set(4.5, 0.025, -8.1);
+  group.add(zabuton);
+  const pleatTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#3c1420';
+    g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 8; i++) {
+      const x = (i / 8) * s;
+      const grad = g.createLinearGradient(x, 0, x + s / 8, 0);
+      grad.addColorStop(0, 'rgba(14,4,8,0.55)');
+      grad.addColorStop(0.45, 'rgba(94,40,56,0.28)');
+      grad.addColorStop(1, 'rgba(14,4,8,0.55)');
+      g.fillStyle = grad;
+      g.fillRect(x, 0, s / 8, s);
+    }
+  }, 5, 1);
   const cushion = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.45, 0.5, 0.18, 18),
-    new THREE.MeshStandardMaterial({ color: 0x3c1420, roughness: 0.9 })
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.0, 0.008), new THREE.Vector2(0.4, 0.015), new THREE.Vector2(0.49, 0.1),
+      new THREE.Vector2(0.47, 0.2), new THREE.Vector2(0.32, 0.265), new THREE.Vector2(0.06, 0.285),
+      new THREE.Vector2(0.0, 0.285)
+    ], 22),
+    new THREE.MeshStandardMaterial({ map: pleatTex, roughness: 0.92 })
   );
-  cushion.position.set(4.5, 0.09, -8.1);
+  cushion.position.set(4.5, 0.05, -8.1);
   group.add(cushion);
-  const candle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.035, 0.04, 0.22, 8),
-    new THREE.MeshStandardMaterial({ color: 0xd9cfc0, roughness: 0.8 })
+  const cushionBtn = new THREE.Mesh(
+    new THREE.SphereGeometry(0.035, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x1c0a10, roughness: 0.8 })
   );
-  candle.position.set(5.5, 0.11, -8.6);
-  const flame = new THREE.Mesh(
-    new THREE.SphereGeometry(0.022, 8, 8),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffb45e, emissiveIntensity: 4 })
+  cushionBtn.scale.y = 0.5;
+  cushionBtn.position.set(4.5, 0.335, -8.1);
+  group.add(cushionBtn);
+  // 蜡烛新月弧：面向坐垫围合（高矮/粗细 seeded 不重样）
+  const nr = rng(73);
+  const candleGeos = [];
+  const flameGeos = [];
+  const trayGeos = [];
+  const CANDLE_C = { x: 5.42, z: -8.52 };
+  for (let i = 0; i < 5; i++) {
+    const a = 2.1 + (i / 4) * 1.9; // 朝坐垫的反侧留口
+    const cx = CANDLE_C.x + Math.cos(a) * 0.42;
+    const cz = CANDLE_C.z + Math.sin(a) * 0.42;
+    const h = 0.09 + nr() * 0.17;
+    const r = 0.028 + nr() * 0.016;
+    candleGeos.push(xform(new THREE.CylinderGeometry(r * 0.94, r, h, 10), cx, 0.02 + h / 2, cz));
+    // 蜡泪：一侧挂一条细柱
+    candleGeos.push(xform(
+      new THREE.CylinderGeometry(0.006, 0.009, h * 0.55, 6),
+      cx + Math.cos(a + 1.2) * r, 0.02 + h * 0.65, cz + Math.sin(a + 1.2) * r
+    ));
+    flameGeos.push(xform(new THREE.SphereGeometry(0.02, 8, 8), cx, 0.045 + h, cz));
+    trayGeos.push(xform(new THREE.CylinderGeometry(r + 0.028, r + 0.034, 0.012, 12), cx, 0.026, cz));
+  }
+  group.add(
+    mergedMesh(candleGeos, new THREE.MeshStandardMaterial({ color: 0xd9cfc0, roughness: 0.75 })),
+    mergedMesh(trayGeos, M.brass)
   );
-  flame.position.set(5.5, 0.26, -8.6);
-  const candleLight = new THREE.PointLight(0xffb45e, 2.4, 5, 2);
-  candleLight.position.set(5.5, 0.5, -8.6);
-  group.add(candle, flame, candleLight);
+  const flame = mergedMesh(flameGeos, new THREE.MeshStandardMaterial({
+    color: 0x111111, emissive: 0xffb45e, emissiveIntensity: 4
+  }));
+  group.add(flame);
+  const candleLight = new THREE.PointLight(0xffb45e, 3.2, 6, 1.9);
+  candleLight.position.set(CANDLE_C.x, 0.65, CANDLE_C.z);
+  group.add(candleLight);
+  // 深水预感：坐垫正上方一汪极淡的冷光（与蜡烛暖光对峙——潜下去之前的水面）
+  const poolGlow = new THREE.PointLight(0x4a6a8a, 1.3, 4.5, 1.8);
+  poolGlow.position.set(4.5, 2.6, -8.1);
+  group.add(poolGlow);
+  // 香钵：黑陶小碗 + 立香 + 一线细烟
+  const incense = new THREE.Group();
+  incense.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0, 0.004), new THREE.Vector2(0.05, 0.008), new THREE.Vector2(0.062, 0.035),
+      new THREE.Vector2(0.055, 0.05)
+    ], 14),
+    new THREE.MeshStandardMaterial({ color: 0x18130f, roughness: 0.55 })
+  ));
+  const stick = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.004, 0.004, 0.24, 6),
+    new THREE.MeshStandardMaterial({ color: 0x5c3a20, roughness: 0.9 })
+  );
+  stick.position.y = 0.15;
+  stick.rotation.z = 0.07;
+  incense.add(stick);
+  incense.position.set(3.55, 0, -8.75);
+  group.add(incense);
+  const incenseWisp = smokeLayer(4, { x: 0.04, z: 0.04 }, {
+    opacity: 0.12, size: 0.22, yBase: 0.3, ySpread: 0.55, color: 0xcfd4da
+  });
+  incenseWisp.position.set(3.56, 0, -8.75);
+  group.add(incenseWisp);
+  updaters.push(incenseWisp.userData.update);
   updaters.push((dt, t) => {
     flame.material.emissiveIntensity = 3.4 + Math.sin(t * 9.3) * 1 + Math.random() * 0.4;
     candleLight.intensity = 2.1 + Math.sin(t * 8.1) * 0.5;
