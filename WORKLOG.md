@@ -145,3 +145,8 @@
 | 2026-08-26 08:42 | 2026-08-26 08:55 | 4/3 | 大厅减法收尾：长凳对退场、花圈移位帷幕脚下（sfxAt 坐标随迁）；五厅 quotePlaque→quoteStand 全量换装（studio/twinpeaks/mulholland/eraserhead/bluevelvet 各接 quoteStandUpdater）；main.js 换厅时 hidePlaque + 版本 1.5.0 | 编辑七文件 |
 | 2026-08-26 08:55 | 2026-08-26 09:03 | 6/2 | 其他厅减法：双峰缺角派块删除、蓝丝绒吊杯架块删除；单测更新——narration.test 模式表/TTS 退场扫描/quoteStand 审计/note-aside 配额/禁元叙述扫描；新建 murmur.test 9 用例；electron 冒烟旁白循环 murmur 化 + INTERACTIVE_MIN 随普查下调锁 -1 | 186 用例全绿 |
 | 2026-08-26 09:03 | 2026-08-26 09:10 | 8 前置 | vite build 全绿；xvfb electron --smoke 全绿（七厅 156–193 mesh / 29k–94k tris 预算内、交互 117 全激活、murmur speak/stop 无异常）；出生点+红房间截屏复核：碑独立成焦点无遮挡、红房间帷幕单件连续无接缝 | /tmp/shots1 /tmp/shots2 |
+| 2026-08-26 09:10 | 2026-08-26 09:14 | 7/8 | 门禁 32–35 入册 + CHANGELOG v1.5.0 段 + README/TESTING/BUILD 换新（旁白四档新表/立牌抽查/117 普查/产物名）；版本 bump 后 npm test 186 + npm run smoke 复跑全绿 | commit `2fafcbb`…`f639972` 五连 |
+| 2026-08-26 09:14 | 2026-08-26 09:24 | 8 | **Release 1.5.0**：bump 后运行时冒烟复跑全绿 → `npm run dist:win` EXIT=0（Portable 100.0MB + Setup 100.2MB，`file` PE32 校验 + asar 内 package.json 确认 1.5.0）→ SHA256SUMS 重写（8793b180…/22eec20f…）→ 旧 1.4.0 工件退场；补拍立牌显影验证图（走近 3m：板面原话显影 + 侧卡原话/解释/评述浮现） | commit `ca16b9c`；/tmp/shots3 |
+
+**v1.5 说明**：本轮为「减法轮」——门禁 34 明确记录交互 122→117 是**有意的减**
+（清单打卡件退场），不是回退；冒烟阈值随普查下调并继续锁 -1 防继续流失。
