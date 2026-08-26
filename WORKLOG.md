@@ -113,3 +113,35 @@
 | 2026-08-26 08:03 | 2026-08-26 08:11 | 阶段 8 | **Release 1.4.0**：版本 bump（package.json + src/main.js `__SV__.version`）；CHANGELOG v1.4.0 段（材质五通道/六遍抛光清单/122 交互/11 音色/预算 240）；README 特性与 PS5-tier 段换新、BUILD/TESTING 产物名 1.4.0；VM 无 wine → 按 BUILD.md 重装 wine64+wine32:i386（tmux 后台并行）；版本 bump 后三连复跑全绿（166 单测/静态冒烟/运行时冒烟）；`npm run dist:win` 双目标成功——Portable 100.0MB + Setup(NSIS) 100.2MB，`file` PE32 校验通过；SHA256SUMS.txt 重写（8a709a81…/dae05302…）；门禁 31 六项全勾 | commit `ca11f2e`（08:11:27Z） |
 
 **v1.4 时长合计：2026-08-26 00:08Z 开工 → 08:11Z 发布 commit ≈ 8 小时 03 分连续工作**（上表 30 段起止与 git commit 时钟逐条互证；发布后时间戳校对尾巴 commit 不计入）。
+
+---
+
+# WORKLOG — v1.5.0 制作时间记录（UTC）
+
+> 本轮主题：**减法 + 重新编排（show, don't tell）**。用户反馈：细节有进步但
+> 「有些为了添加而添加，显得凌乱」——要求 ①真人感配音退场换「介于真实与虚假
+> 之间」的代替方案 ②墙挂名言换走近才显示的立牌（quote+一句解释+一句评述）
+> ③大厅清理、中央焦点不许被「一排一排」打断 ④红房间帷幕整体化
+> ⑤全馆去堆砌、制作方法不入作品。
+
+## v1.5 计划（减法清单 + 立牌 UX + 非真人配音）
+
+**减法清单**：大厅——伞架（立在出生点→碑的视线上）/丝绒长凳对（横在半路把
+中景切成排）/绒绳围栏/立式烟灰缸/内金圈（同心环四五道→一道）全部退场，
+花圈从碑后肩移到帷幕脚下；双峰——缺角派退场（罩下整派已把话说完）；
+蓝丝绒——吊杯架退场（酒瓶背光已说完吧台的话）；「关于画质」页整页移除。
+
+**立牌触发 UX**：`quoteStand`（黄铜细杆+斜面小板）远看近黑只有一枚微亮引号；
+`quoteStandUpdater` 每帧测距，进 3m → 板上原话显影（透明层渐显+自发光渐亮）
++ HUD 侧卡浮现「原话 + note 一句解释 + aside 一句评述」；出 3.9m（迟滞）收回。
+
+**非真人配音**：`MurmurVoice`——粉噪过两级成形带通（F1/F2 在真实语音共振峰域
+内游走但绝不成词）作气声音节 + 无线电静电碎语随机替换 + 句尾一次呼吸；
+电平 0.15 压在氛围之下。模式表 letters→murmur→jazz→off，TTS 全库删除。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-26 08:36 | 2026-08-26 08:42 | 0 | 续接工作现场（v1.4.0 基线 9e95d28）：环境复核（node_modules/wine 均就绪）、盘点半成品改动（murmur/narration/kit/overlay/essays/lobby 七文件）、大厅残留 settees 块引用已删的 velvetMaterial——先修坏文件 | git status/diff 盘点 |
+| 2026-08-26 08:42 | 2026-08-26 08:55 | 4/3 | 大厅减法收尾：长凳对退场、花圈移位帷幕脚下（sfxAt 坐标随迁）；五厅 quotePlaque→quoteStand 全量换装（studio/twinpeaks/mulholland/eraserhead/bluevelvet 各接 quoteStandUpdater）；main.js 换厅时 hidePlaque + 版本 1.5.0 | 编辑七文件 |
+| 2026-08-26 08:55 | 2026-08-26 09:03 | 6/2 | 其他厅减法：双峰缺角派块删除、蓝丝绒吊杯架块删除；单测更新——narration.test 模式表/TTS 退场扫描/quoteStand 审计/note-aside 配额/禁元叙述扫描；新建 murmur.test 9 用例；electron 冒烟旁白循环 murmur 化 + INTERACTIVE_MIN 随普查下调锁 -1 | 186 用例全绿 |
+| 2026-08-26 09:03 | 2026-08-26 09:10 | 8 前置 | vite build 全绿；xvfb electron --smoke 全绿（七厅 156–193 mesh / 29k–94k tris 预算内、交互 117 全激活、murmur speak/stop 无异常）；出生点+红房间截屏复核：碑独立成焦点无遮挡、红房间帷幕单件连续无接缝 | /tmp/shots1 /tmp/shots2 |

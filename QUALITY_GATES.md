@@ -7,7 +7,9 @@
 > **v1.3.0 新增门禁 19–24（讲解 v1.0 克制+零叙事剧透 / 交互密度 / PS4-tier 材质模型清单 /
 > 性能预算保持 / 音景抛光 / 1.3.0 重新打包）。**
 > **v1.4.0 新增门禁 25–31（讲解配额保持 / PS5-tier 画质 P1–P10 / 分厅重做清单 /
-> 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。未全绿不得交付。**
+> 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。**
+> **v1.5.0 新增门禁 32–35（非真人配音 / show-don't-tell 立牌 / 大厅焦点+全馆减法 /
+> 1.5.0 重新打包）。未全绿不得交付。**
 
 ## 门禁清单
 
@@ -368,6 +370,69 @@
 - [x] `release/SmokeVelvet-LynchArchive-Setup-1.4.0.exe`（100.2MB，NSIS oneClick）
 - [x] `SHA256SUMS.txt` 更新（8a709a81… / dae05302…）+ `file` PE32 结构校验通过
 - [x] 文档（README/BUILD/TESTING/CHANGELOG/本文件）同步 1.4.0
+
+---
+
+### 32. 非真人配音 —— 介于真实与虚假之间（v1.5 新增）
+- [x] **清晰真人朗读（Web Speech TTS）全库退场**：`speechSynthesis` / `SpeechSynthesisUtterance`
+      在 `src/` 零出现（narration.test.js 源码级扫描断言，门禁写死防回潮）
+- [x] **「低语」代替配音**（`src/audio/murmur.js` MurmurVoice）：气声音节（粉噪过两级
+      成形带通，F1/F2 落在真实语音共振峰域内游走但绝不成词）+ 无线电静电碎语 +
+      句尾一次呼吸；总线电平 ≤0.25 压在氛围之下——听得出「有个声音在说话」，
+      永远听不清说什么字
+- [x] 模式表更新：`letters 字母显现（默认）→ murmur 低语+字母 → jazz 爵士+字母 → off`；
+      字母显现仍为一切开启模式的基座（无障碍字幕）
+- [x] murmurPlan 纯函数入单测（murmur.test.js 9 用例）：确定性/时间线单调/句尾必呼吸/
+      共振峰域/标点留白/静电占比 <40%/未解锁与静音安全空转
+- [x] 旁白内容保持 v1.0 克制配额：全馆 8 条、每条 ≤16 字、总 84 字、首访一次、
+      延迟 2.6s（narration.test.js 保持断言）
+
+**验证方式**：`npm test`（murmur.test.js + narration.test.js TTS 退场扫描）+
+`--smoke` 模式循环含 murmur 且 speak/stop 无异常。✅ 全绿。
+
+### 33. show, don't tell —— 走近才显影的引语立牌（v1.5 新增）
+- [x] **墙挂大字展签（quotePlaque）全馆退场**（源码级扫描断言）；取代者为
+      `kit.quoteStand`：黄铜细杆托斜面小板，远看近黑只有一枚微亮引号——
+      **字在你走近之前不存在**
+- [x] **接近显影**：`quoteStandUpdater` 入厅 updaters，玩家进 3m 半径 → 板上原话
+      缓缓显影（透明显影层 + 自发光渐亮），同时 HUD 侧卡浮现
+      **原话 + 一句解释（note）+ 一句评述（aside）**；走出（带 0.9m 迟滞）即收回
+- [x] 随行文案配额：note/aside 各 ≤36 字、单句、事实级（趣闻/策展短评克制不展开）——
+      单测断言长度与单句性；每厅立牌 ≤1、每座必接接近驱动器（源码级审计）
+- [x] **元叙述清零**：展陈文案（引语+note/aside+旁白）不谈制作方法
+      （「程序化/建模/渲染/多边形/着色器/PS5/引擎/帧率/贴图」禁词扫描）；
+      「关于画质」页（ABOUT_RENDER）整页移除——合规页保留必要的版权事实陈述
+- [x] 零原作叙事保持：叙事禁词/角色名/对白扫描全绿（门禁 19 断言不变）
+
+**验证方式**：`npm test` narration.test.js 立牌组 + 截屏复核（远景近黑 / 走近显影 /
+侧卡浮现）。✅ 全绿。
+
+### 34. 大厅焦点修复 + 全馆减法（v1.5 新增）
+- [x] **中央唯一焦点**：出生点 → 纪念碑视线全程无遮挡——伞架（正立在视线上）/
+      丝绒长凳对（横在半路「一排一排」）/ 绒绳围栏 / 立式烟灰缸全部退场；
+      纪念花圈从碑后肩移到帷幕脚下柱间
+- [x] **地面语言收敛**：同心圈从四五道减到一道外金圈 + 大理石镶边带；
+      碑体加低位暖洗光（steleWash），进门第一眼读得到名字与年份
+- [x] **帷幕整体化**：`curtainRing` 重写为一件连续圆柱幕（褶皱沿整弧不断、
+      整圆时波数取整 + 接缝法线焊接，弧径向段数按弧长自适应）——大厅环幕、
+      幕头、**红房间围合幕**全部单件成型，不再是多段布片拼出的无来由接缝
+- [x] **交互减法（有意的减）**：全馆非导航交互 122 → **117**（lobby 10 / archive 24 /
+      eraserhead 17 / bluevelvet 15 / studio 18 / twinpeaks 17 / mulholland 16）；
+      去掉的全是清单打卡件：大厅伞架、双峰缺角派（罩下整派已把话说完）、
+      蓝丝绒吊杯架（酒瓶背光已说完吧台的话）;真正有意味的连锁全部保留
+- [x] 冒烟阈值随普查下调并锁 -1：INTERACTIVE_MIN lobby 9 / archive 23 / eraserhead 16 /
+      bluevelvet 14 / twinpeaks 16 / mulholland 15 / studio 17
+- [x] 大厅场景瘦身实证：meshes 203→156、tris 12.4万→7.0万、呼吸感回归
+      （冒烟统计 + 出生点截屏复核）
+
+**验证方式**：`--smoke` 统计 + 出生点/红房间截屏逐张复核。✅ 全绿。
+
+### 35. Release 1.5.0（v1.5 新增）
+- [x] `npm test`（186 用例）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.5.0.exe`（PE32 GUI x64）
+- [x] `release/SmokeVelvet-LynchArchive-Setup-1.5.0.exe`（NSIS oneClick）
+- [x] `SHA256SUMS.txt` 更新 + `file` PE32 结构校验
+- [x] 文档（README/BUILD/TESTING/CHANGELOG/本文件）同步 1.5.0
 
 ---
 
