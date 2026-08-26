@@ -369,6 +369,28 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
   });
   g.add(new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.44, 1.44), glassMat)
     .translateX(-0.32).translateY(1.32));
+  // v1.4 v2.5（P3 装配感）：门缝线 + 铬门把手 + 引擎盖飞饰 + 侧后视镜 + 排气尾管
+  const seamGeos = [];
+  for (const z of [0.815, -0.815]) {
+    for (const x of [0.62, -0.52]) {
+      seamGeos.push(xform(new THREE.BoxGeometry(0.016, 0.52, 0.02), x, 0.8, z));
+    }
+    seamGeos.push(xform(new THREE.BoxGeometry(1.14, 0.016, 0.02), 0.05, 1.03, z));
+  }
+  g.add(mergedMesh(seamGeos, new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.6 })));
+  const detailGeos = [
+    xform(new THREE.CylinderGeometry(0.018, 0.018, 0.15, 8), 0.08, 0.96, 0.84, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.018, 0.018, 0.15, 8), 0.08, 0.96, -0.84, 0, 0, Math.PI / 2),
+    xform(new THREE.SphereGeometry(0.03, 8, 6), 1.85, 1.14, 0),
+    xform(new THREE.BoxGeometry(0.15, 0.05, 0.012), 1.76, 1.16, 0, 0, 0, 0.28),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.13, 6), 0.62, 1.1, 0.87, 0, 0, 1.2),
+    xform(new THREE.SphereGeometry(0.045, 8, 6), 0.66, 1.16, 0.92)
+  ];
+  g.add(mergedMesh(detailGeos, M.chrome));
+  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.042, 0.5, 8), M.iron);
+  exhaust.rotation.z = Math.PI / 2;
+  exhaust.position.set(-2.05, 0.26, -0.45);
+  g.add(exhaust);
   // 车轮：胎（torus）+ 铬毂盖（lathe）
   const tireGeos = [];
   const capGeos = [];

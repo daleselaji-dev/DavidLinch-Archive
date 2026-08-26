@@ -766,6 +766,39 @@ export function micStand() {
   return g;
 }
 
+/**
+ * 远景山脊/屋脊剪影环（v1.4 P8 三层景深的最远层）。
+ * 双正弦包络 + seeded 抖动的锯齿高程，环形三角带；fog:false 保持剪影锐利。
+ */
+export function ridgeRing(radius, {
+  baseH = 6, amp = 12, segs = 64, color = 0x040810, seed = 71,
+  arc = Math.PI * 2, start = 0
+} = {}) {
+  const r = rng(seed);
+  const p1 = r() * 7;
+  const p2 = r() * 7;
+  const heights = [];
+  for (let i = 0; i <= segs; i++) {
+    const k = (0.5 + 0.5 * Math.sin(i * 0.52 + p1)) * (0.55 + 0.45 * Math.sin(i * 0.21 + p2));
+    heights.push(baseH + amp * k + (r() - 0.5) * amp * 0.16);
+  }
+  if (arc >= Math.PI * 2 - 1e-6) heights[segs] = heights[0]; // 整环闭合
+  const pos = [];
+  for (let i = 0; i < segs; i++) {
+    const a0 = start + (i / segs) * arc;
+    const a1 = start + ((i + 1) / segs) * arc;
+    const x0 = Math.cos(a0) * radius;
+    const z0 = Math.sin(a0) * radius;
+    const x1 = Math.cos(a1) * radius;
+    const z1 = Math.sin(a1) * radius;
+    pos.push(x0, 0, z0, x1, 0, z1, x0, heights[i], z0);
+    pos.push(x1, 0, z1, x1, heights[i + 1], z1, x0, heights[i], z0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide }));
+}
+
 /** 松树（分层锥体，比单锥更像真树） */
 export function pineGeometryMaterial() {
   const layers = [

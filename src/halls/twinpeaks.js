@@ -13,7 +13,7 @@ import {
   zoneTrigger, zonesBounds, pineGeometryMaterial,
   roundedBoxMesh, mergedMesh, xform, rockMesh,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
-  chevronMat, asphaltMat, woodMat, waterMat
+  chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
@@ -28,7 +28,13 @@ export const meta = {
   narration: 'twinpeaks',
   space: 'outdoor',
   floorSfx: 'dirt',
-  look: { saturation: 0.82, tint: 0xdcecdf, fogColor: 0x030805, fogDensity: 0.028, bg: 0x02040a, exposure: 0.95, bloom: 0.8 }
+  look: {
+    saturation: 0.82, tint: 0xdcecdf, fogColor: 0x030805, fogDensity: 0.028,
+    bg: 0x02040a, exposure: 0.95, bloom: 0.8,
+    // v1.4：月夜冷分级——暗部青蓝、高光微收暖；halation 低（夜景只留窗光晕）
+    halation: 0.11,
+    grade: { lift: [0.0, 0.008, 0.016], gamma: [1.0, 1.01, 1.02], gain: [0.95, 1.0, 1.05] }
+  }
 };
 
 // ---------- 可逛分区（union 边界） ----------
@@ -127,6 +133,17 @@ export function build(ctx) {
   const moonLight = new THREE.DirectionalLight(0x8ea6c9, 0.55);
   moonLight.position.set(-30, 50, -60);
   group.add(moonLight);
+
+  // ---------- 远景三层（v1.4 P8）：松林(中景) → 山脊剪影两环 → 双峰主峰 ----------
+  const ridgeFar = ridgeRing(122, { baseH: 9, amp: 26, segs: 72, color: 0x020409, seed: 71 });
+  const ridgeNear = ridgeRing(90, { baseH: 5, amp: 15, segs: 64, color: 0x040a10, seed: 72 });
+  group.add(ridgeFar, ridgeNear);
+  // 月下并肩的两座主峰（本厅的名字）
+  const peaks = mergedMesh([
+    xform(new THREE.ConeGeometry(30, 52, 6), -52, 26, -100),
+    xform(new THREE.ConeGeometry(23, 40, 6), -80, 20, -88)
+  ], new THREE.MeshBasicMaterial({ color: 0x03060d, fog: false }));
+  group.add(peaks);
 
   // ---------- 松林（实例化，避开可逛分区） ----------
   const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
@@ -582,9 +599,9 @@ export function build(ctx) {
   dCeil.rotation.x = Math.PI / 2;
   dCeil.position.set(29.6, 3.6, -7.8);
   dinerInner.add(dw1, dw2, dw3, dCeil);
-  // 柜台（高蜡面木台 + 金属包边踢脚）
+  // 柜台（v1.4 P2 欠账落地：五十年代 boomerang 层压板台面 + 金属包边踢脚）
   const counterTop = roundedBoxMesh(1.1, 0.1, 6.4, 0.04,
-    woodMat({ base: [58, 34, 16], planks: 2, size: 256, seed: 36, gloss: 0.85, env: 1.0 }));
+    boomerangMat({ bg: [232, 222, 198], tones: ['#b8a682', '#8f2032', '#3a4652'], size: 512, seed: 37, repX: 2, repY: 6 }));
   counterTop.position.set(30.7, 1.06, -7.8);
   const counterBody = roundedBoxMesh(0.95, 1.0, 6.3, 0.04,
     new THREE.MeshStandardMaterial({ color: 0x321820, roughness: 0.55 }));
@@ -730,15 +747,10 @@ export function build(ctx) {
     }
   }
   dinerInner.add(mergedMesh(benchGeos, boothVinyl), mergedMesh(plinthGeos, M.darkWood));
-  // 桌：奶油层压面 + 铬包边 + 铬柱独脚
-  const laminate = new THREE.MeshStandardMaterial({
-    map: canvasTexture(128, (g, s) => {
-      g.fillStyle = '#ded4bd';
-      g.fillRect(0, 0, s, s);
-      g.fillStyle = 'rgba(120,110,90,0.5)';
-      for (let i = 0; i < 260; i++) g.fillRect(Math.random() * s, Math.random() * s, 1.4, 1.4);
-    }),
-    roughness: 0.32, envMapIntensity: 0.9
+  // 桌：boomerang 层压面（比柜台细一号的纹样）+ 铬包边 + 铬柱独脚
+  const laminate = boomerangMat({
+    bg: [222, 212, 189], tones: ['#a89467', '#7e1220', '#2e3a44'],
+    size: 256, seed: 39, count: 24, repX: 1, repY: 2
   });
   const boothTable = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.045, 0.92), laminate);
   boothTable.position.set(28.55, 0.79, -3.98);
