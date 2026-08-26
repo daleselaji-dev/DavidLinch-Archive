@@ -620,6 +620,13 @@ export class AudioEngine {
         tone('sine', 1430, 1418, 0.2, 0.018, 0.24);
         break;
       }
+      case 'glasswipe': { // 指腹擦过凝雾玻璃：湿滑黏滞双短鸣 + 底下一层软擦 + 收尾高频珠
+        noise('pink', 0.34, 'bandpass', 920, 1.4, 0.042, 0, 0.08);
+        tone('sine', 1180, 1430, 0.16, 0.028, 0.05);
+        tone('sine', 1540, 1210, 0.19, 0.024, 0.24);
+        noise('white', 0.06, 'highpass', 4200, 2, 0.012, 0.32);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

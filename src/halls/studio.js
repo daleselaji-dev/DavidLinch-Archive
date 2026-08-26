@@ -208,6 +208,104 @@ export function build(ctx) {
   notebook.position.set(1.28, 0.917, -0.28);
   notebook.rotation.y = -0.22;
   desk.add(notebook);
+  // v1.9 件 2：手摇铅笔刀（桌角夹装）——C 形夹咬住桌沿 + 铸铁机身 +
+  // 屑鼓 + 摇柄 + 桌上的木屑盘。抽屉里那支铅笔是唯一的笔，
+  // 盘里的屑却是新的。E → 摇柄空转六格，一枚新屑掉进盘里。
+  const sharpBody = mergedMesh([
+    // C 形夹：上压板 / 桌沿外立板 / 下颚 / 蝶形压杆
+    xform(new THREE.BoxGeometry(0.085, 0.014, 0.1), 1.5, 0.912, 0.585),
+    xform(new THREE.BoxGeometry(0.08, 0.13, 0.012), 1.5, 0.855, 0.662),
+    xform(new THREE.BoxGeometry(0.08, 0.01, 0.08), 1.5, 0.795, 0.618),
+    xform(new THREE.CylinderGeometry(0.005, 0.005, 0.026, 8), 1.5, 0.806, 0.6),
+    xform(new THREE.BoxGeometry(0.034, 0.006, 0.009), 1.5, 0.792, 0.6),
+    // 机身：座柱 + 卧筒 + 削孔鼻锥 + 孔口
+    xform(new THREE.BoxGeometry(0.055, 0.024, 0.055), 1.5, 0.928, 0.585),
+    xform(new THREE.CylinderGeometry(0.03, 0.034, 0.1, 12), 1.5, 0.956, 0.585, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.018, 0.03, 0.026, 12), 1.437, 0.956, 0.585, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.0085, 0.0085, 0.012, 8), 1.421, 0.956, 0.585, 0, 0, Math.PI / 2)
+  ], M.iron);
+  desk.add(sharpBody);
+  // 屑鼓（镀铬，卡在机身后半——里面看不见，更好）
+  const sharpDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.041, 0.041, 0.06, 14), M.chrome);
+  sharpDrum.rotation.z = Math.PI / 2;
+  sharpDrum.position.set(1.527, 0.956, 0.585);
+  desk.add(sharpDrum);
+  // 摇柄（枢轴在筒轴上，绕局部 x 转）
+  const crank = new THREE.Group();
+  const crankArm = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.006, 0.006, 0.022, 8), 0.008, 0, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.BoxGeometry(0.012, 0.06, 0.014), 0.022, -0.024, 0)
+  ], M.iron);
+  const crankKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.042, 10), M.warmWood);
+  crankKnob.rotation.z = Math.PI / 2;
+  crankKnob.position.set(0.048, -0.05, 0);
+  crank.add(crankArm, crankKnob);
+  crank.position.set(1.557, 0.956, 0.585);
+  desk.add(crank);
+  // 木屑盘（锡皮浅盘 + 散屑卷 + 石墨粉点）
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0x4a4640, roughness: 0.5, metalness: 0.6 });
+  desk.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.13, 0.008, 0.09), 1.36, 0.909, 0.585),
+    xform(new THREE.BoxGeometry(0.13, 0.018, 0.008), 1.36, 0.913, 0.543),
+    xform(new THREE.BoxGeometry(0.13, 0.018, 0.008), 1.36, 0.913, 0.627),
+    xform(new THREE.BoxGeometry(0.008, 0.018, 0.09), 1.297, 0.913, 0.585),
+    xform(new THREE.BoxGeometry(0.008, 0.018, 0.09), 1.423, 0.913, 0.585)
+  ], trayMat));
+  const shavingMat = new THREE.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.9, side: THREE.DoubleSide });
+  const shavingGeos = [];
+  {
+    const r = rng(97);
+    for (let i = 0; i < 7; i++) {
+      shavingGeos.push(xform(
+        new THREE.TorusGeometry(0.011, 0.0032, 5, 8, 3.6 + r() * 1.6),
+        1.325 + r() * 0.075, 0.917, 0.555 + r() * 0.06,
+        r() * Math.PI, r() * Math.PI, r() * Math.PI
+      ));
+    }
+    // 石墨粉（几粒暗点沉在盘底）
+    for (let i = 0; i < 5; i++) {
+      shavingGeos.push(xform(new THREE.BoxGeometry(0.004, 0.002, 0.004),
+        1.33 + r() * 0.06, 0.914, 0.56 + r() * 0.05, 0, r() * 3, 0));
+    }
+  }
+  desk.add(mergedMesh(shavingGeos, shavingMat));
+  // 会掉的那一枚新屑（平时藏在孔口里）
+  const freshShaving = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0032, 5, 8, 4.4), shavingMat);
+  freshShaving.visible = false;
+  desk.add(freshShaving);
+  const crankState = { t: -1, dropped: false };
+  updaters.push((dt) => {
+    if (crankState.t < 0) return;
+    crankState.t += dt;
+    const u = crankState.t;
+    if (u > 2.8) { crankState.t = -1; return; }
+    // 起步加速 → 渐停（与 sharpen 音色的六格棘轮同拍）
+    const spd = u < 0.55 ? u / 0.55 : Math.max(0, 1 - (u - 0.55) / 1.7);
+    crank.rotation.x += dt * 15 * spd;
+    if (!crankState.dropped && u > 0.85) {
+      crankState.dropped = true;
+      freshShaving.visible = true;
+    }
+    if (crankState.dropped) {
+      // 从孔口抛落进盘（0.5s 小抛物线 + 翻滚），落定后停在盘里
+      const v = Math.min(1, (u - 0.85) / 0.5);
+      freshShaving.position.set(
+        1.421 - v * 0.055, 0.956 - v * v * 0.038, 0.585 - v * 0.012
+      );
+      freshShaving.rotation.set(v * 5.2, 0.4, v * 2.6);
+    }
+  });
+  hotspots.add(sharpBody, {
+    hint: 'E — 铅笔刀',
+    onActivate: () => {
+      if (crankState.t >= 0) return;
+      crankState.t = 0;
+      crankState.dropped = false;
+      freshShaving.visible = false;
+      audio.sfxAt('sharpen', -5.8, -2.9, 0.55, 3);
+      later(() => ui.caption('屑是新的。笔只有一支。', 3400), 1200);
+    }
+  });
   desk.position.set(-6.4, 0, -1.4);
   desk.rotation.y = Math.PI / 2;
   group.add(desk);
@@ -528,6 +626,116 @@ export function build(ctx) {
   );
   rainLayer.position.set(W / 2 - 0.105, 2.1, -3.4);
   rainLayer.rotation.y = -Math.PI / 2;
+  // v1.9 件 1：玻璃内侧凝雾 + 一道擦痕——屋里比外面暖，水汽爬满内壁，
+  // 角落最厚；有人用手背横着擦开过一道弧，弧的低端挂着两条流下来的水。
+  // （擦它的人不在了。E → 一只手印在雾里浮现又退去。）
+  const fogTex = canvasTexture(256, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const r = rng(83);
+    // 凝雾本体：中央薄、四角厚（呼吸留在玻璃上的形状）
+    for (let i = 0; i < 130; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const dx = Math.abs(x - s / 2) / (s / 2);
+      const dy = Math.abs(y - s / 2) / (s / 2);
+      const edge = Math.min(1, dx * dx + dy * dy + 0.22);
+      const rad = 14 + r() * 30;
+      const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+      grad.addColorStop(0, `rgba(220,230,240,${(0.21 * edge).toFixed(3)})`);
+      grad.addColorStop(1, 'rgba(220,230,240,0)');
+      g.fillStyle = grad;
+      g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    // 微小凝珠（雾里析出的亮点，越靠边越密）
+    for (let i = 0; i < 260; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const dx = Math.abs(x - s / 2) / (s / 2);
+      if (r() > dx + 0.3) continue;
+      g.fillStyle = `rgba(232,242,250,${0.1 + r() * 0.2})`;
+      g.fillRect(x, y, 1 + r(), 1 + r());
+    }
+    // 一道擦痕：手背横扫的弧（三笔渐宽的 destination-out，边缘软）
+    g.globalCompositeOperation = 'destination-out';
+    for (const [lw, al] of [[54, 1], [68, 0.55], [84, 0.26]]) {
+      g.strokeStyle = `rgba(0,0,0,${al})`;
+      g.lineWidth = lw;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.arc(s * 0.46, s * 1.06, s * 0.62, -Math.PI * 0.78, -Math.PI * 0.3);
+      g.stroke();
+    }
+    // 擦痕低端积水往下流的两条（一长一短）
+    for (const [x0, len, w2] of [[s * 0.71, s * 0.34, 3.4], [s * 0.62, s * 0.18, 2.2]]) {
+      const grad = g.createLinearGradient(0, s * 0.62, 0, s * 0.62 + len);
+      grad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(x0 - w2 / 2, s * 0.6, w2, len);
+    }
+    g.globalCompositeOperation = 'source-over';
+  });
+  const fogLayer = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.3, 1.5),
+    new THREE.MeshBasicMaterial({ map: fogTex, transparent: true, opacity: 0, depthWrite: false })
+  );
+  fogLayer.position.set(W / 2 - 0.118, 2.1, -3.4);
+  fogLayer.rotation.y = -Math.PI / 2;
+  // 幽灵手印（比你的手高一掌的位置；平时不可见）
+  const palmTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const soft = (x, y, rx, ry) => {
+      g.save();
+      g.translate(x, y);
+      g.scale(1, ry / rx);
+      const grad = g.createRadialGradient(0, 0, rx * 0.3, 0, 0, rx);
+      grad.addColorStop(0, 'rgba(225,236,246,0.5)');
+      grad.addColorStop(1, 'rgba(225,236,246,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(0, 0, rx, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    };
+    soft(s * 0.5, s * 0.66, 26, 30); // 掌心
+    const fingers = [[0.3, 0.34, 9, 22], [0.44, 0.26, 9, 26], [0.58, 0.25, 9, 27], [0.7, 0.32, 8, 21]];
+    for (const [fx, fy, rx, ry] of fingers) soft(s * fx, s * fy, rx, ry);
+    soft(s * 0.24, 0.62 * s, 9, 16); // 拇指
+  });
+  const palm = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.24, 0.24),
+    new THREE.MeshBasicMaterial({ map: palmTex, transparent: true, opacity: 0, depthWrite: false })
+  );
+  palm.position.set(W / 2 - 0.122, 2.3, -3.5);
+  palm.rotation.y = -Math.PI / 2;
+  const wipeState = { t: -1, cool: 0 };
+  // 射线靶要立在整窗 winHit 盒的近面之前，否则永远打不到
+  const wipeHit = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.55, 0.75),
+    new THREE.MeshStandardMaterial({ color: 0x000000 }));
+  wipeHit.visible = false;
+  wipeHit.position.set(W / 2 - 0.33, 2.2, -3.42);
+  windowGroup.add(fogLayer, palm, wipeHit);
+  updaters.push((dt) => {
+    if (wipeState.cool > 0) wipeState.cool -= dt;
+    if (wipeState.t < 0) return;
+    wipeState.t += dt;
+    const u = wipeState.t;
+    if (u > 4.2) { wipeState.t = -1; palm.material.opacity = 0; return; }
+    // 0.5s 浮现 → 停 1.6s → 慢慢退回雾里
+    palm.material.opacity = u < 0.5 ? (u / 0.5) * 0.42
+      : u < 2.1 ? 0.42
+        : Math.max(0, 0.42 * (1 - (u - 2.1) / 2.1));
+  });
+  hotspots.add(wipeHit, {
+    hint: 'E — 玻璃上的擦痕',
+    onActivate: () => {
+      if (wipeState.cool > 0) return;
+      wipeState.cool = 6;
+      wipeState.t = 0;
+      audio.sfxAt('glasswipe', W / 2, -3.3, 0.5, 3);
+      later(() => ui.caption('擦它的人比你高。', 3400), 900);
+    }
+  });
   windowGroup.add(winFrame, winGlow, blinds, wand, winHit, moonSliver, rainLayer);
   group.add(windowGroup);
   const blindState = { open: false, v: 0, rainT: 99, flash: 0 };
@@ -547,6 +755,8 @@ export function build(ctx) {
     }
     winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75 + blindState.flash * 2.2;
     moonSliver.intensity = 2.4 + blindState.v * 3.2 + blindState.flash * 9;
+    // 凝雾只在叶片开着时看得见；随厅呼吸微涨落（屋里的暖气也在呼吸）
+    fogLayer.material.opacity = blindState.v * (0.5 + (engine.breath || 0) * 0.1);
     // 叶片开着时从窗那边叠续雨声坡（3.4s 音长 / 2s 重触发 → 连成雨幕）
     if (blindState.v > 0.35) {
       blindState.rainT += dt;
