@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quotePlaque, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat, marbleMat
+  chevronMat, woodMat, marbleMat, velvetMaterial
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -631,6 +631,47 @@ export function build(ctx) {
       ui.caption('扣子系到最上面一颗。他总是这样。', 3800);
     }
   });
+
+  // v1.4 三遍：北半场丝绒长凳一对（面向纪念台的瞻仰位——门厅有了「可以坐下」的暗示）
+  // 车削木腿 ×6 + 黄铜脚箍 + 底枨、滚边座垫 + 微后仰矮背 + 双端卷枕
+  const setteeVelvet = velvetMaterial(0x4e0c18);
+  const setteeLegProfile = [
+    new THREE.Vector2(0.045, 0), new THREE.Vector2(0.05, 0.03), new THREE.Vector2(0.026, 0.12),
+    new THREE.Vector2(0.04, 0.22), new THREE.Vector2(0.034, 0.34), new THREE.Vector2(0.048, 0.42)
+  ];
+  for (const sx of [-1, 1]) {
+    const settee = new THREE.Group();
+    // 软包体：座垫 + 矮背（微后仰）+ 卷枕两端（横置圆柱）
+    const backTilt = -0.14;
+    const backGeo = new THREE.CylinderGeometry(0.09, 0.09, 1.56, 10);
+    backGeo.rotateZ(Math.PI / 2);
+    settee.add(mergedMesh([
+      xform(new THREE.BoxGeometry(1.7, 0.15, 0.6), 0, 0.5, 0),
+      xform(new THREE.BoxGeometry(1.7, 0.42, 0.12), 0, 0.78, -0.27, backTilt, 0, 0),
+      xform(backGeo, 0, 1.0, -0.315, backTilt, 0, 0),
+      xform(new THREE.CylinderGeometry(0.085, 0.085, 0.6, 10), -0.83, 0.62, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.085, 0.085, 0.6, 10), 0.83, 0.62, 0, Math.PI / 2, 0, 0)
+    ], setteeVelvet));
+    // 木架：六腿车削 + 前后底枨
+    const legGeos2 = [];
+    for (const lx of [-0.76, 0, 0.76]) {
+      for (const lz of [-0.22, 0.22]) {
+        legGeos2.push(xform(new THREE.LatheGeometry(setteeLegProfile, 10), lx, 0, lz));
+      }
+    }
+    legGeos2.push(xform(new THREE.CylinderGeometry(0.022, 0.022, 1.5, 8), 0, 0.16, 0.22, 0, 0, Math.PI / 2));
+    legGeos2.push(xform(new THREE.CylinderGeometry(0.022, 0.022, 1.5, 8), 0, 0.16, -0.22, 0, 0, Math.PI / 2));
+    settee.add(mergedMesh(legGeos2, new THREE.MeshStandardMaterial({ color: 0x180d08, roughness: 0.5 })));
+    // 黄铜脚箍 ×6
+    settee.add(mergedMesh(
+      [-0.76, 0, 0.76].flatMap((lx) => [-0.22, 0.22].map((lz) =>
+        xform(new THREE.CylinderGeometry(0.048, 0.052, 0.035, 10), lx, 0.018, lz))),
+      goldMat
+    ));
+    settee.position.set(sx * 2.6, 0, -6.3);
+    settee.rotation.y = Math.atan2(-sx * 2.6, 6.3);
+    group.add(settee);
+  }
 
   // 氛围: 地面烟雾 + 光尘
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
