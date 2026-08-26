@@ -1014,6 +1014,121 @@ export function build(ctx) {
   booth2.position.set(26.5, 0, 1.1);
   booth2.rotation.y = -Math.PI / 2;
   town.add(booth2);
+
+  // ============================================================
+  // v1.10 二级细节·twinpeaks 件 2：路边信箱排——夜街西口三只
+  // 乡邮信箱（拱顶铁皮箱 + 木桩，高矮歪斜各不同）：中间那只
+  // 门敞着、里面探出一封信；右边那只小旗立着。E（中箱）→ 门啪
+  // 一声合上又自己弹开（永远关不上），半拍后邻箱小旗自己放平。
+  // ============================================================
+  {
+    const mbRng = rng(67);
+    const postMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [30, 20, 12], planks: 1, vertical: true, size: 128 }), roughness: 0.85
+    });
+    const galv = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 118, 40), color: 0x9aa0a4, roughness: 0.5, metalness: 0.75
+    });
+    const galvGreen = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 100, 36), color: 0x39544a, roughness: 0.62, metalness: 0.5
+    });
+    const galvRust = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 96, 44), color: 0x6e4a34, roughness: 0.78, metalness: 0.42
+    });
+    const mkBoxGeos = (mat) => [
+      // 箱身下半 + 拱顶（整圆柱下半埋进箱身）+ 后封板
+      new THREE.BoxGeometry(0.17, 0.13, 0.46),
+      xform(new THREE.CylinderGeometry(0.085, 0.085, 0.46, 12), 0, 0.065, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.16, 0.2, 0.015), 0, 0.02, -0.225)
+    ];
+    const row = new THREE.Group();
+    const boxes = [];
+    const specs = [
+      { x: 0, h: 1.06, tilt: 0.03, mat: galvGreen, open: false, flag: false },
+      { x: 0.5, h: 1.12, tilt: -0.05, mat: galv, open: true, flag: false },
+      { x: 1.0, h: 1.0, tilt: 0.07, mat: galvRust, open: false, flag: true }
+    ];
+    for (const sp of specs) {
+      const g = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, sp.h, 0.09), postMat);
+      post.position.y = sp.h / 2;
+      g.add(post);
+      const body = new THREE.Group();
+      body.add(mergedMesh(mkBoxGeos(), sp.mat));
+      body.position.y = sp.h + 0.075;
+      g.add(body);
+      // 门（拱形前板，枢轴在下缘）
+      const doorPivot = new THREE.Group();
+      doorPivot.position.set(0, sp.h + 0.01, 0.23);
+      doorPivot.add(mergedMesh([
+        xform(new THREE.BoxGeometry(0.155, 0.125, 0.014), 0, 0.065, 0),
+        xform(new THREE.CylinderGeometry(0.078, 0.078, 0.014, 12), 0, 0.13, 0, Math.PI / 2, 0, 0),
+        // 门鼻小舌
+        xform(new THREE.BoxGeometry(0.03, 0.03, 0.02), 0, 0.19, 0.004)
+      ], sp.mat));
+      doorPivot.rotation.x = sp.open ? 1.65 : 0.04;
+      g.add(doorPivot);
+      // 小旗（枢轴在箱侧）
+      const flagPivot = new THREE.Group();
+      flagPivot.position.set(0.095, sp.h + 0.1, 0.12);
+      flagPivot.add(mergedMesh([
+        xform(new THREE.BoxGeometry(0.012, 0.14, 0.02), 0, 0.07, 0),
+        xform(new THREE.BoxGeometry(0.012, 0.06, 0.09), 0, 0.16, -0.03)
+      ], new THREE.MeshStandardMaterial({ color: 0x8f0e1e, roughness: 0.6 })));
+      flagPivot.rotation.x = sp.flag ? 0 : Math.PI / 2 - 0.12;
+      g.add(flagPivot);
+      // 敞着的那只：里面探出一封信（白纸微斜）
+      if (sp.open) {
+        const letter = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.09),
+          new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.7, side: THREE.DoubleSide }));
+        letter.position.set(0.01, sp.h + 0.08, 0.19);
+        letter.rotation.set(-0.5 + 0.18, 0.06, 0.05);
+        g.add(letter);
+      }
+      g.position.set(17.4 + (mbRng() - 0.5) * 0.06, 0, -0.6 - sp.x);
+      g.rotation.y = Math.PI / 2 + sp.tilt; // 门朝街（+x）
+      row.add(g);
+      boxes.push({ g, doorPivot, flagPivot, sp });
+    }
+    town.add(row);
+    // 中箱门永远关不上：E → 啪合 → 弹开两跳回到敞开；邻箱旗半拍后放平（连锁）
+    const mbState = { t: -1, once: false, flagDropped: false };
+    const midBox = boxes[1];
+    const flagBox = boxes[2];
+    updaters.push((dt) => {
+      if (mbState.t < 0) return;
+      mbState.t += dt;
+      const u = mbState.t;
+      if (u > 2.4) { mbState.t = -1; midBox.doorPivot.rotation.x = 1.65; return; }
+      let ang;
+      if (u < 0.18) ang = 1.65 - (u / 0.18) * 1.61;          // 啪一声合上
+      else if (u < 0.5) ang = 0.04;                           // 停一拍（像是关住了）
+      else if (u < 0.9) ang = 0.04 + ((u - 0.5) / 0.4) * 1.61; // 自己弹开
+      else ang = 1.65 + Math.sin((u - 0.9) * 9) * 0.14 * Math.exp(-(u - 0.9) * 3); // 尾端两跳
+      midBox.doorPivot.rotation.x = ang;
+      // 邻箱小旗：0.7s 后自己放平（只放一次）
+      if (u >= 0.7 && !mbState.flagDropped) {
+        mbState.flagDropped = true;
+        audio.sfxAt('creak', 17.4, -1.6, 0.3);
+      }
+      if (mbState.flagDropped) {
+        const target = Math.PI / 2 - 0.12;
+        flagBox.flagPivot.rotation.x += (target - flagBox.flagPivot.rotation.x) * Math.min(1, dt * 6);
+      }
+    });
+    hotspots.add(midBox.doorPivot.children[0], {
+      hint: 'E — 敞着的信箱',
+      onActivate: () => {
+        if (mbState.t >= 0) return;
+        mbState.t = 0;
+        audio.sfxAt('springdoor', 17.4, -1.1, 0.7);
+        if (!mbState.once) {
+          mbState.once = true;
+          ui.caption('门关不上。信也没人取。', 3600);
+        }
+      }
+    });
+  }
   const ringState = { now: 0, nextRing: 24, ringUntil: -1, lift: -1 };
   updaters.push((dt, t) => {
     ringState.now = t;
@@ -1548,6 +1663,103 @@ export function build(ctx) {
       ui.caption('靠窗的位置一直空着。', 3200);
     }
   });
+
+  // ============================================================
+  // v1.10 二级细节·twinpeaks 件 1：卡座壁挂点唱盒——窗边墙上的
+  // 铬壳翻牌选曲机（拱顶琥珀光带 + 曲目牌窗 + 翻页钮 + 投币口）。
+  // E → 投币 + 曲目牌翻过去一页 + 光带亮一口——选中的那首不存在。
+  // ============================================================
+  {
+    const wb = new THREE.Group();
+    // 铬壳：主体圆角 + 拱顶
+    wb.add(roundedBoxMesh(0.34, 0.26, 0.11, 0.02, M.chrome));
+    // 拱顶：整圆柱（轴向进深），下半埋进壳体——省掉半圆片的朝向陷阱
+    const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.1, 18), M.chrome);
+    dome.rotation.x = Math.PI / 2;
+    dome.position.y = 0.13;
+    wb.add(dome);
+    // 拱顶琥珀光带（自发光，不加真光源）
+    const amberArc = new THREE.Mesh(
+      new THREE.TorusGeometry(0.145, 0.018, 8, 14, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x201408, emissive: 0xffb25e, emissiveIntensity: 1.6 })
+    );
+    amberArc.position.set(0, 0.13, 0.045);
+    wb.add(amberArc);
+    // 曲目牌窗：格线卡片（canvas），中缝一页可翻
+    const cardTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#efe8d8';
+      g.fillRect(0, 0, s, s);
+      g.strokeStyle = '#8a8272';
+      g.lineWidth = 2;
+      for (let i = 1; i < 6; i++) {
+        g.beginPath();
+        g.moveTo(10, i * (s / 6));
+        g.lineTo(s - 10, i * (s / 6));
+        g.stroke();
+      }
+      // 每行一段「曲名」示意横杠（不写真曲名——原创零版权）
+      g.fillStyle = '#4a4438';
+      const sr = rng(58);
+      for (let i = 0; i < 6; i++) {
+        g.fillRect(16, i * (s / 6) + 8, 30 + sr() * 55, 4);
+        g.fillRect(s - 34, i * (s / 6) + 8, 18, 4);
+      }
+    });
+    const cardWin = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.15),
+      new THREE.MeshStandardMaterial({ map: cardTex, roughness: 0.6 }));
+    cardWin.position.set(0, 0.015, 0.057);
+    wb.add(cardWin);
+    // 可翻的那页（枢轴在顶缘）
+    const flipPivot = new THREE.Group();
+    flipPivot.position.set(0, 0.09, 0.06);
+    const flipPage = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.13),
+      new THREE.MeshStandardMaterial({ map: cardTex, roughness: 0.6, side: THREE.DoubleSide }));
+    flipPage.position.y = -0.065;
+    flipPivot.add(flipPage);
+    wb.add(flipPivot);
+    // 双铬钮 + 投币口板
+    wb.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.02, 0.024, 0.03, 10), -0.11, -0.09, 0.06, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.02, 0.024, 0.03, 10), 0.11, -0.09, 0.06, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.06, 0.035, 0.012), 0, -0.09, 0.058),
+      xform(new THREE.BoxGeometry(0.008, 0.022, 0.014), 0, -0.09, 0.062)
+    ], M.brass));
+    // 挂在窗右侧的墙面（高背旁、坐着伸手够得到的高度）
+    wb.position.set(29.7, 1.35, -3.47);
+    wb.rotation.y = Math.PI;
+    dinerInner.add(wb);
+    const wbState = { t: -1, once: false };
+    updaters.push((dt) => {
+      if (wbState.t < 0) return;
+      wbState.t += dt;
+      const u = wbState.t;
+      if (u > 2.6) {
+        wbState.t = -1;
+        flipPivot.rotation.x = 0;
+        amberArc.material.emissiveIntensity = 1.6;
+        return;
+      }
+      // 翻页：0.5s 蓄力慢抬 → 摔过去 → 尾端两跳
+      const flip = u < 0.5 ? (u / 0.5) * 0.5
+        : u < 0.75 ? 0.5 + ((u - 0.5) / 0.25) * (Math.PI - 0.5)
+        : Math.PI + Math.sin((u - 0.75) * 16) * 0.12 * Math.exp(-(u - 0.75) * 4);
+      flipPivot.rotation.x = -flip;
+      amberArc.material.emissiveIntensity = 1.6 + Math.sin(Math.min(u / 2.6, 1) * Math.PI) * 2.2;
+    });
+    hotspots.add(cardWin, {
+      hint: 'E — 点唱盒',
+      onActivate: () => {
+        if (wbState.t >= 0) return;
+        wbState.t = 0;
+        audio.sfxAt('coin', 29.7, -3.47, 0.5);
+        setTimeout(() => audio.sfxAt('wallbox', 29.7, -3.47, 0.8), 200);
+        if (!wbState.once) {
+          wbState.once = true;
+          ui.caption('B7。歌单上没有这首歌。', 3600);
+        }
+      }
+    });
+  }
 
   // 吊灯 ×2
   for (const z of [-9.5, -6.1]) {
