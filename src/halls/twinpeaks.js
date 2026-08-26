@@ -547,6 +547,147 @@ export function build(ctx) {
     }
   });
 
+  // v1.4 五遍：路口电话亭——铝框玻璃亭 + 半开折门（有人刚离开）+
+  // TELEPHONE 灯带 + 内亮小灯；深夜偶尔响铃。E 接听 → 那头只有风。
+  const booth2 = new THREE.Group();
+  const alu = new THREE.MeshStandardMaterial({ color: 0x7e848c, roughness: 0.42, metalness: 0.85, envMapIntensity: 1.1 });
+  const bfGeos = [
+    xform(new THREE.BoxGeometry(1.0, 0.09, 1.0), 0, 0.045, 0),
+    xform(new THREE.BoxGeometry(1.06, 0.07, 1.06), 0, 2.34, 0),
+    xform(new THREE.BoxGeometry(0.88, 0.06, 0.88), 0, 2.4, 0),
+    // 三面踢脚金属板 + 中横档
+    xform(new THREE.BoxGeometry(0.92, 0.34, 0.025), 0, 0.27, -0.45),
+    xform(new THREE.BoxGeometry(0.025, 0.34, 0.92), -0.45, 0.27, 0),
+    xform(new THREE.BoxGeometry(0.025, 0.34, 0.92), 0.45, 0.27, 0),
+    xform(new THREE.BoxGeometry(0.92, 0.05, 0.05), 0, 0.87, -0.45),
+    xform(new THREE.BoxGeometry(0.05, 0.05, 0.92), -0.45, 0.87, 0),
+    xform(new THREE.BoxGeometry(0.05, 0.05, 0.92), 0.45, 0.87, 0),
+    // 半开折门两扇的上下横档（35° 内折 + 回摆 18°）
+    xform(new THREE.BoxGeometry(0.42, 0.05, 0.04), -0.248, 2.12, 0.34, 0, 0.611, 0),
+    xform(new THREE.BoxGeometry(0.42, 0.05, 0.04), -0.248, 0.14, 0.34, 0, 0.611, 0),
+    xform(new THREE.BoxGeometry(0.42, 0.05, 0.04), 0.124, 2.12, 0.284, 0, -0.314, 0),
+    xform(new THREE.BoxGeometry(0.42, 0.05, 0.04), 0.124, 0.14, 0.284, 0, -0.314, 0)
+  ];
+  for (const [cx, cz] of [[-0.46, -0.46], [0.46, -0.46], [-0.46, 0.46], [0.46, 0.46]]) {
+    bfGeos.push(xform(new THREE.BoxGeometry(0.075, 2.26, 0.075), cx, 1.18, cz));
+  }
+  booth2.add(mergedMesh(bfGeos, alu));
+  const boothGlass = new THREE.MeshPhysicalMaterial({
+    color: 0xcfe4ff, transparent: true, opacity: 0.15, roughness: 0.06,
+    envMapIntensity: 1.6, depthWrite: false, side: THREE.DoubleSide
+  });
+  booth2.add(mergedMesh([
+    xform(new THREE.PlaneGeometry(0.86, 1.6), 0, 1.24, -0.45),
+    xform(new THREE.PlaneGeometry(0.86, 1.6), -0.45, 1.24, 0, 0, Math.PI / 2, 0),
+    xform(new THREE.PlaneGeometry(0.86, 1.6), 0.45, 1.24, 0, 0, Math.PI / 2, 0),
+    xform(new THREE.PlaneGeometry(0.4, 1.9), -0.248, 1.13, 0.34, 0, 0.611, 0),
+    xform(new THREE.PlaneGeometry(0.4, 1.9), 0.124, 1.13, 0.284, 0, -0.314, 0)
+  ], boothGlass));
+  // TELEPHONE 灯带（四面同图；奶字微光）
+  const telTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#101a26';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#efe6d0';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.save();
+    g.scale(1, 5.2); // 带宽 0.98×0.18 纵压缩预补偿
+    g.font = '600 30px Georgia, serif';
+    g.fillText('T E L E P H O N E', s / 2, s / 2 / 5.2);
+    g.restore();
+  });
+  const telMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1018, emissive: 0xffffff, emissiveMap: telTex, emissiveIntensity: 0.9
+  });
+  booth2.add(mergedMesh([
+    xform(new THREE.PlaneGeometry(0.98, 0.18), 0, 2.16, 0.485),
+    xform(new THREE.PlaneGeometry(0.98, 0.18), 0, 2.16, -0.485, 0, Math.PI, 0),
+    xform(new THREE.PlaneGeometry(0.98, 0.18), -0.485, 2.16, 0, 0, -Math.PI / 2, 0),
+    xform(new THREE.PlaneGeometry(0.98, 0.18), 0.485, 2.16, 0, 0, Math.PI / 2, 0)
+  ], telMat));
+  // 内侧话机（挂右侧板）：机身 + 投币面板 + 转盘 + 叉簧托
+  const phoneBody = mergedMesh([
+    xform(new THREE.BoxGeometry(0.07, 0.3, 0.18), 0.41, 1.42, 0),
+    xform(new THREE.BoxGeometry(0.02, 0.1, 0.12), 0.365, 1.51, 0),
+    xform(new THREE.CylinderGeometry(0.052, 0.052, 0.016, 18), 0.362, 1.38, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.BoxGeometry(0.03, 0.02, 0.08), 0.36, 1.6, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.4, metalness: 0.4, envMapIntensity: 1.2 }));
+  booth2.add(phoneBody);
+  // 听筒（可拿起）+ 垂软话绳
+  const handset = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.028, 0.024, 0.045, 10), 0, 0.085, 0),
+    xform(new THREE.CylinderGeometry(0.028, 0.024, 0.045, 10), 0, -0.085, 0),
+    xform(new THREE.BoxGeometry(0.034, 0.13, 0.028), 0, 0, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x111216, roughness: 0.35 }));
+  const handsetY0 = 1.6;
+  handset.position.set(0.36, handsetY0, 0);
+  booth2.add(handset);
+  const cordCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.4, 1.28, 0.02),
+    new THREE.Vector3(0.36, 1.12, 0.06),
+    new THREE.Vector3(0.38, 1.3, 0.03),
+    new THREE.Vector3(0.37, 1.52, 0.01)
+  ]);
+  booth2.add(new THREE.Mesh(
+    new THREE.TubeGeometry(cordCurve, 16, 0.0055, 5),
+    new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.8 })
+  ));
+  // 亭内小灯（暖白 + 老镇流器微颤）
+  const boothBulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6),
+    new THREE.MeshStandardMaterial({ color: 0x241c10, emissive: 0xfff0c8, emissiveIntensity: 2.2 }));
+  boothBulb.position.set(0, 2.24, 0);
+  const boothLight = new THREE.PointLight(0xffedc2, 2.4, 4.5, 1.8);
+  boothLight.position.set(0, 2.1, 0);
+  booth2.add(boothBulb, boothLight);
+  booth2.position.set(26.5, 0, 1.1);
+  booth2.rotation.y = -Math.PI / 2;
+  town.add(booth2);
+  const ringState = { now: 0, nextRing: 24, ringUntil: -1, lift: -1 };
+  updaters.push((dt, t) => {
+    ringState.now = t;
+    const flick = Math.sin(t * 17.3) > 0.965 ? 0.45 : 1;
+    boothLight.intensity = 2.4 * flick;
+    boothBulb.material.emissiveIntensity = 2.2 * flick;
+    // 深夜偶尔响铃：一组三响，间隔 1.9s；window 内无人接就挂断
+    if (t >= ringState.nextRing && ringState.ringUntil < t) {
+      ringState.ringUntil = t + 5.6;
+      for (let k = 0; k < 3; k++) later(() => {
+        if (ringState.ringUntil > ringState.now) audio.sfxAt('phonering', 26.5, 1.1, 0.5, 10);
+      }, k * 1900);
+      ringState.nextRing = t + 45 + Math.random() * 50;
+    }
+    // 听筒起落动画（接起 0.35s → 停 2.2s → 放回）
+    if (ringState.lift >= 0) {
+      ringState.lift += dt;
+      const u = ringState.lift;
+      const up = u < 0.35 ? u / 0.35 : u > 2.55 ? Math.max(0, 1 - (u - 2.55) / 0.45) : 1;
+      handset.position.x = 0.36 - up * 0.1;
+      handset.position.y = handsetY0 + up * 0.1;
+      handset.rotation.z = up * 0.55;
+      if (u > 3.1) {
+        ringState.lift = -1;
+        handset.position.set(0.36, handsetY0, 0);
+        handset.rotation.z = 0;
+      }
+    }
+  });
+  hotspots.add(phoneBody, {
+    hint: 'E — 电话',
+    onActivate: () => {
+      if (ringState.lift >= 0) return;
+      ringState.lift = 0;
+      const wasRinging = ringState.ringUntil > ringState.now;
+      ringState.ringUntil = -1; // 接起即停铃（未播的后续铃被 guard 掐掉）
+      audio.sfxAt('click', 26.5, 1.1, 0.5, 4);
+      if (wasRinging) {
+        later(() => audio.sfx('breath', 0.4), 600);
+        ui.caption('你接起来。那头只有风声。', 4200);
+      } else {
+        ui.caption('拨号音。整座镇都睡在线上。', 3600);
+      }
+    }
+  });
+
   // DINER 外立面
   const facadeMat = new THREE.MeshStandardMaterial({
     map: canvasTexture(256, (g, s) => {
