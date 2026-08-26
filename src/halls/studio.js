@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quotePlaque, zoneTrigger,
-  mergedMesh, xform, roundedBoxMesh, woodTexture,
+  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
@@ -840,6 +840,158 @@ export function build(ctx) {
   cart.position.set(-5.8, 0, -5.45);
   cart.rotation.y = 0.5;
   group.add(cart);
+
+  // v1.4 二遍：画角生活层——①靠墙斜倚的画布堆（两幅背面朝外：
+  // 松木内框+十字撑+生亚麻布背；一幅小的正面朝外：近黑抽象、只一抹苍白）
+  const stretcherMat = new THREE.MeshStandardMaterial({
+    map: woodTexture({ base: [96, 74, 48], planks: 1, size: 128 }), roughness: 0.85
+  });
+  const linenTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#b6a888';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(88,76,54,0.28)';
+    g.lineWidth = 1;
+    for (let i = 0; i < s; i += 3) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i, s); g.stroke();
+      g.beginPath(); g.moveTo(0, i); g.lineTo(s, i); g.stroke();
+    }
+    // 边角的钉痕与污渍
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = `rgba(70,58,40,${0.1 + Math.random() * 0.2})`;
+      g.fillRect(Math.random() * s, Math.random() * s, 2 + Math.random() * 5, 1 + Math.random() * 3);
+    }
+  });
+  const linenMat = new THREE.MeshStandardMaterial({ map: linenTex, roughness: 0.95 });
+  const stackFrames = [];
+  const stackBacks = [];
+  // [宽, 高, z 位置, 斜倚角]（西墙 x=-8.25，顶靠墙底脚外移；第二幅更陡搭在第一幅上）
+  for (const [cw, ch, cz, lean] of [[1.15, 1.45, -3.05, 0.2], [0.95, 1.25, -2.9, 0.34]]) {
+    const cx = -8.23 + Math.sin(lean) * ch * 0.5;
+    const bar = 0.05;
+    const geos = [
+      xform(new THREE.BoxGeometry(bar, ch, 0.04), 0, 0, 0),
+      xform(new THREE.BoxGeometry(bar, ch, 0.04), 0, 0, cw - bar),
+      xform(new THREE.BoxGeometry(bar, 0.04, cw - 2 * bar), 0, ch / 2 - 0.02, (cw - bar) / 2),
+      xform(new THREE.BoxGeometry(bar, 0.04, cw - 2 * bar), 0, -ch / 2 + 0.02, (cw - bar) / 2),
+      xform(new THREE.BoxGeometry(bar * 0.8, 0.04, cw - 2 * bar), 0, 0, (cw - bar) / 2)
+    ];
+    for (const gg of geos) {
+      gg.rotateZ(lean);
+      gg.translate(cx, ch * 0.5 * Math.cos(lean) + 0.01, cz);
+    }
+    stackFrames.push(...geos);
+    const back = new THREE.PlaneGeometry(cw - 2 * bar, ch - 2 * bar);
+    back.rotateY(Math.PI / 2);
+    back.rotateZ(lean);
+    back.translate(cx + Math.cos(lean) * 0.012, ch * 0.5 * Math.cos(lean) + 0.01, cz + (cw - bar) / 2);
+    stackBacks.push(back);
+  }
+  group.add(mergedMesh(stackFrames, stretcherMat), mergedMesh(stackBacks, linenMat));
+  const darkPaintTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#0a0709';
+    g.fillRect(0, 0, s, s);
+    // 只一抹苍白，像从黑里透出来的脸背影
+    const grad = g.createRadialGradient(s * 0.42, s * 0.4, 4, s * 0.42, s * 0.4, 42);
+    grad.addColorStop(0, 'rgba(206,196,182,0.5)');
+    grad.addColorStop(0.6, 'rgba(120,108,100,0.18)');
+    grad.addColorStop(1, 'rgba(10,7,9,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.ellipse(s * 0.42, s * 0.44, 26, 40, -0.15, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(60,20,18,0.5)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(s * 0.2, s * 0.82);
+    g.bezierCurveTo(s * 0.4, s * 0.74, s * 0.6, s * 0.86, s * 0.82, s * 0.78);
+    g.stroke();
+  });
+  const frontCanvas = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.72, 0.92),
+    new THREE.MeshStandardMaterial({ map: darkPaintTex, roughness: 0.9 })
+  );
+  frontCanvas.rotation.order = 'ZYX';
+  frontCanvas.rotation.set(0, Math.PI / 2, 0.3);
+  frontCanvas.position.set(-8.08, 0.92 * 0.5 * Math.cos(0.3) + 0.01, -4.15);
+  group.add(frontCanvas);
+  // ② 颜料补给搁板（西墙高处：木板+双托座；三只玻璃罐插笔、两罐颜料粉、一只盖子虚着）
+  const shelfY = 1.92;
+  group.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.24, 0.04, 1.7), -8.12, shelfY, -4.35),
+    xform(new THREE.BoxGeometry(0.2, 0.05, 0.05), -8.14, shelfY - 0.045, -3.75, 0, 0, 0),
+    xform(new THREE.BoxGeometry(0.04, 0.24, 0.05), -8.22, shelfY - 0.13, -3.75),
+    xform(new THREE.BoxGeometry(0.2, 0.05, 0.05), -8.14, shelfY - 0.045, -4.95),
+    xform(new THREE.BoxGeometry(0.04, 0.24, 0.05), -8.22, shelfY - 0.13, -4.95)
+  ], stretcherMat));
+  const jarProfile = [
+    new THREE.Vector2(0.0, 0.0), new THREE.Vector2(0.045, 0.004), new THREE.Vector2(0.05, 0.02),
+    new THREE.Vector2(0.048, 0.13), new THREE.Vector2(0.04, 0.145)
+  ];
+  const jarGeos = [];
+  const brushGeos2 = [];
+  const jr = rng(31);
+  for (const [jz, nb] of [[-3.95, 3], [-4.4, 2], [-4.8, 4]]) {
+    jarGeos.push(xform(new THREE.LatheGeometry(jarProfile, 12), -8.1, shelfY + 0.02, jz));
+    for (let b = 0; b < nb; b++) {
+      brushGeos2.push(xform(
+        new THREE.CylinderGeometry(0.006, 0.008, 0.26 + jr() * 0.08, 6),
+        -8.1 + (jr() - 0.5) * 0.04, shelfY + 0.16, jz + (jr() - 0.5) * 0.04,
+        (jr() - 0.5) * 0.5, 0, (jr() - 0.5) * 0.5
+      ));
+    }
+  }
+  group.add(
+    mergedMesh(jarGeos, new THREE.MeshPhysicalMaterial({
+      color: 0xd8e2dc, roughness: 0.1, transparent: true, opacity: 0.4,
+      side: THREE.DoubleSide, envMapIntensity: 1.2
+    })),
+    mergedMesh(brushGeos2, new THREE.MeshStandardMaterial({ color: 0x7c5228, roughness: 0.75 }))
+  );
+  const canLabelTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#c9bfa4';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#3a2c1a';
+    g.font = '700 11px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillText('PIGMENTO', s / 2, 26);
+    g.fillStyle = '#7a1420';
+    g.fillRect(s / 2 - 14, 36, 28, 12);
+  });
+  group.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.055, 0.055, 0.11, 12), -8.1, shelfY + 0.075, -5.05),
+    xform(new THREE.CylinderGeometry(0.055, 0.055, 0.11, 12), -8.12, shelfY + 0.075, -3.68)
+  ], new THREE.MeshStandardMaterial({ map: canLabelTex, roughness: 0.7, metalness: 0.25 })),
+  mergedMesh([
+    xform(new THREE.CylinderGeometry(0.057, 0.057, 0.012, 12), -8.1, shelfY + 0.136, -5.05),
+    xform(new THREE.CylinderGeometry(0.057, 0.057, 0.012, 12), -8.09, shelfY + 0.142, -3.66, 0.16, 0, 0.1)
+  ], new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(64, 110, 30), color: 0x8f9298, roughness: 0.4, metalness: 0.8
+  })));
+  // ③ 画架脚下的颜料滴溅贴花（透明平面；地板从「打扫过」变「用过」）
+  const splatterTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const r2 = rng(97);
+    const cols = ['122,20,24', '30,44,80', '180,150,40', '22,20,18'];
+    for (let i = 0; i < 46; i++) {
+      const c = cols[(r2() * cols.length) | 0];
+      g.fillStyle = `rgba(${c},${0.16 + r2() * 0.5})`;
+      const rr = 1 + r2() * (r2() < 0.12 ? 9 : 3.5);
+      g.beginPath();
+      g.ellipse(s / 2 + (r2() - 0.5) * s * 0.86, s / 2 + (r2() - 0.5) * s * 0.86, rr, rr * (0.5 + r2() * 0.8), r2() * 3.2, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+  const splatter = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.9, 1.9),
+    new THREE.MeshStandardMaterial({
+      map: splatterTex, transparent: true, roughness: 0.55,
+      polygonOffset: true, polygonOffsetFactor: -1
+    })
+  );
+  splatter.rotation.x = -Math.PI / 2;
+  splatter.rotation.z = 0.7;
+  splatter.position.set(-5.1, 0.006, -4.9);
+  group.add(splatter);
   hotspots.add(palette, {
     hint: 'E — 调色板',
     onActivate: () => {
