@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self'" />
+  <title>SMOKE &amp; VELVET — 大卫·林奇数字纪念展览馆（非官方粉丝纪念展）</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="stage"></canvas>
+
+    <!-- 启动幕布 -->
+    <div id="boot" class="boot">
+      <div class="boot-inner">
+        <div class="boot-smoke"></div>
+        <p class="boot-over">AN UNOFFICIAL FAN-ART MEMORIAL &nbsp;·&nbsp; 独立粉丝艺术纪念展</p>
+        <h1 class="boot-title"><span>SMOKE</span><em>&amp;</em><span>VELVET</span></h1>
+        <p class="boot-sub">大卫·林奇 数字纪念展览馆<br/>A DIGITAL MEMORIAL GALLERY · 1946 — 2025</p>
+        <div class="boot-load"><div id="boot-bar"></div></div>
+        <button id="boot-enter" class="boot-enter" disabled>幕布升起前，请稍候…</button>
+        <p class="boot-hint">建议佩戴耳机 · WASD / 方向键移动 · 鼠标环视 · E 或点击 互动<br/>
+        本展全部视觉与声音均为程序化原创生成，不含任何受版权保护的影像、原声或对白。</p>
+      </div>
+    </div>
+
+    <!-- HUD 与面板由 src/ui/overlay.js 动态注入 -->
+    <div id="hud" hidden></div>
+    <div id="panels" hidden></div>
+    <div id="fader"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+{
+  "name": "smoke-and-velvet-lynch-archive",
+  "version": "1.4.0",
+  "description": "SMOKE & VELVET — 大卫·林奇数字纪念展览馆 (unofficial fan-art memorial exhibition, all visuals & audio procedurally generated)",
+  "private": true,
+  "main": "electron/main.cjs",
+  "author": "Independent fan curators",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "electron .",
+    "test": "vitest run",
+    "smoke": "node scripts/smoke.js",
+    "gen:icon": "node scripts/gen-icon.js",
+    "dist:win": "npm run build && npm run gen:icon && electron-builder --win --x64",
+    "dist:win:portable": "npm run build && npm run gen:icon && electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "art.smokeandvelvet.lyncharchive",
+    "productName": "SmokeVelvet-LynchArchive",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    }
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}
