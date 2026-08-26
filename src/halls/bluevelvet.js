@@ -667,6 +667,67 @@ export function build(ctx) {
   });
   bar.add(mergedMesh(pendantBulbGeos, pendantBulbMat));
 
+  // v1.4 三遍：背柜上方的霓虹鸡尾酒杯——马天尼轮廓（冰蓝双层描：外晕+内芯）
+  // + 橄榄和签（粉暖）+ cocktails 草字；蓝屋里唯一一块粉色，偶发断闪
+  const neonTex = canvasTexture(256, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const stroke = (color, blur, w2, draw) => {
+      g.save();
+      g.strokeStyle = color;
+      g.shadowColor = color;
+      g.shadowBlur = blur;
+      g.lineWidth = w2;
+      g.lineCap = 'round';
+      draw();
+      g.restore();
+    };
+    const glassPath = () => {
+      g.beginPath();
+      g.moveTo(58, 52);
+      g.lineTo(198, 52);
+      g.lineTo(128, 128);
+      g.lineTo(128, 186);
+      g.moveTo(96, 190);
+      g.lineTo(160, 190);
+      g.stroke();
+    };
+    stroke('rgba(80,220,255,0.9)', 18, 7, glassPath);
+    stroke('rgba(230,250,255,0.95)', 4, 2.6, glassPath);
+    const olive = () => {
+      g.beginPath();
+      g.arc(112, 92, 10, 0, Math.PI * 2);
+      g.moveTo(96, 70);
+      g.lineTo(150, 108);
+      g.stroke();
+    };
+    stroke('rgba(255,110,150,0.9)', 14, 6, olive);
+    stroke('rgba(255,230,240,0.95)', 3, 2.2, olive);
+    g.font = 'italic 700 30px Georgia, serif';
+    g.textAlign = 'center';
+    g.save();
+    g.shadowColor = 'rgba(255,110,150,0.9)';
+    g.shadowBlur = 16;
+    g.fillStyle = 'rgba(255,190,210,0.95)';
+    g.fillText('cocktails', 128, 232);
+    g.restore();
+  });
+  const neonCocktail = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.5, 1.5),
+    new THREE.MeshBasicMaterial({ map: neonTex, transparent: true, depthWrite: false })
+  );
+  neonCocktail.position.set(-W / 2 + 0.09, 3.55, 0.8);
+  neonCocktail.rotation.y = Math.PI / 2;
+  bar.add(neonCocktail);
+  const neonWash = new THREE.PointLight(0x5ac8e8, 2.2, 5, 2);
+  neonWash.position.set(-W / 2 + 0.55, 3.5, 0.8);
+  bar.add(neonWash);
+  updaters.push((dt, t) => {
+    const flick = Math.sin(t * 31) * Math.sin(t * 8.3) > 0.965 ? 0.25 : 1;
+    const base = 0.92 + Math.sin(t * 2.2) * 0.08;
+    neonCocktail.material.opacity = base * flick;
+    neonWash.intensity = 2.2 * base * flick;
+  });
+
   // 吧台壁挂电话 —— 拿起听筒：只有拨号音，然后一阵没人接的响铃
   const barPhone = wallPhone({ mats: M });
   barPhone.position.set(-W / 2 + 0.12, 1.5, 5.1);
