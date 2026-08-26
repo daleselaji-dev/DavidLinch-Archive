@@ -1085,11 +1085,83 @@ export function build(ctx) {
     bag.position.set(x, s * 0.6, z);
     group.add(bag);
   }
-  // 蒸汽口
+  // 蒸汽口（v1.9 件 2 升级 v2：铸铁立管+弯头+喇叭口 + 保温包扎布三匝 +
+  // 管根滴水锈迹贴花 + 地面格栅——空地的蒸汽第一次有了来处。
+  // E → 管子先咳一声，半拍后猛喷一大口。）
   const ventSteam = smokeLayer(24, { x: 1.2, z: 1.2 }, { opacity: 0.06, size: 3.4, yBase: 0.2, ySpread: 2.2, color: 0xb8bcc4 });
   ventSteam.position.set(-6.5, 0, -30.5);
   group.add(ventSteam);
   updaters.push(ventSteam.userData.update);
+  const ventPipe = new THREE.Group();
+  {
+    const pipeMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x3c3a40, roughness: 0.55, metalness: 0.85, envMapIntensity: 0.7
+    });
+    // 立管从铁皮墙根拔起 + 弯头 + 朝格栅的喇叭口 + 两道法兰
+    // （弯头：YZ 面四分之一环，起点接管顶切向 +Y、终点切向 +Z；
+    //   喇叭口顺着弯头终点接出、微微下探对着地面格栅）
+    ventPipe.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.085, 0.09, 1.7, 12), 0, 0.85, 0),
+      xform(new THREE.TorusGeometry(0.14, 0.085, 10, 12, Math.PI / 2), 0, 1.7, 0.14, 0, Math.PI / 2, 0),
+      xform(new THREE.CylinderGeometry(0.13, 0.085, 0.3, 12), 0, 1.8, 0.28, Math.PI / 2 + 0.3, 0, 0),
+      xform(new THREE.CylinderGeometry(0.115, 0.115, 0.045, 12), 0, 0.32, 0),
+      xform(new THREE.CylinderGeometry(0.115, 0.115, 0.045, 12), 0, 1.28, 0)
+    ], pipeMat));
+    // 保温包扎布三匝（旧帆布色，缠在中段，端头一小截垂布）
+    const wrapMat = new THREE.MeshStandardMaterial({ color: 0x5a5244, roughness: 0.95 });
+    ventPipe.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.105, 0.105, 0.34, 12), 0, 0.62, 0, 0, 0, 0.02),
+      xform(new THREE.CylinderGeometry(0.102, 0.108, 0.2, 12), 0, 0.92, 0, 0, 0, -0.03),
+      xform(new THREE.CylinderGeometry(0.108, 0.102, 0.24, 12), 0, 1.52, 0, 0, 0, 0.025),
+      xform(new THREE.BoxGeometry(0.09, 0.2, 0.014), 0.07, 0.5, 0.06, 0.1, 0, 0.3)
+    ], wrapMat));
+    // 管根滴水锈迹贴花（半透明流挂）
+    const rustDripTex = canvasTexture(64, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      for (let i = 0; i < 7; i++) {
+        const x = 8 + i * 7 + (i % 3) * 2;
+        const grad = g.createLinearGradient(0, 6, 0, 34 + (i % 4) * 8);
+        grad.addColorStop(0, 'rgba(96,48,22,0.55)');
+        grad.addColorStop(1, 'rgba(96,48,22,0)');
+        g.fillStyle = grad;
+        g.fillRect(x, 6, 2.2, 34 + (i % 4) * 8);
+      }
+    });
+    const rustDrip = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.5, 0.42),
+      new THREE.MeshBasicMaterial({ map: rustDripTex, transparent: true, depthWrite: false })
+    );
+    rustDrip.position.set(0, 0.24, 0.1);
+    ventPipe.add(rustDrip);
+    // 地面格栅（喇叭口正对的那格）
+    const grateGeos = [];
+    for (let i = 0; i < 5; i++) grateGeos.push(xform(new THREE.BoxGeometry(0.4, 0.015, 0.045), 0, 0.012, 0.32 + (i - 2) * 0.085));
+    grateGeos.push(xform(new THREE.BoxGeometry(0.05, 0.02, 0.46), -0.18, 0.012, 0.32));
+    grateGeos.push(xform(new THREE.BoxGeometry(0.05, 0.02, 0.46), 0.18, 0.012, 0.32));
+    ventPipe.add(mergedMesh(grateGeos, new THREE.MeshStandardMaterial({ color: 0x111114, roughness: 0.7, metalness: 0.4 })));
+    ventPipe.position.set(-6.5, 0, -30.9);
+    group.add(ventPipe);
+    const ventBurst = { t: -1 };
+    updaters.push((dt) => {
+      if (ventBurst.t < 0) return;
+      ventBurst.t += dt;
+      const u = ventBurst.t;
+      if (u > 3.4) { ventBurst.t = -1; ventSteam.material.opacity = 0.06; return; }
+      // 咳一声（0.5s 憋住）→ 猛喷（1.2s 峰值 0.3）→ 缓落
+      ventSteam.material.opacity = u < 0.5 ? 0.02
+        : 0.06 + Math.sin(Math.min(1, (u - 0.5) / 1.2) * Math.PI) * 0.26;
+    });
+    hotspots.add(ventPipe.children[0], {
+      hint: 'E — 蒸汽立管',
+      onActivate: () => {
+        if (ventBurst.t >= 0) return;
+        ventBurst.t = 0;
+        audio.sfxAt('clank', -6.5, -30.9, 0.4);
+        setTimeout(() => audio.sfxAt('steam', -6.5, -30.9, 0.8), 520);
+        ui.caption('它一直烧着。给谁供的暖，不知道。', 3800);
+      }
+    });
+  }
 
   // 巷内电话亭 v2（立柱框架 + 玻璃 + 折门 + 螺旋话线；不通向任何地方）
   // v1.6：贴到铁皮墙根（walkable 收到 x≤10.1，玩家从亭前经过而不再穿进亭身）
@@ -1520,6 +1592,48 @@ export function build(ctx) {
   innerCeil.rotation.x = Math.PI / 2;
   innerCeil.position.y = 6.4;
   inner.add(innerCeil);
+  // v1.9 二级细节·mulholland 件 1：戏院顶棚 Deco 吊灯——
+  // 十二根放射肋从中毂散开（太阳纹）+ 鎏金外环 + 车削琥珀玻璃碗，
+  // 一盏慢呼吸的暗光：整个观众厅的顶第一次有了来处。
+  const deco = new THREE.Group();
+  const decoBrass = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x7a5c34, roughness: 0.38, metalness: 0.92, envMapIntensity: 1.0
+  });
+  const decoRibGeos = [
+    xform(new THREE.CylinderGeometry(0.14, 0.18, 0.22, 12), 0, -0.11, 0),
+    xform(new THREE.TorusGeometry(1.35, 0.03, 8, 36), 0, -0.28, 0, Math.PI / 2, 0, 0)
+  ];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    decoRibGeos.push(xform(
+      new THREE.BoxGeometry(1.32, 0.035, 0.09),
+      Math.cos(a) * 0.72, -0.2, Math.sin(a) * 0.72, 0, -a, -0.12
+    ));
+  }
+  deco.add(mergedMesh(decoRibGeos, decoBrass));
+  const decoBowl = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, -0.62), new THREE.Vector2(0.22, -0.56), new THREE.Vector2(0.34, -0.4),
+      new THREE.Vector2(0.36, -0.3), new THREE.Vector2(0.3, -0.26)
+    ], 20),
+    new THREE.MeshStandardMaterial({
+      color: 0x2a1408, roughness: 0.35, emissive: 0xffb46a, emissiveIntensity: 0.65,
+      transparent: true, opacity: 0.94, side: THREE.DoubleSide
+    })
+  );
+  deco.add(decoBowl);
+  const decoLight = new THREE.PointLight(0xffb46a, 2.6, 9, 1.8);
+  decoLight.position.y = -0.5;
+  deco.add(decoLight);
+  deco.position.set(0, 6.38, 1.9);
+  inner.add(deco);
+  updaters.push((dt, t) => {
+    // 慢呼吸的暗光（22s 一息）+ 偶发一次极轻的镇流器颤
+    const br = 0.75 + Math.sin((t * Math.PI * 2) / 22) * 0.25;
+    const jit = Math.sin(t * 31) * Math.sin(t * 7.3) > 0.985 ? 0.55 : 1;
+    decoLight.intensity = 2.6 * br * jit;
+    decoBowl.material.emissiveIntensity = 0.65 * br * jit;
+  });
   // 舞台（深色蜡面台板 + 黄铜包边）+ 话筒
   const stage = roundedBoxMesh(8, 0.6, 3, 0.06,
     woodMat({ base: [22, 13, 16], planks: 6, size: 256, seed: 28, gloss: 0.8, env: 0.8 }));
