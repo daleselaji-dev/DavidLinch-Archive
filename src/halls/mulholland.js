@@ -549,6 +549,34 @@ export function build(ctx) {
     chaseBulbs.material.emissiveIntensity = 1.6 + (Math.sin(t * 7) * 0.5 + 0.5) * 1.4;
   });
 
+  // v1.9 抛光第 3 遍：立面收顶——此前屋顶线是一条 7.4m 高的平直硬边、
+  // 招牌霓虹悬在天上没有着落。加通长檐口（比墙身深出切投影线）+
+  // 阶梯式 Deco 山花衬板（霓虹与追逐灯泡贴板立起）+ 顶帽五枚渐收立鳍
+  // + 檐下一支琥珀霓虹细管（低亮呼吸，偶尔咳一下）
+  {
+    const crestMat = new THREE.MeshStandardMaterial({ color: 0x140d14, roughness: 0.8 });
+    group.add(mergedMesh([
+      xform(new THREE.BoxGeometry(16.4, 0.3, 0.72), 0, 7.5, -14),
+      xform(new THREE.BoxGeometry(16.4, 0.12, 0.6), 0, 7.72, -14),
+      xform(new THREE.BoxGeometry(7.6, 2.1, 0.42), 0, 8.5, -14.1),
+      xform(new THREE.BoxGeometry(1.5, 1.15, 0.42), -4.35, 8.0, -14.1),
+      xform(new THREE.BoxGeometry(1.5, 1.15, 0.42), 4.35, 8.0, -14.1),
+      xform(new THREE.BoxGeometry(3.0, 0.5, 0.42), 0, 9.7, -14.1),
+      ...[-1.0, -0.5, 0, 0.5, 1.0].map((fx) => xform(
+        new THREE.BoxGeometry(0.09, 0.5 - Math.abs(fx) * 0.22, 0.2),
+        fx, 10.0 - Math.abs(fx) * 0.11, -14.1))
+    ], crestMat));
+    const cornTube = new THREE.Mesh(
+      new THREE.BoxGeometry(15.6, 0.045, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x110a06, emissive: 0xffb36a, emissiveIntensity: 1.3, toneMapped: true })
+    );
+    cornTube.position.set(0, 7.34, -13.68);
+    group.add(cornTube);
+    updaters.push((dt, t) => {
+      cornTube.material.emissiveIntensity = 1.1 + Math.sin(t * 0.9) * 0.25 + (Math.sin(t * 31) > 0.996 ? 0.8 : 0);
+    });
+  }
+
   // v1.6 巷口引导：立面右角一块「SALIDA DE ARTISTAS →」搪瓷牌 + 罩笼工作灯——
   // 演员出入口在建筑右侧；箭头指向暗巷，灯偶尔眨一下（in-world 引导，不用 UI 提示）
   const stageDoorTex = canvasTexture(256, (g, s) => {

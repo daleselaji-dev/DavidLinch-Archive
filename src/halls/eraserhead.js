@@ -411,6 +411,89 @@ export function build(ctx) {
     }
   });
 
+  // v1.9 抛光第 3 遍：天车链条吊钩组——一截工字梁横在顶棚半途，
+  // 小车停在空地正上方，链条垂下来，钩子上什么都没挂。
+  // （机器在西南角轰鸣，吊钩却停在这里——它上一次吊走的是什么？）
+  {
+    const beamMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(256, 56, 26), color: 0x26282c, roughness: 0.62, metalness: 0.72
+    });
+    const BX = 2.2, BZ0 = 0.9, BZ1 = -4.7, TZ = -1.9;
+    const beamY = H - 0.34;
+    const beamLen = BZ0 - BZ1;
+    const beamZC = (BZ0 + BZ1) / 2;
+    group.add(mergedMesh([
+      // 工字梁：上翼缘 / 腹板 / 下翼缘 + 两端封板 + 两只抱顶吊架
+      xform(new THREE.BoxGeometry(0.3, 0.045, beamLen), BX, beamY + 0.135, beamZC),
+      xform(new THREE.BoxGeometry(0.05, 0.23, beamLen), BX, beamY, beamZC),
+      xform(new THREE.BoxGeometry(0.3, 0.045, beamLen), BX, beamY - 0.135, beamZC),
+      xform(new THREE.BoxGeometry(0.3, 0.32, 0.03), BX, beamY, BZ0 - 0.015),
+      xform(new THREE.BoxGeometry(0.3, 0.32, 0.03), BX, beamY, BZ1 + 0.015),
+      xform(new THREE.BoxGeometry(0.09, 0.34, 0.09), BX, H - 0.17, BZ0 - 0.45),
+      xform(new THREE.BoxGeometry(0.09, 0.34, 0.09), BX, H - 0.17, BZ1 + 0.45)
+    ], beamMat));
+    // 小车：双侧板 + 四只行走轮压住下翼缘 + 底部横担吊耳
+    const wheelPair = (dz) => [
+      xform(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 10), BX - 0.115, beamY - 0.06, TZ + dz, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 10), BX + 0.115, beamY - 0.06, TZ + dz, 0, 0, Math.PI / 2)
+    ];
+    group.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.035, 0.24, 0.4), BX - 0.15, beamY - 0.17, TZ),
+      xform(new THREE.BoxGeometry(0.035, 0.24, 0.4), BX + 0.15, beamY - 0.17, TZ),
+      ...wheelPair(-0.13), ...wheelPair(0.13),
+      xform(new THREE.BoxGeometry(0.33, 0.05, 0.4), BX, beamY - 0.315, TZ),
+      xform(new THREE.CylinderGeometry(0.028, 0.028, 0.09, 8), BX, beamY - 0.38, TZ)
+    ], rustMat({ seed: 41, rust: 0.4, repX: 1, repY: 1 })));
+    // 链条 + 吊钩：整串挂在吊耳上，随楼里的震动常年微晃
+    const rig = new THREE.Group();
+    rig.position.set(BX, beamY - 0.42, TZ);
+    const chainMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 48, 22), color: 0x33353a, roughness: 0.55, metalness: 0.8
+    });
+    const LINKS = 30, PITCH = 0.082;
+    const rigGeos = [];
+    for (let i = 0; i < LINKS; i++) {
+      const link = new THREE.TorusGeometry(0.05, 0.011, 6, 10);
+      link.scale(1, 1.35, 1); // 拉长成链环
+      rigGeos.push(xform(link, 0, -i * PITCH - 0.05, 0, 0, i % 2 ? Math.PI / 2 : 0, 0));
+    }
+    const chainBot = -LINKS * PITCH - 0.05;
+    // 回转吊环 + 钩柄 + 钩身（3/4 圆环从顶顺到开口侧）+ 钩尖 + 防脱舌片
+    rigGeos.push(xform(new THREE.BoxGeometry(0.09, 0.075, 0.05), 0, chainBot - 0.04, 0));
+    rigGeos.push(xform(new THREE.CylinderGeometry(0.018, 0.018, 0.1, 8), 0, chainBot - 0.12, 0));
+    const hookArc = new THREE.TorusGeometry(0.085, 0.023, 8, 14, Math.PI * 1.7);
+    rigGeos.push(xform(hookArc, 0, chainBot - 0.255, 0, 0, 0, Math.PI / 2));
+    rigGeos.push(xform(new THREE.SphereGeometry(0.026, 8, 6),
+      Math.cos(0.2 * Math.PI) * 0.085, chainBot - 0.255 + Math.sin(0.2 * Math.PI) * 0.085, 0));
+    rigGeos.push(xform(new THREE.BoxGeometry(0.014, 0.1, 0.032), 0.045, chainBot - 0.19, 0, 0, 0, -0.55));
+    rig.add(mergedMesh(rigGeos, chainMat));
+    const hookHit = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.66, 0.36),
+      new THREE.MeshStandardMaterial({ color: 0x000000 }));
+    hookHit.visible = false;
+    hookHit.position.set(0, chainBot - 0.2, 0);
+    rig.add(hookHit);
+    group.add(rig);
+    const rigState = { jolt: 0 };
+    updaters.push((dt, t) => {
+      rigState.jolt = Math.max(0, rigState.jolt - dt / 3.4);
+      const j = rigState.jolt * rigState.jolt;
+      rig.rotation.z = Math.sin(t * 0.53) * 0.011 + Math.sin(t * 7.3) * 0.09 * j;
+      rig.rotation.x = Math.cos(t * 0.41) * 0.009 + Math.cos(t * 6.1) * 0.062 * j;
+      rig.rotation.y = Math.sin(t * 0.07) * 0.45 + Math.sin(t * 4.2) * 0.5 * j;
+    });
+    hotspots.add(hookHit, {
+      hint: 'E — 吊钩',
+      onActivate: () => {
+        if (rigState.jolt > 0.2) return;
+        rigState.jolt = 1;
+        audio.sfxAt('chainrattle', BX, TZ, 0.8, 3);
+        // 连锁：机器那头闷闷地应了一声
+        setTimeout(() => audio.sfxAt('clank', -4.6, -4.9, 0.38, 5), 1300);
+        setTimeout(() => ui.caption('钩着的东西先走了。', 3400), 700);
+      }
+    });
+  }
+
   // 大机器 v2 —— 真曲柄连杆机构（v1.4 P3 英雄资产）：
   // 飞轮（轮辋+六辐+轮毂+曲柄销+扇形配重）→ 连杆 → 十字头（双导轨）→ 活塞杆
   // → 立式汽缸（法兰/缸盖螺栓/填料函，铸铁立柱承托）；

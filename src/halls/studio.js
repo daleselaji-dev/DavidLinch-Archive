@@ -1819,6 +1819,168 @@ export function build(ctx) {
     }
   });
 
+  // v1.9 抛光第 3 遍：东墙挂画轨——三幅铅笔草图装在旧木框里，
+  // 麻绳成 V 形从一条木线脚吊下来，挂高故意不齐。
+  // 中间那幅常年歪着；E → 摆两下停正，过几秒又自己歪回去。
+  {
+    const RX = W / 2 - 0.045;
+    const railMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [46, 32, 20], planks: 1, size: 128 }), roughness: 0.75
+    });
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 2.5), railMat);
+    rail.position.set(RX, 2.62, -1.48);
+    group.add(rail);
+    const paperBase = (g, s, seed) => {
+      g.fillStyle = '#ddd5c2';
+      g.fillRect(0, 0, s, s);
+      const r = rng(seed);
+      g.fillStyle = 'rgba(120,105,80,0.08)';
+      for (let i = 0; i < 40; i++) g.fillRect(r() * s, r() * s, 2 + r() * 10, 1 + r() * 3);
+    };
+    // 草图一：一个房间的墙角透视，右墙的门开了一条缝
+    const skA = canvasTexture(128, (g, s) => {
+      paperBase(g, s, 91);
+      g.strokeStyle = 'rgba(58,52,44,0.75)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(64, 18); g.lineTo(64, 96);
+      g.moveTo(64, 18); g.lineTo(8, 40);
+      g.moveTo(64, 96); g.lineTo(8, 104);
+      g.moveTo(64, 18); g.lineTo(120, 34);
+      g.moveTo(64, 96); g.lineTo(120, 100);
+      g.stroke();
+      g.strokeRect(86, 46, 20, 42);
+      g.fillStyle = 'rgba(30,26,22,0.8)';
+      g.fillRect(87, 47, 3, 41);
+    });
+    // 草图二：一条上山的回头弯路，两根电线杆
+    const skB = canvasTexture(128, (g, s) => {
+      paperBase(g, s, 92);
+      g.strokeStyle = 'rgba(58,52,44,0.7)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.moveTo(10, 112);
+      g.bezierCurveTo(70, 96, 20, 70, 66, 54);
+      g.bezierCurveTo(100, 42, 82, 30, 108, 22);
+      g.stroke();
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(4, 60); g.quadraticCurveTo(50, 26, 124, 44); g.stroke();
+      for (const [px, py, ph] of [[36, 84, 20], [88, 40, 15]]) {
+        g.beginPath();
+        g.moveTo(px, py); g.lineTo(px, py - ph);
+        g.moveTo(px - 5, py - ph + 3); g.lineTo(px + 5, py - ph + 3);
+        g.stroke();
+      }
+    });
+    // 草图三：波纹地面上一道帷幕，角上一个小 X
+    const skC = canvasTexture(128, (g, s) => {
+      paperBase(g, s, 93);
+      g.strokeStyle = 'rgba(58,52,44,0.72)';
+      g.lineWidth = 1.2;
+      for (let x = 30; x <= 98; x += 8.5) {
+        g.beginPath(); g.moveTo(x, 22); g.quadraticCurveTo(x + 3, 55, x - 2, 84); g.stroke();
+      }
+      g.beginPath(); g.moveTo(26, 20); g.lineTo(102, 20); g.stroke();
+      for (let y = 96; y <= 112; y += 8) {
+        g.beginPath(); g.moveTo(14, y);
+        for (let x = 14; x <= 114; x += 10) g.lineTo(x + 5, y + ((x / 10) % 2 ? 2.5 : -2.5));
+        g.stroke();
+      }
+      g.beginPath();
+      g.moveTo(104, 100); g.lineTo(114, 112);
+      g.moveTo(114, 100); g.lineTo(104, 112);
+      g.stroke();
+    });
+    const frameMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [58, 40, 24], planks: 1, size: 128 }), roughness: 0.65
+    });
+    const cordMat = new THREE.MeshStandardMaterial({ color: 0x2c241a, roughness: 0.9 });
+    const BAR = 0.035, DEP = 0.03;
+    const frameBarGeos = (wF, hF, cx, cy, cz) => [
+      xform(new THREE.BoxGeometry(DEP, hF, BAR), cx, cy, cz - wF / 2 + BAR / 2),
+      xform(new THREE.BoxGeometry(DEP, hF, BAR), cx, cy, cz + wF / 2 - BAR / 2),
+      xform(new THREE.BoxGeometry(DEP, BAR, wF - 2 * BAR), cx, cy + hF / 2 - BAR / 2, cz),
+      xform(new THREE.BoxGeometry(DEP, BAR, wF - 2 * BAR), cx, cy - hF / 2 + BAR / 2, cz)
+    ];
+    const cordGeos = (hookY, hookZ, topY, wF) => {
+      const out = [];
+      for (const sgn of [-1, 1]) {
+        const dz = sgn * (wF / 2 - BAR / 2);
+        const dy = topY - hookY;
+        const L = Math.hypot(dy, dz);
+        out.push(xform(new THREE.CylinderGeometry(0.0035, 0.0035, L, 5),
+          0, (hookY + topY) / 2, hookZ + dz / 2, Math.atan2(dz, dy), 0, 0));
+      }
+      out.push(xform(new THREE.SphereGeometry(0.011, 6, 5), 0, hookY, hookZ));
+      return out;
+    };
+    const FX = RX - 0.035;
+    // 两幅静挂：A 竖幅（墙角）z 0.15 / C 小幅（帷幕）z 2.7，挂高故意不齐
+    group.add(mergedMesh([
+      ...frameBarGeos(0.42, 0.55, FX, 1.78, -2.2),
+      ...frameBarGeos(0.36, 0.46, FX, 1.66, -0.72)
+    ], frameMat));
+    {
+      const cords = mergedMesh([
+        ...cordGeos(2.58, -2.2, 2.055, 0.42),
+        ...cordGeos(2.58, -0.72, 1.89, 0.36)
+      ], cordMat);
+      cords.position.x = FX;
+      group.add(cords);
+    }
+    const mkPaper = (wF, hF, tex, y, z) => {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(wF - 2 * BAR, hF - 2 * BAR),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 }));
+      p.rotation.y = -Math.PI / 2;
+      p.position.set(FX - DEP / 2 - 0.001, y, z);
+      return p;
+    };
+    group.add(mkPaper(0.42, 0.55, skA, 1.78, -2.2));
+    group.add(mkPaper(0.36, 0.46, skC, 1.66, -0.72));
+    // 中间横幅（上山路）：整组吊在挂钩上，绕法线歪/摆
+    const midRig = new THREE.Group();
+    midRig.position.set(FX, 2.58, -1.45);
+    midRig.add(mergedMesh(frameBarGeos(0.62, 0.44, 0, -0.72, 0), frameMat));
+    midRig.add(mergedMesh(cordGeos(0, 0, -0.5, 0.62), cordMat));
+    const midPaper = new THREE.Mesh(new THREE.PlaneGeometry(0.62 - 2 * BAR, 0.44 - 2 * BAR),
+      new THREE.MeshStandardMaterial({ map: skB, roughness: 0.92 }));
+    midPaper.rotation.y = -Math.PI / 2;
+    midPaper.position.set(-DEP / 2 - 0.001, -0.72, 0);
+    midRig.add(midPaper);
+    group.add(midRig);
+    const TILT = 0.048;
+    const frameState = { t: -1 };
+    updaters.push((dt, t) => {
+      if (frameState.t < 0) {
+        midRig.rotation.x = TILT + Math.sin(t * 0.9) * 0.004;
+        return;
+      }
+      frameState.t += dt;
+      const u = frameState.t;
+      if (u > 7.2) { frameState.t = -1; return; }
+      if (u < 1.8) {
+        // 摆两下，停在正的位置
+        midRig.rotation.x = TILT * Math.max(0, 1 - u / 0.5) + Math.sin(u * 7) * 0.12 * Math.exp(-u * 2.2);
+      } else if (u < 4.2) {
+        midRig.rotation.x = 0;
+      } else {
+        // 又自己歪回去（很慢，像叹气）
+        const v = Math.min(1, (u - 4.2) / 2.6);
+        midRig.rotation.x = TILT * v * v * (3 - 2 * v);
+      }
+    });
+    hotspots.add(midPaper, {
+      hint: 'E — 扶正画框',
+      onActivate: () => {
+        if (frameState.t >= 0) return;
+        frameState.t = 0;
+        audio.sfxAt('woodknock', RX, -1.45, 0.4, 3);
+        later(() => audio.sfxAt('creak', RX, -1.45, 0.3, 3), 4300);
+        later(() => ui.caption('它更喜欢歪着。', 3200), 4600);
+      }
+    });
+  }
+
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, D / 2 - 0.55);

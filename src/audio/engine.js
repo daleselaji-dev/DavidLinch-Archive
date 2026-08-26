@@ -627,6 +627,17 @@ export class AudioEngine {
         noise('white', 0.06, 'highpass', 4200, 2, 0.012, 0.32);
         break;
       }
+      case 'chainrattle': { // 起重链受扰：链身低闷一坠 + 环环相磕的高位密簇（密→疏）+ 落定单磕
+        tone('sine', 118, 74, 0.14, 0.09);
+        noise('brown', 0.12, 'lowpass', 300, 1, 0.06, 0, 0.01);
+        for (let i = 0; i < 9; i++) {
+          const d = 0.05 + i * 0.05 + i * i * 0.011;
+          tone('square', 2280 + (i % 4) * 310, 2100 + (i % 3) * 240, 0.03, 0.015, d);
+          noise('white', 0.018, 'bandpass', 3400 - i * 160, 8, 0.028 - i * 0.002, d);
+        }
+        tone('sine', 1620, 1590, 0.12, 0.02, 0.78);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;
