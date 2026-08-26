@@ -1,6 +1,6 @@
 {
   "name": "smoke-and-velvet-lynch-archive",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "SMOKE & VELVET — 大卫·林奇数字纪念展览馆 (unofficial fan-art memorial exhibition, all visuals & audio procedurally generated)",
   "private": true,
   "main": "electron/main.cjs",
