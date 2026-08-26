@@ -542,6 +542,147 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.9 二级细节·lobby 件 1：碑前长明灯——与献花铜瓶左右对称，
+  // 记忆的长明火。黄铜盏座（束腰车削+滴油环）+ 玻璃罩（收腰烟囱形）
+  // + 双层火苗（外橙内白，独立颤动）+ 暖光。E → 火苗躬身又缓缓立起。
+  // ============================================================
+  const flameLamp = new THREE.Group();
+  flameLamp.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.17, 0), new THREE.Vector2(0.15, 0.025), new THREE.Vector2(0.055, 0.07),
+      new THREE.Vector2(0.045, 0.5), new THREE.Vector2(0.085, 0.6), new THREE.Vector2(0.07, 0.64),
+      new THREE.Vector2(0.13, 0.68), new THREE.Vector2(0.12, 0.72), new THREE.Vector2(0.05, 0.73)
+    ], 20),
+    M.brass
+  ));
+  // 滴油环：盏口下一圈凝住的蜡油痕（倒角高光边 + 磨损语言）
+  const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.012, 8, 22), new THREE.MeshStandardMaterial({
+    color: 0xcbb98e, roughness: 0.55, metalness: 0.2
+  }));
+  dripRing.rotation.x = Math.PI / 2;
+  dripRing.position.y = 0.665;
+  flameLamp.add(dripRing);
+  // 玻璃罩：收腰烟囱形
+  const chimney = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.115, 0.73), new THREE.Vector2(0.1, 0.82), new THREE.Vector2(0.078, 0.95),
+      new THREE.Vector2(0.085, 1.1), new THREE.Vector2(0.07, 1.18)
+    ], 20),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xfff4e0, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.16,
+      clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 2.2, side: THREE.DoubleSide, depthWrite: false
+    })
+  );
+  flameLamp.add(chimney);
+  // 双层火苗（外橙内白）
+  const flamePivot = new THREE.Group();
+  flamePivot.position.y = 0.75;
+  const flameOuter = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.032, 0.03), new THREE.Vector2(0.024, 0.09),
+      new THREE.Vector2(0.008, 0.15), new THREE.Vector2(0.001, 0.18)
+    ], 10),
+    new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: 0.85, toneMapped: false })
+  );
+  const flameInner = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0.01), new THREE.Vector2(0.016, 0.04), new THREE.Vector2(0.009, 0.09),
+      new THREE.Vector2(0.001, 0.12)
+    ], 8),
+    new THREE.MeshBasicMaterial({ color: 0xfff2cc, transparent: true, opacity: 0.95, toneMapped: false })
+  );
+  flamePivot.add(flameOuter, flameInner);
+  flameLamp.add(flamePivot);
+  const flameGlow = new THREE.PointLight(0xffa04a, 2.2, 4.2, 2);
+  flameGlow.position.y = 0.86;
+  flameLamp.add(flameGlow);
+  flameLamp.position.set(-2.9, 0, 2.9);
+  group.add(flameLamp);
+  // 火苗常态颤动 + 交互「躬身再立起」时间线
+  const flameBow = { t: -1 };
+  updaters.push((dt, t) => {
+    let k = 1;
+    if (flameBow.t >= 0) {
+      flameBow.t += dt;
+      const u = flameBow.t;
+      if (u > 2.4) flameBow.t = -1;
+      // 前 0.5s 躬身压到 0.35，随后 1.9s 缓缓立起还超挺一口再落回
+      else k = u < 0.5 ? 1 - (u / 0.5) * 0.65
+        : 0.35 + Math.min(1, (u - 0.5) / 1.6) * 0.75 + Math.sin(Math.min(1, (u - 0.5) / 1.6) * Math.PI) * 0.18;
+    }
+    const jitter = 1 + Math.sin(t * 11.3) * 0.06 + Math.sin(t * 27.7) * 0.05;
+    flamePivot.scale.set(1, k * jitter, 1);
+    flamePivot.rotation.z = Math.sin(t * 7.1) * 0.05 + Math.sin(t * 17.3) * 0.03;
+    flameGlow.intensity = 2.2 * k * jitter;
+    flameOuter.material.opacity = 0.85 * (0.7 + 0.3 * k);
+  });
+  hotspots.add(chimney, {
+    hint: 'E — 长明灯',
+    onActivate: () => {
+      if (flameBow.t < 0) flameBow.t = 0;
+      audio.sfxAt('flamegut', -2.9, 2.9, 0.6);
+      ui.caption('火从没灭过。也没人来添过油。', 3800);
+    }
+  });
+
+  // ============================================================
+  // v1.9 二级细节·lobby 件 2：帷幕束带——三根立柱侧挂黄铜玫瑰扣
+  // + 金穗流苏对（检修幕布用的束带，歇在钩上）。E → 穗子晃起来。
+  // ============================================================
+  const tasselPivots = [];
+  {
+    const rosetteMat = M.brass;
+    const cordMat = new THREE.MeshStandardMaterial({ color: 0xc9a35c, roughness: 0.5, metalness: 0.35 });
+    for (const k of [1, 3, 5]) {
+      const a = -Math.PI / 2 + Math.PI / 6 + (k * Math.PI) / 3;
+      const tb = new THREE.Group();
+      // 玫瑰扣（叠级圆盘）+ 挂钩
+      tb.add(mergedMesh([
+        xform(new THREE.CylinderGeometry(0.055, 0.062, 0.02, 12), 0, 0, 0, Math.PI / 2, 0, 0),
+        xform(new THREE.CylinderGeometry(0.028, 0.034, 0.03, 10), 0, 0, 0.018, Math.PI / 2, 0, 0),
+        xform(new THREE.TorusGeometry(0.03, 0.008, 8, 12), 0, -0.05, 0.03, 0.3, 0, 0)
+      ], rosetteMat));
+      // 流苏对（枢轴挂在扣下）：绳环 + 两支穗（束颈+穗身+流苏裙沿）
+      const pv = new THREE.Group();
+      pv.position.set(0, -0.06, 0.03);
+      const tasselGeos = [];
+      for (const [tx, ty] of [[-0.045, -0.1], [0.045, -0.14]]) {
+        tasselGeos.push(
+          xform(new THREE.CylinderGeometry(0.006, 0.006, 0.12, 6), tx * 0.5, ty + 0.12, 0, 0, 0, tx > 0 ? -0.32 : 0.32),
+          xform(new THREE.SphereGeometry(0.016, 8, 6), tx, ty + 0.05, 0),
+          xform(new THREE.LatheGeometry([
+            new THREE.Vector2(0.008, 0.05), new THREE.Vector2(0.02, 0.035), new THREE.Vector2(0.024, 0),
+            new THREE.Vector2(0.028, -0.012), new THREE.Vector2(0.02, -0.05), new THREE.Vector2(0.001, -0.065)
+          ], 10), tx, ty, 0)
+        );
+      }
+      pv.add(mergedMesh(tasselGeos, cordMat));
+      tb.add(pv);
+      tb.position.set(Math.cos(a) * (R - 1.22), 1.62, Math.sin(a) * (R - 1.22));
+      tb.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a)) + Math.PI / 2;
+      group.add(tb);
+      tasselPivots.push({ pv, sway: 0, x: tb.position.x, z: tb.position.z, mesh: tb.children[0] });
+    }
+    for (const tp of tasselPivots) {
+      hotspots.add(tp.mesh, {
+        hint: 'E — 幕布束带',
+        onActivate: () => {
+          tp.sway = 1;
+          audio.sfxAt('tassel', tp.x, tp.z, 0.6);
+          ui.caption('穗子还在晃。刚才并没有风。', 3400);
+        }
+      });
+    }
+    updaters.push((dt, t) => {
+      for (const tp of tasselPivots) {
+        if (tp.sway > 0) tp.sway = Math.max(0, tp.sway - dt * 0.34);
+        tp.pv.rotation.z = Math.sin(t * 4.6) * 0.02 + Math.sin(t * 4.1 + tp.x) * 0.34 * tp.sway;
+        tp.pv.rotation.x = Math.sin(t * 3.4 + tp.z) * 0.2 * tp.sway;
+      }
+    });
+  }
+
   // v1.5 减法：伞架退场（与衣帽架重复的「有人来过」件，
   // 还正好立在出生点到纪念碑的视线上）——同一句话说一遍就够
 

@@ -583,6 +583,43 @@ export class AudioEngine {
         noise('pink', 0.15, 'bandpass', 1450, 5, 0.013, 0.035, 0.05);
         break;
       }
+      // ---------- v1.9 新音色（门禁 49：配套新交互） ----------
+      case 'flamegut': { // 长明灯火苗吞吸：软气流内吸上扬 + 玻璃罩微鸣 + 低位余温
+        const f = noise('pink', 0.55, 'bandpass', 460, 1.4, 0.1, 0, 0.2);
+        f.frequency.linearRampToValueAtTime(920, t + 0.42);
+        tone('sine', 1180, 1172, 0.5, 0.012, 0.1);
+        noise('brown', 0.42, 'lowpass', 140, 1, 0.05, 0.12, 0.1);
+        break;
+      }
+      case 'woodknock': { // 柴垛滚响：圆木互磕的木质空腔三连 + 树皮碎屑
+        tone('sine', 132, 86, 0.16, 0.16);
+        tone('sine', 178, 122, 0.12, 0.1, 0.14);
+        tone('sine', 104, 76, 0.2, 0.12, 0.27);
+        noise('pink', 0.09, 'bandpass', 880, 2, 0.05, 0.02);
+        noise('pink', 0.26, 'highpass', 1900, 1, 0.026, 0.32, 0.06);
+        break;
+      }
+      case 'porcelain': { // 瓷釉轻磕：亮短非谐双分音 + 指甲弹瓷高频挑 + 第二记更轻
+        tone('sine', 2140, 2118, 0.22, 0.05);
+        tone('sine', 3320, 3288, 0.14, 0.03, 0.006);
+        noise('white', 0.02, 'highpass', 5200, 2, 0.04);
+        tone('sine', 2260, 2238, 0.15, 0.026, 0.19);
+        break;
+      }
+      case 'sharpen': { // 手摇铅笔刀：六格摇柄棘轮 + 木屑削擦持续层
+        for (let i = 0; i < 6; i++) {
+          noise('pink', 0.05, 'bandpass', 1300 + (i % 2) * 260, 4, 0.05, i * 0.11);
+          tone('square', 96, 88, 0.03, 0.018, i * 0.11);
+        }
+        noise('pink', 0.5, 'highpass', 2600, 1, 0.03, 0.08, 0.2);
+        break;
+      }
+      case 'tassel': { // 金穗流苏拂过丝绒：柔软细索一拂 + 铜钩轻碰尾音
+        noise('pink', 0.3, 'bandpass', 1500, 1.2, 0.05, 0, 0.07);
+        noise('pink', 0.16, 'bandpass', 2200, 1.6, 0.026, 0.16, 0.05);
+        tone('sine', 1430, 1418, 0.2, 0.018, 0.24);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;
