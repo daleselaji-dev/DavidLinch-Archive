@@ -198,6 +198,133 @@ export function build(ctx) {
     map: brushedMetalTexture(256, 150, 40), color: 0x9aa0a8, roughness: 0.45, metalness: 0.7, envMapIntensity: 0.9
   })));
 
+  // v1.4 二遍：路面家具三件——井盖 / 中线猫眼反光钉 / 门厅戏报箱一对
+  // ① 铸铁井盖（同心环 + 放射短纹 + 双撬孔，微凸出湿沥青）
+  const manholeTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#20232a';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(120,126,138,0.6)';
+    for (let r = 8; r < 60; r += 9) {
+      g.lineWidth = r % 18 === 8 ? 2 : 1;
+      g.beginPath();
+      g.arc(64, 64, r, 0, Math.PI * 2);
+      g.stroke();
+    }
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44);
+      g.lineTo(64 + Math.cos(a) * 58, 64 + Math.sin(a) * 58);
+      g.stroke();
+    }
+    g.fillStyle = '#0a0b0e';
+    g.beginPath(); g.arc(42, 64, 4, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(86, 64, 4, 0, Math.PI * 2); g.fill();
+  });
+  const manhole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.38, 0.38, 0.014, 24),
+    new THREE.MeshStandardMaterial({
+      map: manholeTex, color: 0x565c66, roughness: 0.55, metalness: 0.8, envMapIntensity: 0.8
+    })
+  );
+  manhole.position.set(1.5, 0.007, 5.2);
+  group.add(manhole);
+  // ② 中线猫眼反光钉（低琥珀自发光——夜路的「呼吸线」，整排合并）
+  const studGeos = [];
+  for (let z = -12; z <= 14; z += 2.6) {
+    studGeos.push(xform(new THREE.BoxGeometry(0.1, 0.024, 0.15), 0, 0.012, z));
+  }
+  group.add(mergedMesh(studGeos, new THREE.MeshStandardMaterial({
+    color: 0x2a2418, roughness: 0.4, metalness: 0.6,
+    emissive: 0xff9e3c, emissiveIntensity: 0.55
+  })));
+  // ③ 门厅戏报箱一对（黄铜框 + 玻璃 + 原创西语戏报；夹着大门左右）
+  const posterA = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#140c18';
+    g.fillRect(0, 0, s, s);
+    const beam = g.createLinearGradient(0, 0, 0, s);
+    beam.addColorStop(0, 'rgba(240,210,150,0.5)');
+    beam.addColorStop(1, 'rgba(240,210,150,0)');
+    g.save();
+    g.beginPath();
+    g.moveTo(s * 0.38, 40); g.lineTo(s * 0.62, 40); g.lineTo(s * 0.8, s - 30); g.lineTo(s * 0.2, s - 30);
+    g.closePath();
+    g.fillStyle = beam;
+    g.fill();
+    g.restore();
+    // 歌者剪影：头 + 肩身梯形 + 麦克风杆
+    g.fillStyle = '#060409';
+    g.beginPath(); g.arc(s / 2, s * 0.52, 16, 0, Math.PI * 2); g.fill();
+    g.beginPath();
+    g.moveTo(s / 2 - 26, s - 30); g.lineTo(s / 2 + 26, s - 30);
+    g.lineTo(s / 2 + 14, s * 0.56); g.lineTo(s / 2 - 14, s * 0.56);
+    g.closePath();
+    g.fill();
+    g.fillRect(s / 2 + 20, s * 0.55, 2, s * 0.32);
+    g.strokeStyle = '#c8a24a';
+    g.lineWidth = 5;
+    g.strokeRect(12, 12, s - 24, s - 24);
+    g.fillStyle = '#e6ce96';
+    g.textAlign = 'center';
+    g.font = '700 30px Georgia, serif';
+    g.fillText('ESTA NOCHE', s / 2, 40);
+    g.font = '18px Georgia, serif';
+    g.fillText('UNA VOZ · SIN ORQUESTA', s / 2, s - 10);
+  });
+  const posterB = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#0d1020';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#e8e0c8';
+    g.beginPath(); g.arc(s * 0.68, s * 0.3, 34, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#0d1020';
+    g.beginPath(); g.arc(s * 0.63, s * 0.27, 30, 0, Math.PI * 2); g.fill();
+    // 盘山公路白虚线蜿蜒进画底
+    g.strokeStyle = 'rgba(232,224,200,0.8)';
+    g.lineWidth = 4;
+    g.setLineDash([10, 9]);
+    g.beginPath();
+    g.moveTo(s * 0.16, s + 8);
+    g.bezierCurveTo(s * 0.42, s * 0.78, s * 0.12, s * 0.6, s * 0.4, s * 0.5);
+    g.bezierCurveTo(s * 0.62, s * 0.43, s * 0.5, s * 0.36, s * 0.66, s * 0.32);
+    g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = '#7a90c8';
+    g.lineWidth = 5;
+    g.strokeRect(12, 12, s - 24, s - 24);
+    g.fillStyle = '#c9d4ee';
+    g.textAlign = 'center';
+    g.font = '700 26px Georgia, serif';
+    g.fillText('MEDIANOCHE', s / 2, 44);
+    g.font = '18px Georgia, serif';
+    g.fillText('FUNCIÓN DOBLE · 2:15', s / 2, s - 12);
+  });
+  for (const [px, tex] of [[-3.1, posterA], [3.1, posterB]]) {
+    const kase = new THREE.Group();
+    kase.add(mergedMesh([
+      xform(new THREE.BoxGeometry(1.16, 0.07, 0.09), 0, 0.785, 0),
+      xform(new THREE.BoxGeometry(1.16, 0.07, 0.09), 0, -0.785, 0),
+      xform(new THREE.BoxGeometry(0.07, 1.64, 0.09), -0.545, 0, 0),
+      xform(new THREE.BoxGeometry(0.07, 1.64, 0.09), 0.545, 0, 0)
+    ], M.brass));
+    const paper = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.02, 1.5),
+      new THREE.MeshStandardMaterial({
+        map: tex, roughness: 0.8, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.32
+      })
+    );
+    paper.position.z = 0.012;
+    const glassPane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.06, 1.56),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xaebcd8, roughness: 0.05, transparent: true, opacity: 0.14, envMapIntensity: 1.6
+      })
+    );
+    glassPane.position.z = 0.045;
+    kase.add(paper, glassPane);
+    kase.position.set(px, 2.5, -13.7);
+    group.add(kase);
+  }
+
   // ---------- 剧场外立面 ----------
   const facadeMat = new THREE.MeshStandardMaterial({ color: 0x191019, roughness: 0.75 });
   const facade = new THREE.Group();
