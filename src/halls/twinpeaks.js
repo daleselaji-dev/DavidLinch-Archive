@@ -668,10 +668,110 @@ export function build(ctx) {
   const dw3 = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.6), dWallMat);
   dw3.position.set(29.6, 1.8, -3.4);
   dw3.rotation.y = Math.PI;
-  const dCeil = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 9), new THREE.MeshStandardMaterial({ color: 0x171310, roughness: 0.95 }));
+  // v1.4 四遍：压花锡板吊顶（老 diner 标配）——方格浮雕 + 中心花 + 高光斑
+  const tinTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#241c12';
+    g.fillRect(0, 0, s, s);
+    const cell = s / 4;
+    for (let ry = 0; ry < 4; ry++) {
+      for (let cx = 0; cx < 4; cx++) {
+        const x = cx * cell;
+        const y = ry * cell;
+        g.strokeStyle = 'rgba(120,96,56,0.6)';
+        g.lineWidth = 2;
+        g.strokeRect(x + 3, y + 3, cell - 6, cell - 6);
+        g.strokeStyle = 'rgba(10,8,4,0.7)';
+        g.strokeRect(x + 7, y + 7, cell - 14, cell - 14);
+        g.fillStyle = 'rgba(140,112,64,0.5)';
+        g.beginPath();
+        g.arc(x + cell / 2, y + cell / 2, 4, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }, 3, 6);
+  const dCeil = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 9), new THREE.MeshStandardMaterial({
+    map: tinTex, roughness: 0.55, metalness: 0.35, envMapIntensity: 0.8
+  }));
   dCeil.rotation.x = Math.PI / 2;
   dCeil.position.set(29.6, 3.6, -7.8);
   dinerInner.add(dw1, dw2, dw3, dCeil);
+  // 护墙横档 + 踢脚线（拆掉「胶合板箱」的整面重复感）
+  const dTrimMat = new THREE.MeshStandardMaterial({ color: 0x1e1208, roughness: 0.6 });
+  dinerInner.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.05, 0.09, 9), 31.57, 1.32, -7.8),
+    xform(new THREE.BoxGeometry(0.05, 0.14, 9), 31.58, 0.07, -7.8),
+    xform(new THREE.BoxGeometry(4.6, 0.09, 0.05), 29.6, 1.32, -12.17),
+    xform(new THREE.BoxGeometry(4.6, 0.14, 0.05), 29.6, 0.07, -12.18),
+    xform(new THREE.BoxGeometry(4.6, 0.09, 0.05), 29.6, 1.32, -3.43),
+    xform(new THREE.BoxGeometry(4.6, 0.14, 0.05), 29.6, 0.07, -3.42)
+  ], dTrimMat));
+  // 柜台吊灯一对（珐琅锥罩 + 吊杆 + 亮着的灯珠）——光终于有了来处
+  const shadeGeos = [];
+  const bulbGeos = [];
+  for (const pz of [-6.3, -9.3]) {
+    shadeGeos.push(xform(new THREE.CylinderGeometry(0.03, 0.26, 0.22, 14, 1, true), 30.4, 2.44, pz));
+    shadeGeos.push(xform(new THREE.CylinderGeometry(0.012, 0.012, 1.0, 6), 30.4, 3.05, pz));
+    bulbGeos.push(xform(new THREE.SphereGeometry(0.045, 10, 8), 30.4, 2.38, pz));
+  }
+  dinerInner.add(mergedMesh(shadeGeos, new THREE.MeshStandardMaterial({
+    color: 0x28401e, roughness: 0.35, metalness: 0.3, side: THREE.DoubleSide, envMapIntensity: 1.1
+  })));
+  const dinerBulbMat = new THREE.MeshStandardMaterial({
+    color: 0x201408, emissive: 0xffd9a0, emissiveIntensity: 2.6
+  });
+  dinerInner.add(mergedMesh(bulbGeos, dinerBulbMat));
+  const pendantA = new THREE.PointLight(0xffce8e, 3.4, 6, 1.8);
+  pendantA.position.set(30.4, 2.3, -6.3);
+  const pendantB = new THREE.PointLight(0xffce8e, 3.4, 6, 1.8);
+  pendantB.position.set(30.4, 2.3, -9.3);
+  dinerInner.add(pendantA, pendantB);
+  updaters.push((dt, t) => {
+    const w = 1 + Math.sin(t * 3.1) * 0.04 + Math.sin(t * 12.7) * 0.02;
+    dinerBulbMat.emissiveIntensity = 2.6 * w;
+    pendantA.intensity = 3.4 * w;
+    pendantB.intensity = 3.4 * w;
+  });
+  // 东墙字排菜单板（黑底白字条：通用小食与价目，零商标）
+  const menuBoardTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#0c0c0e';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#3a3a40';
+    g.lineWidth = 2;
+    for (let i = 1; i < 5; i++) {
+      g.beginPath(); g.moveTo(10, (i * s) / 5); g.lineTo(s - 10, (i * s) / 5); g.stroke();
+    }
+    g.fillStyle = '#e8e4da';
+    g.textBaseline = 'middle';
+    g.save();
+    g.scale(1, 2.6); // 板面 2.2×0.85 的纵向预补偿
+    g.font = '700 14px "Courier New", monospace'; // ×2.6 后 36px < 51px 行高，不串行
+    const rows = [['CAFE', '25'], ['PIE', '60'], ['A LA MODE', '85'], ['HUEVOS', '95'], ['DONUT', '30']];
+    rows.forEach(([name, price], i) => {
+      const y = ((i + 0.5) * s) / 5 / 2.6;
+      g.textAlign = 'left';
+      g.fillText(name, 18, y);
+      g.textAlign = 'right';
+      g.fillText(price, s - 18, y);
+    });
+    g.restore();
+  });
+  const menuBoard = new THREE.Group();
+  menuBoard.add(new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.95, 2.4),
+    new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.6 })
+  ));
+  const menuFace = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.85),
+    new THREE.MeshStandardMaterial({
+      map: menuBoardTex, roughness: 0.7,
+      emissive: 0xffffff, emissiveMap: menuBoardTex, emissiveIntensity: 0.22
+    })
+  );
+  menuFace.rotation.y = -Math.PI / 2;
+  menuFace.position.x = -0.03;
+  menuBoard.add(menuFace);
+  menuBoard.position.set(31.55, 2.45, -7.8);
+  dinerInner.add(menuBoard);
   // 柜台（v1.4 P2 欠账落地：五十年代 boomerang 层压板台面 + 金属包边踢脚）
   const counterTop = roundedBoxMesh(1.1, 0.1, 6.4, 0.04,
     boomerangMat({ bg: [232, 222, 198], tones: ['#b8a682', '#8f2032', '#3a4652'], size: 512, seed: 37, repX: 2, repY: 6 }));
