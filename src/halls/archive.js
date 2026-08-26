@@ -188,6 +188,93 @@ export function build(ctx) {
   });
   void catalogs;
 
+  // v1.4 三遍：停摆的站钟（西墙高处）——黄铜圈 + 奶面刻度盘（狐斑老化）+
+  // 真三维指针（秒针垂死在 6 点位）；E → 分针挣一下又垂回去（棘轮声）
+  const clockFaceTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#e6ddc6';
+    g.beginPath();
+    g.arc(s / 2, s / 2, s / 2 - 4, 0, Math.PI * 2);
+    g.fill();
+    for (let i = 0; i < 60; i++) {
+      const a = (i / 60) * Math.PI * 2;
+      const len = i % 5 === 0 ? 14 : 6;
+      g.strokeStyle = '#2a2118';
+      g.lineWidth = i % 5 === 0 ? 3 : 1.5;
+      g.beginPath();
+      g.moveTo(s / 2 + Math.cos(a) * (s / 2 - 10), s / 2 + Math.sin(a) * (s / 2 - 10));
+      g.lineTo(s / 2 + Math.cos(a) * (s / 2 - 10 - len), s / 2 + Math.sin(a) * (s / 2 - 10 - len));
+      g.stroke();
+    }
+    g.fillStyle = '#2a2118';
+    g.font = '700 30px Georgia, serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    for (let h = 1; h <= 12; h++) {
+      const a = (h / 12) * Math.PI * 2 - Math.PI / 2;
+      g.fillText(String(h), s / 2 + Math.cos(a) * (s / 2 - 42), s / 2 + Math.sin(a) * (s / 2 - 42));
+    }
+    const fr = rng(23);
+    for (let i = 0; i < 14; i++) {
+      g.fillStyle = `rgba(150,120,70,${0.05 + fr() * 0.1})`;
+      g.beginPath();
+      g.arc(fr() * s, fr() * s, 3 + fr() * 8, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+  const clock = new THREE.Group();
+  const caseGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.09, 28);
+  caseGeo.rotateX(Math.PI / 2);
+  clock.add(new THREE.Mesh(caseGeo, new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.6 })));
+  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.41, 0.028, 10, 30), M.brass);
+  bezel.position.z = 0.045;
+  clock.add(bezel);
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(0.385, 28),
+    new THREE.MeshStandardMaterial({ map: clockFaceTex, roughness: 0.7 })
+  );
+  face.position.z = 0.047;
+  clock.add(face);
+  // 指针：绕根部转（几何先平移再挂 pivot）；时针指向 2:47 的 2.78h，分针 47 分
+  const mkHand = (len, w, colorHex) => {
+    const geo = new THREE.BoxGeometry(w, len, 0.008);
+    geo.translate(0, len / 2 - 0.03, 0);
+    return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 }));
+  };
+  const hourHand = mkHand(0.2, 0.024, 0x1a140e);
+  hourHand.rotation.z = -((2.78 / 12) * Math.PI * 2);
+  hourHand.position.z = 0.052;
+  const minHand = mkHand(0.31, 0.016, 0x1a140e);
+  const MIN_REST = -((47 / 60) * Math.PI * 2);
+  minHand.rotation.z = MIN_REST;
+  minHand.position.z = 0.058;
+  const secHand = mkHand(0.33, 0.007, 0x6e1210);
+  secHand.rotation.z = Math.PI; // 垂死在 6 点位
+  secHand.position.z = 0.063;
+  const pin = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), M.brass);
+  pin.position.z = 0.062;
+  clock.add(hourHand, minHand, secHand, pin);
+  clock.position.set(-W / 2 + 0.06, 3.15, 8.6);
+  clock.rotation.y = Math.PI / 2;
+  group.add(clock);
+  const clockState = { t: -1 };
+  updaters.push((dt) => {
+    if (clockState.t < 0) return;
+    clockState.t += dt;
+    const k = clockState.t;
+    if (k >= 1.6) { clockState.t = -1; minHand.rotation.z = MIN_REST; return; }
+    // 挣扎曲线：0.35s 内向前抢 4 分钟，随后过阻尼垂回
+    const fwd = k < 0.35 ? Math.sin((k / 0.35) * Math.PI * 0.5) : Math.exp(-(k - 0.35) * 3.4) * (1 + Math.sin((k - 0.35) * 26) * 0.12);
+    minHand.rotation.z = MIN_REST - fwd * ((4 / 60) * Math.PI * 2);
+  });
+  hotspots.add(face, {
+    hint: 'E — 停摆的钟',
+    onActivate: () => {
+      if (clockState.t < 0) clockState.t = 0;
+      audio.sfxAt('ratchet', -W / 2, 8.6, 0.45, 3);
+      ui.caption('它不是坏了。它只是不同意。', 3600);
+    }
+  });
+
   // ---------- 档案盒堆（v1.4 §3.1）：牛皮纸档案盒三摞 + 标签图集 + 一只虚掩的盖 ----------
   const kraftMat = new THREE.MeshStandardMaterial({
     map: canvasTexture(128, (g, s) => {
