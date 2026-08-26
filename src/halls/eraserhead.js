@@ -162,6 +162,84 @@ export function build(ctx) {
   ceil.position.y = H;
   group.add(ceil);
 
+  // v1.4 二遍：天花滴水两处——水珠在管底积大 → 坠落 → 触地涟漪一圈 + drip 声。
+  // 一处正对地漏（工厂在自己漏水），一处落在东南角自己洇出的湿渍上
+  const dripMat = new THREE.MeshPhysicalMaterial({
+    color: 0x9fb2c0, roughness: 0.05, transparent: true, opacity: 0.75, envMapIntensity: 1.5
+  });
+  const mkWet = (r2, x, z) => {
+    const wet = new THREE.Mesh(
+      new THREE.CircleGeometry(r2, 22),
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(64, (g, s) => {
+          const rg2 = g.createRadialGradient(s / 2, s / 2, s * 0.06, s / 2, s / 2, s * 0.5);
+          rg2.addColorStop(0, 'rgba(8,10,12,0.7)');
+          rg2.addColorStop(1, 'rgba(10,12,14,0)');
+          g.fillStyle = rg2;
+          g.fillRect(0, 0, s, s);
+        }),
+        transparent: true, depthWrite: false, roughness: 0.13, envMapIntensity: 1.2,
+        polygonOffset: true, polygonOffsetFactor: -1
+      })
+    );
+    wet.rotation.x = -Math.PI / 2;
+    wet.position.set(x, 0.007, z);
+    group.add(wet);
+  };
+  mkWet(0.6, 5.6, 5.4);
+  const drips = [
+    { x: 1.4, z: 1.2, y0: H - 0.35, phase: 0.6, period: 4.1 },
+    { x: 5.6, z: 5.4, y0: H - 0.35, phase: 2.3, period: 5.7 }
+  ].map((d) => {
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), dripMat);
+    drop.visible = false;
+    group.add(drop);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.52, 0.62, 20),
+      new THREE.MeshBasicMaterial({ color: 0x7e929f, transparent: true, opacity: 0, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(d.x, 0.012, d.z);
+    ring.scale.setScalar(0.06);
+    group.add(ring);
+    return { ...d, drop, ring, ripple: -1 };
+  });
+  updaters.push((dt) => {
+    for (const d of drips) {
+      d.phase += dt;
+      const hang = d.period - Math.sqrt(2 * (d.y0 - 0.02) / 9.8) - 0.9;
+      if (d.phase < hang) {
+        // 悬珠积大（略拉长成泪滴）
+        d.drop.visible = true;
+        const k = d.phase / hang;
+        d.drop.scale.set(0.45 + k * 0.55, (0.45 + k * 0.55) * 1.55, 0.45 + k * 0.55);
+        d.drop.position.set(d.x, d.y0 - 0.015, d.z);
+      } else if (d.ripple < 0) {
+        const tf = d.phase - hang;
+        const y = d.y0 - 4.9 * tf * tf;
+        if (y <= 0.03) {
+          d.ripple = 0;
+          d.drop.visible = false;
+          audio.sfxAt('drip', d.x, d.z, 0.55, 5);
+        } else {
+          d.drop.scale.set(0.9, 1.7, 0.9);
+          d.drop.position.set(d.x, y, d.z);
+        }
+      }
+      if (d.ripple >= 0) {
+        d.ripple += dt;
+        const k = d.ripple / 0.9;
+        if (k >= 1) {
+          d.ripple = -1;
+          d.phase = 0;
+        } else {
+          d.ring.scale.setScalar(0.06 + k * 1.05);
+          d.ring.material.opacity = 0.42 * (1 - k);
+        }
+      }
+    }
+  });
+
   // 沿墙管道（法兰环合并成单 mesh）
   const pipeMat = new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(), color: 0x4a4a50, roughness: 0.4, metalness: 0.88,

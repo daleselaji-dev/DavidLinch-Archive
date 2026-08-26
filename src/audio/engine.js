@@ -549,6 +549,12 @@ export class AudioEngine {
         tone('sine', 44, 26, 1.8, 0.09, 0.1);
         break;
       }
+      case 'drip': { // 天花水珠砸上水泥：高频一点 + 上滑水泡音 + 洇开微湿尾
+        noise('white', 0.012, 'highpass', 3800, 3, 0.032);
+        tone('sine', 640, 1520, 0.085, 0.042, 0.012);
+        noise('pink', 0.15, 'bandpass', 1450, 5, 0.013, 0.035, 0.05);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;
