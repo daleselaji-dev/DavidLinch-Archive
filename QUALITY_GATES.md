@@ -361,12 +361,13 @@
 **验证方式**：`xvfb-run npx electron . --smoke` 输出逐厅统计且退出码 0。
 
 ### 31. Release 1.4.0（v1.4 新增）
-- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
-- [ ] WORKLOG v1.4 段显示本轮 ≥8 小时（UTC 时间戳与 commit 互证）
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.4.0.exe`
-- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.4.0.exe`
-- [ ] `SHA256SUMS.txt` 更新 + `file` PE32 结构校验
-- [ ] 文档（README/BUILD/TESTING/CHANGELOG/本文件）同步 1.4.0
+- [x] `npm test`（166）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后 08:06–08:08Z 复跑）
+- [x] WORKLOG v1.4 段显示本轮 ≥8 小时（00:08Z 开工 → 08:1xZ 发布，UTC 时间戳与 commit 互证）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.4.0.exe`（100.0MB，PE32 GUI x64）
+- [x] `release/SmokeVelvet-LynchArchive-Setup-1.4.0.exe`（100.2MB，NSIS oneClick）
+- [x] `SHA256SUMS.txt` 更新（8a709a81… / dae05302…）+ `file` PE32 结构校验通过
+- [x] 文档（README/BUILD/TESTING/CHANGELOG/本文件）同步 1.4.0
 
 ---
 
