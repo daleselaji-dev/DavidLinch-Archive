@@ -297,6 +297,70 @@ export function build(ctx) {
     color: 0x2a2418, roughness: 0.4, metalness: 0.6,
     emissive: 0xff9e3c, emissiveIntensity: 0.55
   })));
+  // v1.4 六遍：门厅前的地面星章——铺在人行道里的一颗星，名字的位置空着。
+  // E → 星章描金亮一线（emissive 扫过）+ 轻响两声 +「他们把星星铺在地上，好让人踩。」
+  const starTileTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#26222b';
+    g.fillRect(0, 0, s, s);
+    const tr = rng(67);
+    for (let i = 0; i < 110; i++) {
+      g.fillStyle = `rgba(${150 + (tr() * 60) | 0},${140 + (tr() * 50) | 0},${150 + (tr() * 40) | 0},${0.05 + tr() * 0.1})`;
+      g.beginPath();
+      g.arc(tr() * s, tr() * s, 0.6 + tr() * 1.8, 0, Math.PI * 2);
+      g.fill();
+    }
+    // 五角星描边（空名——名字的位置什么都没有）
+    g.strokeStyle = '#d8ac52';
+    g.lineWidth = 10;
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+      const r = i % 2 === 0 ? 104 : 40;
+      const px = s / 2 + Math.cos(a) * r;
+      const py = s / 2 + Math.sin(a) * r;
+      if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+    }
+    g.closePath();
+    g.stroke();
+    // 中下小圆徽（不加任何图形——只是一个空圆）
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(s / 2, s / 2 + 26, 15, 0, Math.PI * 2);
+    g.stroke();
+    // 磨损：几道踩过的暗擦痕
+    g.strokeStyle = 'rgba(10,10,14,0.35)';
+    for (let i = 0; i < 6; i++) {
+      g.lineWidth = 3 + tr() * 5;
+      g.beginPath();
+      g.moveTo(tr() * s, tr() * s);
+      g.quadraticCurveTo(tr() * s, tr() * s, tr() * s, tr() * s);
+      g.stroke();
+    }
+  });
+  const starTileMat = new THREE.MeshStandardMaterial({
+    map: starTileTex, roughness: 0.42, metalness: 0.25, envMapIntensity: 1.1,
+    emissive: 0xffc86a, emissiveMap: starTileTex, emissiveIntensity: 0.12
+  });
+  const starTile = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.012, 0.92), starTileMat);
+  starTile.position.set(1.5, 0.007, -10.6);
+  starTile.rotation.y = 0.18;
+  group.add(starTile);
+  const starGlint = { t: -1 };
+  updaters.push((dt) => {
+    if (starGlint.t < 0) return;
+    starGlint.t += dt;
+    if (starGlint.t > 1.3) { starGlint.t = -1; starTileMat.emissiveIntensity = 0.12; return; }
+    starTileMat.emissiveIntensity = 0.12 + Math.sin((starGlint.t / 1.3) * Math.PI) * 0.55;
+  });
+  hotspots.add(starTile, {
+    hint: 'E — 地上的星',
+    onActivate: () => {
+      if (starGlint.t < 0) starGlint.t = 0;
+      audio.sfxAt('click', 1.5, -10.6, 0.4, 3);
+      later(() => audio.sfxAt('chime', 1.5, -10.6, 0.14, 4), 520);
+      ui.caption('他们把星星铺在地上，好让人踩。', 4200);
+    }
+  });
   // ③ 门厅戏报箱一对（黄铜框 + 玻璃 + 原创西语戏报；夹着大门左右）
   const posterA = canvasTexture(256, (g, s) => {
     g.fillStyle = '#140c18';
