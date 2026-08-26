@@ -93,8 +93,8 @@ function createWindow() {
         // v1.4 终版普查 -1（实测 12/23/14/14/16/14/16）
         // v1.4 五遍后普查：13/24/16/15/17/15/17（合计 117）——阈值锁普查-1
         const INTERACTIVE_MIN = {
-          lobby: 12, archive: 23, eraserhead: 15, bluevelvet: 14,
-          twinpeaks: 16, mulholland: 14, studio: 16
+          lobby: 12, archive: 23, eraserhead: 16, bluevelvet: 15,
+          twinpeaks: 17, mulholland: 14, studio: 17
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
