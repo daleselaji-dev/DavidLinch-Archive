@@ -745,6 +745,107 @@ export function build(ctx) {
     }
   });
 
+  // ---------- 气送管站（v1.4 五遍）：黄铜立管进天花 + 铁站体 + 翻盖口 + 铜舱 ----------
+  // E → 舱滑进站口、盖合上、whoosh 吸走 → 远处闷响 → 几秒后叮一声，
+  // 盖翻开，一支舱掉回托盘——皮箍在另一头（回来的不是你送上去的那支）
+  const pn = new THREE.Group();
+  // 立管（r0.055 到顶）+ 天花法兰 + 墙装抱箍 ×2
+  pn.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.055, 0.055, 3.9, 12), 0, 3.45, 0),
+    xform(new THREE.CylinderGeometry(0.09, 0.075, 0.06, 12), 0, 5.37, 0),
+    xform(new THREE.TorusGeometry(0.062, 0.014, 6, 12), 0, 2.4, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.TorusGeometry(0.062, 0.014, 6, 12), 0, 4.3, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.BoxGeometry(0.05, 0.04, 0.1), 0, 2.4, -0.09),
+    xform(new THREE.BoxGeometry(0.05, 0.04, 0.1), 0, 4.3, -0.09)
+  ], M.brass));
+  // 站体（铁）：外壳 + 凹入的暗口 + 托盘沿
+  pn.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.3, 0.46, 0.22), 0, 1.28, 0.02),
+    xform(new THREE.BoxGeometry(0.34, 0.06, 0.26), 0, 1.54, 0.02),
+    xform(new THREE.BoxGeometry(0.34, 0.06, 0.26), 0, 1.02, 0.02),
+    // 托盘（斜向外的接舱槽）
+    xform(new THREE.BoxGeometry(0.2, 0.03, 0.18), 0, 0.96, 0.19, 0.28, 0, 0),
+    xform(new THREE.BoxGeometry(0.03, 0.06, 0.18), -0.1, 1.0, 0.19, 0.28, 0, 0),
+    xform(new THREE.BoxGeometry(0.03, 0.06, 0.18), 0.1, 1.0, 0.19, 0.28, 0, 0)
+  ], M.iron));
+  const pnMouth = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.2),
+    new THREE.MeshStandardMaterial({ color: 0x020203, roughness: 1 }));
+  pnMouth.position.set(0, 1.28, 0.134);
+  pn.add(pnMouth);
+  // 翻盖（顶铰链）：开 = 垂下 0.95 rad
+  const pnFlapPivot = new THREE.Group();
+  pnFlapPivot.position.set(0, 1.39, 0.14);
+  const pnFlap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.012), M.brass);
+  pnFlap.position.y = -0.11;
+  pnFlapPivot.add(pnFlap);
+  pnFlapPivot.rotation.x = 0.95;
+  pn.add(pnFlapPivot);
+  // 铜舱（圆柱 + 双球端帽 + 一端皮箍）
+  const pnCapsule = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 12), 0, 0, 0),
+    xform(new THREE.SphereGeometry(0.04, 12, 8), 0, 0.06, 0),
+    xform(new THREE.SphereGeometry(0.04, 12, 8), 0, -0.06, 0)
+  ], M.brass);
+  const pnBand = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.043, 0.03, 12),
+    new THREE.MeshStandardMaterial({ color: 0x2a1408, roughness: 0.8 }));
+  pnBand.position.y = 0.045;
+  pnCapsule.add(pnBand);
+  const pnHome = new THREE.Vector3(0, 1.02, 0.24);
+  pnCapsule.position.copy(pnHome);
+  pnCapsule.rotation.set(Math.PI / 2 - 0.28, 0, 0);
+  pn.add(pnCapsule);
+  // 站体上方一盏小暖光：黄铜立管在冷荧光廊里有了一条自己的金线
+  const pnGlow = new THREE.PointLight(0xffdfae, 2.2, 3.6, 1.8);
+  pnGlow.position.set(0, 2.0, 0.5);
+  pn.add(pnGlow);
+  pn.position.set(W / 2 - 0.02, 0, 14.7);
+  pn.rotation.y = -Math.PI / 2;
+  group.add(pn);
+  const pnState = { t: -1 };
+  updaters.push((dt) => {
+    if (pnState.t < 0) return;
+    pnState.t += dt;
+    const u = pnState.t;
+    if (u < 0.45) {
+      // 舱滑进站口 + 盖随行合上
+      const k = u / 0.45;
+      pnCapsule.position.lerpVectors(pnHome, new THREE.Vector3(0, 1.28, 0.1), k);
+      pnCapsule.rotation.x = (Math.PI / 2 - 0.28) * (1 - k);
+      pnFlapPivot.rotation.x = 0.95 * (1 - k);
+    } else if (u < 4.1) {
+      pnCapsule.visible = false;
+      pnFlapPivot.rotation.x = 0;
+    } else if (u < 4.75) {
+      // 盖翻开 + 舱掉回托盘（重力 + 一次小弹）
+      const k = (u - 4.1) / 0.65;
+      pnFlapPivot.rotation.x = 0.95 * Math.min(1, k * 2.2);
+      pnCapsule.visible = true;
+      const fall = Math.min(1, k * 1.25);
+      const y = 1.28 - (1.28 - 1.02) * fall * fall + (k > 0.82 ? Math.sin((k - 0.82) * 17) * 0.012 : 0);
+      pnCapsule.position.set(0, y, 0.1 + 0.14 * fall);
+      pnCapsule.rotation.x = (Math.PI / 2 - 0.28) * fall;
+      pnCapsule.rotation.z = Math.PI; // 皮箍翻到另一头
+    } else if (u > 5.4) {
+      pnState.t = -1;
+      pnCapsule.position.copy(pnHome);
+      pnCapsule.rotation.set(Math.PI / 2 - 0.28, 0, Math.PI);
+    }
+  });
+  hotspots.add(pnCapsule, {
+    hint: 'E — 气送管',
+    onActivate: () => {
+      if (pnState.t >= 0) return;
+      pnState.t = 0;
+      const px = W / 2 - 0.02;
+      audio.sfxAt('click', px, 14.7, 0.4, 3);
+      setTimeout(() => audio.sfxAt('whoosh', px, 14.7, 0.7, 5), 500);
+      setTimeout(() => audio.sfx('thud', 0.16), 1500);   // 远在天花之上的落定
+      setTimeout(() => audio.sfxAt('chime', px, 14.7, 0.3, 4), 4000);
+      setTimeout(() => audio.sfxAt('thud', px, 14.7, 0.3, 3), 4600);
+      setTimeout(() => ui.caption('回来的不是你送上去的那支。', 4200), 4800);
+    }
+  });
+
   // ---------- 西侧壁龛：原话摘录墙（他自己的话，唯一的字） ----------
   const niche = new THREE.Group();
   const nicheWallMat = new THREE.MeshStandardMaterial({ color: 0x100c0e, roughness: 0.9 });
