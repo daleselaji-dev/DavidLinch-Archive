@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## v1.9.0 — 2026-08-26「PS5-tier 再冲刺 · 画面会呼吸」
+
+**画质与材质（门禁 47）**
+- **雾的呼吸**：逐厅雾密度极缓正弦呼吸（`meta.look.fogPulse` 周期 26–44s /
+  深度 ±7–14%，工业厅急房间浅——呼吸即性格）；纯标量零带宽，低档保留
+- **尘埃节奏**：lobby 光尘+地烟 / mulholland 路雾+尘 / twinpeaks 林地雾随
+  `engine.breath` 同一相位 ±28–32% 低频调制
+- **大厅开幕点灯序列（只演一次，≈7.2s）**：黑起 → 六盏吊灯错拍点亮（各配
+  位置化 lampon）→ 主灯组/光锥 smoothstep 升起 + swell → 霓虹标题醒 + chime
+- **enamelSet/enamelMat 瓷釉铁皮四通道**（白瓷釉+磕碰崩瓷露黑铁+釉裂细纹+
+  茶渍云斑，clearcoat 0.6）：bluevelvet 脚灯反光碗 ×9 / eraserhead 珐琅表盘系
+- lobby 放射褶皱绒布篷顶（穹顶不再是黑洞）/ twinpeaks 月亮 v2（月海斑+光晕盘）/
+  碑身垂直流纹 roughnessMap / bluevelvet 侧墙壁灯 ×4 / 萤火怕人（近镜头压暗）
+
+**逐厅英雄资产二级细节 + 交互 123 → 143（门禁 48）**
+- 七厅各 ≥2 件（2a–2f）：长明灯/帷幕束带、文具组 v2/廊灯检修牌、压力表组 v2/
+  管排阀牌 ×5、脚灯槽 v3/衣帽间一角、落地灯 v2/柴堆与斧、Deco 吊灯/蒸汽口 v2、
+  窗凝雾擦痕/手摇铅笔刀
+- 抛光轮再加码：eraserhead 天车链条吊钩组、mulholland 立面收顶+暗巷穿线管+
+  修 v1.6 暗巷背面剔除洞、studio 挂画轨/挂历/矮柜开盘磁带机、archive 还书推车、
+  eraserhead 凳上工人饭盒；**触痕层贴花 ×3**（bluevelvet 桌面杯底残环 /
+  lobby 调光面板指痕晕 / mulholland 票亭侧玻指印）
+- **怪谈事件层**（不占交互普查）：archive 纪念墙静默区（整馆屏息+烛火齐抬头）、
+  mulholland 空场椅子自己放下又翻回、eraserhead 吊灯过中点停死 1.4–2.7s、
+  twinpeaks 红房间幕后有东西贴着布走（在场才发生）、studio 窗外夜车条纹光扫墙
+- INTERACTIVE_MIN 终版重锁 15/26/20/16/18/19/22（普查 143 -1）；
+  既有彩蛋/通路/两重惊吓零回退（拐角/转身自然触发断言每遍全绿）
+
+**音景（门禁 49）**
+- 新合成音色 **9 种**（要求 ≥4，零采样）：flamegut / woodknock / porcelain /
+  sharpen / tassel / glasswipe / chainrattle / tapewhirr / carpass；
+  audio.test NEW_V19 审计组（实现+七厅接线扫描）——**251 用例全绿**（240 → +11）
+
+**性能与工程**
+- 预算硬断言保持 240/240k/40 不上调：终版实测 171–221 mesh /
+  33.1k–100.8k tris / 12–29 灯（最重 mulholland 221/100.8k/22 仍有余量）
+- WORKLOG v1.9 段 ≥8h（UTC 与 git 提交时间互证）；抛光第 1–9 遍逐遍入册
+- 版本 bump 1.9.0（package.json + `__SV__.version`）；Release 1.9.0 双 exe +
+  SHA256SUMS 重写（门禁 50）
+
 ## v1.8.0 — 2026-08-26「拐角后面的东西 · 穆赫兰道惊吓大升级」
 
 **惊吓主触发改拐角（门禁 44）——贴原作戏剧位置**

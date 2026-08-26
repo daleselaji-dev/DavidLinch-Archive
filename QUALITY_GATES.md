@@ -684,14 +684,17 @@ DOCENT 配套）。✅ 全绿。
 
 **验证方式**：`npm test` audio 组 + 冒烟 activateAll 不抛错。✅ 全绿（251 用例）。
 
-### 50. Release 1.9.0（v1.9 新增，草案）
-- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
-- [ ] WORKLOG v1.9 段显示本轮 ≥8 小时（UTC 时间戳与 commit 互证）
-- [ ] 版本 bump 1.9.0（package.json + `__SV__.version` 一致）；CHANGELOG v1.9.0
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe`（PE 校验通过；
-      尽量 + Setup NSIS）+ `SHA256SUMS.txt` 重写
-- [ ] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.9.0」
-- [ ] 文档（README/BUILD/TESTING/本文件/WORKLOG）同步 1.9.0
+### 50. Release 1.9.0（v1.9 新增）
+- [x] `npm test`（251 用例）/ `npm run smoke` / `xvfb-run npx electron . --smoke`
+      三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）
+- [x] WORKLOG v1.9 段显示本轮 ≥8 小时（14:40–23:0x UTC，逐段与 git 提交时间互证）
+- [x] 版本 bump 1.9.0（package.json + `__SV__.version` 一致，dist 产物内核对）；
+      CHANGELOG v1.9.0
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe` + Setup NSIS 双目标
+      （wine64+wine32 交叉打包；`file` PE32 校验通过）+ `SHA256SUMS.txt` 重写；
+      旧版 1.7.0 exe 从本分支移除防混淆
+- [x] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.9.0」
+- [x] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.9.0
 
 ---
 
