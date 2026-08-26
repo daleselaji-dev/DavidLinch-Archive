@@ -53,6 +53,11 @@ export class Engine {
       aberration: this.lynchPass.uniforms.uAberration.value
     };
     this._lookHalation = this.lynchPass.uniforms.uHalation.value;
+    // v1.9 B1/B2：雾的呼吸——逐厅可配的极缓正弦（纯标量更新零带宽，
+    // 低画质档保留）；breath ∈ [-1,1] 同时供各厅尘埃/烟雾层做节奏调制
+    this._fogPulse = null;
+    this._fogBase = 0.03;
+    this.breath = 0;
     this.quality = 'high';
     this._fps = { frames: 0, acc: 0, value: 60 };
     this._running = false;
@@ -102,7 +107,8 @@ export class Engine {
    */
   setLook({
     saturation = 1, tint = 0xffffff, fogColor = 0x050307, fogDensity = 0.03,
-    bg = fogColor, exposure = 1.05, bloom = 0.85, grade = null, halation = 0.14
+    bg = fogColor, exposure = 1.05, bloom = 0.85, grade = null, halation = 0.14,
+    fogPulse = null
   } = {}) {
     const u = this.lynchPass.uniforms;
     u.uSaturation.value = saturation;
@@ -117,6 +123,8 @@ export class Engine {
     u.uGain.value.fromArray(gr.gain || [1, 1, 1]);
     this._lookHalation = halation;
     u.uHalation.value = this.quality === 'high' ? halation : 0;
+    this._fogBase = fogDensity;
+    this._fogPulse = fogPulse; // { period, depth }
   }
 
   get fps() {
@@ -145,6 +153,12 @@ export class Engine {
       const u = this.lynchPass.uniforms;
       if (u.uShock.value > 0.0005) u.uShock.value *= Math.exp(-dt * 2.0); else u.uShock.value = 0;
       if (u.uFlash.value > 0.0005) u.uFlash.value *= Math.exp(-dt * 7.5); else u.uFlash.value = 0;
+      // 雾的呼吸（B1）：逐厅周期/深度；无配置时呼吸相位仍在走（B2 尘埃可用）
+      const fp = this._fogPulse;
+      this.breath = Math.sin((t * Math.PI * 2) / ((fp && fp.period) || 32));
+      if (fp && this.scene.fog) {
+        this.scene.fog.density = this._fogBase * (1 + (fp.depth || 0.1) * this.breath);
+      }
       for (const fn of this.updaters) fn(dt, t);
       this.composer.render();
       this._fps.frames++;

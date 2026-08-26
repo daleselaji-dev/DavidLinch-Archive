@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quoteStand, quoteStandUpdater, zoneTrigger,
-  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
+  mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
@@ -28,7 +28,9 @@ export const meta = {
     bg: 0x070403, exposure: 1.05, bloom: 0.75,
     // v1.4 P4/P5：琥珀暗部 + 暖木高光（一个人深夜工作的房间）
     halation: 0.14,
-    grade: { lift: [0.014, 0.008, 0.002], gamma: [1.02, 1.0, 0.97], gain: [1.06, 1.01, 0.94] }
+    grade: { lift: [0.014, 0.008, 0.002], gamma: [1.02, 1.0, 0.97], gain: [1.06, 1.01, 0.94] },
+    // v1.9 B1：房间的呼吸最浅最慢（44s，±7%——一个人夜里的呼吸）
+    fogPulse: { period: 44, depth: 0.07 }
   }
 };
 
@@ -206,6 +208,104 @@ export function build(ctx) {
   notebook.position.set(1.28, 0.917, -0.28);
   notebook.rotation.y = -0.22;
   desk.add(notebook);
+  // v1.9 件 2：手摇铅笔刀（桌角夹装）——C 形夹咬住桌沿 + 铸铁机身 +
+  // 屑鼓 + 摇柄 + 桌上的木屑盘。抽屉里那支铅笔是唯一的笔，
+  // 盘里的屑却是新的。E → 摇柄空转六格，一枚新屑掉进盘里。
+  const sharpBody = mergedMesh([
+    // C 形夹：上压板 / 桌沿外立板 / 下颚 / 蝶形压杆
+    xform(new THREE.BoxGeometry(0.085, 0.014, 0.1), 1.5, 0.912, 0.585),
+    xform(new THREE.BoxGeometry(0.08, 0.13, 0.012), 1.5, 0.855, 0.662),
+    xform(new THREE.BoxGeometry(0.08, 0.01, 0.08), 1.5, 0.795, 0.618),
+    xform(new THREE.CylinderGeometry(0.005, 0.005, 0.026, 8), 1.5, 0.806, 0.6),
+    xform(new THREE.BoxGeometry(0.034, 0.006, 0.009), 1.5, 0.792, 0.6),
+    // 机身：座柱 + 卧筒 + 削孔鼻锥 + 孔口
+    xform(new THREE.BoxGeometry(0.055, 0.024, 0.055), 1.5, 0.928, 0.585),
+    xform(new THREE.CylinderGeometry(0.03, 0.034, 0.1, 12), 1.5, 0.956, 0.585, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.018, 0.03, 0.026, 12), 1.437, 0.956, 0.585, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.0085, 0.0085, 0.012, 8), 1.421, 0.956, 0.585, 0, 0, Math.PI / 2)
+  ], M.iron);
+  desk.add(sharpBody);
+  // 屑鼓（镀铬，卡在机身后半——里面看不见，更好）
+  const sharpDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.041, 0.041, 0.06, 14), M.chrome);
+  sharpDrum.rotation.z = Math.PI / 2;
+  sharpDrum.position.set(1.527, 0.956, 0.585);
+  desk.add(sharpDrum);
+  // 摇柄（枢轴在筒轴上，绕局部 x 转）
+  const crank = new THREE.Group();
+  const crankArm = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.006, 0.006, 0.022, 8), 0.008, 0, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.BoxGeometry(0.012, 0.06, 0.014), 0.022, -0.024, 0)
+  ], M.iron);
+  const crankKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.042, 10), M.warmWood);
+  crankKnob.rotation.z = Math.PI / 2;
+  crankKnob.position.set(0.048, -0.05, 0);
+  crank.add(crankArm, crankKnob);
+  crank.position.set(1.557, 0.956, 0.585);
+  desk.add(crank);
+  // 木屑盘（锡皮浅盘 + 散屑卷 + 石墨粉点）
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0x4a4640, roughness: 0.5, metalness: 0.6 });
+  desk.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.13, 0.008, 0.09), 1.36, 0.909, 0.585),
+    xform(new THREE.BoxGeometry(0.13, 0.018, 0.008), 1.36, 0.913, 0.543),
+    xform(new THREE.BoxGeometry(0.13, 0.018, 0.008), 1.36, 0.913, 0.627),
+    xform(new THREE.BoxGeometry(0.008, 0.018, 0.09), 1.297, 0.913, 0.585),
+    xform(new THREE.BoxGeometry(0.008, 0.018, 0.09), 1.423, 0.913, 0.585)
+  ], trayMat));
+  const shavingMat = new THREE.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.9, side: THREE.DoubleSide });
+  const shavingGeos = [];
+  {
+    const r = rng(97);
+    for (let i = 0; i < 7; i++) {
+      shavingGeos.push(xform(
+        new THREE.TorusGeometry(0.011, 0.0032, 5, 8, 3.6 + r() * 1.6),
+        1.325 + r() * 0.075, 0.917, 0.555 + r() * 0.06,
+        r() * Math.PI, r() * Math.PI, r() * Math.PI
+      ));
+    }
+    // 石墨粉（几粒暗点沉在盘底）
+    for (let i = 0; i < 5; i++) {
+      shavingGeos.push(xform(new THREE.BoxGeometry(0.004, 0.002, 0.004),
+        1.33 + r() * 0.06, 0.914, 0.56 + r() * 0.05, 0, r() * 3, 0));
+    }
+  }
+  desk.add(mergedMesh(shavingGeos, shavingMat));
+  // 会掉的那一枚新屑（平时藏在孔口里）
+  const freshShaving = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0032, 5, 8, 4.4), shavingMat);
+  freshShaving.visible = false;
+  desk.add(freshShaving);
+  const crankState = { t: -1, dropped: false };
+  updaters.push((dt) => {
+    if (crankState.t < 0) return;
+    crankState.t += dt;
+    const u = crankState.t;
+    if (u > 2.8) { crankState.t = -1; return; }
+    // 起步加速 → 渐停（与 sharpen 音色的六格棘轮同拍）
+    const spd = u < 0.55 ? u / 0.55 : Math.max(0, 1 - (u - 0.55) / 1.7);
+    crank.rotation.x += dt * 15 * spd;
+    if (!crankState.dropped && u > 0.85) {
+      crankState.dropped = true;
+      freshShaving.visible = true;
+    }
+    if (crankState.dropped) {
+      // 从孔口抛落进盘（0.5s 小抛物线 + 翻滚），落定后停在盘里
+      const v = Math.min(1, (u - 0.85) / 0.5);
+      freshShaving.position.set(
+        1.421 - v * 0.055, 0.956 - v * v * 0.038, 0.585 - v * 0.012
+      );
+      freshShaving.rotation.set(v * 5.2, 0.4, v * 2.6);
+    }
+  });
+  hotspots.add(sharpBody, {
+    hint: 'E — 铅笔刀',
+    onActivate: () => {
+      if (crankState.t >= 0) return;
+      crankState.t = 0;
+      crankState.dropped = false;
+      freshShaving.visible = false;
+      audio.sfxAt('sharpen', -5.8, -2.9, 0.55, 3);
+      later(() => ui.caption('屑是新的。笔只有一支。', 3400), 1200);
+    }
+  });
   desk.position.set(-6.4, 0, -1.4);
   desk.rotation.y = Math.PI / 2;
   group.add(desk);
@@ -215,6 +315,120 @@ export function build(ctx) {
   tw.position.set(-6.45, 0.905, -1.6);
   tw.rotation.y = Math.PI / 2;
   group.add(tw);
+
+  // ---------- 北墙矮柜 + 开盘磁带机（v1.9 抛光第 6 遍）----------
+  // 默认机位正对的整面秃墙有了着落：胡桃木矮柜，柜上一台开盘机
+  // 斜放着——左盘满右盘空，像刚倒完一半。E → 双盘转起来，
+  // 房间的声音从带子上放回来（tapewhirr：马达+带嘶+低语），然后停。
+  {
+    const sb = new THREE.Group();
+    const sbWood = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [38, 24, 13], planks: 3, size: 256, seed: 71 }), roughness: 0.55
+    });
+    const sbDark = new THREE.MeshStandardMaterial({ color: 0x14100b, roughness: 0.85 });
+    sb.add(mergedMesh([
+      xform(roundedBoxGeo(1.5, 0.045, 0.42, 0.012, 2), 0, 0.62, 0),          // 顶板
+      xform(new THREE.BoxGeometry(0.03, 0.44, 0.4), -0.72, 0.38, 0),         // 左右侧板
+      xform(new THREE.BoxGeometry(0.03, 0.44, 0.4), 0.72, 0.38, 0),
+      xform(new THREE.BoxGeometry(1.44, 0.03, 0.4), 0, 0.175, 0),            // 底板
+      xform(new THREE.BoxGeometry(1.44, 0.44, 0.02), 0, 0.38, -0.19),        // 背板
+      // 四只车削感短脚（锥台）
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), -0.66, 0.08, 0.15),
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), 0.66, 0.08, 0.15),
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), -0.66, 0.08, -0.15),
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), 0.66, 0.08, -0.15)
+    ], sbWood));
+    // 滑门两扇：右扇没关严、错开一条黑缝（柜里的暗）
+    const inset = new THREE.Mesh(new THREE.PlaneGeometry(1.38, 0.4), sbDark);
+    inset.position.set(0, 0.39, 0.185);
+    sb.add(inset);
+    sb.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.71, 0.4, 0.014), -0.355, 0.39, 0.198),
+      xform(new THREE.BoxGeometry(0.71, 0.4, 0.014), 0.295, 0.39, 0.212),
+      // 门上两枚凹指孔（小圆片示意）
+      xform(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 10), -0.09, 0.39, 0.207, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 10), 0.05, 0.39, 0.221, Math.PI / 2, 0, 0)
+    ], sbWood));
+    // 开盘机：铝面卧式机身 + 双盘 + 走带头桥 + 两枚旋钮 + VU 窗
+    const deck = new THREE.Group();
+    const deckBody = new THREE.Mesh(roundedBoxGeo(0.52, 0.09, 0.34, 0.012, 2),
+      new THREE.MeshStandardMaterial({
+        map: brushedMetalTexture(64, 120, 26), color: 0x9a9c9e, roughness: 0.38, metalness: 0.8
+      }));
+    deckBody.position.y = 0.045;
+    deck.add(deckBody);
+    const reelMat = new THREE.MeshStandardMaterial({ color: 0x232528, roughness: 0.35, metalness: 0.7 });
+    const tapeMat = new THREE.MeshStandardMaterial({ color: 0x2e1d12, roughness: 0.6 });
+    const mkReel = (rx, tapeR) => {
+      const reel = new THREE.Group();
+      reel.add(new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, 0.01, 20), reelMat));
+      const spoke = new THREE.BoxGeometry(0.17, 0.014, 0.02);
+      reel.add(mergedMesh([
+        xform(spoke, 0, 0.004, 0), xform(spoke, 0, 0.004, 0, 0, Math.PI / 3, 0),
+        xform(spoke, 0, 0.004, 0, 0, -Math.PI / 3, 0),
+        xform(new THREE.CylinderGeometry(0.022, 0.022, 0.022, 10), 0, 0.008, 0)
+      ], reelMat));
+      if (tapeR > 0) {
+        const tape = new THREE.Mesh(new THREE.CylinderGeometry(tapeR, tapeR, 0.008, 18), tapeMat);
+        tape.position.y = -0.002;
+        reel.add(tape);
+      }
+      reel.position.set(rx, 0.098, -0.05);
+      deck.add(reel);
+      return reel;
+    };
+    const reelL = mkReel(-0.125, 0.082); // 左盘满
+    const reelR = mkReel(0.125, 0.03);   // 右盘几乎空
+    // 走带头桥 + 旋钮 + VU 小窗（琥珀微光，放音时呼吸）
+    const vuMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1408, emissive: 0xffb45e, emissiveIntensity: 0.25, roughness: 0.6
+    });
+    deck.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.2, 0.03, 0.05), 0, 0.1, 0.1),
+      xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), -0.19, 0.1, 0.11),
+      xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), 0.19, 0.1, 0.11)
+    ], reelMat));
+    const vu = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.028), vuMat);
+    vu.position.set(0, 0.078, 0.171);
+    vu.rotation.x = -0.18;
+    deck.add(vu);
+    deck.position.set(-0.08, 0.6425, 0.02);
+    deck.rotation.y = -0.14; // 斜放——不是摆给人看的，是自己在用
+    sb.add(deck);
+    sb.position.set(-1.4, 0, -6.06);
+    group.add(sb);
+    // 放音状态机：起转 0.6s → 稳走 → 3.9s 减速 → 微倒带顿挫 → 停
+    const tapeRun = { t: -1, said: false };
+    updaters.push((dt, t) => {
+      vuMat.emissiveIntensity = 0.22 + Math.sin(t * 1.3) * 0.05;
+      if (tapeRun.t < 0) return;
+      tapeRun.t += dt;
+      const T = tapeRun.t;
+      let speed = 0;
+      if (T < 0.6) speed = (T / 0.6) * (T / 0.6) * 1.0;
+      else if (T < 3.6) speed = 1.0;
+      else if (T < 4.1) speed = Math.max(0, 1.0 - (T - 3.6) / 0.5);
+      else if (T < 4.28) speed = -0.22 * (1 - (T - 4.1) / 0.18); // 停机那一下倒抽
+      reelL.rotation.y -= speed * dt * 6.8;
+      reelR.rotation.y -= speed * dt * 9.4; // 收带盘转得快
+      vuMat.emissiveIntensity = speed > 0
+        ? 0.35 + Math.abs(Math.sin(T * 7.3)) * 0.9 * Math.min(1, speed)
+        : vuMat.emissiveIntensity;
+      if (T > 4.4) tapeRun.t = -1;
+    });
+    hotspots.add(deckBody, {
+      hint: 'E — 开盘机',
+      onActivate: () => {
+        if (tapeRun.t >= 0) return;
+        tapeRun.t = 0;
+        audio.sfxAt('tapewhirr', -1.48, -6.04, 0.6, 3);
+        if (!tapeRun.said) {
+          tapeRun.said = true;
+          later(() => ui.caption('录的是没人时的房间。', 3800), 900);
+        }
+      }
+    });
+  }
   hotspots.add(tw.userData.body, {
     hint: 'E — 打字机',
     onActivate: () => {
@@ -526,6 +740,116 @@ export function build(ctx) {
   );
   rainLayer.position.set(W / 2 - 0.105, 2.1, -3.4);
   rainLayer.rotation.y = -Math.PI / 2;
+  // v1.9 件 1：玻璃内侧凝雾 + 一道擦痕——屋里比外面暖，水汽爬满内壁，
+  // 角落最厚；有人用手背横着擦开过一道弧，弧的低端挂着两条流下来的水。
+  // （擦它的人不在了。E → 一只手印在雾里浮现又退去。）
+  const fogTex = canvasTexture(256, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const r = rng(83);
+    // 凝雾本体：中央薄、四角厚（呼吸留在玻璃上的形状）
+    for (let i = 0; i < 130; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const dx = Math.abs(x - s / 2) / (s / 2);
+      const dy = Math.abs(y - s / 2) / (s / 2);
+      const edge = Math.min(1, dx * dx + dy * dy + 0.22);
+      const rad = 14 + r() * 30;
+      const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+      grad.addColorStop(0, `rgba(220,230,240,${(0.21 * edge).toFixed(3)})`);
+      grad.addColorStop(1, 'rgba(220,230,240,0)');
+      g.fillStyle = grad;
+      g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    // 微小凝珠（雾里析出的亮点，越靠边越密）
+    for (let i = 0; i < 260; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const dx = Math.abs(x - s / 2) / (s / 2);
+      if (r() > dx + 0.3) continue;
+      g.fillStyle = `rgba(232,242,250,${0.1 + r() * 0.2})`;
+      g.fillRect(x, y, 1 + r(), 1 + r());
+    }
+    // 一道擦痕：手背横扫的弧（三笔渐宽的 destination-out，边缘软）
+    g.globalCompositeOperation = 'destination-out';
+    for (const [lw, al] of [[54, 1], [68, 0.55], [84, 0.26]]) {
+      g.strokeStyle = `rgba(0,0,0,${al})`;
+      g.lineWidth = lw;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.arc(s * 0.46, s * 1.06, s * 0.62, -Math.PI * 0.78, -Math.PI * 0.3);
+      g.stroke();
+    }
+    // 擦痕低端积水往下流的两条（一长一短）
+    for (const [x0, len, w2] of [[s * 0.71, s * 0.34, 3.4], [s * 0.62, s * 0.18, 2.2]]) {
+      const grad = g.createLinearGradient(0, s * 0.62, 0, s * 0.62 + len);
+      grad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(x0 - w2 / 2, s * 0.6, w2, len);
+    }
+    g.globalCompositeOperation = 'source-over';
+  });
+  const fogLayer = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.3, 1.5),
+    new THREE.MeshBasicMaterial({ map: fogTex, transparent: true, opacity: 0, depthWrite: false })
+  );
+  fogLayer.position.set(W / 2 - 0.118, 2.1, -3.4);
+  fogLayer.rotation.y = -Math.PI / 2;
+  // 幽灵手印（比你的手高一掌的位置；平时不可见）
+  const palmTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const soft = (x, y, rx, ry) => {
+      g.save();
+      g.translate(x, y);
+      g.scale(1, ry / rx);
+      const grad = g.createRadialGradient(0, 0, rx * 0.3, 0, 0, rx);
+      grad.addColorStop(0, 'rgba(225,236,246,0.5)');
+      grad.addColorStop(1, 'rgba(225,236,246,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(0, 0, rx, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    };
+    soft(s * 0.5, s * 0.66, 26, 30); // 掌心
+    const fingers = [[0.3, 0.34, 9, 22], [0.44, 0.26, 9, 26], [0.58, 0.25, 9, 27], [0.7, 0.32, 8, 21]];
+    for (const [fx, fy, rx, ry] of fingers) soft(s * fx, s * fy, rx, ry);
+    soft(s * 0.24, 0.62 * s, 9, 16); // 拇指
+  });
+  const palm = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.24, 0.24),
+    new THREE.MeshBasicMaterial({ map: palmTex, transparent: true, opacity: 0, depthWrite: false })
+  );
+  palm.position.set(W / 2 - 0.122, 2.3, -3.5);
+  palm.rotation.y = -Math.PI / 2;
+  const wipeState = { t: -1, cool: 0 };
+  // 射线靶要立在整窗 winHit 盒的近面之前，否则永远打不到
+  const wipeHit = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.55, 0.75),
+    new THREE.MeshStandardMaterial({ color: 0x000000 }));
+  wipeHit.visible = false;
+  wipeHit.position.set(W / 2 - 0.33, 2.2, -3.42);
+  windowGroup.add(fogLayer, palm, wipeHit);
+  updaters.push((dt) => {
+    if (wipeState.cool > 0) wipeState.cool -= dt;
+    if (wipeState.t < 0) return;
+    wipeState.t += dt;
+    const u = wipeState.t;
+    if (u > 4.2) { wipeState.t = -1; palm.material.opacity = 0; return; }
+    // 0.5s 浮现 → 停 1.6s → 慢慢退回雾里
+    palm.material.opacity = u < 0.5 ? (u / 0.5) * 0.42
+      : u < 2.1 ? 0.42
+        : Math.max(0, 0.42 * (1 - (u - 2.1) / 2.1));
+  });
+  hotspots.add(wipeHit, {
+    hint: 'E — 玻璃上的擦痕',
+    onActivate: () => {
+      if (wipeState.cool > 0) return;
+      wipeState.cool = 6;
+      wipeState.t = 0;
+      audio.sfxAt('glasswipe', W / 2, -3.3, 0.5, 3);
+      later(() => ui.caption('擦它的人比你高。', 3400), 900);
+    }
+  });
   windowGroup.add(winFrame, winGlow, blinds, wand, winHit, moonSliver, rainLayer);
   group.add(windowGroup);
   const blindState = { open: false, v: 0, rainT: 99, flash: 0 };
@@ -545,6 +869,8 @@ export function build(ctx) {
     }
     winGlow.material.emissiveIntensity = 0.5 + blindState.v * 0.75 + blindState.flash * 2.2;
     moonSliver.intensity = 2.4 + blindState.v * 3.2 + blindState.flash * 9;
+    // 凝雾只在叶片开着时看得见；随厅呼吸微涨落（屋里的暖气也在呼吸）
+    fogLayer.material.opacity = blindState.v * (0.5 + (engine.breath || 0) * 0.1);
     // 叶片开着时从窗那边叠续雨声坡（3.4s 音长 / 2s 重触发 → 连成雨幕）
     if (blindState.v > 0.35) {
       blindState.rainT += dt;
@@ -561,6 +887,58 @@ export function build(ctx) {
       audio.sfxAt('creak', W / 2 - 0.2, -3.4, 0.4, 3);
       if (blindState.open) ui.caption('外面在下雨。', 3200);
     }
+  });
+  // v1.9 抛光第 9 遍·窗外的怪谈：偶尔有一辆车从楼下的巷子开过——
+  // 车灯透过百叶在对面墙上扫一道条纹光，轮胎碾着湿路由远及近再远。
+  // 只在叶片开着时看得见（关着时那辆车也过，只是与你无关）。
+  const sweepTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const grd = g.createLinearGradient(0, 0, s, 0);
+    grd.addColorStop(0, 'rgba(255,228,190,0)');
+    grd.addColorStop(0.35, 'rgba(255,228,190,0.6)');
+    grd.addColorStop(0.65, 'rgba(255,228,190,0.6)');
+    grd.addColorStop(1, 'rgba(255,228,190,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, s, s);
+    // 抠出百叶的 12 道暗缝（墙上的投影和窗上的叶片同一套节拍）
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = 'rgba(0,0,0,0.88)';
+    for (let i = 0; i < 12; i++) {
+      g.fillRect(0, i * (s / 12) + (s / 12) * 0.55, s, (s / 12) * 0.45);
+    }
+  });
+  const sweep = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.5),
+    new THREE.MeshBasicMaterial({
+      map: sweepTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+  sweep.position.set(-W / 2 + 0.03, 1.9, -3.4);
+  sweep.rotation.y = Math.PI / 2;
+  group.add(sweep);
+  const carLight = new THREE.PointLight(0xffd9a8, 0, 9, 1.8);
+  carLight.position.set(W / 2 - 0.5, 2.0, -3.4);
+  group.add(carLight);
+  const carState = { timer: 34 + Math.random() * 40, t: -1 };
+  const CAR_DUR = 4.6;
+  updaters.push((dt) => {
+    if (carState.t < 0) {
+      if (blindState.v < 0.5) return;
+      carState.timer -= dt;
+      if (carState.timer > 0) return;
+      carState.timer = 70 + Math.random() * 55;
+      carState.t = 0;
+      audio.sfxAt('carpass', W / 2, -3.4, 0.55, 12);
+      return;
+    }
+    carState.t += dt;
+    const p = Math.min(1, carState.t / CAR_DUR);
+    const env = Math.pow(Math.sin(p * Math.PI), 1.6);
+    sweep.material.opacity = env * 0.8 * blindState.v;
+    sweep.position.z = -5.4 + p * 3.8;
+    sweep.rotation.z = 0.1 - p * 0.2; // 光斑掠过时的轻微斜切（车在动，不是灯在动）
+    carLight.intensity = env * 5.5;
+    carLight.position.z = -5.0 + p * 3.2;
+    if (p >= 1) { carState.t = -1; sweep.material.opacity = 0; carLight.intensity = 0; }
   });
 
   // 墙上的两幅暗色抽象画（原创程序化）
@@ -1493,6 +1871,281 @@ export function build(ctx) {
   group.add(dust);
   updaters.push(dust.userData.update);
   group.add(new THREE.AmbientLight(0x2a1c12, 1.1));
+
+  // v1.9 抛光第 2 遍：门边挂历——日期格排得整整齐齐，
+  // 月份栏是空的，红圈画在格子外面。E → 掀开下半页看一眼，又落回来。
+  const calBoard = roundedBoxMesh(0.32, 0.46, 0.014, 0.006,
+    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [50, 34, 20], planks: 1, size: 128 }), roughness: 0.8 }));
+  calBoard.position.set(1.62, 1.78, 6.42);
+  group.add(calBoard);
+  // 日期格页（画两次：翻页正面一次、底下露出的那页一次——一模一样）
+  const drawCalGrid = (g, s) => {
+    g.strokeStyle = 'rgba(74,60,44,0.85)';
+    g.fillStyle = 'rgba(52,44,32,0.95)';
+    g.font = '7px monospace';
+    g.textAlign = 'left';
+    g.lineWidth = 0.8;
+    let day = 1;
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 7; col++) {
+        const x = 8 + col * 16;
+        const y = 68 + row * 11;
+        g.strokeRect(x, y, 16, 11);
+        if (day <= 31) g.fillText(String(day++), x + 2, y + 8.5);
+      }
+    }
+  };
+  const calTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#e9e2d0';
+    g.fillRect(0, 0, s, s);
+    // 上半：褪色的山影小图（程序化，晒得快看不见）
+    g.fillStyle = 'rgba(120,130,140,0.35)';
+    g.beginPath();
+    g.moveTo(8, 52);
+    g.lineTo(34, 26);
+    g.lineTo(52, 44);
+    g.lineTo(76, 20);
+    g.lineTo(s - 8, 50);
+    g.lineTo(s - 8, 54);
+    g.lineTo(8, 54);
+    g.closePath();
+    g.fill();
+    g.fillStyle = 'rgba(160,150,130,0.25)';
+    g.fillRect(8, 8, s - 16, 46);
+    // 月份栏：空白（只留两侧装订点）
+    g.fillStyle = 'rgba(60,50,40,0.8)';
+    g.fillRect(s / 2 - 22, 60, 1.5, 5);
+    g.fillRect(s / 2 + 22, 60, 1.5, 5);
+    // 下半（被翻页盖住，掀开才见）：同一张日期格
+    drawCalGrid(g, s);
+    // 红圈：画在格子外面的空白边上
+    g.strokeStyle = 'rgba(150,30,34,0.85)';
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.ellipse(s - 14, 62, 9, 6, 0.3, 0, 7);
+    g.stroke();
+  });
+  // 翻页正面：同一张格子（画布竖向 2 倍拉伸补偿 0.27×0.2 平面的长宽比）
+  const calFlapTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#e6dfcc';
+    g.fillRect(0, 0, s, s);
+    g.save();
+    g.scale(1, 2);
+    g.translate(0, -64);
+    drawCalGrid(g, s);
+    g.restore();
+  });
+  const calPad = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.27, 0.4),
+    new THREE.MeshStandardMaterial({ map: calTex, roughness: 0.9 })
+  );
+  calPad.position.set(1.62, 1.77, 6.4);
+  calPad.rotation.y = Math.PI;
+  group.add(calPad);
+  // 可翻的下半页（枢轴在页中缝；平时微微离墙）
+  const calFlap = new THREE.Group();
+  const flapMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.27, 0.2),
+    new THREE.MeshStandardMaterial({ map: calFlapTex, roughness: 0.9, side: THREE.DoubleSide })
+  );
+  flapMesh.position.y = -0.1;
+  calFlap.add(flapMesh);
+  calFlap.position.set(1.62, 1.77, 6.39);
+  calFlap.rotation.y = Math.PI;
+  calFlap.rotation.x = 0.06;
+  group.add(calFlap);
+  // 挂绳钉：一粒黄铜钉 + 双股绳到板顶两角
+  group.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.009, 8, 6), 1.62, 2.06, 6.42),
+    xform(new THREE.CylinderGeometry(0.0022, 0.0022, 0.1, 5), 1.55, 2.03, 6.425, 0, 0, 0.5),
+    xform(new THREE.CylinderGeometry(0.0022, 0.0022, 0.1, 5), 1.69, 2.03, 6.425, 0, 0, -0.5)
+  ], new THREE.MeshStandardMaterial({ color: 0x8a6f3a, roughness: 0.5, metalness: 0.8 })));
+  const calState = { t: -1 };
+  updaters.push((dt, t) => {
+    // 常态：下半页贴着墙极轻地呼吸（房间有穿堂气）
+    if (calState.t < 0) {
+      calFlap.rotation.x = 0.06 + Math.sin(t * 1.7) * 0.012;
+      return;
+    }
+    calState.t += dt;
+    const u = calState.t;
+    if (u > 2.4) { calState.t = -1; return; }
+    // 掀起（0.5s）→ 悬 0.8s → 落回带两跳
+    const lift = u < 0.5 ? (u / 0.5) : u < 1.3 ? 1 : Math.max(0, 1 - (u - 1.3) / 0.8);
+    const settle = u > 1.9 ? Math.sin((u - 1.9) * 22) * 0.08 * (2.4 - u) : 0;
+    calFlap.rotation.x = 0.06 + lift * 2.2 + settle;
+  });
+  hotspots.add(calPad, {
+    hint: 'E — 挂历',
+    onActivate: () => {
+      if (calState.t >= 0) return;
+      calState.t = 0;
+      audio.sfxAt('flutter', 1.62, 6.4, 0.5, 3);
+      later(() => ui.caption('哪个月都不是。', 3200), 900);
+    }
+  });
+
+  // v1.9 抛光第 3 遍：东墙挂画轨——三幅铅笔草图装在旧木框里，
+  // 麻绳成 V 形从一条木线脚吊下来，挂高故意不齐。
+  // 中间那幅常年歪着；E → 摆两下停正，过几秒又自己歪回去。
+  {
+    const RX = W / 2 - 0.045;
+    const railMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [46, 32, 20], planks: 1, size: 128 }), roughness: 0.75
+    });
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 2.5), railMat);
+    rail.position.set(RX, 2.62, -1.48);
+    group.add(rail);
+    const paperBase = (g, s, seed) => {
+      g.fillStyle = '#ddd5c2';
+      g.fillRect(0, 0, s, s);
+      const r = rng(seed);
+      g.fillStyle = 'rgba(120,105,80,0.08)';
+      for (let i = 0; i < 40; i++) g.fillRect(r() * s, r() * s, 2 + r() * 10, 1 + r() * 3);
+    };
+    // 草图一：一个房间的墙角透视，右墙的门开了一条缝
+    const skA = canvasTexture(128, (g, s) => {
+      paperBase(g, s, 91);
+      g.strokeStyle = 'rgba(58,52,44,0.75)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(64, 18); g.lineTo(64, 96);
+      g.moveTo(64, 18); g.lineTo(8, 40);
+      g.moveTo(64, 96); g.lineTo(8, 104);
+      g.moveTo(64, 18); g.lineTo(120, 34);
+      g.moveTo(64, 96); g.lineTo(120, 100);
+      g.stroke();
+      g.strokeRect(86, 46, 20, 42);
+      g.fillStyle = 'rgba(30,26,22,0.8)';
+      g.fillRect(87, 47, 3, 41);
+    });
+    // 草图二：一条上山的回头弯路，两根电线杆
+    const skB = canvasTexture(128, (g, s) => {
+      paperBase(g, s, 92);
+      g.strokeStyle = 'rgba(58,52,44,0.7)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.moveTo(10, 112);
+      g.bezierCurveTo(70, 96, 20, 70, 66, 54);
+      g.bezierCurveTo(100, 42, 82, 30, 108, 22);
+      g.stroke();
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(4, 60); g.quadraticCurveTo(50, 26, 124, 44); g.stroke();
+      for (const [px, py, ph] of [[36, 84, 20], [88, 40, 15]]) {
+        g.beginPath();
+        g.moveTo(px, py); g.lineTo(px, py - ph);
+        g.moveTo(px - 5, py - ph + 3); g.lineTo(px + 5, py - ph + 3);
+        g.stroke();
+      }
+    });
+    // 草图三：波纹地面上一道帷幕，角上一个小 X
+    const skC = canvasTexture(128, (g, s) => {
+      paperBase(g, s, 93);
+      g.strokeStyle = 'rgba(58,52,44,0.72)';
+      g.lineWidth = 1.2;
+      for (let x = 30; x <= 98; x += 8.5) {
+        g.beginPath(); g.moveTo(x, 22); g.quadraticCurveTo(x + 3, 55, x - 2, 84); g.stroke();
+      }
+      g.beginPath(); g.moveTo(26, 20); g.lineTo(102, 20); g.stroke();
+      for (let y = 96; y <= 112; y += 8) {
+        g.beginPath(); g.moveTo(14, y);
+        for (let x = 14; x <= 114; x += 10) g.lineTo(x + 5, y + ((x / 10) % 2 ? 2.5 : -2.5));
+        g.stroke();
+      }
+      g.beginPath();
+      g.moveTo(104, 100); g.lineTo(114, 112);
+      g.moveTo(114, 100); g.lineTo(104, 112);
+      g.stroke();
+    });
+    const frameMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [58, 40, 24], planks: 1, size: 128 }), roughness: 0.65
+    });
+    const cordMat = new THREE.MeshStandardMaterial({ color: 0x2c241a, roughness: 0.9 });
+    const BAR = 0.035, DEP = 0.03;
+    const frameBarGeos = (wF, hF, cx, cy, cz) => [
+      xform(new THREE.BoxGeometry(DEP, hF, BAR), cx, cy, cz - wF / 2 + BAR / 2),
+      xform(new THREE.BoxGeometry(DEP, hF, BAR), cx, cy, cz + wF / 2 - BAR / 2),
+      xform(new THREE.BoxGeometry(DEP, BAR, wF - 2 * BAR), cx, cy + hF / 2 - BAR / 2, cz),
+      xform(new THREE.BoxGeometry(DEP, BAR, wF - 2 * BAR), cx, cy - hF / 2 + BAR / 2, cz)
+    ];
+    const cordGeos = (hookY, hookZ, topY, wF) => {
+      const out = [];
+      for (const sgn of [-1, 1]) {
+        const dz = sgn * (wF / 2 - BAR / 2);
+        const dy = topY - hookY;
+        const L = Math.hypot(dy, dz);
+        out.push(xform(new THREE.CylinderGeometry(0.0035, 0.0035, L, 5),
+          0, (hookY + topY) / 2, hookZ + dz / 2, Math.atan2(dz, dy), 0, 0));
+      }
+      out.push(xform(new THREE.SphereGeometry(0.011, 6, 5), 0, hookY, hookZ));
+      return out;
+    };
+    const FX = RX - 0.035;
+    // 两幅静挂：A 竖幅（墙角）z 0.15 / C 小幅（帷幕）z 2.7，挂高故意不齐
+    group.add(mergedMesh([
+      ...frameBarGeos(0.42, 0.55, FX, 1.78, -2.2),
+      ...frameBarGeos(0.36, 0.46, FX, 1.66, -0.72)
+    ], frameMat));
+    {
+      const cords = mergedMesh([
+        ...cordGeos(2.58, -2.2, 2.055, 0.42),
+        ...cordGeos(2.58, -0.72, 1.89, 0.36)
+      ], cordMat);
+      cords.position.x = FX;
+      group.add(cords);
+    }
+    const mkPaper = (wF, hF, tex, y, z) => {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(wF - 2 * BAR, hF - 2 * BAR),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 }));
+      p.rotation.y = -Math.PI / 2;
+      p.position.set(FX - DEP / 2 - 0.001, y, z);
+      return p;
+    };
+    group.add(mkPaper(0.42, 0.55, skA, 1.78, -2.2));
+    group.add(mkPaper(0.36, 0.46, skC, 1.66, -0.72));
+    // 中间横幅（上山路）：整组吊在挂钩上，绕法线歪/摆
+    const midRig = new THREE.Group();
+    midRig.position.set(FX, 2.58, -1.45);
+    midRig.add(mergedMesh(frameBarGeos(0.62, 0.44, 0, -0.72, 0), frameMat));
+    midRig.add(mergedMesh(cordGeos(0, 0, -0.5, 0.62), cordMat));
+    const midPaper = new THREE.Mesh(new THREE.PlaneGeometry(0.62 - 2 * BAR, 0.44 - 2 * BAR),
+      new THREE.MeshStandardMaterial({ map: skB, roughness: 0.92 }));
+    midPaper.rotation.y = -Math.PI / 2;
+    midPaper.position.set(-DEP / 2 - 0.001, -0.72, 0);
+    midRig.add(midPaper);
+    group.add(midRig);
+    const TILT = 0.048;
+    const frameState = { t: -1 };
+    updaters.push((dt, t) => {
+      if (frameState.t < 0) {
+        midRig.rotation.x = TILT + Math.sin(t * 0.9) * 0.004;
+        return;
+      }
+      frameState.t += dt;
+      const u = frameState.t;
+      if (u > 7.2) { frameState.t = -1; return; }
+      if (u < 1.8) {
+        // 摆两下，停在正的位置
+        midRig.rotation.x = TILT * Math.max(0, 1 - u / 0.5) + Math.sin(u * 7) * 0.12 * Math.exp(-u * 2.2);
+      } else if (u < 4.2) {
+        midRig.rotation.x = 0;
+      } else {
+        // 又自己歪回去（很慢，像叹气）
+        const v = Math.min(1, (u - 4.2) / 2.6);
+        midRig.rotation.x = TILT * v * v * (3 - 2 * v);
+      }
+    });
+    hotspots.add(midPaper, {
+      hint: 'E — 扶正画框',
+      onActivate: () => {
+        if (frameState.t >= 0) return;
+        frameState.t = 0;
+        audio.sfxAt('woodknock', RX, -1.45, 0.4, 3);
+        later(() => audio.sfxAt('creak', RX, -1.45, 0.3, 3), 4300);
+        later(() => ui.caption('它更喜欢歪着。', 3200), 4600);
+      }
+    });
+  }
 
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });

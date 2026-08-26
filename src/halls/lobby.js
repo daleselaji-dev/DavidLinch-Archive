@@ -37,16 +37,27 @@ export const meta = {
     bg: 0x080304, exposure: 1.05, bloom: 0.9,
     // v1.4 P4/P5：暗部微蓝紫 + 高光偏暖增益 + 中等 halation（帷幕红晕）
     halation: 0.17,
-    grade: { lift: [0.012, 0.004, 0.018], gamma: [1.04, 1.0, 0.98], gain: [1.06, 1.0, 0.94] }
+    grade: { lift: [0.012, 0.004, 0.018], gamma: [1.04, 1.0, 0.98], gain: [1.06, 1.0, 0.94] },
+    // v1.9 B1：雾的呼吸（34s 一息，±10%）
+    fogPulse: { period: 34, depth: 0.1 }
   }
 };
 
 const R = 14.5;
 
+// v1.9 B3：开幕点灯只演一次（本次会话内重复进厅不再播）
+let openingPlayed = false;
+
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player, narration } = ctx;
+  const { engine, hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
+  // 开幕点灯门（各灯组的乘法闸）：首次进馆从黑里逐组升起
+  const openGate = openingPlayed
+    ? { bulb: [1, 1, 1, 1, 1, 1], chand: 1, amb: 1 }
+    : { bulb: [0, 0, 0, 0, 0, 0], chand: 0, amb: 0.22 };
+  const opening = { t: openingPlayed ? -1 : 0 };
+  openingPlayed = true;
 
   // 地板 —— 黑白折线拼花（v1.3 三通道：法线拼缝 + 蜡面粗糙度变化）
   const floor = floorMesh(R * 2.4, R * 2.4, chevronMat('#0b0b0d', '#ded7c8', { repeat: 7, seed: 21 }));
@@ -107,13 +118,51 @@ export function build(ctx) {
       if (Math.random() < 0.22) setTimeout(() => audio.sfx('whisper', 0.25), 700);
     }
   });
+  // v1.9 抛光第 1 遍：天花从「一块纯黑平圆」换成放射褶皱绒布篷顶——
+  // 48 道明暗交替褶楔向中心线脚收拢，中心暖深红、边缘沉进黑；
+  // 顶冠洗光一亮，整个穹顶像帐篷内壁一样立起来（黑洞消失）。
+  const canopyTex = canvasTexture(256, (g, s) => {
+    const c = s / 2;
+    const base = g.createRadialGradient(c, c, 6, c, c, c);
+    base.addColorStop(0, '#41121a');
+    base.addColorStop(0.5, '#240b11');
+    base.addColorStop(1, '#0b0406');
+    g.fillStyle = base;
+    g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 48; i++) {
+      const a0 = (i / 48) * Math.PI * 2;
+      const a1 = ((i + 1) / 48) * Math.PI * 2;
+      g.fillStyle = i % 2 ? 'rgba(255,178,144,0.05)' : 'rgba(0,0,0,0.17)';
+      g.beginPath();
+      g.moveTo(c, c);
+      g.arc(c, c, c, a0, a1);
+      g.closePath();
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.3)';
+    g.lineWidth = 1;
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(c, c);
+      g.lineTo(c + Math.cos(a) * c, c + Math.sin(a) * c);
+      g.stroke();
+    }
+  });
   const ceil = new THREE.Mesh(
     new THREE.CircleGeometry(R * 1.25, 40),
-    new THREE.MeshStandardMaterial({ color: 0x080405, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({
+      map: canopyTex, bumpMap: canopyTex, bumpScale: 0.35, roughness: 0.85
+    })
   );
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = 8.4;
   group.add(ceil);
+  // 幕顶鎏金收口环（压住帷头与篷顶的接缝，接住顶冠洗光）
+  const canopyRim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.08, 0.05, 8, 64), goldMat);
+  canopyRim.rotation.x = Math.PI / 2;
+  canopyRim.position.y = 7.94;
+  group.add(canopyRim);
   // 天花中央线脚（环形叠级）
   const rosette = mergedMesh([
     xform(new THREE.TorusGeometry(3.2, 0.09, 10, 48), 0, 8.3, 0, Math.PI / 2, 0, 0),
@@ -225,13 +274,13 @@ export function build(ctx) {
   group.add(crownWash);
   updaters.push((dt, t) => {
     lustre.rotation.y = t * 0.05;
-    // 极缓的烛光呼吸 × 调光档
+    // 极缓的烛光呼吸 × 调光档 × 开幕点灯门
     const breathe = 0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03;
-    lustre.userData.setPower(breathe * dim.v);
-    crownWash.intensity = 4.5 * breathe * dim.v;
+    lustre.userData.setPower(breathe * dim.v * openGate.chand);
+    crownWash.intensity = 4.5 * breathe * dim.v * openGate.chand;
     // 双层体积锥跟随调光（灯暗时光柱一并收薄）；
     // 踏上纪念台的问候拍（daisGreet）会让光柱涌亮一阵
-    cone.userData.setStrength(0.3 + breathe * dim.v * 0.7 + daisGreet.boost * 0.8);
+    cone.userData.setStrength((0.3 + breathe * dim.v * 0.7 + daisGreet.boost * 0.8) * openGate.chand);
   });
 
   // 悬浮标题霓虹
@@ -246,6 +295,8 @@ export function build(ctx) {
     sub.rotation.y = t * 0.12;
     title.userData.flicker(t, 3);
   });
+  // 开幕序列里霓虹最后才醒（先有火，再有名字）
+  if (opening.t >= 0) { title.visible = false; sub.visible = false; }
 
   // 六扇门
   const doors = [
@@ -283,6 +334,14 @@ export function build(ctx) {
     bulbs.push(bulb);
     updaters.push(makeFlicker(bulb.userData.light, bulb.userData.bulb.material, 5, i * 3.1));
   }
+  // 开幕点灯门：逐盏乘法闸（在颤动之后相乘，与彩蛋 blackout 同法）
+  updaters.push(() => {
+    for (let i = 0; i < 6; i++) {
+      if (openGate.bulb[i] >= 1) continue;
+      bulbs[i].userData.light.intensity *= openGate.bulb[i];
+      bulbs[i].userData.bulb.material.emissiveIntensity *= openGate.bulb[i];
+    }
+  });
 
   // ---------- 彩蛋：帷幕后的窃语 ----------
   const eggLight = new THREE.PointLight(0xd4243c, 0, 18, 1.5);
@@ -451,6 +510,73 @@ export function build(ctx) {
       audio.sfx(dim.stops[dim.idx] < prev ? 'lampoff' : 'lampon', 0.3);
     }
   });
+  // v1.9 抛光第 8 遍·触痕层：调光面板四周的指痕晕——手油把漆面
+  // 蹭出一圈暗亮，右下最重（够旋钮的那只手）；被摸得最多的地方
+  // 反而最亮。这个馆每晚都有人调过灯，只是你没见过他们。
+  {
+    const smudgeTex = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const sr = rng(73);
+      // 面板（0.16×0.24）在贴图里的投影区：64±22 / 64±38——
+      // 晕必须围着它长，长在它背后的部分玩家永远看不见
+      const px0 = 42, px1 = 86, py0 = 26, py1 = 102;
+      for (let i = 0; i < 170; i++) {
+        const side = sr();
+        let cx, cy;
+        if (side < 0.5) {          // 右缘最重（够旋钮的那只手）
+          cx = px1 + Math.pow(sr(), 1.6) * 26;
+          cy = py0 + sr() * (py1 - py0) * 1.08;
+        } else if (side < 0.72) {  // 左缘
+          cx = px0 - Math.pow(sr(), 1.6) * 18;
+          cy = py0 + sr() * (py1 - py0);
+        } else if (side < 0.88) {  // 下缘
+          cx = px0 + sr() * (px1 - px0);
+          cy = py1 + Math.pow(sr(), 1.6) * 16;
+        } else {                   // 上缘最轻
+          cx = px0 + sr() * (px1 - px0);
+          cy = py0 - Math.pow(sr(), 1.6) * 12;
+        }
+        const rr3 = 1.5 + sr() * 3;
+        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, rr3);
+        grd.addColorStop(0, `rgba(196,176,142,${0.06 + sr() * 0.07})`);
+        grd.addColorStop(1, 'rgba(196,176,142,0)');
+        g.fillStyle = grd;
+        g.beginPath();
+        g.arc(cx, cy, rr3, 0, Math.PI * 2);
+        g.fill();
+      }
+      // 右缘外两道下行擦痕（手每次都从同一处收回去）
+      g.lineCap = 'round';
+      for (let w = 0; w < 2; w++) {
+        const wx = px1 + 7 + w * 9 + sr() * 3;
+        g.strokeStyle = `rgba(210,192,158,${0.1 + sr() * 0.05})`;
+        g.lineWidth = 4 + sr() * 3;
+        g.beginPath();
+        g.moveTo(wx, 46 + sr() * 8);
+        g.quadraticCurveTo(wx + 3, 70, wx - 2, 92 + sr() * 8);
+        g.stroke();
+      }
+      // 指腹磨亮的一小块（面板右缘外，手最常落的地方）
+      const shine = g.createRadialGradient(px1 + 9, 60, 0, px1 + 9, 60, 12);
+      shine.addColorStop(0, 'rgba(228,212,180,0.22)');
+      shine.addColorStop(1, 'rgba(228,212,180,0)');
+      g.fillStyle = shine;
+      g.beginPath();
+      g.arc(px1 + 9, 60, 12, 0, Math.PI * 2);
+      g.fill();
+    });
+    const smudge = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.4),
+      new THREE.MeshStandardMaterial({
+        map: smudgeTex, transparent: true, roughness: 0.42, depthWrite: false,
+        // 柱身漆面近黑：给一丝自发光当作手油泛起的暗亮（同桌面残环做法）
+        emissive: 0xc4b08e, emissiveMap: smudgeTex, emissiveIntensity: 0.12
+      }));
+    // 贴在柱面（r=13.3）与面板（r=13.26）之间，随面板同向
+    const colA = -Math.PI / 2 + Math.PI / 6;
+    smudge.position.set(Math.cos(colA) * (R - 1.215), 1.35, Math.sin(colA) * (R - 1.215));
+    smudge.rotation.y = dimmer.rotation.y;
+    group.add(smudge);
+  }
 
   // 迎宾铃 —— 一按，六扇门齐声增亮一拍（连锁反馈；入口右翼）
   const bellTable = new THREE.Mesh(
@@ -520,6 +646,147 @@ export function build(ctx) {
       else if (placed.n === 7) ui.caption('碑前放满了花。', 3200);
     }
   });
+
+  // ============================================================
+  // v1.9 二级细节·lobby 件 1：碑前长明灯——与献花铜瓶左右对称，
+  // 记忆的长明火。黄铜盏座（束腰车削+滴油环）+ 玻璃罩（收腰烟囱形）
+  // + 双层火苗（外橙内白，独立颤动）+ 暖光。E → 火苗躬身又缓缓立起。
+  // ============================================================
+  const flameLamp = new THREE.Group();
+  flameLamp.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.17, 0), new THREE.Vector2(0.15, 0.025), new THREE.Vector2(0.055, 0.07),
+      new THREE.Vector2(0.045, 0.5), new THREE.Vector2(0.085, 0.6), new THREE.Vector2(0.07, 0.64),
+      new THREE.Vector2(0.13, 0.68), new THREE.Vector2(0.12, 0.72), new THREE.Vector2(0.05, 0.73)
+    ], 20),
+    M.brass
+  ));
+  // 滴油环：盏口下一圈凝住的蜡油痕（倒角高光边 + 磨损语言）
+  const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.012, 8, 22), new THREE.MeshStandardMaterial({
+    color: 0xcbb98e, roughness: 0.55, metalness: 0.2
+  }));
+  dripRing.rotation.x = Math.PI / 2;
+  dripRing.position.y = 0.665;
+  flameLamp.add(dripRing);
+  // 玻璃罩：收腰烟囱形
+  const chimney = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.115, 0.73), new THREE.Vector2(0.1, 0.82), new THREE.Vector2(0.078, 0.95),
+      new THREE.Vector2(0.085, 1.1), new THREE.Vector2(0.07, 1.18)
+    ], 20),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xfff4e0, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.16,
+      clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 2.2, side: THREE.DoubleSide, depthWrite: false
+    })
+  );
+  flameLamp.add(chimney);
+  // 双层火苗（外橙内白）
+  const flamePivot = new THREE.Group();
+  flamePivot.position.y = 0.75;
+  const flameOuter = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.032, 0.03), new THREE.Vector2(0.024, 0.09),
+      new THREE.Vector2(0.008, 0.15), new THREE.Vector2(0.001, 0.18)
+    ], 10),
+    new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: 0.85, toneMapped: false })
+  );
+  const flameInner = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0.01), new THREE.Vector2(0.016, 0.04), new THREE.Vector2(0.009, 0.09),
+      new THREE.Vector2(0.001, 0.12)
+    ], 8),
+    new THREE.MeshBasicMaterial({ color: 0xfff2cc, transparent: true, opacity: 0.95, toneMapped: false })
+  );
+  flamePivot.add(flameOuter, flameInner);
+  flameLamp.add(flamePivot);
+  const flameGlow = new THREE.PointLight(0xffa04a, 2.2, 4.2, 2);
+  flameGlow.position.y = 0.86;
+  flameLamp.add(flameGlow);
+  flameLamp.position.set(-2.9, 0, 2.9);
+  group.add(flameLamp);
+  // 火苗常态颤动 + 交互「躬身再立起」时间线
+  const flameBow = { t: -1 };
+  updaters.push((dt, t) => {
+    let k = 1;
+    if (flameBow.t >= 0) {
+      flameBow.t += dt;
+      const u = flameBow.t;
+      if (u > 2.4) flameBow.t = -1;
+      // 前 0.5s 躬身压到 0.35，随后 1.9s 缓缓立起还超挺一口再落回
+      else k = u < 0.5 ? 1 - (u / 0.5) * 0.65
+        : 0.35 + Math.min(1, (u - 0.5) / 1.6) * 0.75 + Math.sin(Math.min(1, (u - 0.5) / 1.6) * Math.PI) * 0.18;
+    }
+    const jitter = 1 + Math.sin(t * 11.3) * 0.06 + Math.sin(t * 27.7) * 0.05;
+    flamePivot.scale.set(1, k * jitter, 1);
+    flamePivot.rotation.z = Math.sin(t * 7.1) * 0.05 + Math.sin(t * 17.3) * 0.03;
+    flameGlow.intensity = 2.2 * k * jitter;
+    flameOuter.material.opacity = 0.85 * (0.7 + 0.3 * k);
+  });
+  hotspots.add(chimney, {
+    hint: 'E — 长明灯',
+    onActivate: () => {
+      if (flameBow.t < 0) flameBow.t = 0;
+      audio.sfxAt('flamegut', -2.9, 2.9, 0.6);
+      ui.caption('火从没灭过。也没人来添过油。', 3800);
+    }
+  });
+
+  // ============================================================
+  // v1.9 二级细节·lobby 件 2：帷幕束带——三根立柱侧挂黄铜玫瑰扣
+  // + 金穗流苏对（检修幕布用的束带，歇在钩上）。E → 穗子晃起来。
+  // ============================================================
+  const tasselPivots = [];
+  {
+    const rosetteMat = M.brass;
+    const cordMat = new THREE.MeshStandardMaterial({ color: 0xc9a35c, roughness: 0.5, metalness: 0.35 });
+    for (const k of [1, 3, 5]) {
+      const a = -Math.PI / 2 + Math.PI / 6 + (k * Math.PI) / 3;
+      const tb = new THREE.Group();
+      // 玫瑰扣（叠级圆盘）+ 挂钩
+      tb.add(mergedMesh([
+        xform(new THREE.CylinderGeometry(0.055, 0.062, 0.02, 12), 0, 0, 0, Math.PI / 2, 0, 0),
+        xform(new THREE.CylinderGeometry(0.028, 0.034, 0.03, 10), 0, 0, 0.018, Math.PI / 2, 0, 0),
+        xform(new THREE.TorusGeometry(0.03, 0.008, 8, 12), 0, -0.05, 0.03, 0.3, 0, 0)
+      ], rosetteMat));
+      // 流苏对（枢轴挂在扣下）：绳环 + 两支穗（束颈+穗身+流苏裙沿）
+      const pv = new THREE.Group();
+      pv.position.set(0, -0.06, 0.03);
+      const tasselGeos = [];
+      for (const [tx, ty] of [[-0.045, -0.1], [0.045, -0.14]]) {
+        tasselGeos.push(
+          xform(new THREE.CylinderGeometry(0.006, 0.006, 0.12, 6), tx * 0.5, ty + 0.12, 0, 0, 0, tx > 0 ? -0.32 : 0.32),
+          xform(new THREE.SphereGeometry(0.016, 8, 6), tx, ty + 0.05, 0),
+          xform(new THREE.LatheGeometry([
+            new THREE.Vector2(0.008, 0.05), new THREE.Vector2(0.02, 0.035), new THREE.Vector2(0.024, 0),
+            new THREE.Vector2(0.028, -0.012), new THREE.Vector2(0.02, -0.05), new THREE.Vector2(0.001, -0.065)
+          ], 10), tx, ty, 0)
+        );
+      }
+      pv.add(mergedMesh(tasselGeos, cordMat));
+      tb.add(pv);
+      tb.position.set(Math.cos(a) * (R - 1.22), 1.62, Math.sin(a) * (R - 1.22));
+      tb.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a)) + Math.PI / 2;
+      group.add(tb);
+      tasselPivots.push({ pv, sway: 0, x: tb.position.x, z: tb.position.z, mesh: tb.children[0] });
+    }
+    for (const tp of tasselPivots) {
+      hotspots.add(tp.mesh, {
+        hint: 'E — 幕布束带',
+        onActivate: () => {
+          tp.sway = 1;
+          audio.sfxAt('tassel', tp.x, tp.z, 0.6);
+          ui.caption('穗子还在晃。刚才并没有风。', 3400);
+        }
+      });
+    }
+    updaters.push((dt, t) => {
+      for (const tp of tasselPivots) {
+        if (tp.sway > 0) tp.sway = Math.max(0, tp.sway - dt * 0.34);
+        tp.pv.rotation.z = Math.sin(t * 4.6) * 0.02 + Math.sin(t * 4.1 + tp.x) * 0.34 * tp.sway;
+        tp.pv.rotation.x = Math.sin(t * 3.4 + tp.z) * 0.2 * tp.sway;
+      }
+    });
+  }
 
   // v1.5 减法：伞架退场（与衣帽架重复的「有人来过」件，
   // 还正好立在出生点到纪念碑的视线上）——同一句话说一遍就够
@@ -714,13 +981,18 @@ export function build(ctx) {
     }
   });
 
-  // 氛围: 地面烟雾 + 光尘
+  // 氛围: 地面烟雾 + 光尘（v1.9 B2：透明度随雾的呼吸相位同拍起伏——
+  // 亮的时候尘多一点，暗的时候沉下去）
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
   group.add(smoke);
   updaters.push(smoke.userData.update);
   const dust = dustField(240, { x: R * 2, y: 7, z: R * 2 }, { opacity: 0.4 });
   group.add(dust);
   updaters.push(dust.userData.update);
+  updaters.push(() => {
+    dust.material.opacity = 0.4 * (1 + engine.breath * 0.3);
+    smoke.material.opacity = 0.045 * (1 + engine.breath * 0.2);
+  });
 
   // 基础照明
   const amb = new THREE.AmbientLight(0x2a1214, 1.4);
@@ -732,10 +1004,52 @@ export function build(ctx) {
   // 调光档缓动：中央顶光跟随、旋钮指针转档
   updaters.push((dt) => {
     dim.v += (dim.stops[dim.idx] - dim.v) * Math.min(1, dt * 4.5);
-    center.intensity = 14 * (0.22 + dim.v * 0.78);
+    center.intensity = 14 * (0.22 + dim.v * 0.78) * (0.12 + 0.88 * openGate.amb);
     const targetRz = -dim.idx * (Math.PI * 2 / 3);
     const kn = dimmer.userData.knob;
     kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
+  });
+
+  // ---------- v1.9 B3：开幕点灯序列（只演一次的开场白） ----------
+  // 黑起 → 六盏吊灯错拍点亮（各配一声很轻的 lampon）→ 主灯组与
+  // 光锥升起（swell 一口气）→ 霓虹标题最后醒来（chime）。全程 ≈7.2s；
+  // 本次会话内重复进厅直接满灯。
+  const openingSfx = { swell: false, neon: false, sub: false };
+  updaters.push((dt) => {
+    if (opening.t < 0) return;
+    opening.t += dt;
+    const T = opening.t;
+    for (let i = 0; i < 6; i++) {
+      const k = Math.min(1, Math.max(0, (T - (0.9 + i * 0.5)) / 0.35));
+      if (k > 0 && openGate.bulb[i] === 0) {
+        audio.sfxAt('lampon', bulbs[i].position.x, bulbs[i].position.z, 0.3);
+      }
+      openGate.bulb[i] = Math.max(openGate.bulb[i], k);
+    }
+    const kc = Math.min(1, Math.max(0, (T - 3.6) / 2.4));
+    openGate.chand = kc * kc * (3 - 2 * kc);
+    openGate.amb = 0.22 + 0.78 * openGate.chand;
+    amb.intensity = 1.4 * (0.3 + 0.7 * openGate.amb);
+    rim.intensity = 22 * openGate.amb;
+    steleWash.intensity = 3.4 * (0.15 + 0.85 * openGate.amb);
+    steleWashB.intensity = 2.6 * (0.15 + 0.85 * openGate.amb);
+    if (T >= 3.7 && !openingSfx.swell) { openingSfx.swell = true; audio.sfx('swell', 0.4); }
+    if (T >= 6.1 && !openingSfx.neon) {
+      openingSfx.neon = true;
+      title.visible = true;
+      audio.sfx('chime', 0.45);
+    }
+    if (T >= 6.6 && !openingSfx.sub) { openingSfx.sub = true; sub.visible = true; }
+    if (T >= 7.2) {
+      opening.t = -1;
+      openGate.bulb = [1, 1, 1, 1, 1, 1];
+      openGate.chand = 1;
+      openGate.amb = 1;
+      amb.intensity = 1.4;
+      rim.intensity = 22;
+      steleWash.intensity = 3.4;
+      steleWashB.intensity = 2.6;
+    }
   });
 
   return {

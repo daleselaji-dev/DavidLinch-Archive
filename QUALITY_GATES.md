@@ -640,6 +640,64 @@ DOCENT 配套）。✅ 全绿。
 
 ---
 
+### 47. 画面会呼吸 —— 雾/尘埃节奏 + 开幕点灯 + enamel（v1.9 新增）
+- [x] **B1 雾的呼吸**：逐厅雾密度极缓呼吸（`meta.look.fogPulse` 周期 26–44s、
+      深度 ±7–14% 逐厅配置，工业厅急房间浅；纯标量零带宽，低档保留）
+- [x] **B2 尘埃节奏**：lobby 光尘+地烟 / mulholland 路雾+尘 / twinpeaks 林地雾
+      三厅粒子层透明度随 `engine.breath` 同一相位 ±28–32% 低频调制
+- [x] **B3 大厅开幕点灯序列**：黑起 → 六盏吊灯 0.9s 起错拍点亮（各配位置化
+      lampon）→ 3.6s 主灯组/光锥 smoothstep 升起 + swell → 6.1s 霓虹醒 + chime →
+      7.2s 收口（≈7.2s，模块级只演一次；openGate 乘法闸与颤动/blackout 互不干扰）
+- [x] **B4 enamelSet/enamelMat 瓷釉铁皮**落地（kit 四通道：白瓷釉 rough 52 +
+      贴边磕碰崩瓷露黑铁 + 26 条釉裂游走细纹 + 茶渍云斑 + clearcoat 0.6）；
+      bluevelvet 脚灯槽反光碗 ×9 + eraserhead 压力表珐琅盘系使用
+- [x] **B5 电影分级复核**：抛光第 1–9 遍逐厅默认机位截屏巡检 + 微调入 WORKLOG
+      （lobby 褶皱篷顶/tp 月亮 v2/bv 壁灯光池/碑身流纹 roughnessMap 等）
+- [x] **B6 低档回退**：fogPulse 纯标量、尘埃只改 opacity 零带宽、开幕闸乘法
+      不碰档位；自动降档在 swiftshader 冒烟真实触发（截屏「画质 低」为证）
+
+**验证方式**：截屏对比 + 源码审读 + `--smoke` 全绿。✅ 全绿（阶段 1/5 + 抛光 1–9 遍）。
+
+### 48. 逐厅英雄资产二级细节 v1.9 + 交互 ≥126（v1.9 新增）
+- [x] PRODUCTION_PLAN §2 清单每厅 ≥2 件新增/重做（2a–2f 七厅两件全落地 +
+      抛光 1–9 遍再加码：篷顶/月亮/链条吊钩/立面收顶/挂画轨/暗巷穿线管/
+      还书推车/矮柜磁带机/饭盒/触痕层贴花×3/幕后鼓包/夜车扫光；
+      指纹污迹类：票亭指印+调光板指痕晕+桌面残环+窗凝雾擦痕 ≥2 种同场）
+- [x] 全馆非导航交互实测 **143**（lobby16/arc27/era21/bv17/tp19/mul20/stu23，
+      v1.8 123 → +20，要求 ≥126 达标）；新交互全部 ≥2 通道反馈、
+      字幕 ≤22 字零剧透；每厅连锁 ≥2 保持（PRODUCTION_PLAN §3.1 表）
+- [x] INTERACTIVE_MIN 重锁普查 -1（15/26/20/16/18/19/22）；
+      activateAll 七厅全量激活无异常
+- [x] 既有彩蛋/通路/两重惊吓不回退（拐角/转身惊吓自然触发断言每遍全绿；
+      cornerscare ×27 / turnscare ×11 / mulholland-path 单测不放宽）
+- [x] 性能预算保持 240/240k/40 硬断言全绿；逐厅终版实测
+      171–221 mesh / 33.1k–100.8k tris / 12–29 灯（PRODUCTION_PLAN §5.1）
+
+**验证方式**：`xvfb-run npx electron . --smoke` 逐厅统计全绿 + 截屏复核 + 普查表。✅ 全绿。
+
+### 49. 音景 v1.9 —— 新合成音色 ≥4 + 零采样（v1.9 新增）
+- [x] 新合成音色 **9 种**（要求 ≥4）：flamegut / woodknock / porcelain / sharpen /
+      tassel / glasswipe / chainrattle / tapewhirr / carpass——全部与新交互/怪谈
+      配套接线、sfxAt 位置化；分层反馈（主音+尾音/持续层）
+- [x] audio.test.js 音色审计扩展（NEW_V19 ×9 实现 + 七厅接线扫描）；参数域安全
+- [x] 零采样扫描保持全绿（compliance：src/ 与 electron/ 零图像/音频/视频文件）
+
+**验证方式**：`npm test` audio 组 + 冒烟 activateAll 不抛错。✅ 全绿（251 用例）。
+
+### 50. Release 1.9.0（v1.9 新增）
+- [x] `npm test`（251 用例）/ `npm run smoke` / `xvfb-run npx electron . --smoke`
+      三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）
+- [x] WORKLOG v1.9 段显示本轮 ≥8 小时（14:40–23:0x UTC，逐段与 git 提交时间互证）
+- [x] 版本 bump 1.9.0（package.json + `__SV__.version` 一致，dist 产物内核对）；
+      CHANGELOG v1.9.0
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe` + Setup NSIS 双目标
+      （wine64+wine32 交叉打包；`file` PE32 校验通过）+ `SHA256SUMS.txt` 重写；
+      旧版 1.7.0 exe 从本分支移除防混淆
+- [x] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.9.0」
+- [x] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.9.0
+
+---
+
 ## 补充说明：关于「PS5 级别」
 v1.2 曾以门禁 17 落地第一版清单；v1.3 以门禁 21 升级为 PS4-tier（三通道 PBR/
 Sobel 法线/各向异性）；**v1.4 以门禁 26 的 P1–P10 定义 PS5-tier**（五通道 PBR/

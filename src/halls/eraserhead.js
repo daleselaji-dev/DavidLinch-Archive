@@ -26,7 +26,9 @@ export const meta = {
     bg: 0x030304, exposure: 0.88, bloom: 0.62,
     // v1.4 P4/P5：单色厅——冷灰暗部微抬 + 冷高光，halation 收敛（工业白光的乳晕）
     halation: 0.1,
-    grade: { lift: [0.01, 0.011, 0.014], gamma: [1.02, 1.02, 1.02], gain: [0.98, 1.0, 1.03] }
+    grade: { lift: [0.01, 0.011, 0.014], gamma: [1.02, 1.02, 1.02], gain: [0.98, 1.0, 1.03] },
+    // v1.9 B1：工业厅呼吸最急最深（26s，±14%——像机器的喘息）
+    fogPulse: { period: 26, depth: 0.14 }
   }
 };
 
@@ -130,6 +132,60 @@ export function build(ctx) {
   const stainB = stainMesh(87, 0.95);
   stainB.position.set(3.4, 0.007, -5.0);  // 北墙管道下方滴痕
   group.add(stainA, stainB);
+  // v1.9 抛光第 2 遍：安全通道磨损黄线——从入口斜引向大机器，
+  // 两道边线被脚底磨得断断续续，尽头一截斜纹警示带。
+  // （谁的脚磨掉的？这里从来只有你一个访客。）
+  const laneTex = canvasTexture(256, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    // 本厅 saturation 0.09 近乎黑白——黄色只剩明度，直接用亮浅漆立线
+    const yellow = 'rgba(228,208,150,0.9)';
+    g.fillStyle = yellow;
+    g.fillRect(10, 0, 9, s);
+    g.fillRect(s - 19, 0, 9, s);
+    // 尽头斜纹警示带
+    g.save();
+    g.beginPath();
+    g.rect(10, 0, s - 20, 26);
+    g.clip();
+    for (let x = -30; x < s + 30; x += 16) {
+      g.beginPath();
+      g.moveTo(x, 26);
+      g.lineTo(x + 18, 0);
+      g.lineTo(x + 26, 0);
+      g.lineTo(x + 8, 26);
+      g.closePath();
+      g.fill();
+    }
+    g.restore();
+    // 磨蚀：几百粒 destination-out 斑蚀 + 中段大块磨秃
+    g.globalCompositeOperation = 'destination-out';
+    const r = rng(73);
+    for (let i = 0; i < 420; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      g.fillStyle = `rgba(0,0,0,${0.35 + r() * 0.55})`;
+      g.fillRect(x, y, 1.5 + r() * 4, 1 + r() * 3);
+    }
+    for (let i = 0; i < 7; i++) {
+      const y = r() * s;
+      const grad = g.createRadialGradient(14 + (i % 2) * (s - 28), y, 2, 14 + (i % 2) * (s - 28), y, 14 + r() * 18);
+      grad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, s, s);
+    }
+    g.globalCompositeOperation = 'source-over';
+  });
+  const lane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.7, 8.9),
+    new THREE.MeshStandardMaterial({
+      map: laneTex, transparent: true, depthWrite: false, roughness: 0.85,
+      polygonOffset: true, polygonOffsetFactor: -1
+    })
+  );
+  lane.rotation.set(-Math.PI / 2, 0, 0.295);
+  lane.position.set(-1.3, 0.006, 1.25);
+  group.add(lane);
 
   // 砖墙（v1.3 三通道：砖缝法线 + 逐砖粗糙度；西墙留出锅炉房门洞）
   const wallMat = brickMat({ tint: [36, 34, 38], seed: 11, repX: 4, repY: 2 });
@@ -264,6 +320,179 @@ export function build(ctx) {
   }
   flangeGeo.dispose();
   group.add(mergedMesh(flangeGeos, pipeMat));
+
+  // 管线阀牌（v1.9 件 2）：y1.7 管上五枚黄铜圆牌挂链垂下——钢印编号
+  // 7 / 12 / 19 / 4，第四枚是空白的。牌子跟着这栋楼的震动常年微晃。
+  // E 空白那枚 → 五枚连锁摆起来 + 号牌串响 +「没编号的这一路，还热着。」
+  const TAG_Y = 1.7;
+  const TAG_Z = -S / 2 + 0.35;
+  const tagDefs = [
+    { x: 0.8, num: '7' }, { x: 1.6, num: '12' }, { x: 2.5, num: '19' },
+    { x: 3.3, num: '' }, { x: 4.2, num: '4' }
+  ];
+  const tagStates = [];
+  let blankDisc = null;
+  for (let ti = 0; ti < tagDefs.length; ti++) {
+    const { x, num } = tagDefs[ti];
+    const tag = new THREE.Group();
+    // 挂环绕管 + 三节小链（相对枢轴 = 管轴心）
+    tag.add(mergedMesh([
+      xform(new THREE.TorusGeometry(0.105, 0.006, 6, 14), 0, 0, 0, 0, Math.PI / 2, 0),
+      xform(new THREE.TorusGeometry(0.016, 0.0045, 6, 10), 0, -0.118, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.TorusGeometry(0.016, 0.0045, 6, 10), 0, -0.144, 0, 0, Math.PI / 2, 0),
+      xform(new THREE.TorusGeometry(0.016, 0.0045, 6, 10), 0, -0.17, 0, Math.PI / 2, 0, 0)
+    ], pipeMat));
+    const tagTex = canvasTexture(64, (g, s) => {
+      const r = rng(ti * 7 + 3);
+      g.fillStyle = '#cabf9e';
+      g.fillRect(0, 0, s, s);
+      // 边缘氧化黯圈 + 划痕
+      g.strokeStyle = 'rgba(70,54,26,0.45)';
+      g.lineWidth = 5;
+      g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 3, 0, 7); g.stroke();
+      g.strokeStyle = 'rgba(60,48,26,0.3)';
+      g.lineWidth = 0.7;
+      for (let i = 0; i < 7; i++) {
+        g.beginPath();
+        g.moveTo(r() * s, r() * s);
+        g.lineTo(r() * s, r() * s);
+        g.stroke();
+      }
+      // 穿链孔
+      g.fillStyle = 'rgba(20,16,10,0.9)';
+      g.beginPath(); g.arc(s / 2, 10, 3.4, 0, 7); g.fill();
+      // 钢印编号（空白牌只留一块更深的氧化云——像被摘掉过什么）
+      if (num) {
+        g.fillStyle = 'rgba(44,34,16,0.88)';
+        g.font = 'bold 26px monospace';
+        g.textAlign = 'center';
+        g.fillText(num, s / 2, s / 2 + 12);
+      } else {
+        const grad = g.createRadialGradient(s / 2, s / 2 + 6, 2, s / 2, s / 2 + 6, 16);
+        grad.addColorStop(0, 'rgba(84,64,30,0.5)');
+        grad.addColorStop(1, 'rgba(84,64,30,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, s, s);
+      }
+    });
+    // 圆柱端盖 UV 与竖挂朝向差 90°——旋转贴图对正钢印
+    tagTex.center.set(0.5, 0.5);
+    tagTex.rotation = Math.PI / 2;
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.006, 16),
+      new THREE.MeshStandardMaterial({
+        map: tagTex, color: num ? 0xc9ae6a : 0xa08648, roughness: 0.38, metalness: 0.85, envMapIntensity: 1.1
+      })
+    );
+    disc.rotation.x = Math.PI / 2;
+    disc.position.set(0, -0.225, 0);
+    tag.add(disc);
+    if (!num) blankDisc = disc;
+    tag.position.set(x, TAG_Y, TAG_Z);
+    group.add(tag);
+    tagStates.push({ tag, phase: ti * 1.7, rate: 1.05 + ti * 0.14, jolt: 0 });
+  }
+  updaters.push((dt, t) => {
+    for (const ts of tagStates) {
+      if (ts.jolt > 0) ts.jolt = Math.max(0, ts.jolt - dt * 0.55);
+      // 常年微晃（机器震动传上来）+ 触发时的连锁大摆（衰减正弦）
+      ts.tag.rotation.x = Math.sin(t * ts.rate + ts.phase) * 0.035 +
+        ts.jolt * Math.sin((1 - ts.jolt) * 14 + ts.phase) * 0.55 * ts.jolt;
+    }
+  });
+  hotspots.add(blankDisc, {
+    hint: 'E — 空白的阀牌',
+    onActivate: () => {
+      for (let i = 0; i < tagStates.length; i++) {
+        setTimeout(() => { tagStates[i].jolt = 1; }, Math.abs(i - 3) * 90);
+      }
+      audio.sfxAt('jostle', 3.3, TAG_Z, 0.55, 3);
+      setTimeout(() => ui.caption('没编号的这一路，还热着。', 3600), 800);
+    }
+  });
+
+  // v1.9 抛光第 3 遍：天车链条吊钩组——一截工字梁横在顶棚半途，
+  // 小车停在空地正上方，链条垂下来，钩子上什么都没挂。
+  // （机器在西南角轰鸣，吊钩却停在这里——它上一次吊走的是什么？）
+  {
+    const beamMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(256, 56, 26), color: 0x26282c, roughness: 0.62, metalness: 0.72
+    });
+    const BX = 2.2, BZ0 = 0.9, BZ1 = -4.7, TZ = -1.9;
+    const beamY = H - 0.34;
+    const beamLen = BZ0 - BZ1;
+    const beamZC = (BZ0 + BZ1) / 2;
+    group.add(mergedMesh([
+      // 工字梁：上翼缘 / 腹板 / 下翼缘 + 两端封板 + 两只抱顶吊架
+      xform(new THREE.BoxGeometry(0.3, 0.045, beamLen), BX, beamY + 0.135, beamZC),
+      xform(new THREE.BoxGeometry(0.05, 0.23, beamLen), BX, beamY, beamZC),
+      xform(new THREE.BoxGeometry(0.3, 0.045, beamLen), BX, beamY - 0.135, beamZC),
+      xform(new THREE.BoxGeometry(0.3, 0.32, 0.03), BX, beamY, BZ0 - 0.015),
+      xform(new THREE.BoxGeometry(0.3, 0.32, 0.03), BX, beamY, BZ1 + 0.015),
+      xform(new THREE.BoxGeometry(0.09, 0.34, 0.09), BX, H - 0.17, BZ0 - 0.45),
+      xform(new THREE.BoxGeometry(0.09, 0.34, 0.09), BX, H - 0.17, BZ1 + 0.45)
+    ], beamMat));
+    // 小车：双侧板 + 四只行走轮压住下翼缘 + 底部横担吊耳
+    const wheelPair = (dz) => [
+      xform(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 10), BX - 0.115, beamY - 0.06, TZ + dz, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 10), BX + 0.115, beamY - 0.06, TZ + dz, 0, 0, Math.PI / 2)
+    ];
+    group.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.035, 0.24, 0.4), BX - 0.15, beamY - 0.17, TZ),
+      xform(new THREE.BoxGeometry(0.035, 0.24, 0.4), BX + 0.15, beamY - 0.17, TZ),
+      ...wheelPair(-0.13), ...wheelPair(0.13),
+      xform(new THREE.BoxGeometry(0.33, 0.05, 0.4), BX, beamY - 0.315, TZ),
+      xform(new THREE.CylinderGeometry(0.028, 0.028, 0.09, 8), BX, beamY - 0.38, TZ)
+    ], rustMat({ seed: 41, rust: 0.4, repX: 1, repY: 1 })));
+    // 链条 + 吊钩：整串挂在吊耳上，随楼里的震动常年微晃
+    const rig = new THREE.Group();
+    rig.position.set(BX, beamY - 0.42, TZ);
+    const chainMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 48, 22), color: 0x33353a, roughness: 0.55, metalness: 0.8
+    });
+    const LINKS = 30, PITCH = 0.082;
+    const rigGeos = [];
+    for (let i = 0; i < LINKS; i++) {
+      const link = new THREE.TorusGeometry(0.05, 0.011, 6, 10);
+      link.scale(1, 1.35, 1); // 拉长成链环
+      rigGeos.push(xform(link, 0, -i * PITCH - 0.05, 0, 0, i % 2 ? Math.PI / 2 : 0, 0));
+    }
+    const chainBot = -LINKS * PITCH - 0.05;
+    // 回转吊环 + 钩柄 + 钩身（3/4 圆环从顶顺到开口侧）+ 钩尖 + 防脱舌片
+    rigGeos.push(xform(new THREE.BoxGeometry(0.09, 0.075, 0.05), 0, chainBot - 0.04, 0));
+    rigGeos.push(xform(new THREE.CylinderGeometry(0.018, 0.018, 0.1, 8), 0, chainBot - 0.12, 0));
+    const hookArc = new THREE.TorusGeometry(0.085, 0.023, 8, 14, Math.PI * 1.7);
+    rigGeos.push(xform(hookArc, 0, chainBot - 0.255, 0, 0, 0, Math.PI / 2));
+    rigGeos.push(xform(new THREE.SphereGeometry(0.026, 8, 6),
+      Math.cos(0.2 * Math.PI) * 0.085, chainBot - 0.255 + Math.sin(0.2 * Math.PI) * 0.085, 0));
+    rigGeos.push(xform(new THREE.BoxGeometry(0.014, 0.1, 0.032), 0.045, chainBot - 0.19, 0, 0, 0, -0.55));
+    rig.add(mergedMesh(rigGeos, chainMat));
+    const hookHit = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.66, 0.36),
+      new THREE.MeshStandardMaterial({ color: 0x000000 }));
+    hookHit.visible = false;
+    hookHit.position.set(0, chainBot - 0.2, 0);
+    rig.add(hookHit);
+    group.add(rig);
+    const rigState = { jolt: 0 };
+    updaters.push((dt, t) => {
+      rigState.jolt = Math.max(0, rigState.jolt - dt / 3.4);
+      const j = rigState.jolt * rigState.jolt;
+      rig.rotation.z = Math.sin(t * 0.53) * 0.011 + Math.sin(t * 7.3) * 0.09 * j;
+      rig.rotation.x = Math.cos(t * 0.41) * 0.009 + Math.cos(t * 6.1) * 0.062 * j;
+      rig.rotation.y = Math.sin(t * 0.07) * 0.45 + Math.sin(t * 4.2) * 0.5 * j;
+    });
+    hotspots.add(hookHit, {
+      hint: 'E — 吊钩',
+      onActivate: () => {
+        if (rigState.jolt > 0.2) return;
+        rigState.jolt = 1;
+        audio.sfxAt('chainrattle', BX, TZ, 0.8, 3);
+        // 连锁：机器那头闷闷地应了一声
+        setTimeout(() => audio.sfxAt('clank', -4.6, -4.9, 0.38, 5), 1300);
+        setTimeout(() => ui.caption('钩着的东西先走了。', 3400), 700);
+      }
+    });
+  }
 
   // 大机器 v2 —— 真曲柄连杆机构（v1.4 P3 英雄资产）：
   // 飞轮（轮辋+六辐+轮毂+曲柄销+扇形配重）→ 连杆 → 十字头（双导轨）→ 活塞杆
@@ -625,6 +854,99 @@ export function build(ctx) {
     }
   });
 
+  // ---------- 凳上的饭盒（v1.9 抛光第 6 遍）----------
+  // 北墙下一只三脚圆凳，凳上一只工人饭盒：拱盖、铁丝提手、
+  // 搭扣挂着没扣。保温瓶靠着凳腿。换班的人没来拿。
+  // E → 拱盖掀开一条缝又落回（里面是空的，一直是）。
+  {
+    const stool = new THREE.Group();
+    const stoolWood = woodMat({ base: [26, 22, 19], planks: 1, size: 128, seed: 47 });
+    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.17, 0.035, 16), stoolWood);
+    seat.position.y = 0.55;
+    stool.add(seat);
+    const legGeos = [];
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.5;
+      legGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.02, 0.56, 8),
+        Math.cos(a) * 0.12, 0.27, Math.sin(a) * 0.12,
+        Math.sin(a) * -0.16, 0, Math.cos(a) * 0.16));
+    }
+    // 三腿中段一圈踏棍
+    legGeos.push(xform(new THREE.CylinderGeometry(0.09, 0.09, 0.014, 12), 0, 0.2, 0));
+    stool.add(mergedMesh(legGeos, new THREE.MeshStandardMaterial({ color: 0x1a1613, roughness: 0.75 })));
+    // 饭盒：方身 + 半圆拱盖（铰在后沿）+ 铁丝提手 + 前搭扣
+    const pailMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(64, 60, 18), color: 0x3b4240, roughness: 0.5, metalness: 0.65
+    });
+    const pailBody = new THREE.Mesh(roundedBoxGeo(0.3, 0.15, 0.17, 0.012, 2), pailMat);
+    pailBody.position.set(0, 0.645, 0);
+    stool.add(pailBody);
+    const lidPivot = new THREE.Group();
+    lidPivot.position.set(0, 0.72, -0.085); // 铰链在盒身后上沿
+    const lid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.085, 0.085, 0.29, 12, 1, false, 0, Math.PI),
+      pailMat
+    );
+    lid.rotation.z = Math.PI / 2;
+    lid.position.set(0, 0, 0.085); // 拱盖圆心回到盒身中线
+    lidPivot.add(lid);
+    stool.add(lidPivot);
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0x191b1c, roughness: 0.45, metalness: 0.8 });
+    // 铁丝提手搭在拱盖上（挂进盖枢轴，掀盖时跟着走）
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.006, 6, 14, Math.PI), wireMat);
+    handle.rotation.x = 0.35;
+    handle.position.set(0, 0.012, 0.06);
+    lidPivot.add(handle);
+    // 前搭扣（挂着没扣——留在盒身上）
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.05, 0.008), wireMat);
+    latch.rotation.x = 0.22;
+    latch.position.set(0, 0.63, 0.089);
+    stool.add(latch);
+    // 保温瓶靠着凳腿（瓶身 + 杯盖 + 一圈箍）
+    const thermos = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.045, 0.048, 0.3, 12), 0, 0.15, 0),
+      xform(new THREE.CylinderGeometry(0.038, 0.042, 0.05, 12), 0, 0.325, 0),
+      xform(new THREE.CylinderGeometry(0.049, 0.049, 0.012, 12), 0, 0.09, 0)
+    ], new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(64, 80, 22), color: 0x565c5e, roughness: 0.42, metalness: 0.7
+    }));
+    thermos.position.set(0.24, 0, 0.05);
+    thermos.rotation.z = -0.09; // 斜靠凳腿
+    stool.add(thermos);
+    // 北墙下、汽笛链（x−0.8）与暖气炉龛（x≥3.95）之间的空档
+    stool.position.set(1.7, 0, -7.0);
+    stool.rotation.y = 0.4;
+    group.add(stool);
+    // E → 拱盖掀开一条缝、悬半拍、落回两跳；开合两声 + 首次一条字幕
+    const pailState = { t: -1, said: false };
+    updaters.push((dt) => {
+      if (pailState.t < 0) return;
+      pailState.t += dt;
+      const T = pailState.t;
+      let a = 0;
+      if (T < 0.35) a = (T / 0.35) * 0.62;
+      else if (T < 1.0) a = 0.62;
+      else if (T < 1.5) {
+        const k = (T - 1.0) / 0.5;
+        a = 0.62 * (1 - k * k) + (k > 0.8 ? Math.sin((k - 0.8) * 42) * 0.03 : 0);
+      } else { a = 0; pailState.t = -1; }
+      lidPivot.rotation.x = -a;
+    });
+    hotspots.add(pailBody, {
+      hint: 'E — 换班的饭盒',
+      onActivate: () => {
+        if (pailState.t >= 0) return;
+        pailState.t = 0;
+        audio.sfxAt('clank', 1.7, -7.0, 0.3, 3);
+        setTimeout(() => audio.sfxAt('thud', 1.7, -7.0, 0.22, 3), 1350);
+        if (!pailState.said) {
+          pailState.said = true;
+          setTimeout(() => ui.caption('饭盒是空的。从第一天起。', 3600), 800);
+        }
+      }
+    });
+  }
+
   // 铁笼吊灯
   const cageLights = [];
   for (const [x, z, seed] of [[0, 0, 1], [4.5, 3.5, 7], [-4.5, 4, 13]]) {
@@ -648,6 +970,30 @@ export function build(ctx) {
     group.add(cage);
     cageLights.push({ light, bulb });
     updaters.push(makeFlicker(light, bulb.material, 6, seed));
+    // v1.9 抛光第 7 遍·光的怪谈：正中这盏常年被穿堂气推着荡，
+    // 但每隔半分钟左右，它会在摆到最快的那一瞬停死在半空——
+    // 一秒多之后又从原处继续荡，好像刚才那段时间不算数。
+    // 不配声音：这种事配上声音就假了。
+    if (x === 0 && z === 0) {
+      const sway = { phase: Math.random() * 6.28, frozen: 0, next: 26 + Math.random() * 30, a: 0 };
+      const pivotY = H - 0.05; // 吊线顶端（天花锚点）
+      updaters.push((dt) => {
+        if (sway.frozen > 0) {
+          sway.frozen -= dt; // 停死：相位与角度都不走
+        } else {
+          sway.phase += dt * 1.9;
+          sway.a = Math.sin(sway.phase) * 0.055;
+          sway.next -= dt;
+          // 在角速度最大的时刻（过中点附近）停最瘆人
+          if (sway.next <= 0 && Math.abs(Math.cos(sway.phase)) > 0.72) {
+            sway.frozen = 1.4 + Math.random() * 1.3;
+            sway.next = 32 + Math.random() * 42;
+          }
+        }
+        cage.rotation.z = sway.a;
+        cage.position.set(Math.sin(sway.a) * 1.65, pivotY - Math.cos(sway.a) * 1.65, 0);
+      });
+    }
   }
 
   // ============================================================
@@ -820,44 +1166,141 @@ export function build(ctx) {
   const fusebox = fuseBox({ mats: M });
   fusebox.position.set(-S / 2 - 2.4, 1.7, -2.5);
   boilerRoom.add(fusebox);
-  // 压力表 ×3（表盘 + 指针）
+  // 压力表组 v2（v1.9 件 1）：珐琅表盘 + 黄铜表圈 + 玻璃罩 + 剑形指针带尾配重
+  // + 取压短管从罐皮接出（截止旋塞 + 猪尾缓冲弯）——三块表第一次真正
+  // 接在锅炉上。E 中间那块 → 指针猛一格再弹回：表针不同意。
   const gaugeNeedles = [];
+  const gaugeIronGeos = [];
+  const gaugeBrassGeos = [];
+  const gaugeGlassGeos = [];
+  const GX = -S / 2 - 3.42; // 表盘面基准 x
+  const needleMat = new THREE.MeshStandardMaterial({ color: 0x8f0e1e, roughness: 0.35, metalness: 0.4 });
+  let midDial = null;
   for (const [z, seed] of [[-1.4, 1], [0, 4], [1.4, 7]]) {
+    // 珐琅盘面：老化白瓷 + 主/副刻度 + 数字圈 + 红区楔 + 一道发丝裂纹
     const dial = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.16, 0.16, 0.05, 18),
+      new THREE.CylinderGeometry(0.15, 0.15, 0.014, 22),
       new THREE.MeshStandardMaterial({
-        map: canvasTexture(64, (g, s) => {
-          g.fillStyle = '#d8d2c4';
-          g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 2, 0, 7); g.fill();
-          g.strokeStyle = '#222';
-          for (let i = 0; i < 9; i++) {
-            const a = -Math.PI * 0.75 + (i / 8) * Math.PI * 1.5;
-            g.beginPath();
-            g.moveTo(s / 2 + Math.cos(a) * (s / 2 - 8), s / 2 + Math.sin(a) * (s / 2 - 8));
-            g.lineTo(s / 2 + Math.cos(a) * (s / 2 - 14), s / 2 + Math.sin(a) * (s / 2 - 14));
-            g.stroke();
+        map: canvasTexture(128, (g, s) => {
+          const r = rng(seed * 13 + 5);
+          g.fillStyle = '#e8e2d2';
+          g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 1, 0, 7); g.fill();
+          // 珐琅老化：边缘茶渍云 + 狐斑点
+          for (let i = 0; i < 8; i++) {
+            const a = r() * Math.PI * 2;
+            const rr = s * (0.34 + r() * 0.13);
+            const grad = g.createRadialGradient(s / 2 + Math.cos(a) * rr, s / 2 + Math.sin(a) * rr, 0,
+              s / 2 + Math.cos(a) * rr, s / 2 + Math.sin(a) * rr, 6 + r() * 9);
+            grad.addColorStop(0, 'rgba(150,128,92,0.16)');
+            grad.addColorStop(1, 'rgba(150,128,92,0)');
+            g.fillStyle = grad;
+            g.fillRect(0, 0, s, s);
           }
+          // 红区楔（超压末段）
+          g.fillStyle = 'rgba(140,22,26,0.8)';
+          g.beginPath();
+          g.moveTo(s / 2, s / 2);
+          g.arc(s / 2, s / 2, s / 2 - 7, Math.PI * 0.52, Math.PI * 0.75);
+          g.closePath(); g.fill();
+          g.fillStyle = '#e8e2d2';
+          g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 17, 0, 7); g.fill();
+          // 主刻度 9 + 副刻度 + 数字
+          g.strokeStyle = '#2a2620';
+          g.fillStyle = '#2a2620';
+          g.font = 'bold 9px monospace';
+          g.textAlign = 'center';
+          for (let i = 0; i < 33; i++) {
+            const a = Math.PI * 0.75 + (i / 32) * Math.PI * 1.5;
+            const major = i % 4 === 0;
+            g.lineWidth = major ? 2 : 0.8;
+            g.beginPath();
+            g.moveTo(s / 2 + Math.cos(a) * (s / 2 - 7), s / 2 + Math.sin(a) * (s / 2 - 7));
+            g.lineTo(s / 2 + Math.cos(a) * (s / 2 - (major ? 15 : 11)), s / 2 + Math.sin(a) * (s / 2 - (major ? 15 : 11)));
+            g.stroke();
+            if (major) {
+              g.fillText(String((i / 4) * 4),
+                s / 2 + Math.cos(a) * (s / 2 - 23), s / 2 + Math.sin(a) * (s / 2 - 23) + 3);
+            }
+          }
+          // 中心毂圈 + 厂标弧点
+          g.lineWidth = 1;
+          g.beginPath(); g.arc(s / 2, s / 2, 5, 0, 7); g.stroke();
+          for (let i = 0; i < 5; i++) {
+            g.fillRect(s / 2 - 8 + i * 4, s * 0.68, 1.6, 1.6);
+          }
+          // 一道发丝裂纹（从边缘游进来）
+          g.strokeStyle = 'rgba(90,80,66,0.5)';
+          g.lineWidth = 0.7;
+          g.beginPath();
+          let cx = s * (0.1 + r() * 0.15);
+          let cy = s * (0.24 + r() * 0.2);
+          g.moveTo(cx, cy);
+          for (let i = 0; i < 4; i++) {
+            cx += 6 + r() * 8;
+            cy += (r() - 0.4) * 10;
+            g.lineTo(cx, cy);
+          }
+          g.stroke();
         }),
-        roughness: 0.4
+        roughness: 0.32
       })
     );
     dial.rotation.z = Math.PI / 2;
-    dial.position.set(-S / 2 - 3.42, 2.2, z);
-    const needle = new THREE.Mesh(
-      new THREE.BoxGeometry(0.01, 0.12, 0.01),
-      new THREE.MeshStandardMaterial({ color: 0x8f0e1e })
+    dial.position.set(GX, 2.2, z);
+    if (z === 0) midDial = dial;
+    // 铁壳 + 罐皮接管（截止旋塞体 + 手柄）+ 猪尾缓冲弯
+    gaugeIronGeos.push(
+      xform(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 18), GX - 0.045, 2.2, z, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.19, 0.19, 0.016, 18), GX - 0.085, 2.2, z, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.022, 0.022, 0.62, 10), GX - 0.38, 2.2, z, 0, 0, Math.PI / 2)
     );
-    needle.position.set(-S / 2 - 3.38, 2.2, z);
+    gaugeBrassGeos.push(
+      // 表圈
+      xform(new THREE.TorusGeometry(0.152, 0.016, 8, 26), GX + 0.012, 2.2, z, 0, Math.PI / 2, 0),
+      // 截止旋塞：塞体 + 斜向小手柄
+      xform(new THREE.CylinderGeometry(0.034, 0.034, 0.06, 10), GX - 0.42, 2.2, z, 0, 0, Math.PI / 2),
+      xform(new THREE.BoxGeometry(0.012, 0.06, 0.014), GX - 0.42, 2.245, z, 0.35, 0, 0),
+      // 猪尾缓冲弯（XY 面 4/5 圈，垂在接管下方）
+      xform(new THREE.TorusGeometry(0.046, 0.0135, 8, 16, Math.PI * 1.65), GX - 0.22, 2.14, z, Math.PI * 0.6, 0, 0)
+    );
+    // 玻璃罩（压扁球面——先压扁再挪位，顺序反了会把位置一起缩掉）
+    const glassGeo = new THREE.SphereGeometry(0.15, 16, 10);
+    glassGeo.scale(0.32, 1, 1);
+    gaugeGlassGeos.push(xform(glassGeo, GX + 0.02, 2.2, z));
+    // 剑形指针：渐细刃 + 尾配重 + 毂（枢轴在盘心，绕 x 扫盘面）
+    const needle = mergedMesh([
+      xform(new THREE.BoxGeometry(0.011, 0.125, 0.007), 0, 0.055, 0),
+      xform(new THREE.BoxGeometry(0.007, 0.05, 0.007), 0, 0.028, 0, 0, 0, 0.32),
+      xform(new THREE.BoxGeometry(0.016, 0.038, 0.008), 0, -0.03, 0),
+      xform(new THREE.CylinderGeometry(0.015, 0.015, 0.02, 10), 0, 0, 0, 0, 0, Math.PI / 2)
+    ], needleMat);
+    needle.position.set(GX + 0.012, 2.2, z);
     boilerRoom.add(dial, needle);
-    gaugeNeedles.push({ needle, seed });
+    gaugeNeedles.push({ needle, seed, kick: 0 });
   }
+  const gaugeCaseMat = new THREE.MeshStandardMaterial({ color: 0x26262b, roughness: 0.5, metalness: 0.7 });
+  boilerRoom.add(mergedMesh(gaugeIronGeos, gaugeCaseMat));
+  boilerRoom.add(mergedMesh(gaugeBrassGeos, M.brass));
+  boilerRoom.add(mergedMesh(gaugeGlassGeos, new THREE.MeshStandardMaterial({
+    color: 0xcfe0ea, transparent: true, opacity: 0.13, roughness: 0.08, metalness: 0.2, depthWrite: false
+  })));
   const pressure = { surge: 0 };
   updaters.push((dt, t) => {
     if (pressure.surge > 0) pressure.surge -= dt;
     const s2 = Math.max(0, Math.min(pressure.surge, 1));
-    for (const { needle, seed } of gaugeNeedles) {
-      needle.rotation.x = Math.sin(t * 0.7 + seed) * 0.8 + Math.sin(t * 5.3 + seed * 2) * 0.1 +
-        s2 * Math.sin(t * 21 + seed * 3) * 0.7;
+    for (const gn of gaugeNeedles) {
+      if (gn.kick > 0) gn.kick = Math.max(0, gn.kick - dt * 2.4);
+      gn.needle.rotation.x = Math.sin(t * 0.7 + gn.seed) * 0.8 + Math.sin(t * 5.3 + gn.seed * 2) * 0.1 +
+        s2 * Math.sin(t * 21 + gn.seed * 3) * 0.7 +
+        gn.kick * Math.sin(gn.kick * 14) * 0.9;
+    }
+  });
+  hotspots.add(midDial, {
+    hint: 'E — 敲敲表盘',
+    onActivate: () => {
+      gaugeNeedles[1].kick = 1;
+      audio.sfxAt('porcelain', GX, 0, 0.4, 3);
+      setTimeout(() => ui.caption('表针不同意。', 3000), 700);
     }
   });
   // 锅炉房蒸汽与灯

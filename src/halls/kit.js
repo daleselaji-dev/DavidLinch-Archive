@@ -2159,6 +2159,96 @@ export function rustSet({
   return setFrom(albedo, height, rough, { repX, repY, nStrength, aoStrength: 1.2, metal });
 }
 
+/**
+ * 瓷釉铁皮（v1.9 B4，四通道：albedo/height/rough/metal）——
+ * 白瓷釉面 + 边缘磕碰露黑铁 + 釉裂细纹 + 陈年茶渍。
+ * 釉面光滑非金属；磕碰缺口粗糙且露出铁底（metalnessMap 亮斑）。
+ * 补 v1.4 P2 欠账（enamel/锈蚀二选一当年只落了 rust）。
+ */
+export function enamelSet({
+  base = 224, warm = 6, size = 256, seed = 47, repX = 1, repY = 1,
+  chip = 0.55, nStrength = 1.2
+} = {}) {
+  const r = rng(seed);
+  // 磕碰缺口偏向四缘与四角（真瓷釉先崩边）
+  const chips = [];
+  const n = Math.round(8 + chip * 16);
+  for (let i = 0; i < n; i++) {
+    const edge = Math.floor(r() * 4);
+    const along = r();
+    const inset = r() * r() * 0.16; // 平方偏置：贴边最密
+    const u = edge === 0 ? along : edge === 1 ? along : edge === 2 ? inset : 1 - inset;
+    const v = edge === 0 ? inset : edge === 1 ? 1 - inset : along;
+    chips.push({ u, v, rad: 0.012 + r() * 0.03, lob: 3 + Math.floor(r() * 3), t: r() });
+  }
+  // 釉裂细纹：随机游走短折线
+  const crazes = [];
+  for (let i = 0; i < 26; i++) {
+    const pts = [[r(), r()]];
+    const segs = 3 + Math.floor(r() * 4);
+    for (let sgi = 0; sgi < segs; sgi++) {
+      const [pu, pv] = pts[pts.length - 1];
+      pts.push([pu + (r() - 0.5) * 0.12, pv + (r() - 0.5) * 0.12]);
+    }
+    pts.alpha = 0.05 + r() * 0.08;
+    crazes.push(pts);
+  }
+  // 陈年茶渍云斑
+  const stains = [];
+  for (let i = 0; i < 9; i++) stains.push({ u: r(), v: r(), rad: 0.05 + r() * 0.14, a: 0.03 + r() * 0.05 });
+  const draw = (g, s, mode) => {
+    if (mode === 'albedo') g.fillStyle = `rgb(${base},${base - 2},${base - warm})`;
+    else if (mode === 'height') g.fillStyle = 'rgb(150,150,150)';
+    else if (mode === 'rough') g.fillStyle = 'rgb(52,52,52)'; // 釉面光滑
+    else g.fillStyle = 'rgb(18,18,18)'; // 釉层非金属
+    g.fillRect(0, 0, s, s);
+    if (mode === 'albedo' || mode === 'rough') {
+      for (const st of stains) {
+        const grad = g.createRadialGradient(st.u * s, st.v * s, 0, st.u * s, st.v * s, st.rad * s);
+        grad.addColorStop(0, mode === 'albedo' ? `rgba(150,118,72,${st.a})` : `rgba(120,120,120,${st.a * 3})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.beginPath(); g.arc(st.u * s, st.v * s, st.rad * s, 0, 7); g.fill();
+      }
+    }
+    if (mode !== 'height') {
+      for (const cz of crazes) {
+        g.strokeStyle = mode === 'albedo' ? `rgba(96,86,74,${cz.alpha})`
+          : mode === 'rough' ? `rgba(150,150,150,${cz.alpha * 3})` : `rgba(40,40,40,${cz.alpha})`;
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(cz[0][0] * s, cz[0][1] * s);
+        for (let i = 1; i < cz.length; i++) g.lineTo(cz[i][0] * s, cz[i][1] * s);
+        g.stroke();
+      }
+    }
+    // 磕碰缺口：多瓣叠圆读出崩瓷的贝壳状边缘；中心露黑铁
+    for (const ch of chips) {
+      for (let l = 0; l < ch.lob; l++) {
+        const la = (l / ch.lob) * Math.PI * 2 + ch.t * 7;
+        const lu = ch.u + Math.cos(la) * ch.rad * 0.5;
+        const lv = ch.v + Math.sin(la) * ch.rad * 0.5;
+        if (mode === 'albedo') g.fillStyle = 'rgb(38,34,32)';
+        else if (mode === 'height') g.fillStyle = 'rgb(104,104,104)';
+        else if (mode === 'rough') g.fillStyle = 'rgb(214,214,214)';
+        else g.fillStyle = 'rgb(212,212,212)'; // 露出的铁底吃反射
+        g.beginPath(); g.arc(lu * s, lv * s, ch.rad * s * (0.5 + ch.t * 0.4), 0, 7); g.fill();
+      }
+      // 缺口外一圈暗晕（albedo）：崩瓷边缘的应力细纹
+      if (mode === 'albedo') {
+        g.strokeStyle = 'rgba(120,110,100,0.4)';
+        g.lineWidth = 1;
+        g.beginPath(); g.arc(ch.u * s, ch.v * s, ch.rad * s * 1.35, 0, 7); g.stroke();
+      }
+    }
+  };
+  const albedo = canvasOf(size, (g, s) => draw(g, s, 'albedo'));
+  const height = canvasOf(size >> 1, (g, s) => draw(g, s, 'height'));
+  const rough = canvasOf(size, (g, s) => draw(g, s, 'rough'));
+  const metal = canvasOf(size >> 1, (g, s) => draw(g, s, 'metal'));
+  return setFrom(albedo, height, rough, { repX, repY, nStrength, aoStrength: 0.9, metal });
+}
+
 // ---------- PBR 材质工厂 ----------
 function applySet(mat, set, normalScale = 0.8) {
   mat.map = set.map;
@@ -2331,6 +2421,19 @@ export function rustMat(opts = {}) {
     envMapIntensity: opts.env ?? 0.85
   });
   return applySet(mat, rustSet(opts), opts.normalScale ?? 1.0);
+}
+
+/** 瓷釉铁皮（v1.9 B4：釉面清漆高光 + 崩瓷露铁金属度贴图） */
+export function enamelMat(opts = {}) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? 0xffffff,
+    roughness: 1.0,
+    metalness: 1.0, // 实际金属度交给贴图（釉暗/露铁亮）
+    clearcoat: opts.clearcoat ?? 0.6,
+    clearcoatRoughness: 0.12,
+    envMapIntensity: opts.env ?? 1.1
+  });
+  return applySet(mat, enamelSet(opts), opts.normalScale ?? 0.6);
 }
 
 /** 静水/镜面水（微波纹法线，userData.update 缓慢流动） */
