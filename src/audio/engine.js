@@ -575,6 +575,51 @@ export class AudioEngine {
         noise('pink', 0.15, 'bandpass', 1450, 5, 0.013, 0.035, 0.05);
         break;
       }
+      // ---------- v1.5 新音色（拐角惊吓 / 没有乐队 / 对讲机 / 远景事件） ----------
+      case 'dread': { // 拐角前的低压：次声涌起 + 失谐双低音互拍 + 空气变薄的高频细纱
+        const f = noise('brown', 2.6, 'lowpass', 90, 1, 0.16, 0, 1.6);
+        f.frequency.linearRampToValueAtTime(260, t + 2.4);
+        tone('sine', 47, 45, 2.6, 0.1);
+        tone('sine', 50.5, 48, 2.6, 0.08, 0.12);
+        noise('pink', 2.0, 'highpass', 5200, 0.7, 0.014, 0.5, 1.1);
+        break;
+      }
+      case 'metalscrape': { // 垃圾箱后金属拖地一声：窄带摩擦下滑 + 铁皮低鸣双分音
+        const f = noise('white', 0.7, 'bandpass', 2400, 12, 0.05, 0, 0.12);
+        f.frequency.linearRampToValueAtTime(680, t + 0.62);
+        tone('sine', 138, 96, 0.6, 0.05, 0.05);
+        tone('sine', 207, 199, 0.42, 0.022, 0.1);
+        break;
+      }
+      case 'aria': { // 无人声源的「歌声」：正弦基频缓升 + 双共振峰噪声成形
+        // （元音质感，原创单音摆动，非任何旋律或录音引用）
+        tone('sine', 233, 247, 2.6, 0.055);
+        tone('sine', 468, 494, 2.4, 0.02, 0.1);
+        noise('pink', 2.6, 'bandpass', 780, 9, 0.05, 0, 1.1);
+        noise('pink', 2.4, 'bandpass', 1900, 11, 0.028, 0.2, 1.0);
+        break;
+      }
+      case 'silencecut': { // 声音被整只手拔掉：一拍反相噗 + 一根耳鸣细线悬在真空里
+        noise('brown', 0.09, 'lowpass', 160, 1, 0.22, 0, 0.008);
+        tone('sine', 3620, 3605, 1.8, 0.012, 0.06);
+        break;
+      }
+      case 'walkie': { // 对讲机：按键咔 + 静电床 + 断续「回话」（成形滤波脉冲，非语言）+ 收尾squelch
+        tone('square', 2200, 2100, 0.02, 0.05);
+        noise('white', 1.9, 'bandpass', 1500, 0.9, 0.045, 0.05, 0.03);
+        for (let i = 0; i < 5; i++) {
+          const d = 0.5 + i * 0.24 + (i % 2) * 0.06;
+          noise('pink', 0.14, 'bandpass', 640 + (i % 3) * 260, 7, 0.085, d, 0.02);
+        }
+        noise('white', 0.05, 'highpass', 3200, 2, 0.06, 1.9);
+        break;
+      }
+      case 'sirenfar': { // 城市远处的警笛掠过一遍：双程滑音 + 低通闷化（远景事件，不近身）
+        tone('triangle', 620, 940, 1.4, 0.016);
+        tone('triangle', 940, 600, 1.5, 0.014, 1.4);
+        noise('pink', 3.0, 'lowpass', 500, 1, 0.012, 0, 1.4);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

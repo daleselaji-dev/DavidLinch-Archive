@@ -92,9 +92,10 @@ function createWindow() {
         // v1.4 阶段 4 普查：12/21/14/14/15/14/16（总 106 ≥ 105）—— 阈值锁在普查值 -1，防回退
         // v1.4 终版普查 -1（实测 12/23/14/14/16/14/16）
         // v1.4 五遍后普查：13/24/16/15/17/15/17（合计 117）——阈值锁普查-1
+        // v1.5：twinpeaks 对讲机 ×2（18→20）——阈值 17→19；其余不变
         const INTERACTIVE_MIN = {
           lobby: 12, archive: 23, eraserhead: 16, bluevelvet: 15,
-          twinpeaks: 17, mulholland: 15, studio: 17
+          twinpeaks: 19, mulholland: 15, studio: 17
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true

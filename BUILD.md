@@ -4,8 +4,8 @@
 
 | 文件 | 说明 |
 |------|------|
-| `release/SmokeVelvet-LynchArchive-Portable-1.4.0.exe` | **便携版**：双击即运行，免安装（推荐分发） |
-| `release/SmokeVelvet-LynchArchive-Setup-1.4.0.exe` | NSIS 一键安装包 |
+| `release/SmokeVelvet-LynchArchive-Portable-1.5.0.exe` | **便携版**：双击即运行，免安装（推荐分发；含 v1.5 彩蛋） |
+| `release/SmokeVelvet-LynchArchive-Setup-1.4.0.exe` | NSIS 一键安装包（上一版；本轮仅交付 portable） |
 
 ## 一键构建（Windows x64 目标）
 

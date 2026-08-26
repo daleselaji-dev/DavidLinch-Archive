@@ -369,6 +369,38 @@
 - [x] `SHA256SUMS.txt` 更新（8a709a81… / dae05302…）+ `file` PE32 结构校验通过
 - [x] 文档（README/BUILD/TESTING/CHANGELOG/本文件）同步 1.4.0
 
+### 32. 惊吓重做 + 新彩蛋双发 + 氛围再提升（v1.5 新增）
+- [x] **穆赫兰道「拐角黑影」惊吓 v2**：触发点从空地深处挪到暗巷拐角
+      （zoneTrigger x≈9.7 / z≈-25.2，位于巷内、贴近剧场东南角——eggs.test.js 断言坐标域）；
+      五幕节奏 ≈6.2s（灯相异常 2.0s → 真空压迫 0.9s → 拐角现身逼近 1.5s →
+      0.24s 扑 + shock → 黑幕错位传送）；`lurkerFigure` 专用变体（佝偻拉长躯干 +
+      垂长双臂 + 歪头蠕变 + 高频痉挛，无面目抽象形体）+ 背后剪影红光；
+      冷却 40s 可重复；eggs `corner-scare` 暴露给冒烟
+- [x] **「没有乐队」剧场彩蛋**：舞台话筒 E → 四幕连锁（咏叹浮起 + 歌者剪影显形 →
+      silencecut 抽真空：剪影瞬灭/聚光转冷/脚灯壁烛走道灯全厅压暗/台口大幕异动 →
+      空话筒冷光独白 + 咏叹回来 → 回暖复原）；视觉 ≥2 通道；与蓝色立方体/折座
+      互不冲突；eggs `no-band` 暴露给冒烟
+- [x] **双峰对讲机彩蛋**：`walkieTalkie` 多部件预制体（机身/格栅/PTT/旋钮 ×3/
+      天线/LED/背夹）林地倒木 + 红房间圆凳各一台；E → PTT 压下回弹 + LED 通话红 +
+      天线颤 + `walkie` 合成音（静电床 + 成形脉冲「回话」，非语言非采样）+
+      1.4s 后远端那台应答（LED 余亮可跑去验证）；**隐藏层 WALKIE DUET**：75s 内
+      两台都按过 → 雾涨/萤火凝固/帷幕之门骤亮/双 LED 交替频闪/远鸮（冷却 120s）；
+      eggs `walkie-duet` 暴露给冒烟
+- [x] 新合成音色 **6 种**：dread/metalscrape/aria/silencecut/walkie/sirenfar
+      （audio.test.js 源码审计 + 接线断言；零采样）
+- [x] 资产精度（P3/P10）：巷壁灯从裸灯泡升级完整壁灯资产（铆钉底板/鹅颈弯臂/
+      锥形罩/板下锈挂贴花）×2 + 恐慌状态机三态；大垃圾箱漆面换 rustMat 五通道；
+      拐角锈角铁护板 + 靠墙托盘；台口黄铜杯罩脚灯 ×7
+- [x] 氛围：穆赫兰道路雾/巷雾长波呼吸（异常相位巷雾骤浓）+ 稀发远景事件
+      （sirenfar/doorfar/metalscrape，40–80s 一发，惊吓中不插话）；双峰地表雾
+      呼吸 + 远鸮/远门/闷雷调度器（45–90s 一发）
+- [x] 交互普查：twinpeaks 18→**20**（对讲机 ×2），全馆 122→**124**；
+      INTERACTIVE_MIN twinpeaks 17→**19**（普查-1），其余不变
+- [x] 单测 166→**187**（audio v1.5 组 + kit/props v1.5 资产组 + 新 eggs.test.js 彩蛋接线审计）
+
+**验证方式**：`npm test` + `xvfb-run npx electron . --smoke`（triggerEggs 引爆
+corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
+
 ---
 
 ## 补充说明：关于「PS5 级别」

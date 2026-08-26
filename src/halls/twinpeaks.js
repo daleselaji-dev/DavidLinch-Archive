@@ -4,6 +4,7 @@
 //   ② 红房间氛围区：几何折线地板 + 红帷幕围合 + 扶手椅（原创抽象致敬）
 //   ③ 小镇夜街：路灯 + 老轿车剪影 + DINER 柜台一角（樱桃派/咖啡壶）
 //   ④ 瀑布眺望台：木栈台 + 瀑布 + 锯木厂剪影
+// 彩蛋 v1.5：对讲机互答（林地一台 ↔ 红房间一台，隔着黑松林互相听）
 // 分区之间由林间小径连接。全部原创程序化，无镜头复刻。
 // ============================================================
 import * as THREE from 'three';
@@ -17,7 +18,7 @@ import {
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
-  counterClutter, ceilingFan, viewScope, clubChair, overlookRail
+  counterClutter, ceilingFan, viewScope, clubChair, overlookRail, walkieTalkie
 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
@@ -343,6 +344,16 @@ export function build(ctx) {
       ui.caption('热咖啡。趁热。', 3200);
     }
   });
+  // v1.5：空地边缘的倒木 + 一台对讲机（谁留下的？频道还开着）
+  const fallenLog = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 1.7, 10), barkMat);
+  fallenLog.rotation.set(0, 0.5, Math.PI / 2 - 0.04);
+  fallenLog.position.set(-3.4, 0.17, 1.6);
+  group.add(fallenLog);
+  const walkieA = walkieTalkie({ mats: M });
+  walkieA.scale.setScalar(1.3);
+  walkieA.position.set(-3.4, 0.33, 1.6);
+  walkieA.rotation.y = 2.2;
+  group.add(walkieA);
 
   // 本厅唯一引语展签（他自己的话）
   const q1 = quotePlaque(quoteById('darkness'), '#3fae6a');
@@ -504,7 +515,132 @@ export function build(ctx) {
       ui.caption('不知道是谁的。还热。', 3600);
     }
   });
+  // v1.5：红房间一台对讲机——搁在椅旁小圆凳上，天线朝着帷幕
+  const rrStool = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.16, 0.18, 0.05, 12), 0, 0.42, 0),
+    xform(new THREE.CylinderGeometry(0.03, 0.05, 0.42, 8), 0, 0.2, 0),
+    xform(new THREE.CylinderGeometry(0.12, 0.14, 0.03, 12), 0, 0.015, 0)
+  ], M.darkWood);
+  rrStool.position.set(2.2, 0, 1.5);
+  redRoom.add(rrStool);
+  const walkieB = walkieTalkie({ mats: M });
+  walkieB.scale.setScalar(1.3);
+  walkieB.position.set(2.2, 0.445, 1.5);
+  walkieB.rotation.y = -0.6;
+  redRoom.add(walkieB);
   group.add(redRoom);
+
+  // ============================================================
+  // v1.5 彩蛋：对讲机（林地一台 · 红房间一台，隔着黑松林互相听）
+  //   E → 按下通话键：咔哒 + 静电床 + 断续「回话」（WebAudio 成形脉冲，非语言）
+  //        ——1.4s 后你会发现回话不是从手边这台来的，是另一台在远处应了一声
+  //   隐藏层 WALKIE DUET：75s 内两台都被按过 → 互答事件——雾涨、萤火凝固、
+  //        帷幕之门骤亮、两台 LED 交替频闪、远处一声鸮鸣（冷却 120s）
+  // ============================================================
+  const WALKIES = [
+    { g: walkieA, x: -3.4, z: 1.6 },
+    { g: walkieB, x: -17.8, z: -14.5 }
+  ];
+  const wkAnim = [{ t: -1 }, { t: -1 }];
+  const wkLed = [0, 0];
+  const walkie = { press: [null, null], duet: -1, duetCool: 0, clock: 0 };
+  updaters.push((dt, t) => {
+    walkie.clock = t;
+    for (let i = 0; i < 2; i++) {
+      const W = WALKIES[i].g;
+      const A = wkAnim[i];
+      if (A.t < 0) {
+        if (wkLed[i] > 0) {
+          // 远端应答余亮（跑过去能看到它还在闪）
+          wkLed[i] -= dt;
+          W.userData.ledMat.emissiveIntensity = 1.6 * (0.5 + 0.5 * Math.sin(t * 18));
+        } else {
+          // 静息：LED 极暗，偶尔醒一下
+          W.userData.ledMat.emissiveIntensity = 0.12 + (Math.sin(t * 0.7 + i * 2.4) > 0.96 ? 0.5 : 0);
+        }
+        continue;
+      }
+      // 按键周期：PTT 压下 0.35s 回弹、LED 通话红亮 1.9s、天线轻颤衰减
+      A.t += dt;
+      const u = A.t;
+      W.userData.ptt.position.x = -0.052 + (u < 0.35 ? 0.008 : Math.max(0, 0.008 - (u - 0.35) * 0.05));
+      W.userData.ledMat.emissiveIntensity = u < 1.9 ? 2.4 : Math.max(0.12, 2.4 - (u - 1.9) * 3);
+      W.userData.antenna.rotation.z = -0.05 + Math.sin(t * 31) * 0.03 * Math.max(0, 1 - u / 2.4);
+      if (u > 2.8) { A.t = -1; W.userData.ptt.position.x = -0.052; }
+    }
+  });
+  const runDuet = () => {
+    if (walkie.duet >= 0) return;
+    walkie.duet = 0;
+    walkie.duetCool = 120;
+    audio.duck(2.0, 0.12, 3.0);
+    audio.sfxAt('walkie', WALKIES[0].x, WALKIES[0].z, 0.55, 10);
+    later(() => audio.sfxAt('walkie', WALKIES[1].x, WALKIES[1].z, 0.55, 10), 900);
+    later(() => ui.caption('两台都在回答。问题不是你问的。', 5000), 1300);
+    later(() => audio.sfxAt('owl', -30, -30, 0.6, 30), 2400);
+  };
+  updaters.push((dt, t) => {
+    if (walkie.duetCool > 0) walkie.duetCool -= dt;
+    if (walkie.duet < 0) return;
+    walkie.duet += dt;
+    const u = walkie.duet;
+    const k = u < 2.2 ? u / 2.2 : Math.max(0, 1 - (u - 2.2) / 5.2);
+    fogLayer.material.opacity = 0.045 + k * 0.12;           // 雾涨
+    glowPlane.material.emissiveIntensity = 0.45 + k * 1.8;  // 帷幕之门骤亮
+    gateLight.intensity = 15 + k * 40;
+    freeze.on = u < 4.2;                                    // 萤火凝固
+    const strobe = Math.sin(t * 14) > 0;
+    WALKIES[0].g.userData.ledMat.emissiveIntensity = strobe ? 2.6 : 0.2;
+    WALKIES[1].g.userData.ledMat.emissiveIntensity = strobe ? 0.2 : 2.6;
+    if (u > 7.6) {
+      walkie.duet = -1;
+      freeze.on = false;
+      fogLayer.material.opacity = 0.045;
+    }
+  });
+  const keyWalkie = (i) => {
+    if (wkAnim[i].t >= 0) return;
+    wkAnim[i].t = 0;
+    const me = WALKIES[i];
+    const other = WALKIES[1 - i];
+    audio.sfxAt('walkie', me.x, me.z, 0.8, 4);
+    // 回话不从这台来——另一台在远处应了一声
+    later(() => {
+      audio.sfxAt('walkie', other.x, other.z, 0.4, 26);
+      wkLed[1 - i] = 2.6;
+    }, 1400);
+    ui.caption(i === 0 ? '静电里有另一种呼吸。' : '回话不是从这台来的。', 4200);
+    walkie.press[i] = walkie.clock;
+    if (walkie.press[0] !== null && walkie.press[1] !== null &&
+      Math.abs(walkie.press[0] - walkie.press[1]) < 75 && walkie.duetCool <= 0) {
+      later(runDuet, 2600);
+    }
+  };
+  hotspots.add(walkieA.userData.body, {
+    hint: 'E — 按下通话键',
+    onActivate: () => keyWalkie(0)
+  });
+  hotspots.add(walkieB.userData.body, {
+    hint: 'E — 又一台对讲机',
+    onActivate: () => keyWalkie(1)
+  });
+
+  // v1.5 氛围：地表雾长波呼吸（互答事件期间由事件驱动，不抢写）
+  updaters.push((dt, t) => {
+    if (walkie.duet >= 0) return;
+    fogLayer.material.opacity = 0.045 * (1 + Math.sin(t * 0.07) * 0.35 + Math.sin(t * 0.023 + 1) * 0.2);
+  });
+  // v1.5 氛围：稀发远景事件——远鸮 / 远门闷响 / 山那边一记闷雷（45–90s 一发）
+  const farEvt = { next: 30 + Math.random() * 25 };
+  updaters.push((dt, t) => {
+    if (t < farEvt.next) return;
+    farEvt.next = t + 45 + Math.random() * 45;
+    const roll = Math.random();
+    const a = Math.random() * Math.PI * 2;
+    if (roll < 0.5) audio.sfxAt('owl', Math.cos(a) * 34, Math.sin(a) * 34, 0.4, 28);
+    else if (roll < 0.8) audio.sfxAt('doorfar', Math.cos(a) * 40, Math.sin(a) * 40, 0.4, 30);
+    else audio.sfxAt('thunder', 50, -50, 0.3, 55);
+  });
 
   // ============================================================
   // ③ 小镇夜街 + DINER 柜台一角
@@ -1655,7 +1791,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'stone-circle': groveTrig, 'falls-vigil': vigilTrig },
+    eggs: { 'stone-circle': groveTrig, 'falls-vigil': vigilTrig, 'walkie-duet': { force: runDuet } },
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
 }
