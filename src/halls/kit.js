@@ -712,6 +712,73 @@ export function darkFigure(height = 2.1) {
 }
 
 /**
+ * 潜行黑影 v2（v1.5 穆赫兰道拐角惊吓专用变体）——比 darkFigure 更「不对劲」：
+ * 佝偻拉长的躯干 + 垂得过长的双臂 + 剧烈顶点噪声 + 会自己继续歪下去的头。
+ * 依旧无面目、无肖像特征，纯抽象煤黑形体（不复刻任何受版权保护的形象）。
+ * userData.update(dt, t, k) 驱动微痉挛与歪头蠕变（k = 不安强度 0–1）。
+ */
+export function lurkerFigure(height = 2.5) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x050303, roughness: 0.98, metalness: 0,
+    emissive: 0x180204, emissiveIntensity: 0.3
+  });
+  // 躯干：瘦长圆柱 + 双频噪声位移（衣褶一样的错误起伏）
+  const bodyGeo = new THREE.CylinderGeometry(0.19, 0.36, height * 0.8, 10, 12);
+  const bp = bodyGeo.attributes.position;
+  for (let i = 0; i < bp.count; i++) {
+    const y = bp.getY(i);
+    const n = Math.sin(y * 8.1 + bp.getX(i) * 13) * 0.08 +
+      Math.sin(y * 21 + bp.getZ(i) * 7) * 0.04 + (Math.random() - 0.5) * 0.06;
+    bp.setX(i, bp.getX(i) * (1 + n));
+    bp.setZ(i, bp.getZ(i) * (1 + n));
+  }
+  bodyGeo.computeVertexNormals();
+  const body = new THREE.Mesh(bodyGeo, mat);
+  body.position.y = height * 0.4;
+  // 双臂：垂得过长（指尖过膝）的细形体，肘位反向微屈
+  const mkArm = (side) => {
+    const armGeo = new THREE.CylinderGeometry(0.045, 0.07, height * 0.56, 7, 6);
+    const ap = armGeo.attributes.position;
+    for (let i = 0; i < ap.count; i++) {
+      const k = 1 + (Math.random() - 0.5) * 0.22;
+      ap.setX(i, ap.getX(i) * k);
+      ap.setZ(i, ap.getZ(i) * k + Math.sin(ap.getY(i) * 6) * 0.02);
+    }
+    armGeo.computeVertexNormals();
+    const arm = new THREE.Mesh(armGeo, mat);
+    arm.position.set(side * 0.26, height * 0.5, 0.02);
+    arm.rotation.z = side * -0.08;
+    return arm;
+  };
+  const armL = mkArm(-1);
+  const armR = mkArm(1);
+  // 头：拉长的错误球体，歪着——并且会自己继续歪下去
+  const headGeo = new THREE.SphereGeometry(0.17, 10, 8);
+  const hp = headGeo.attributes.position;
+  for (let i = 0; i < hp.count; i++) {
+    const s = 1 + (Math.random() - 0.5) * 0.3;
+    hp.setXYZ(i, hp.getX(i) * s, hp.getY(i) * s * 1.42, hp.getZ(i) * s);
+  }
+  headGeo.computeVertexNormals();
+  const head = new THREE.Mesh(headGeo, mat);
+  head.position.y = height * 0.88;
+  head.rotation.z = 0.18;
+  group.add(body, armL, armR, head);
+  group.userData.mat = mat;
+  group.userData.head = head;
+  group.userData.update = (dt, t, k = 0.5) => {
+    // 歪头蠕变：慢相位继续歪 + 高频小痉挛（k 越大越剧烈）
+    head.rotation.z = 0.18 + Math.sin(t * 0.9) * 0.14 + Math.sin(t * 31) * 0.05 * k;
+    head.rotation.x = Math.sin(t * 17) * 0.04 * k;
+    armL.rotation.x = Math.sin(t * 1.3) * 0.06 + Math.sin(t * 26) * 0.03 * k;
+    armR.rotation.x = Math.sin(t * 1.1 + 2) * 0.06 + Math.cos(t * 23) * 0.03 * k;
+    mat.emissiveIntensity = 0.3 + k * 0.25 + Math.sin(t * 47) * 0.08 * k;
+  };
+  return group;
+}
+
+/**
  * 区域触发器 —— 玩家走进圆形区域时触发（彩蛋核心机制）。
  * 返回 update(playerPos) 供每帧调用。
  * opts: { cooldown 秒（默认可重复触发的冷却）, once 只触发一次 }

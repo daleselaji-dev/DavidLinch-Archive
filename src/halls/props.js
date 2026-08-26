@@ -2302,3 +2302,68 @@ export function bankersLamp({ mats } = {}) {
   g.userData.hitbox = hitbox;
   return g;
 }
+
+// ============================================================
+// 双峰 —— 手持对讲机（v1.5）
+// 部件：圆角机身 / 喇叭格栅（横槽纹理）/ 侧 PTT 说话键（可按）/
+// 顶部旋钮 ×2 / 螺纹根座天线 + 端珠 / 指示灯 / 背夹。
+// userData: { body 射线靶, ptt 按键, ledMat, antenna }
+// ============================================================
+export function walkieTalkie({ mats } = {}) {
+  const M = mats || propMats();
+  const g = new THREE.Group();
+  const shellMat = new THREE.MeshStandardMaterial({
+    color: 0x181c1e, roughness: 0.52, metalness: 0.28, envMapIntensity: 0.9
+  });
+  // 机身（圆角壳）——也是射线靶
+  const body = roundedBoxMesh(0.09, 0.23, 0.048, 0.012, shellMat);
+  body.position.y = 0.115;
+  g.add(body);
+  // 喇叭格栅：横槽纹理小面板（上半正面）
+  const grilleTex = canvasTexture(64, (gc, s) => {
+    gc.fillStyle = '#0c0e10';
+    gc.fillRect(0, 0, s, s);
+    gc.fillStyle = '#22282c';
+    for (let y = 4; y < s; y += 8) gc.fillRect(4, y, s - 8, 3);
+  });
+  const grille = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.066, 0.08),
+    new THREE.MeshStandardMaterial({ map: grilleTex, roughness: 0.7, bumpMap: grilleTex, bumpScale: 0.4 })
+  );
+  grille.position.set(0, 0.165, 0.0255);
+  g.add(grille);
+  // 侧 PTT 说话键（独立，可按进去）
+  const ptt = roundedBoxMesh(0.018, 0.05, 0.026, 0.006,
+    new THREE.MeshStandardMaterial({ color: 0x30363a, roughness: 0.45, metalness: 0.3 }));
+  ptt.position.set(-0.052, 0.15, 0);
+  g.add(ptt);
+  // 顶部旋钮 ×2 + 天线螺纹根座 + 背夹（同壳色合并）
+  g.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.012, 0.014, 0.016, 10), -0.026, 0.238, 0),
+    xform(new THREE.CylinderGeometry(0.009, 0.011, 0.02, 10), 0.004, 0.24, 0),
+    xform(new THREE.CylinderGeometry(0.009, 0.012, 0.018, 8), 0.032, 0.238, 0),
+    xform(new THREE.BoxGeometry(0.05, 0.11, 0.008), 0, 0.15, -0.029),
+    xform(new THREE.BoxGeometry(0.05, 0.012, 0.016), 0, 0.2, -0.031)
+  ], M.iron));
+  // 天线：锥形杆 + 端珠（独立——收到回话时轻颤）
+  const antenna = new THREE.Group();
+  antenna.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.0035, 0.006, 0.15, 7), 0, 0.075, 0),
+    xform(new THREE.SphereGeometry(0.006, 8, 6), 0, 0.152, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x0b0d0f, roughness: 0.6, metalness: 0.5 })));
+  antenna.position.set(0.032, 0.246, 0);
+  antenna.rotation.z = -0.05;
+  g.add(antenna);
+  // 指示灯（顶面小珠——按下说话时亮）
+  const ledMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0505, emissive: 0xff3a20, emissiveIntensity: 0.15
+  });
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 6), ledMat);
+  led.position.set(-0.026, 0.248, 0);
+  g.add(led);
+  g.userData.body = body;
+  g.userData.ptt = ptt;
+  g.userData.ledMat = ledMat;
+  g.userData.antenna = antenna;
+  return g;
+}

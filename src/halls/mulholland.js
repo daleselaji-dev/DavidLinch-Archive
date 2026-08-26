@@ -1,16 +1,19 @@
 // ============================================================
 // 《穆赫兰道》展厅 —— NIGHT ROAD & THE ILLUSION THEATER
 // 夜路 + 路灯 + 剧场 + 蓝色立方体 (梦境反转交互)
-// 彩蛋：绕到剧场后面的人，会遇到那个东西。（原创程序化惊吓，
-// 无镜头复刻、无对白引用）
+// 彩蛋 v1.5：
+//   · THE THING AT THE CORNER —— 沿暗巷走到剧场拐角的人，会遇到那个东西
+//     （五幕节奏：灯相异常→真空压迫→拐角现身逼近→扑→黑幕错位）
+//   · THERE IS NO BAND —— 对着舞台话筒按 E，歌声与歌者剪影会先后离场
+// 全部原创程序化惊吓/幻象，无镜头复刻、无对白引用
 // ============================================================
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
   smokeLayer, dustField, lightCone, lightCone2, quotePlaque, vitrine,
-  darkFigure, zoneTrigger, multiRectBounds,
+  lurkerFigure, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
-  asphaltMat, woodMat, rng
+  asphaltMat, woodMat, rustMat, rng
 } from './kit.js';
 import { propMats, theaterSeats, ticketBooth, phoneBooth, streetLampV2, dressingMirror } from './props.js';
 import { quoteById } from '../data/essays.js';
@@ -789,34 +792,93 @@ export function build(ctx) {
   group.add(fenceR);
 
   // ---------- 暗巷与背后空地（彩蛋区） ----------
-  // 巷口一盏将熄的壁灯
-  const alleyLamp = new THREE.PointLight(0xffc98a, 3.5, 9, 1.8);
-  alleyLamp.position.set(9.6, 3.4, -6);
-  const alleyBulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.07, 8, 8),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.4 })
-  );
-  alleyBulb.position.copy(alleyLamp.position);
-  group.add(alleyLamp, alleyBulb);
-  updaters.push((dt, t) => {
-    const f = Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1;
-    alleyLamp.intensity = 3.5 * f;
-    alleyBulb.material.emissiveIntensity = 2.4 * f;
+  // v1.5 P3：巷壁灯从「悬空裸灯泡」升级成完整壁灯资产——
+  // 铆钉底板 + 鹅颈弯臂 + 锥形罩（可见内壁）+ 灯泡 + 板下锈挂贴花。
+  // 两盏共用一个「恐慌」状态机：0 正常将熄闪烁 / 1 异常狂闪 / 2 全灭（惊吓相位驱动）
+  const alleyPanic = { mode: 0 };
+  const sconceRust = rustMat({ color: 0x8a8f96, seed: 53, repX: 1, repY: 1, rust: 0.7, env: 0.6 });
+  const sconceShadeMat = rustMat({ color: 0x6d7076, seed: 54, repX: 1, repY: 1, rust: 0.55, env: 0.7 });
+  sconceShadeMat.side = THREE.DoubleSide;
+  const dripTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const dr = rng(63);
+    for (let i = 0; i < 7; i++) {
+      const x = 8 + dr() * (s - 16);
+      g.fillStyle = `rgba(58,32,20,${0.16 + dr() * 0.2})`;
+      g.fillRect(x, 0, 2 + dr() * 3, s * (0.35 + dr() * 0.65));
+    }
   });
-  // 巷中段第二盏壁灯（不同相位的将熄闪烁）+ 灯下杂物：板条箱堆 / 垃圾桶 / 积水
-  const alleyLamp2 = new THREE.PointLight(0xffc98a, 3.0, 8, 1.8);
-  alleyLamp2.position.set(8.35, 3.2, -19);
-  const alleyBulb2 = new THREE.Mesh(
-    new THREE.SphereGeometry(0.07, 8, 8),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.2 })
-  );
-  alleyBulb2.position.copy(alleyLamp2.position);
-  group.add(alleyLamp2, alleyBulb2);
+  const dripMat = new THREE.MeshBasicMaterial({ map: dripTex, transparent: true, opacity: 0.8, depthWrite: false });
+  const sconceData = [];
+  for (const [z, phase] of [[-6, 0], [-19, 2.1]]) {
+    const sc = new THREE.Group();
+    const armCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(0, 0.08, 0.03),
+      new THREE.Vector3(0, 0.46, 0.1),
+      new THREE.Vector3(0, 0.4, 0.36)
+    );
+    sc.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.22, 0.36, 0.04), 0, 0, 0.02),
+      xform(new THREE.SphereGeometry(0.012, 6, 5), -0.08, 0.14, 0.045),
+      xform(new THREE.SphereGeometry(0.012, 6, 5), 0.08, 0.14, 0.045),
+      xform(new THREE.SphereGeometry(0.012, 6, 5), -0.08, -0.14, 0.045),
+      xform(new THREE.SphereGeometry(0.012, 6, 5), 0.08, -0.14, 0.045),
+      new THREE.TubeGeometry(armCurve, 10, 0.016, 7)
+    ], sconceRust));
+    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.17, 0.17, 12, 1, true), sconceShadeMat);
+    shade.position.set(0, 0.36, 0.38);
+    sc.add(shade);
+    const bulbMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.4 });
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 8), bulbMat);
+    bulb.position.set(0, 0.27, 0.38);
+    sc.add(bulb);
+    const drip = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.6), dripMat);
+    drip.position.set(0, -0.5, 0.002);
+    sc.add(drip);
+    sc.position.set(8.08, 3.05, z);
+    sc.rotation.y = Math.PI / 2;
+    group.add(sc);
+    const light = new THREE.PointLight(0xffc98a, 3.3, 9, 1.8);
+    light.position.set(8.46, 3.32, z);
+    group.add(light);
+    sconceData.push({ light, bulbMat, phase });
+  }
   updaters.push((dt, t) => {
-    const f = Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1;
-    alleyLamp2.intensity = 3.0 * f;
-    alleyBulb2.material.emissiveIntensity = 2.2 * f;
+    for (const S of sconceData) {
+      let f;
+      if (alleyPanic.mode === 2) f = 0;
+      else if (alleyPanic.mode === 1) {
+        // 异常狂闪：高频错相位 strobe + 偶发整黑
+        f = Math.sin(t * 47 + S.phase * 3) * Math.sin(t * 13 + S.phase) > -0.2
+          ? (Math.random() < 0.1 ? 0.02 : 1.35) : 0.06;
+      } else {
+        f = Math.sin(t * (19 - S.phase) + S.phase) * Math.sin(t * 6.3 + S.phase * 0.4) > 0.55 ? 0.12 : 1;
+      }
+      S.light.intensity = 3.3 * f;
+      S.bulbMat.emissiveIntensity = 2.4 * Math.max(0.02, f);
+    }
   });
+  // 巷内低空雾（呼吸感由氛围更新器驱动；惊吓异常相位骤浓）
+  const alleyFog = smokeLayer(26, { x: 2.6, z: 26 }, { opacity: 0.055, size: 5, yBase: 0.3, ySpread: 1.6, color: 0x76809c });
+  alleyFog.position.set(9.7, 0, -13);
+  group.add(alleyFog);
+  updaters.push(alleyFog.userData.update);
+  // 拐角护板：剧场东南角包了半人高的锈角铁（货运通道的旧痕）+ 靠墙托盘
+  group.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.1, 1.35, 0.04), 8.1, 0.675, -26.63),
+    xform(new THREE.BoxGeometry(0.04, 1.35, 0.1), 8.13, 0.675, -26.66)
+  ], sconceRust));
+  const palletGeos = [];
+  for (let i = 0; i < 5; i++) {
+    palletGeos.push(xform(new THREE.BoxGeometry(0.13, 1.2, 0.024), -0.28 + i * 0.14, 0.6, 0.035));
+  }
+  for (const py of [0.12, 0.6, 1.08]) {
+    palletGeos.push(xform(new THREE.BoxGeometry(0.7, 0.09, 0.05), 0, py, 0));
+  }
+  const pallet = mergedMesh(palletGeos, woodMat({ base: [40, 28, 18], planks: 1, size: 128, seed: 71, gloss: 0.15 }));
+  pallet.position.set(5.8, 0, -26.88);
+  pallet.rotation.x = -0.16;
+  group.add(pallet);
   // 板条箱堆（三只错位叠放，板条纹木箱）
   const crateMat = new THREE.MeshStandardMaterial({
     map: canvasTexture(128, (g, s) => {
@@ -883,7 +945,9 @@ export function build(ctx) {
 
   // 大垃圾箱（那个东西住在它后面）——艺术二遍：
   // 斜口箱体 + 竖向压筋 + 双开盖微错位 + 侧袋钩 + 脚轮，惊吓闪光时剪影可信
-  const dumpMat = new THREE.MeshStandardMaterial({ color: 0x14231c, roughness: 0.8, metalness: 0.4 });
+  // v1.5 P10：漆面换 rustMat 五通道（市政绿底 + 锈斑流挂 + 点蚀金属度分层），
+  // 惊吓红光扫过时不再是一块塑料大色块
+  const dumpMat = rustMat({ color: 0x2a4234, seed: 58, repX: 2, repY: 1, rust: 0.75, env: 0.7 });
   const dumpster = new THREE.Group();
   const dumpBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.25, 1.3), dumpMat);
   dumpBody.position.y = 0.78;
@@ -987,56 +1051,103 @@ export function build(ctx) {
     }
   });
 
-  // ---------- 惊吓彩蛋：THE THING BEHIND ----------
-  const figure = darkFigure(2.3);
+  // ---------- 惊吓彩蛋 v2：THE THING AT THE CORNER（拐角黑影） ----------
+  // v1.5 重做：触发点从空地深处挪到暗巷拐角——玩家沿巷走到剧场东南角、
+  // 即将看见后门与垃圾箱方向时就触发，不再要求深入 BACKLOT。
+  // 节奏五幕（总长 ≈6.2s，快慢有留白）：
+  //   ① 0.0s 环境异常：两盏巷灯狂闪失相 + 次声低压涌起 + 垃圾箱方向一声金属拖地 + 心跳
+  //   ② 2.0s 真空压迫：声音被整只手拔掉，整条巷连同后门灯一起熄灭——0.9s 纯黑寂静
+  //   ③ 2.9s 现身：黑影从拐角「挪」出来，一顿一顿逼近到 2.3m，背后一粒红剪影光
+  //   ④ 4.5s 扑：0.24s 加速到面前 0.9m + scare 音墙 + shock 后处理
+  //   ⑤ 5.4s 黑幕错位：醒来已被放回巷口，背对来路。可重复触发（冷却 40s）。
+  const figure = lurkerFigure(2.55);
   figure.visible = false;
   group.add(figure);
-  const scare = { phase: 0, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
+  const scareLight = new THREE.PointLight(0x8a1408, 0, 7, 1.6); // 黑影背后的剪影红光
+  scareLight.position.set(6.9, 2.3, -28.7);
+  group.add(scareLight);
+  const scare = { phase: 0, t: 0, from: new THREE.Vector3(), mid: new THREE.Vector3(), to: new THREE.Vector3() };
 
   const doScare = () => {
     if (scare.phase !== 0) return;
     scare.phase = 1;
     scare.t = 0;
-    // 世界的声音被抽走；后门灯熄灭
-    audio.duck(1.6, 0.02, 3.2);
-    backLampState.on = 0;
-    later(() => audio.sfx('heartbeat', 0.9), 220);
+    // ① 环境异常
+    alleyPanic.mode = 1;
+    audio.sfxAt('dread', 9.4, -26, 0.9, 7);
+    later(() => audio.sfxAt('metalscrape', 4.6, -31, 0.85, 5), 650);
+    later(() => audio.sfx('heartbeat', 0.9), 1250);
     later(() => {
-      // 形体从垃圾箱后面扑出——滑向玩家面前 1.1 米处
-      scare.phase = 2;
+      // ② 真空压迫
+      audio.duck(2.6, 0.012, 3.4);
+      alleyPanic.mode = 2;
+      backLampState.on = 0;
+    }, 2000);
+    later(() => {
+      // ③ 黑影从拐角挪出来（先给 0.9s 纯黑寂静的留白）
+      scare.phase = 3;
       scare.t = 0;
-      scare.from.set(dumpster.position.x + 0.6, 0, dumpster.position.z - 0.4);
+      scare.from.set(6.9, 0, -28.7);
       const dir = new THREE.Vector3(player.x - scare.from.x, 0, player.z - scare.from.z).normalize();
-      scare.to.set(player.x - dir.x * 1.1, 0, player.z - dir.z * 1.1);
+      scare.mid.set(player.x - dir.x * 2.3, 0, player.z - dir.z * 2.3);
       figure.position.copy(scare.from);
       figure.visible = true;
+      audio.sfx('whisper', 0.55);
+    }, 2900);
+    later(() => {
+      // ④ 扑
+      scare.phase = 4;
+      scare.t = 0;
+      scare.mid.copy(figure.position);
+      const dir = new THREE.Vector3(player.x - figure.position.x, 0, player.z - figure.position.z).normalize();
+      scare.to.set(player.x - dir.x * 0.9, 0, player.z - dir.z * 0.9);
       audio.sfx('scare');
       engine.shock(1, 0.9, 0x1a0000);
-    }, 1500);
+    }, 4500);
     later(() => {
-      // 黑幕 + 空间错位：醒来时你已回到巷口
+      // ⑤ 黑幕 + 空间错位
       figure.visible = false;
+      scareLight.intensity = 0;
       ui.fade(true);
-    }, 2350);
+    }, 5400);
     later(() => {
       teleport(9.7, 9.5, Math.PI); // 巷口，背对来路
       ui.fade(false);
+      alleyPanic.mode = 0;
       backLampState.on = 1;
       audio.sfx('whisper', 0.7);
       ui.caption('你梦见过这个地方。现在，它也梦见了你。', 5200);
       scare.phase = 0; // 允许再次触发（zoneTrigger 冷却控制频率）
-    }, 3100);
+    }, 6200);
   };
-  updaters.push((dt) => {
-    if (scare.phase === 2) {
+  updaters.push((dt, t) => {
+    if (scare.phase === 3) {
+      // 逼近：整体缓进 + 每 0.3s 一次小顿挫（「挪」出来，不是滑出来）
       scare.t += dt;
-      const k = Math.min(1, scare.t / 0.26); // 0.26s 内扑到面前
-      figure.position.lerpVectors(scare.from, scare.to, k * k);
+      const u = Math.min(1, scare.t / 1.5);
+      const k = u * u * (3 - 2 * u);
+      const hitch = Math.max(0, Math.sin(u * Math.PI * 5)) ** 3 * 0.05;
+      figure.position.lerpVectors(scare.from, scare.mid, Math.min(1, k + hitch));
+      figure.position.y = 0;
+      figure.lookAt(player.x, 1.5, player.z);
+      figure.userData.update(dt, t, 0.35 + u * 0.45);
+      scareLight.position.set(
+        figure.position.x + (figure.position.x - player.x) * 0.25, 2.3,
+        figure.position.z + (figure.position.z - player.z) * 0.25
+      );
+      scareLight.intensity = 0.8 + u * 2.6 + Math.sin(t * 41) * 0.4;
+    } else if (scare.phase === 4) {
+      scare.t += dt;
+      const k = Math.min(1, scare.t / 0.24); // 0.24s 内扑到面前
+      figure.position.lerpVectors(scare.mid, scare.to, k * k);
       figure.lookAt(player.x, 1.4, player.z);
-      figure.rotation.z = Math.sin(scare.t * 60) * 0.1; // 高频痉挛
+      figure.userData.update(dt, t, 1);
+      figure.rotation.z += Math.sin(scare.t * 74) * 0.11; // 高频痉挛
+      scareLight.position.set(figure.position.x, 2.1, figure.position.z);
+      scareLight.intensity = 5.5;
     }
   });
-  const scareTrig = zoneTrigger({ x: 2.0, z: -30.3, r: 3.4 }, doScare, { cooldown: 45 });
+  const scareTrig = zoneTrigger({ x: 9.7, z: -25.2, r: 3.3 }, doScare, { cooldown: 40 });
   updaters.push((dt) => scareTrig.update(player, dt));
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
@@ -1124,6 +1235,18 @@ export function build(ctx) {
   const stageCone = lightCone2(0.35, 1.5, 5.4, 0xffeedd, 0.06);
   stageCone.position.set(-1.6, 3.2, -4.2);
   inner.add(stageCone);
+  // v1.5 P10 台口脚灯槽：舞台前沿一排黄铜杯罩小脚灯（「抽真空」时整排熄灭）
+  const footGeos = [];
+  const footBulbGeos = [];
+  for (let i = 0; i < 7; i++) {
+    footGeos.push(xform(new THREE.CylinderGeometry(0.05, 0.065, 0.07, 10), -3 + i, 0.635, -2.86));
+    footBulbGeos.push(xform(new THREE.SphereGeometry(0.032, 8, 6), -3 + i, 0.685, -2.86));
+  }
+  inner.add(mergedMesh(footGeos, M.brass));
+  const footMat = new THREE.MeshStandardMaterial({ color: 0x180e04, emissive: 0xffce8e, emissiveIntensity: 1.9 });
+  inner.add(mergedMesh(footBulbGeos, footMat));
+  // 厅内灯光的统一压暗系数（「没有乐队」相位把整个厅按进黑暗里）
+  const houseDim = { k: 1 };
   // 台口拱架：条纹壁柱 ×2（基座/柱身/柱帽 + 竖棱）+ 双级楣梁 + 鎏金内沿
   const archWood = woodMat({ base: [30, 12, 16], planks: 1, size: 256, seed: 44, gloss: 0.6 });
   const archGeos = [];
@@ -1154,15 +1277,92 @@ export function build(ctx) {
   ], sconceMat);
   inner.add(sconces);
   updaters.push((dt, t) => {
-    sconceMat.emissiveIntensity = 2.2 + Math.sin(t * 5.3) * 0.35 + Math.sin(t * 13.7) * 0.18;
+    sconceMat.emissiveIntensity = (2.2 + Math.sin(t * 5.3) * 0.35 + Math.sin(t * 13.7) * 0.18) * houseDim.k;
+  });
+
+  // ---------- v1.5 彩蛋：THERE IS NO BAND（没有乐队） ----------
+  // 对着舞台话筒按 E，四幕连锁（总长 ≈12s，可重复）：
+  //   ① 0.0s 彩排：无人声源的咏叹在光柱里浮起，歌者剪影缓缓显形，聚光收拢变亮
+  //   ② 3.2s 抽真空：声音被整只手拔掉——剪影瞬灭（从来没有人）、聚光转冷、
+  //          脚灯/壁烛/走道灯全厅压暗、台口大幕像被谁从后面碰了一下
+  //   ③ 6.3s 空话筒独占冷光，咏叹又从没有人的地方回来
+  //   ④ 9.8s 回暖复原
+  // 视觉 ≥2 通道：剪影消失 / 聚光变冷 / 帷幕异动 / 全厅压暗。
+  // 剪影为无面目抽象黑形（头 + 梯形身），不复刻任何受版权保护的形象。
+  const singerMat = new THREE.MeshBasicMaterial({ color: 0x030206, transparent: true, opacity: 0 });
+  const singer = new THREE.Group();
+  const singerHead = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 8), singerMat);
+  singerHead.scale.y = 1.18;
+  singerHead.position.y = 1.46;
+  const singerBody = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.34, 1.28, 10), singerMat);
+  singerBody.position.y = 0.72;
+  singer.add(singerHead, singerBody);
+  singer.position.set(-1.6, 0.6, -4.72);
+  singer.visible = false;
+  inner.add(singer);
+  const noBand = { phase: 0, t: 0 };
+  const spotWarm = new THREE.Color(0xffeedd);
+  const spotCold = new THREE.Color(0xbfd4ff);
+  const runNoBand = () => {
+    if (noBand.phase !== 0) return;
+    noBand.phase = 1;
+    noBand.t = 0;
+    singer.visible = true;
+    audio.duck(3.2, 0.3, 2.2); // 环境声先退半步，给「歌声」让路
+    audio.sfxAt('aria', -1.6, -24.2, 0.85, 8);
+    later(() => {
+      noBand.phase = 2;
+      noBand.t = 0;
+      audio.sfx('silencecut', 0.9);
+      audio.duck(3.4, 0.008, 4.0);
+      ui.caption('没有乐队。', 2800);
+    }, 3200);
+    later(() => {
+      noBand.phase = 3;
+      noBand.t = 0;
+      audio.sfxAt('aria', -1.6, -24.2, 0.3, 10);
+      ui.caption('可歌声还在。', 3600);
+    }, 6300);
+    later(() => { noBand.phase = 4; noBand.t = 0; }, 9800);
+    later(() => { noBand.phase = 0; singer.visible = false; }, 12000);
+  };
+  updaters.push((dt, t) => {
+    if (noBand.phase === 0) return;
+    noBand.t += dt;
+    if (noBand.phase === 1) {
+      const k = Math.min(1, noBand.t / 1.1);
+      singerMat.opacity = k * 0.92;
+      singer.rotation.z = Math.sin(t * 0.9) * 0.03; // 影子极轻地摇
+      stageSpot.color.copy(spotWarm);
+      stageSpot.intensity = 46 + k * 30;
+    } else if (noBand.phase === 2) {
+      singerMat.opacity = 0; // 瞬灭——从来没有人
+      stageSpot.color.copy(spotCold);
+      stageSpot.intensity = 84;
+      footMat.emissiveIntensity = 0.05;
+      houseDim.k = 0.08;
+      const sh = Math.sin(noBand.t * 22) * Math.exp(-noBand.t * 2.2);
+      proscenium.rotation.x = sh * 0.03;
+      proscenium.position.y = Math.abs(sh) * 0.05;
+    } else if (noBand.phase === 3) {
+      stageSpot.intensity = 70 + Math.sin(t * 1.7) * 6;
+      proscenium.rotation.x *= Math.max(0, 1 - dt * 3);
+      proscenium.position.y *= Math.max(0, 1 - dt * 3);
+    } else if (noBand.phase === 4) {
+      const k = Math.min(1, noBand.t / 2.0);
+      stageSpot.color.lerpColors(spotCold, spotWarm, k);
+      stageSpot.intensity = 70 + (46 - 70) * k;
+      footMat.emissiveIntensity = 0.05 + k * 1.85;
+      houseDim.k = Math.min(1, 0.08 + k * 0.92);
+      proscenium.rotation.x = 0;
+      proscenium.position.y = 0;
+    }
   });
   hotspots.add(mic.children[3], {
     hint: 'E — 没有乐队，一切都是录音',
-    onActivate: () => {
-      audio.sfx('swell');
-      ui.caption('台上空无一人，音乐还在继续。', 4200);
-    }
+    onActivate: runNoBand
   });
+  const noBandTrig = { force: runNoBand };
 
   // 后台衣镜（推到台侧的化妆间道具）：E → 框边灯泡 A/B 追逐几秒再暗下
   const mirror = dressingMirror({ mats: M });
@@ -1237,7 +1437,7 @@ export function build(ctx) {
   inner.add(aisleWash);
   const aisleState = { on: 1 };
   updaters.push((dt) => {
-    const target = aisleState.on;
+    const target = aisleState.on * houseDim.k;
     seats.userData.domeMat.emissiveIntensity += (target * 1.8 - seats.userData.domeMat.emissiveIntensity) * Math.min(1, dt * 8);
     aisleWash.intensity += (target * 2.2 - aisleWash.intensity) * Math.min(1, dt * 8);
     aisleLever.rotation.z += ((aisleState.on ? 0.5 : -0.5) - aisleLever.rotation.z) * Math.min(1, dt * 10);
@@ -1346,8 +1546,8 @@ export function build(ctx) {
   doorGlow.position.set(0, 3.1, 4.7);
   inner.add(doorGlow);
   updaters.push((dt, t) => {
-    doorSconceMat.emissiveIntensity = 2.0 + Math.sin(t * 4.7 + 1.2) * 0.3;
-    doorGlow.intensity = 2.6 + Math.sin(t * 4.7 + 1.2) * 0.35;
+    doorSconceMat.emissiveIntensity = (2.0 + Math.sin(t * 4.7 + 1.2) * 0.3) * houseDim.k;
+    doorGlow.intensity = (2.6 + Math.sin(t * 4.7 + 1.2) * 0.35) * houseDim.k;
   });
   // ③ 聚光柱里的浮尘——光有了质地
   const spotDust = dustField(42, { x: 2.2, y: 5.6, z: 2.2 }, { opacity: 0.5, size: 0.035, color: 0xffe8c8 });
@@ -1444,6 +1644,25 @@ export function build(ctx) {
   group.add(dust);
   updaters.push(dust.userData.update);
 
+  // v1.5 氛围：雾的呼吸——路雾与巷雾按不同长波起伏；惊吓异常相位时巷雾骤浓
+  updaters.push((dt, t) => {
+    roadHaze.material.opacity = 0.05 * (1 + Math.sin(t * 0.11) * 0.3 + Math.sin(t * 0.043 + 1.7) * 0.2);
+    const panic = alleyPanic.mode === 1 ? 0.09 : 0;
+    const target = 0.055 * (1 + Math.sin(t * 0.09 + 2) * 0.3) + panic;
+    alleyFog.material.opacity += (target - alleyFog.material.opacity) * Math.min(1, dt * 2);
+  });
+  // v1.5 氛围：稀发远景事件——远处警笛掠过 / 铁皮门远响 / 垃圾箱方向轻微金属挪动。
+  // 城市在你看不到的地方继续；40–80s 一发，惊吓进行中不插话
+  const farEvt = { next: 26 + Math.random() * 20 };
+  updaters.push((dt, t) => {
+    if (t < farEvt.next || scare.phase !== 0) return;
+    farEvt.next = t + 40 + Math.random() * 40;
+    const roll = Math.random();
+    if (roll < 0.45) audio.sfxAt('sirenfar', -60, 40, 0.5, 45);
+    else if (roll < 0.75) audio.sfxAt('doorfar', -20, -40, 0.5, 25);
+    else audio.sfxAt('metalscrape', 4.6, -31, 0.28, 14);
+  });
+
   // 回大厅之门（夜路起点）
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, 17.8);
@@ -1468,7 +1687,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'backlot-scare': scareTrig },
+    eggs: { 'corner-scare': scareTrig, 'no-band': noBandTrig },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);
