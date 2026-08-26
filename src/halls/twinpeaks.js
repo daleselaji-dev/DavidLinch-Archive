@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
-  smokeLayer, dustField, quotePlaque, velvetMaterial,
+  smokeLayer, dustField, quoteStand, quoteStandUpdater, velvetMaterial,
   zoneTrigger, zonesBounds, pineGeometryMaterial,
   roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
@@ -19,7 +19,7 @@ import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
   counterClutter, ceilingFan, viewScope, clubChair, overlookRail
 } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'twinpeaks',
@@ -344,11 +344,76 @@ export function build(ctx) {
     }
   });
 
-  // 本厅唯一引语展签（他自己的话）
-  const q1 = quotePlaque(quoteById('darkness'), '#3fae6a');
+  // v1.7 影片彩蛋：绒垫上供着一段原木——圆滑胶囊体 + 年轮端面
+  // + 流苏绒垫（无角色形象，只有它本身）。E → 它轻轻晃一下，
+  // 远处的鸮应了一声（它在听，也有话要转达）
+  const logCushion = new THREE.Group();
+  const cushion = roundedBoxMesh(0.62, 0.16, 0.46, 0.06,
+    new THREE.MeshStandardMaterial({ color: 0x3a1020, roughness: 0.92 }));
+  cushion.position.y = 0.1;
+  const tasselGeo = new THREE.SphereGeometry(0.022, 8, 6);
+  logCushion.add(cushion, mergedMesh([
+    xform(tasselGeo, -0.31, 0.06, 0.23), xform(tasselGeo, 0.31, 0.06, 0.23),
+    xform(tasselGeo, -0.31, 0.06, -0.23), xform(tasselGeo, 0.31, 0.06, -0.23)
+  ], new THREE.MeshStandardMaterial({ color: 0x8a6c3c, roughness: 0.5, metalness: 0.6 })));
+  const logPivot = new THREE.Group();
+  const logBody = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.085, 0.34, 6, 18),
+    new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [52, 34, 18], planks: 1, size: 128 }), roughness: 0.9
+    })
+  );
+  logBody.rotation.z = Math.PI / 2;
+  // 年轮端面（一圈圈同心线）
+  const ringTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#c9a878';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(90,58,30,0.55)';
+    for (let r = 4; r < 30; r += 4.5) {
+      g.lineWidth = 1 + (r % 9 < 4 ? 0.8 : 0);
+      g.beginPath();
+      g.arc(s / 2 + 2, s / 2 - 1, r, 0, Math.PI * 2);
+      g.stroke();
+    }
+  });
+  const ringFace = new THREE.Mesh(
+    new THREE.CircleGeometry(0.082, 20),
+    new THREE.MeshStandardMaterial({ map: ringTex, roughness: 0.85 })
+  );
+  ringFace.position.x = 0.256;
+  ringFace.rotation.y = Math.PI / 2;
+  logPivot.add(logBody, ringFace);
+  logPivot.position.y = 0.24;
+  logCushion.add(logPivot);
+  logCushion.position.set(5.4, 0, 0.9);
+  logCushion.rotation.y = -0.5;
+  group.add(logCushion);
+  const logState = { t: -1 };
+  updaters.push((dt) => {
+    if (logState.t < 0) return;
+    logState.t += dt;
+    const u = logState.t;
+    if (u > 2.6) { logState.t = -1; logPivot.rotation.x = 0; return; }
+    logPivot.rotation.x = Math.sin(u * 7) * 0.09 * Math.exp(-u * 1.6);
+  });
+  hotspots.add(logBody, {
+    hint: 'E — 绒垫上的一段原木',
+    onActivate: () => {
+      if (logState.t < 0) logState.t = 0;
+      audio.sfxAt('creak', 5.4, 0.9, 0.3, 3);
+      setTimeout(() => audio.sfxAt('owl', -6.3, 5.7, 0.4, 6), 1100);
+      ui.caption('它在听。', 3200);
+    }
+  });
+
+  // 本厅唯一引语立牌（走近才显影）
+  const q1 = quoteStand(quoteById('darkness'), '#3fae6a');
   q1.position.set(-4.6, 0, 5.2);
   q1.rotation.y = 0.9;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration: ctx.narration, docent: DOCENT.darkness
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()
@@ -1019,46 +1084,8 @@ export function build(ctx) {
   pieGroup.add(plate, pie, dome);
   pieGroup.position.set(30.7, 1.12, -9.2);
   dinerInner.add(pieGroup);
-  // v1.4 六遍：切好的一角派 + 叉子（柜台另一端）——柜里那只派缺的一角在这儿。
-  // E → 碟子被推了一下（不是你推的）+ 叉子磕碟一声
-  const sliceGrp = new THREE.Group();
-  sliceGrp.add(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.02, 18),
-    new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.3 })));
-  const sliceShape = new THREE.Shape();
-  sliceShape.moveTo(0, 0);
-  sliceShape.absarc(0, 0, 0.155, -0.32, 0.32, false);
-  sliceShape.lineTo(0, 0);
-  const slice = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(sliceShape, { depth: 0.055, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.006, bevelSegments: 1 }),
-    new THREE.MeshStandardMaterial({ color: 0x8a4a1c, roughness: 0.7 })
-  );
-  slice.rotation.x = -Math.PI / 2;
-  slice.position.set(-0.085, 0.012, 0.03);
-  slice.rotation.z = 0.5;
-  sliceGrp.add(slice);
-  sliceGrp.add(mergedMesh([
-    xform(new THREE.BoxGeometry(0.012, 0.005, 0.1), 0.08, 0.016, -0.02, 0, 0.4, 0),
-    xform(new THREE.BoxGeometry(0.026, 0.005, 0.034), 0.055, 0.016, -0.075, 0, 0.4, 0)
-  ], new THREE.MeshStandardMaterial({ color: 0xc9cdd4, roughness: 0.25, metalness: 0.9 })));
-  sliceGrp.position.set(30.66, 1.13, -6.15);
-  dinerInner.add(sliceGrp);
-  const sliceState = { t: -1 };
-  updaters.push((dt) => {
-    if (sliceState.t < 0) return;
-    sliceState.t += dt;
-    const u = sliceState.t;
-    if (u > 0.5) { sliceState.t = -1; return; }
-    sliceGrp.position.z = -6.15 - Math.sin(Math.min(1, u / 0.3) * Math.PI) * 0.035;
-    sliceGrp.rotation.y = Math.sin(u * 9) * 0.06 * (1 - u * 2);
-  });
-  hotspots.add(sliceGrp.children[0], {
-    hint: 'E — 一角樱桃派',
-    onActivate: () => {
-      if (sliceState.t < 0) sliceState.t = 0;
-      audio.sfxAt('click', 30.66, -6.15, 0.45, 3);
-      ui.caption('柜里那只派缺的一角，在这儿。没人点过它。', 4200);
-    }
-  });
+  // v1.5 减法：切好的一角派退场——罩下整派已把话说完，
+  // 缺角是清单打卡式的重复注脚
   hotspots.add(dome, {
     hint: 'E — 玻璃罩下的樱桃派',
     onActivate: () => {

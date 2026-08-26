@@ -1,18 +1,22 @@
 // ============================================================
 // 《蓝丝绒》展厅 —— THE BLUE ROOM 夜总会
-// 蓝天鹅绒舞台（帷头层 + 台口脚灯 + 踏步）+ 桌灯烛光 +
+// 蓝天鹅绒围合 + 暗红后幕 + 钴蓝聚光 + 桌灯烛光 +
 // 吧台一角（背光酒瓶墙 + 吧凳 + 黄铜脚踏）+ 香烟薄雾
+// v1.6 氛围收紧：这里不该是「漂亮的夜店」——是深夜两点、
+// 谁都不该在场的那种酒吧。过亮的红（后幕）与过静的蓝（全场），
+// 中央一块没人跳舞的空地板，一盏没有来由的冷光；灯一熄，
+// 预留包厢里坐着个东西。
 // ============================================================
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
-  neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quotePlaque, vitrine,
-  velvetMaterial, zoneTrigger, rectBounds,
+  neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
+  velvetMaterial, zoneTrigger, rectBounds, darkFigure,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
   woodMat, fabricMat, rng
 } from './kit.js';
 import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'bluevelvet',
@@ -22,11 +26,12 @@ export const meta = {
   space: 'room',
   floorSfx: 'wood',
   look: {
-    saturation: 0.92, tint: 0xdfe6ff, fogColor: 0x030409, fogDensity: 0.05,
-    bg: 0x02030a, exposure: 1.0, bloom: 0.95,
-    // v1.4 P4/P5：蓝调暗部 + 冷增益，halation 让桌灯在蓝屋里晕出暖圈
-    halation: 0.15,
-    grade: { lift: [0.004, 0.006, 0.018], gamma: [0.97, 1.0, 1.05], gain: [0.97, 0.99, 1.06] }
+    // v1.6 分级收紧：整体压暗 14%、雾更沉；红增益抬高（丝绒与口红的
+    // 那种过亮的红）、绿被压扁、暗部灌进钴蓝——慢速危险，不再干净漂亮
+    saturation: 0.88, tint: 0xd8e2ff, fogColor: 0x02030a, fogDensity: 0.055,
+    bg: 0x010208, exposure: 0.86, bloom: 1.1,
+    halation: 0.18,
+    grade: { lift: [0.002, 0.005, 0.026], gamma: [0.96, 0.99, 1.07], gain: [1.07, 0.95, 1.03] }
   }
 };
 
@@ -37,6 +42,8 @@ export function build(ctx) {
   const { hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
+  const timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
   // 深色木地板（v1.3 三通道：板缝法线 + 蜡面磨损）
   const M = propMats();
@@ -89,10 +96,10 @@ export function build(ctx) {
   }
   footGeo.dispose();
   const footLights = mergedMesh(footGeos, new THREE.MeshStandardMaterial({
-    color: 0x111111, emissive: 0xffc48a, emissiveIntensity: 2.4
+    color: 0x111111, emissive: 0xffc48a, emissiveIntensity: 2.0
   }));
   group.add(footLights);
-  const footWash = new THREE.PointLight(0xffc48a, 3, 6, 1.8);
+  const footWash = new THREE.PointLight(0xffc48a, 2.2, 6, 1.8);
   footWash.position.set(0, 0.9, -D / 2 + 4.2);
   group.add(footWash);
   // v1.4 台口 v2：脚灯槽罩——底槽 + 观众侧遮光斜板 + 两端端板，
@@ -116,21 +123,26 @@ export function build(ctx) {
   header.position.set(0, 5.42, -D / 2 + 3.98);
   group.add(header);
 
-  // 舞台后幕 —— 更亮的蓝天鹅绒 + 帷头层
-  const backdrop = curtainWithValance(9.4, 5.2, 0x1a2c66, 8);
+  // 舞台后幕 —— v1.6：深牛血红天鹅绒 + 帷头层。蓝屋深处那面过亮的红——
+  // 全场唯一一块暖到不对劲的颜色，钴蓝聚光压上去读成淤伤色
+  const backdrop = curtainWithValance(9.4, 5.2, 0x66101c, 8);
   backdrop.position.set(0, 0, -D / 2 + 0.5);
   group.add(backdrop);
+  // 后幕自己的红洗光：让红在暗场里也「亮着」——像有人从幕后打光
+  const backdropWash = new THREE.PointLight(0xff2438, 5.2, 7.5, 1.6);
+  backdropWash.position.set(0, 2.6, -D / 2 + 1.5);
+  group.add(backdropWash);
 
-  // 话筒 + 聚光
+  // 话筒 + 聚光（v1.6：钴蓝、更窄更硬——空话筒站在冷光柱里等人）
   const mic = micStand();
   mic.position.set(0, 0.55, -D / 2 + 2.3);
   group.add(mic);
-  const spot = new THREE.SpotLight(0xeef2ff, 60, 16, 0.32, 0.5, 1.4);
+  const spot = new THREE.SpotLight(0x9fc0ff, 60, 16, 0.26, 0.32, 1.4);
   spot.position.set(0, H - 0.2, -D / 2 + 3.4);
   spot.target.position.set(0, 0.6, -D / 2 + 2.3);
   group.add(spot, spot.target);
   // v1.4 P7：舞台聚光升级双层锥（内芯亮 + 外晕柔）
-  const cone = lightCone2(0.35, 1.7, 5.2, 0xdfe6ff, 0.07);
+  const cone = lightCone2(0.3, 1.4, 5.2, 0xaac4ff, 0.065);
   cone.position.set(0, 3.1, -D / 2 + 2.3);
   group.add(cone);
   // v1.4 二遍：舞台生活痕迹——返听音箱楔（网面朝话筒）+ 话筒线沿台面
@@ -377,7 +389,9 @@ export function build(ctx) {
     emissive: 0xff5e3c, emissiveIntensity: 0.3,
     sheen: 0.8, sheenColor: new THREE.Color(0xff9080), sheenRoughness: 0.5
   });
-  const tablePos = [[-3.4, 1.2], [3.2, 0.8], [-1.2, 3.4], [2.6, 3.8], [-4.6, 4.4], [0.6, 5.8]];
+  // v1.6 空间节奏：桌子全部退向墙根与暗角，中央让出一块没人跳舞的空地板——
+  // 空比满更危险（原 [-1.2,3.4]/[0.6,5.8]/[2.6,3.8] 三张占着场心）
+  const tablePos = [[-3.6, 1.0], [3.7, 0.9], [-2.9, 4.8], [3.5, 4.3], [-5.2, 3.0], [1.9, 6.3]];
   for (const [x, z] of tablePos) {
     const table = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.05, 24), tableMat);
     table.position.set(x, 0.78, z);
@@ -395,7 +409,7 @@ export function build(ctx) {
       new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc48a, emissiveIntensity: 3.4 })
     );
     glow.position.set(x, 1.04, z);
-    const light = new THREE.PointLight(0xff9e5e, 2.6, 5, 2);
+    const light = new THREE.PointLight(0xff9e5e, 1.8, 4.4, 2);
     light.position.set(x, 1.16, z);
     group.add(table, leg, stem, shade, glow, light);
     lamps.push({ light, glow });
@@ -405,11 +419,12 @@ export function build(ctx) {
     group.add(wisp);
     updaters.push(wisp.userData.update);
   }
+  // v1.6：桌灯池收窄收暗，颤动放慢——不再是欢快的烛光，是快烧完的灯芯
   updaters.push((dt, t) => {
     lamps.forEach(({ light, glow }, i) => {
-      const f = 1 + Math.sin(t * 6.5 + i * 2.2) * 0.12;
-      light.intensity = 2.6 * f * dimState.warm;
-      glow.material.emissiveIntensity = 3.4 * f * Math.max(dimState.warm, 0.12);
+      const f = 1 + Math.sin(t * 2.1 + i * 2.2) * 0.1 + Math.sin(t * 12.7 + i * 3.1) * 0.05;
+      light.intensity = 1.8 * f * dimState.warm;
+      glow.material.emissiveIntensity = 2.7 * f * Math.max(dimState.warm, 0.12);
     });
   });
 
@@ -479,13 +494,24 @@ export function build(ctx) {
     emberMat.emissiveIntensity = 1.1 + Math.sin(t * 2.6) * 0.35 + drag * 2.2;
   });
 
+  // v1.6 阴影里的东西：灯一熄（深蓝时刻），预留包厢里坐着一个形体——
+  // 灯回来之前它就不在了。不解释，不配字幕；90 秒内只来一次。
+  const boothFigure = darkFigure(1.6);
+  boothFigure.scale.set(1, 0.72, 1); // 压成坐姿比例
+  boothFigure.position.set(7.72, 0.34, 1.7);
+  boothFigure.rotation.y = -Math.PI / 2; // 面向房间
+  boothFigure.visible = false;
+  group.add(boothFigure);
+  const boothGuest = { cooldown: 0 };
+  updaters.push((dt) => { if (boothGuest.cooldown > 0) boothGuest.cooldown -= dt; });
+
   // "深蓝时刻"开关 —— 一盏桌灯是热点
   const dimState = { warm: 1, blue: 0 };
   const switchLamp = new THREE.Mesh(
     new THREE.SphereGeometry(0.14, 10, 8),
     new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.001, emissive: 0xffc48a, emissiveIntensity: 0.4 })
   );
-  switchLamp.position.set(-3.4, 1.0, 1.2);
+  switchLamp.position.set(-3.6, 1.0, 1.0);
   group.add(switchLamp);
   const blueWash = new THREE.PointLight(0x2244ff, 0, 30, 1.4);
   blueWash.position.set(0, 4.4, 0);
@@ -497,10 +523,42 @@ export function build(ctx) {
       dimState.warm = toBlue ? 0.06 : 1;
       dimState.blue = toBlue ? 1 : 0;
       audio.sfx(toBlue ? 'thud' : 'chime');
+      // 声先于影：熄灯半秒后包厢方向一次呼吸，然后它才在
+      if (toBlue && boothGuest.cooldown <= 0) {
+        boothGuest.cooldown = 90;
+        later(() => audio.sfxAt('breath', 7.7, 1.7, 0.5, 4), 520);
+        later(() => { boothFigure.visible = true; }, 700);
+        later(() => { boothFigure.visible = false; }, 2600);
+      }
     }
   });
   updaters.push((dt) => {
     blueWash.intensity += ((dimState.blue * 26) - blueWash.intensity) * Math.min(1, dt * 2.2);
+  });
+
+  // v1.6 中央空场：一盏没有来由的冷光在空地板上圈出一块青白——
+  // 没人跳舞，光也不解释自己；深蓝时刻它也不熄，慢慢呼吸
+  const coldPool = new THREE.SpotLight(0xa8c4ff, 4.6, 9, 0.24, 0.75, 1.6);
+  coldPool.position.set(0.3, H - 0.15, 2.6);
+  coldPool.target.position.set(0.3, 0, 2.6);
+  group.add(coldPool, coldPool.target);
+  const coldCone = lightCone(0.2, 1.05, 5.7, 0xa8c4ff, 0.03);
+  coldCone.position.set(0.3, 2.95, 2.6);
+  group.add(coldCone);
+  updaters.push((dt, t) => {
+    coldPool.intensity = 4.2 + Math.sin(t * 0.47) * 0.9;
+    coldCone.material.opacity = 0.026 + Math.sin(t * 0.47) * 0.007;
+  });
+
+  // v1.6 静与突然的音：每隔一阵，全场声音被压下去一拍——
+  // 然后墙那头一扇远门闷闷合上。静不是安全，是有什么正在换姿势。
+  const hush = { t: 30 + Math.random() * 26 };
+  updaters.push((dt) => {
+    hush.t -= dt;
+    if (hush.t > 0) return;
+    hush.t = 46 + Math.random() * 38;
+    audio.duck(0.9, 0.12, 2.8);
+    later(() => audio.sfxAt('doorfar', W / 2 - 0.5, -D / 2 + 1.2, 0.55, 2.5), 900);
   });
 
   // ============================================================
@@ -600,8 +658,8 @@ export function build(ctx) {
   updaters.push((dt) => {
     if (boothFlare.v <= 0.01) return;
     boothFlare.v *= Math.max(0, 1 - dt * 1.1);
-    bLight.intensity = 2.6 * dimState.warm + boothFlare.v * 6;
-    bGlow.material.emissiveIntensity = 3.4 * Math.max(dimState.warm, 0.12) + boothFlare.v * 4;
+    bLight.intensity = 1.8 * dimState.warm + boothFlare.v * 6;
+    bGlow.material.emissiveIntensity = 2.7 * Math.max(dimState.warm, 0.12) + boothFlare.v * 4;
   });
   hotspots.add(card, {
     hint: 'E — 包厢预留牌',
@@ -728,76 +786,20 @@ export function build(ctx) {
   barGlow.position.set(-W / 2 + 0.58, 1.9, 0.8);
   barGlow.rotation.y = Math.PI / 2;
   bar.add(barGlow);
-  const barLight = new THREE.PointLight(0x66aaff, 4, 8, 1.8);
+  const barLight = new THREE.PointLight(0x66aaff, 3.2, 8, 1.8);
   barLight.position.set(-W / 2 + 1.4, 2.1, 0.8);
   bar.add(barLight);
+  // v1.6：背光偶发「电压不稳」——整面酒瓶墙暗一口气再回来（钴蓝的静突然塌掉一角）
   updaters.push((dt, t) => {
-    barGlow.material.emissiveIntensity = 0.95 + Math.sin(t * 1.9) * 0.18;
+    const brown = Math.sin(t * 0.27) * Math.sin(t * 3.1) > 0.985 ? 0.4 : 1;
+    barGlow.material.emissiveIntensity = (0.82 + Math.sin(t * 1.9) * 0.16) * brown;
+    barLight.intensity = 3.2 * brown;
     bottleMeshes.forEach((m, k) => {
-      m.material.emissiveIntensity = 0.42 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.14;
+      m.material.emissiveIntensity = (0.38 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.13) * brown;
     });
   });
-  // v1.4 六遍：吧台悬挂杯架——黄铜立柱对 + 深木顶板 + 四道倒挂杯轨 +
-  // 高脚杯倒吊一排（马天尼/红酒/浅碟三种车削剖面，缺两只——被桌上的酒杯借走了）。
-  // E → 整排轻晃、玻璃互碰细响（谁蹭过它？）
-  const rackGrp = new THREE.Group();
-  rackGrp.position.set(-8.08, 2.32, 0.8); // 枢轴放顶板处，晃动绕这里
-  rackGrp.add(mergedMesh([
-    xform(new THREE.CylinderGeometry(0.018, 0.022, 1.2, 8), 0, -0.6, -1.35),
-    xform(new THREE.CylinderGeometry(0.018, 0.022, 1.2, 8), 0, -0.6, 1.35),
-    // 杯轨四道（成对细条，中缝走杯脚）
-    ...[-0.135, -0.045, 0.045, 0.135].flatMap((ox) => [
-      xform(new THREE.BoxGeometry(0.014, 0.01, 2.9), ox - 0.022, -0.045, 0),
-      xform(new THREE.BoxGeometry(0.014, 0.01, 2.9), ox + 0.022, -0.045, 0)
-    ])
-  ], brassMat));
-  rackGrp.add(new THREE.Mesh(
-    roundedBoxGeo(0.42, 0.035, 3.0, 0.012),
-    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [22, 13, 15], planks: 1, size: 128 }), roughness: 0.55 })
-  ));
-  const stemProfiles = [
-    // 马天尼锥 / 红酒杯 / 浅碟香槟（倒挂：脚在上 y0，口在下）
-    [[0.06, -0.19], [0.008, -0.1], [0.006, -0.012], [0.032, -0.006], [0.033, 0]],
-    [[0.055, -0.19], [0.05, -0.155], [0.028, -0.115], [0.008, -0.095], [0.006, -0.012], [0.032, -0.006], [0.033, 0]],
-    [[0.052, -0.17], [0.045, -0.125], [0.012, -0.1], [0.006, -0.012], [0.032, -0.006], [0.033, 0]]
-  ];
-  const stemRng = rng(41);
-  const stemGeos = [];
-  for (let rail = 0; rail < 4; rail++) {
-    const n = rail % 2 === 0 ? 4 : 3;
-    for (let i = 0; i < n; i++) {
-      if (rail === 2 && i === 1) continue; // 缺的那两只在卡座桌上
-      if (rail === 3 && i === 2) continue;
-      const prof = stemProfiles[(rail + i) % 3];
-      const geo = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 10);
-      stemGeos.push(xform(geo,
-        -0.135 + rail * 0.09, -0.056,
-        -1.2 + i * (2.4 / (n - 1)) + (stemRng() - 0.5) * 0.06));
-      geo.dispose();
-    }
-  }
-  rackGrp.add(mergedMesh(stemGeos, new THREE.MeshPhysicalMaterial({
-    color: 0xcfe4ff, transparent: true, opacity: 0.24, roughness: 0.06,
-    envMapIntensity: 1.8, depthWrite: false, side: THREE.DoubleSide
-  })));
-  bar.add(rackGrp);
-  const rackState = { t: -1 };
-  updaters.push((dt) => {
-    if (rackState.t < 0) return;
-    rackState.t += dt;
-    const decay = Math.max(0, 1 - rackState.t * 0.55);
-    if (decay <= 0) { rackState.t = -1; rackGrp.rotation.z = 0; return; }
-    rackGrp.rotation.z = Math.sin(rackState.t * 6.2) * 0.028 * decay;
-  });
-  hotspots.add(rackGrp.children[1], {
-    hint: 'E — 杯架',
-    onActivate: () => {
-      rackState.t = 0;
-      audio.sfxAt('iceclink', -8.08, 0.8, 0.5, 4);
-      setTimeout(() => audio.sfxAt('chime', -8.08, 0.8, 0.16, 4), 420);
-      ui.caption('杯子都口朝下。免得接住什么。', 4000);
-    }
-  });
+  // v1.5 减法：吧台悬挂杯架退场——吧台的话已由酒瓶背光与
+  // 桌上那两只酒杯说完，倒挂一排杯子是堆砌
   // 吧凳 ×3（软包 + 铬柱，合并两组）
   const stSeatGeos = [];
   const stPoleGeos = [];
@@ -903,14 +905,14 @@ export function build(ctx) {
   neonCocktail.position.set(-W / 2 + 0.09, 3.55, 0.8);
   neonCocktail.rotation.y = Math.PI / 2;
   bar.add(neonCocktail);
-  const neonWash = new THREE.PointLight(0x5ac8e8, 2.2, 5, 2);
+  const neonWash = new THREE.PointLight(0x5ac8e8, 1.6, 5, 2);
   neonWash.position.set(-W / 2 + 0.55, 3.5, 0.8);
   bar.add(neonWash);
   updaters.push((dt, t) => {
     const flick = Math.sin(t * 31) * Math.sin(t * 8.3) > 0.965 ? 0.25 : 1;
-    const base = 0.92 + Math.sin(t * 2.2) * 0.08;
+    const base = 0.88 + Math.sin(t * 2.2) * 0.08;
     neonCocktail.material.opacity = base * flick;
-    neonWash.intensity = 2.2 * base * flick;
+    neonWash.intensity = 1.6 * base * flick;
   });
 
   // 吧台壁挂电话 —— 拿起听筒：只有拨号音，然后一阵没人接的响铃
@@ -1081,16 +1083,18 @@ export function build(ctx) {
   updaters.push((dt, t) => {
     const k = Math.min(1, dt * 1.6);
     const mode = FOOT_MODES[footMode.idx];
-    footWash.intensity += ((jukeState.on ? 7 : 3) * mode.glow - footWash.intensity) * k;
+    footWash.intensity += ((jukeState.on ? 5.6 : 2.2) * mode.glow - footWash.intensity) * k;
     footLights.material.emissiveIntensity +=
-      ((jukeState.on ? 3.8 : 2.4) * mode.glow - footLights.material.emissiveIntensity) * k;
+      ((jukeState.on ? 3.4 : 2.0) * mode.glow - footLights.material.emissiveIntensity) * k;
     footWash.color.lerp(mode.color, k);
     footLights.material.emissive.lerp(mode.color, k);
     const breathe = jukeState.on ? 1 + Math.sin(t * 0.9) * 0.16 : 1;
     spot.intensity += ((jukeState.on ? 82 : 60) * breathe - spot.intensity) * k;
-    for (const pl of pendantLights) pl.intensity += ((jukeState.on ? 1.0 : 2.6) - pl.intensity) * k;
-    pendantBulbMat.emissiveIntensity += ((jukeState.on ? 1.0 : 2.6) - pendantBulbMat.emissiveIntensity) * k;
-    for (const c of pendantCones) c.material.opacity += ((jukeState.on ? 0.028 : 0.05) - c.material.opacity) * k;
+    // 后幕的红随乐队醒来烧得更旺一点——那块过亮的红是舞台真正的主角
+    backdropWash.intensity += ((jukeState.on ? 6.6 : 5.2) + Math.sin(t * 0.7) * 0.7 - backdropWash.intensity) * k;
+    for (const pl of pendantLights) pl.intensity += ((jukeState.on ? 0.9 : 1.8) - pl.intensity) * k;
+    pendantBulbMat.emissiveIntensity += ((jukeState.on ? 0.9 : 1.9) - pendantBulbMat.emissiveIntensity) * k;
+    for (const c of pendantCones) c.material.opacity += ((jukeState.on ? 0.025 : 0.042) - c.material.opacity) * k;
   });
   // 拨盘面板：舞台前脸右端的黄铜小面板 + 旋钮（E → 循环三档，后幕轻应一下）
   const footPlate = new THREE.Group();
@@ -1184,11 +1188,14 @@ export function build(ctx) {
     }
   });
 
-  // 引语展签（本厅唯一文字展签）
-  const q1 = quotePlaque(quoteById('home'), '#4f74ff');
+  // 引语立牌（本厅唯一文字件，走近才显影）
+  const q1 = quoteStand(quoteById('home'), '#4f74ff');
   q1.position.set(-6.4, 0, 4.6);
   q1.rotation.y = 1.15;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.home
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()
@@ -1299,13 +1306,18 @@ export function build(ctx) {
   const dust = dustField(140, { x: W, y: H, z: D }, { opacity: 0.35, size: 0.04, color: 0xcfd8ff });
   group.add(dust);
   updaters.push(dust.userData.update);
-  group.add(new THREE.AmbientLight(0x10142a, 1.2));
+  // v1.6：环境光压暗——桌与桌之间的地板允许真正黑下去
+  group.add(new THREE.AmbientLight(0x0a0e22, 0.85));
 
   return {
     group,
     spawn: { x: 0, z: 5.4, yaw: 0 },
     bounds: rectBounds(-W / 2 + 1.2, W / 2 - 1.2, -D / 2 + 3.2, D / 2 - 1.3),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'closet-side': closetTrig }
+    eggs: { 'closet-side': closetTrig },
+    onLeave: () => {
+      for (const id of timers) clearTimeout(id);
+      for (const id of closetTimers) clearTimeout(id);
+    }
   };
 }

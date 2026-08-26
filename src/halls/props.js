@@ -1597,64 +1597,117 @@ export function cashRegister({ mats } = {}) {
 }
 
 // ============================================================
-// 大厅 —— 纪念碑石 v2（削角碑身 + 铭文 + 叠级基座 + 黄铜围点）
+// 大厅 —— 纪念碑 v3「一道光缝」（v1.7 中央焦点重修）
+// 回到第一版的单一完整碑构图：修长独石（2.9m）居于光锥正中，
+// 正面铭文、背面蚀刻烟纹、两条全高象牙光缝嵌在侧棱——
+// 从任何角度都至少看得见一条光缝勾出完整轮廓，
+// 不再是「黑里显露一半」的半成品方块。
+// userData: { inscription 铭文热点, seamMat 光缝材质, setSeam(k) }
 // ============================================================
 export function memorialStele({ mats } = {}) {
   const M = mats || propMats();
   const g = new THREE.Group();
-  // 碑身：削角八边棱柱（Cylinder 8 边 + 缩放）
+  const H = 2.9;
+  const W = 1.06;
+  const D = 0.36;
+  // 碑身：圆角独石（近黑抛光，clearcoat 拾取吊灯的高光走线）
   const steleMat = new THREE.MeshPhysicalMaterial({
-    color: 0x1b1216, roughness: 0.22, metalness: 0.35,
-    clearcoat: 0.6, clearcoatRoughness: 0.25, envMapIntensity: 1.2
+    color: 0x171015, roughness: 0.24, metalness: 0.3,
+    clearcoat: 0.7, clearcoatRoughness: 0.22, envMapIntensity: 1.35
   });
-  const bodyGeo = new THREE.CylinderGeometry(0.62, 0.7, 1.9, 8, 1);
-  bodyGeo.scale(1, 1, 0.42);
-  const body = new THREE.Mesh(bodyGeo, steleMat);
-  body.position.y = 1.18;
-  body.rotation.y = Math.PI / 8;
-  // 冠部削角
-  const capGeo = new THREE.CylinderGeometry(0.4, 0.64, 0.22, 8, 1);
-  capGeo.scale(1, 1, 0.42);
-  const cap = new THREE.Mesh(capGeo, steleMat);
-  cap.position.y = 2.24;
-  cap.rotation.y = Math.PI / 8;
-  // 叠级基座
+  const body = roundedBoxMesh(W, H, D, 0.045, steleMat);
+  body.position.y = 0.35 + H / 2;
+  g.add(body);
+  // 两条全高光缝：侧棱各嵌一条，呼吸极缓（灯全灭它也亮着）
+  const seamMat = new THREE.MeshStandardMaterial({
+    color: 0x141210, emissive: 0xf2e9dc, emissiveIntensity: 1.5, roughness: 0.4
+  });
+  const seamGeo = new THREE.BoxGeometry(0.022, H - 0.2, 0.055);
+  for (const sx of [-1, 1]) {
+    const seam = new THREE.Mesh(seamGeo, seamMat);
+    seam.position.set(sx * (W / 2 + 0.002), 0.35 + H / 2, 0);
+    g.add(seam);
+  }
+  // 冠沿：黄铜束线收顶——完成感的最后一笔
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(W + 0.07, 0.035, D + 0.07), M.brass);
+  crown.position.y = 0.35 + H - 0.06;
+  g.add(crown);
+  // 叠级基座（三级，与中央台面同石种语言）
   const plinth = mergedMesh([
-    xform(new THREE.BoxGeometry(1.6, 0.14, 0.9), 0, 0.07, 0),
-    xform(new THREE.BoxGeometry(1.35, 0.12, 0.75), 0, 0.2, 0)
+    xform(new THREE.BoxGeometry(W + 0.56, 0.16, D + 0.52), 0, 0.08, 0),
+    xform(new THREE.BoxGeometry(W + 0.32, 0.12, D + 0.3), 0, 0.22, 0),
+    xform(new THREE.BoxGeometry(W + 0.14, 0.07, D + 0.14), 0, 0.315, 0)
   ], new THREE.MeshStandardMaterial({ color: 0x120b0e, roughness: 0.4, metalness: 0.3, envMapIntensity: 0.8 }));
-  g.add(body, cap, plinth);
-  // 铭文面板（事实一行：名字与年份）
+  g.add(plinth);
+  // 正面铭文：名字与年份 + 细鎏金框（唯一的文字，居于视线高度）
   const inscTex = canvasTexture(512, (g2, s) => {
-    g2.fillStyle = '#100a0d';
+    g2.fillStyle = '#0f0a0d';
     g2.fillRect(0, 0, s, s);
+    g2.strokeStyle = 'rgba(201,163,92,0.75)';
+    g2.lineWidth = 4;
+    g2.strokeRect(46, 60, s - 92, s - 120);
+    g2.lineWidth = 1.5;
+    g2.strokeRect(60, 74, s - 120, s - 148);
     g2.fillStyle = '#f2e9dc';
     g2.textAlign = 'center';
-    g2.font = '400 74px Georgia, serif';
-    g2.fillText('DAVID LYNCH', s / 2, s / 2 - 30);
+    g2.font = '400 66px Georgia, serif';
+    g2.fillText('DAVID', s / 2, 205);
+    g2.fillText('LYNCH', s / 2, 285);
     g2.fillStyle = '#c9a35c';
-    g2.font = '44px Georgia, serif';
-    g2.fillText('1946 — 2025', s / 2, s / 2 + 60);
-    g2.strokeStyle = 'rgba(201,163,92,0.6)';
-    g2.lineWidth = 3;
-    g2.strokeRect(40, s / 2 - 110, s - 80, 220);
+    g2.font = '42px Georgia, serif';
+    g2.fillText('1946 — 2025', s / 2, 378);
+    // 分隔细线一道
+    g2.fillStyle = 'rgba(201,163,92,0.55)';
+    g2.fillRect(s / 2 - 60, 318, 120, 2);
   });
   const insc = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.96, 0.96),
+    new THREE.PlaneGeometry(0.86, 0.86),
     new THREE.MeshStandardMaterial({
       map: inscTex, roughness: 0.5,
-      emissive: 0xf2e9dc, emissiveMap: inscTex, emissiveIntensity: 0.55
+      emissive: 0xf2e9dc, emissiveMap: inscTex, emissiveIntensity: 0.6
     })
   );
-  insc.position.set(0, 1.35, 0.155);
+  insc.position.set(0, 1.72, D / 2 + 0.005);
   g.add(insc);
-  // 黄铜围点（四角球）
-  const dotGeo = new THREE.SphereGeometry(0.045, 10, 8);
-  g.add(mergedMesh([
-    xform(dotGeo, -0.72, 0.32, 0.32), xform(dotGeo, 0.72, 0.32, 0.32),
-    xform(dotGeo, -0.72, 0.32, -0.32), xform(dotGeo, 0.72, 0.32, -0.32)
-  ], M.brass));
+  // 背面：蚀刻烟纹——一缕烟从碑脚升到冠沿（原创线刻，无文字）。
+  // 绕到碑后看到的不是黑板，而是这缕烟。
+  const smokeTex = canvasTexture(256, (g2, s) => {
+    g2.clearRect(0, 0, s, s);
+    g2.strokeStyle = 'rgba(242,233,220,0.85)';
+    g2.lineWidth = 3;
+    g2.lineCap = 'round';
+    g2.beginPath();
+    g2.moveTo(s * 0.5, s - 14);
+    g2.bezierCurveTo(s * 0.34, s * 0.78, s * 0.68, s * 0.66, s * 0.5, s * 0.5);
+    g2.bezierCurveTo(s * 0.36, s * 0.38, s * 0.62, s * 0.3, s * 0.52, s * 0.18);
+    g2.stroke();
+    g2.lineWidth = 1.6;
+    g2.beginPath();
+    g2.moveTo(s * 0.56, s - 20);
+    g2.bezierCurveTo(s * 0.72, s * 0.72, s * 0.44, s * 0.6, s * 0.6, s * 0.42);
+    g2.bezierCurveTo(s * 0.7, s * 0.32, s * 0.56, s * 0.26, s * 0.6, s * 0.14);
+    g2.stroke();
+    // 烟头散开的三粒火星
+    g2.fillStyle = 'rgba(242,233,220,0.8)';
+    for (const [px, py, r] of [[s * 0.5, s * 0.12, 2.4], [s * 0.58, s * 0.09, 1.6], [s * 0.44, s * 0.08, 1.2]]) {
+      g2.beginPath();
+      g2.arc(px, py, r, 0, Math.PI * 2);
+      g2.fill();
+    }
+  });
+  const smokeEtch = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 2.3),
+    new THREE.MeshStandardMaterial({
+      map: smokeTex, transparent: true, roughness: 0.5,
+      emissive: 0xf2e9dc, emissiveMap: smokeTex, emissiveIntensity: 0.5
+    })
+  );
+  smokeEtch.position.set(0, 0.35 + H / 2 - 0.1, -D / 2 - 0.005);
+  smokeEtch.rotation.y = Math.PI;
+  g.add(smokeEtch);
   g.userData.inscription = insc;
+  g.userData.seamMat = seamMat;
+  g.userData.setSeam = (k) => { seamMat.emissiveIntensity = k; };
   return g;
 }
 

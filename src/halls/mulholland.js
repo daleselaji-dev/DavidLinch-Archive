@@ -1,19 +1,20 @@
 // ============================================================
 // 《穆赫兰道》展厅 —— NIGHT ROAD & THE ILLUSION THEATER
 // 夜路 + 路灯 + 剧场 + 蓝色立方体 (梦境反转交互)
-// 彩蛋：绕到剧场后面的人，会遇到那个东西。（原创程序化惊吓，
-// 无镜头复刻、无对白引用）
+// 惊吓（v1.7 重做）：不再踩圈触发——在暗巷深段/背后空地，
+// 你突然回头的那一下，那个东西已经在你转过去的方向上扑来。
+// （原创程序化惊吓，无镜头复刻、无对白引用）
 // ============================================================
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
-  smokeLayer, dustField, lightCone, lightCone2, quotePlaque, vitrine,
-  darkFigure, zoneTrigger, multiRectBounds,
+  smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
+  veiledFigure, zoneTrigger, turnTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
-  asphaltMat, woodMat, rng
+  asphaltMat, woodMat, concreteMat, rng
 } from './kit.js';
 import { propMats, theaterSeats, ticketBooth, phoneBooth, streetLampV2, dressingMirror } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'mulholland',
@@ -31,16 +32,34 @@ export const meta = {
   }
 };
 
-// 场地: 夜路区 + 剧场内部 + 右侧暗巷 + 剧场背后的空地（彩蛋区）
+// 场地: 夜路区 + 剧场内部 + 建筑右侧便道 + 暗巷 + 剧场背后的空地（彩蛋区）
+// v1.6 后巷通路修通：v1.5 的路面（maxX 4.6）与暗巷（minX 8.4）之间只有北端
+// z∈[6.5,12.5] 一个无标记缺口——玩家沿路走到剧场想右拐即撞 x=4.6 的隐形墙。
+// 现在建筑右侧全段是一条水泥便道：路上任何一点右拐 → 便道南下 →
+// 绕过票亭转角 → 进巷（沿巷东移了电话亭，巷宽 1.7m 不再穿模杂物）→ 空地。
 const ROAD = { minX: -4.6, maxX: 4.6, minZ: -13.6, maxZ: 19 };
 const ROOM = { minX: -7.2, maxX: 7.2, minZ: -25.6, maxZ: -14.2 };
 const DOOR = { minX: -1.35, maxX: 1.35, minZ: -14.9, maxZ: -13.2 };
-const SHOULDER = { minX: 4.6, maxX: 11.0, minZ: 6.5, maxZ: 12.5 };  // 路肩缺口
-const ALLEY = { minX: 8.4, maxX: 11.0, minZ: -31.5, maxZ: 6.5 };    // 暗巷
-const BACKLOT = { minX: -10.5, maxX: 11.0, minZ: -33.0, maxZ: -27.6 }; // 背后空地
+const WALKWAY = { minX: 4.6, maxX: 8.4, minZ: -12.0, maxZ: 10.3 };    // 建筑右侧便道（票亭以北）
+const CORNER = { minX: 6.3, maxX: 10.1, minZ: -13.6, maxZ: -12.0 };   // 票亭与立面转角间的拐弯
+const ALLEY = { minX: 8.4, maxX: 10.1, minZ: -31.5, maxZ: 12.5 };     // 暗巷全段（含北巷口）
+const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后空地（避开垃圾箱体）
+
+// 冒烟与单测用：通路矩形并集 / 惊吓武装区 / 出生点（纯数据，可在 node 侧仿真行走）
+export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
+// v1.7 转身惊吓：武装区 = 暗巷深段 + 剧场背后空地。区内驻留 armTime
+// 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发——不踩圈、不按键。
+export const SCARE_REGION = [
+  { minX: 8.4, maxX: 10.1, minZ: -31.5, maxZ: -16.0 },  // 暗巷深段（恐惧拍之后）
+  { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 } // 剧场背后空地
+];
+export const TURN_SCARE = { minTurn: 2.0, window: 0.5, armTime: 1.0, cooldown: 50 };
+// 冒烟/文档复现路线的锚点（空地深处，粉笔螺旋旁）
+export const SCARE_POINT = { x: 2.0, z: -30.3 };
+export const SPAWN = { x: 0, z: 15.5, yaw: 0 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, engine, player, teleport } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, pose, teleport } = ctx;
   const group = new THREE.Group();
   const updaters = [];
   const timers = [];
@@ -64,6 +83,19 @@ export function build(ctx) {
   dirt.rotation.x = -Math.PI / 2;
   dirt.position.y = -0.03;
   group.add(dirt);
+
+  // v1.6 通路可见化：水泥服务便道沿建筑右侧铺到巷口，暗巷里接着走——
+  // 有路面的地方就是能走的地方（walkable 矩形正覆盖其上）
+  const walkPadMat = concreteMat({ base: [34, 33, 38], seed: 61, repX: 1, repY: 7, joints: 9 });
+  const walkPad = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 24.2), walkPadMat);
+  walkPad.rotation.x = -Math.PI / 2;
+  walkPad.position.set(6.5, 0.004, -1.5); // x 4.5–8.5, z -13.6–10.6：便道 + 票亭转角
+  group.add(walkPad);
+  const alleyPadMat = concreteMat({ base: [30, 29, 34], seed: 62, repX: 1, repY: 12, joints: 14 });
+  const alleyPad = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 44.2), alleyPadMat);
+  alleyPad.rotation.x = -Math.PI / 2;
+  alleyPad.position.set(9.75, 0.0045, -9.6); // x 8.5–11, z -31.7–12.5：暗巷全段
+  group.add(alleyPad);
 
   // 城市光晕地平线 + 群山剪影 + 星
   const horizon = new THREE.Mesh(
@@ -489,6 +521,66 @@ export function build(ctx) {
     chaseBulbs.material.emissiveIntensity = 1.6 + (Math.sin(t * 7) * 0.5 + 0.5) * 1.4;
   });
 
+  // v1.6 巷口引导：立面右角一块「SALIDA DE ARTISTAS →」搪瓷牌 + 罩笼工作灯——
+  // 演员出入口在建筑右侧；箭头指向暗巷，灯偶尔眨一下（in-world 引导，不用 UI 提示）
+  const stageDoorTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#101418';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#b8b2a0';
+    g.lineWidth = 5;
+    g.strokeRect(10, 66, s - 20, 124);
+    g.fillStyle = '#c8c2b0';
+    g.textAlign = 'center';
+    g.font = '700 34px Georgia, serif';
+    g.fillText('SALIDA DE', s / 2 - 22, 116);
+    g.fillText('ARTISTAS', s / 2 - 22, 156);
+    // 右向箭头（杆 + 楔头）
+    g.fillRect(s - 78, 122, 34, 10);
+    g.beginPath();
+    g.moveTo(s - 44, 112);
+    g.lineTo(s - 20, 127);
+    g.lineTo(s - 44, 142);
+    g.closePath();
+    g.fill();
+    // 搪瓷磕碰的暗斑
+    const sr = rng(71);
+    g.fillStyle = 'rgba(8,8,10,0.5)';
+    for (let i = 0; i < 9; i++) {
+      g.beginPath();
+      g.arc(14 + sr() * (s - 28), 70 + sr() * 116, 1.5 + sr() * 3.5, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+  const stageDoorMat = new THREE.MeshStandardMaterial({
+    map: stageDoorTex, transparent: true, roughness: 0.5, metalness: 0.3,
+    emissive: 0xffffff, emissiveMap: stageDoorTex, emissiveIntensity: 0.3
+  });
+  const stageDoorSign = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.15), stageDoorMat);
+  stageDoorSign.position.set(7.0, 2.6, -13.72);
+  group.add(stageDoorSign);
+  const signLamp = new THREE.PointLight(0xffc98a, 2.6, 6.5, 1.8);
+  signLamp.position.set(7.0, 3.5, -13.3);
+  const signLampBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.2 })
+  );
+  signLampBulb.position.set(7.0, 3.42, -13.55);
+  // 罩笼：半球罩 + 三根护条（合并）
+  group.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.11, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 7.0, 3.46, -13.55),
+    xform(new THREE.BoxGeometry(0.015, 0.2, 0.015), 6.92, 3.4, -13.48),
+    xform(new THREE.BoxGeometry(0.015, 0.2, 0.015), 7.08, 3.4, -13.48),
+    xform(new THREE.BoxGeometry(0.015, 0.2, 0.015), 7.0, 3.4, -13.63),
+    xform(new THREE.BoxGeometry(0.06, 0.06, 0.5), 7.0, 3.52, -13.78)
+  ], new THREE.MeshStandardMaterial({ color: 0x1c1a1e, roughness: 0.6, metalness: 0.5 })));
+  group.add(signLamp, signLampBulb);
+  updaters.push((dt, t) => {
+    const f = Math.sin(t * 16.7 + 4.1) * Math.sin(t * 5.7) > 0.93 ? 0.25 : 1;
+    signLamp.intensity = 2.6 * f;
+    signLampBulb.material.emissiveIntensity = 2.2 * f;
+    stageDoorMat.emissiveIntensity = 0.3 * (0.6 + 0.4 * f);
+  });
+
   // v1.4 P3：剧场票亭（路缘外、门厅右肩；折窗 + 票口碗 + CERRADO 牌）
   const tbooth = ticketBooth({ mats: M });
   tbooth.position.set(5.35, 0, -12.8);
@@ -595,8 +687,10 @@ export function build(ctx) {
   newsDoor.add(doorFrame);
   newsDoor.position.set(0, 0.98, 0.215);
   newsBox.add(newsDoor);
-  newsBox.position.set(4.85, 0, 6.4);
-  newsBox.rotation.y = -Math.PI / 2 - 0.06;
+  // v1.6：报箱挪到巷口铁皮墙根（原位在新便道正中会被穿模）——
+  // 顺便当了往暗巷去的第一枚路标
+  newsBox.position.set(10.62, 0, 6.1);
+  newsBox.rotation.y = Math.PI / 2 + 0.05;
   group.add(newsBox);
   const newsState = { t: -1 };
   updaters.push((dt) => {
@@ -612,7 +706,7 @@ export function build(ctx) {
     hint: 'E — 投币报箱',
     onActivate: () => {
       if (newsState.t < 0) newsState.t = 0;
-      audio.sfxAt('springdoor', 4.85, 6.4, 0.75, 3);
+      audio.sfxAt('springdoor', 10.62, 6.1, 0.75, 3);
       ui.caption('头版是空白的。日期也是。', 3400);
     }
   });
@@ -789,17 +883,24 @@ export function build(ctx) {
   group.add(fenceR);
 
   // ---------- 暗巷与背后空地（彩蛋区） ----------
-  // 巷口一盏将熄的壁灯
+  // v1.6：两盏壁灯共用一个 kill 通道——巷中恐惧拍与惊吓主体都会把整条巷按进黑里
+  const lampKill = { v: 0 };
+  // 巷口一盏将熄的壁灯（v1.6 挂上铁皮墙：支臂 + 灯座，不再悬空）
   const alleyLamp = new THREE.PointLight(0xffc98a, 3.5, 9, 1.8);
-  alleyLamp.position.set(9.6, 3.4, -6);
+  alleyLamp.position.set(11.05, 3.4, -6);
   const alleyBulb = new THREE.Mesh(
     new THREE.SphereGeometry(0.07, 8, 8),
     new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffc98a, emissiveIntensity: 2.4 })
   );
   alleyBulb.position.copy(alleyLamp.position);
   group.add(alleyLamp, alleyBulb);
+  group.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.5, 0.05, 0.05), 11.32, 3.52, -6),
+    xform(new THREE.CylinderGeometry(0.035, 0.05, 0.12, 8), 11.05, 3.5, -6),
+    xform(new THREE.BoxGeometry(0.05, 0.4, 0.12), 11.55, 3.42, -6)
+  ], new THREE.MeshStandardMaterial({ color: 0x1c1a1e, roughness: 0.6, metalness: 0.5 })));
   updaters.push((dt, t) => {
-    const f = Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1;
+    const f = (Math.sin(t * 19) * Math.sin(t * 6.3) > 0.55 ? 0.12 : 1) * (1 - lampKill.v);
     alleyLamp.intensity = 3.5 * f;
     alleyBulb.material.emissiveIntensity = 2.4 * f;
   });
@@ -813,10 +914,22 @@ export function build(ctx) {
   alleyBulb2.position.copy(alleyLamp2.position);
   group.add(alleyLamp2, alleyBulb2);
   updaters.push((dt, t) => {
-    const f = Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1;
+    const f = (Math.sin(t * 15.3 + 2.1) * Math.sin(t * 5.1 + 0.7) > 0.62 ? 0.1 : 1) * (1 - lampKill.v);
     alleyLamp2.intensity = 3.0 * f;
     alleyBulb2.material.emissiveIntensity = 2.2 * f;
   });
+  // v1.6 巷中恐惧拍（声先于影）：走到巷子中段，两盏灯同时熄一口气——
+  // 黑里有一次呼吸；灯回来的时候，什么都没有。为主惊吓垫的第一拍。
+  const dreadTrig = zoneTrigger({ x: 9.3, z: -21.5, r: 2.6 }, () => {
+    lampKill.v = 1;
+    audio.sfx('lampoff', 0.3);
+    later(() => audio.sfx('breath', 0.55), 700);
+    later(() => {
+      lampKill.v = 0;
+      audio.sfx('lampon', 0.2);
+    }, 2200);
+  }, { cooldown: 90 });
+  updaters.push((dt) => dreadTrig.update(player, dt));
   // 板条箱堆（三只错位叠放，板条纹木箱）
   const crateMat = new THREE.MeshStandardMaterial({
     map: canvasTexture(128, (g, s) => {
@@ -945,8 +1058,9 @@ export function build(ctx) {
   updaters.push(ventSteam.userData.update);
 
   // 巷内电话亭 v2（立柱框架 + 玻璃 + 折门 + 螺旋话线；不通向任何地方）
+  // v1.6：贴到铁皮墙根（walkable 收到 x≤10.1，玩家从亭前经过而不再穿进亭身）
   const booth = phoneBooth({ mats: M });
-  booth.position.set(10.2, 0, -18);
+  booth.position.set(10.72, 0, -18);
   booth.rotation.y = -Math.PI / 2;
   group.add(booth);
   const boothState = { open: 0, target: 0 };
@@ -983,12 +1097,16 @@ export function build(ctx) {
     onActivate: () => {
       dialState.t = 1.2;
       audio.sfx('clank', 0.22);
-      later(() => audio.sfxAt('ratchet', 10.2, -18, 0.85), 580);
+      later(() => audio.sfxAt('ratchet', 10.72, -18, 0.85), 580);
     }
   });
 
-  // ---------- 惊吓彩蛋：THE THING BEHIND ----------
-  const figure = darkFigure(2.3);
+  // ---------- 惊吓：THE THING BEHIND YOU（v1.7 转身触发）----------
+  // v1.6 的「走进圈里触发」退场。现在唯一的扳机是你自己的脖子：
+  // 在暗巷深段/背后空地驻留 1s 上膛之后，任何一次甩头式回望
+  // （半秒内转过约 180°），那个东西已经在你转过去的方向上、
+  // 离你 4.6 米、正在扑来——转身与看见之间没有间隙。
+  const figure = veiledFigure(2.3);
   figure.visible = false;
   group.add(figure);
   const scare = { phase: 0, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
@@ -997,47 +1115,52 @@ export function build(ctx) {
     if (scare.phase !== 0) return;
     scare.phase = 1;
     scare.t = 0;
-    // 世界的声音被抽走；后门灯熄灭
-    audio.duck(1.6, 0.02, 3.2);
+    const pv = pose ? pose() : { x: player.x, z: player.z, yaw: 0 };
+    // 玩家转过去正对的方向（yaw 0 → -z）：它就在那条视线上
+    const fx = -Math.sin(pv.yaw);
+    const fz = -Math.cos(pv.yaw);
+    scare.from.set(pv.x + fx * 4.6, 0, pv.z + fz * 4.6);
+    scare.to.set(pv.x + fx * 0.85, 0, pv.z + fz * 0.85);
+    figure.position.copy(scare.from);
+    figure.visible = true;
+    // 转身的同一帧：整巷壁灯 + 后门看护灯齐灭，世界的声音被抽走
+    lampKill.v = 1;
     backLampState.on = 0;
-    later(() => audio.sfx('heartbeat', 0.9), 220);
+    audio.duck(1.3, 0.02, 2.8);
+    audio.sfx('scare');
+    audio.sfx('breath', 0.85);
     later(() => {
-      // 形体从垃圾箱后面扑出——滑向玩家面前 1.1 米处
-      scare.phase = 2;
-      scare.t = 0;
-      scare.from.set(dumpster.position.x + 0.6, 0, dumpster.position.z - 0.4);
-      const dir = new THREE.Vector3(player.x - scare.from.x, 0, player.z - scare.from.z).normalize();
-      scare.to.set(player.x - dir.x * 1.1, 0, player.z - dir.z * 1.1);
-      figure.position.copy(scare.from);
-      figure.visible = true;
-      audio.sfx('scare');
+      // 扑到脸前的一拍：闷击 + 后处理冲击 + 暗红闪帧
+      audio.sfx('thud', 1.0);
       engine.shock(1, 0.9, 0x1a0000);
-    }, 1500);
+    }, 400);
     later(() => {
       // 黑幕 + 空间错位：醒来时你已回到巷口
       figure.visible = false;
       ui.fade(true);
-    }, 2350);
+    }, 1000);
     later(() => {
       teleport(9.7, 9.5, Math.PI); // 巷口，背对来路
       ui.fade(false);
       backLampState.on = 1;
+      lampKill.v = 0;
       audio.sfx('whisper', 0.7);
-      ui.caption('你梦见过这个地方。现在，它也梦见了你。', 5200);
-      scare.phase = 0; // 允许再次触发（zoneTrigger 冷却控制频率）
-    }, 3100);
+      ui.caption('有些东西只在你回头时存在。', 5200);
+      scare.phase = 0; // 冷却后可再次触发（turnTrigger 控制频率）
+    }, 1750);
   };
-  updaters.push((dt) => {
-    if (scare.phase === 2) {
-      scare.t += dt;
-      const k = Math.min(1, scare.t / 0.26); // 0.26s 内扑到面前
-      figure.position.lerpVectors(scare.from, scare.to, k * k);
-      figure.lookAt(player.x, 1.4, player.z);
-      figure.rotation.z = Math.sin(scare.t * 60) * 0.1; // 高频痉挛
-    }
+  updaters.push((dt, t) => {
+    if (scare.phase !== 1) return;
+    scare.t += dt;
+    const k = Math.min(1, scare.t / 0.42); // 0.42s 内从 4.6m 扑到脸前（加速冲刺）
+    figure.position.lerpVectors(scare.from, scare.to, k * k);
+    figure.lookAt(player.x, 1.5, player.z);
+    figure.userData.setRush(k, t); // 前倾 + 裙裾展开 + 连续侧摆——不是痉挛方块
   });
-  const scareTrig = zoneTrigger({ x: 2.0, z: -30.3, r: 3.4 }, doScare, { cooldown: 45 });
-  updaters.push((dt) => scareTrig.update(player, dt));
+  const turnTrig = turnTrigger(SCARE_REGION, doScare, TURN_SCARE);
+  updaters.push((dt) => {
+    if (pose) turnTrig.update(pose(), dt);
+  });
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
   const chalkTex = canvasTexture(256, (g, s) => {
@@ -1069,6 +1192,85 @@ export function build(ctx) {
   chalk.rotation.x = -Math.PI / 2;
   chalk.position.set(-1.5, 0.012, -30.2);
   group.add(chalk);
+
+  // v1.7 影片彩蛋：靠在剧场后墙的场记板——片名一栏是空的，
+  // 只写着「TOMA 2」（原创西语戏中戏语言，无任何原作文字）。
+  // E → 上梁「啪」地合上一拍 + 后门看护灯应声闪两下（片场的暗号）
+  const slateTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#14141a';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(220,214,196,0.75)';
+    g.lineWidth = 2;
+    for (const y of [92, 140, 188]) {
+      g.beginPath(); g.moveTo(16, y); g.lineTo(s - 16, y); g.stroke();
+    }
+    g.fillStyle = '#dcd6c4';
+    g.font = '22px "Courier New", monospace';
+    g.fillText('PROD.', 20, 82);
+    g.fillText('ESC.', 20, 130);
+    g.fillText('TOMA', 20, 178);
+    g.font = '700 30px "Courier New", monospace';
+    g.fillText('— SUEÑO —', 92, 130);
+    g.fillText('2', 96, 180);
+    // 片名一栏留白：一条被粉笔划掉的横线
+    g.strokeStyle = 'rgba(220,214,196,0.4)';
+    g.beginPath(); g.moveTo(96, 74); g.lineTo(210, 74); g.stroke();
+  });
+  const slate = new THREE.Group();
+  const slateBoard = new THREE.Mesh(
+    new THREE.BoxGeometry(0.52, 0.42, 0.02),
+    new THREE.MeshStandardMaterial({
+      map: slateTex, roughness: 0.6,
+      emissive: 0xffffff, emissiveMap: slateTex, emissiveIntensity: 0.16
+    })
+  );
+  slateBoard.position.y = 0.21;
+  const stickTex = canvasTexture(64, (g, s) => {
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = i % 2 ? '#dcd6c4' : '#16161c';
+      g.save();
+      g.translate(i * (s / 8), 0);
+      g.transform(1, 0, -0.5, 1, 8, 0);
+      g.fillRect(0, 0, s / 8, s);
+      g.restore();
+    }
+  });
+  const stickMat = new THREE.MeshStandardMaterial({ map: stickTex, roughness: 0.6 });
+  const stickLo = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.05, 0.022), stickMat);
+  stickLo.position.y = 0.445;
+  const stickHi = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.05, 0.022), stickMat);
+  const stickPivot = new THREE.Group();
+  stickPivot.position.set(-0.26, 0.47, 0); // 铰链在左端
+  stickHi.position.set(0.26, 0.025, 0);
+  stickPivot.add(stickHi);
+  stickPivot.rotation.z = 0.42; // 平时张着口
+  slate.add(slateBoard, stickLo, stickPivot);
+  slate.position.set(-4.6, 0.02, -27.35);
+  slate.rotation.set(-0.16, 0.35, 0.02); // 斜靠在后墙脚
+  group.add(slate);
+  const slateState = { t: -1 };
+  updaters.push((dt) => {
+    if (slateState.t < 0) return;
+    slateState.t += dt;
+    const u = slateState.t;
+    if (u > 2.4) { slateState.t = -1; stickPivot.rotation.z = 0.42; return; }
+    // 0.12s 内合上 → 弹开两次余振 → 慢慢张回
+    if (u < 0.12) stickPivot.rotation.z = 0.42 * (1 - u / 0.12);
+    else if (u < 0.9) stickPivot.rotation.z = Math.abs(Math.sin((u - 0.12) * 14)) * 0.08 * Math.exp(-(u - 0.12) * 4);
+    else stickPivot.rotation.z = Math.min(0.42, (u - 0.9) * 0.42);
+  });
+  hotspots.add(slateBoard, {
+    hint: 'E — 片名空着的场记板',
+    onActivate: () => {
+      if (slateState.t < 0) slateState.t = 0;
+      later(() => audio.sfxAt('clank', -4.6, -27.35, 0.9, 3), 100);
+      later(() => { backLampState.on = 0; audio.sfx('lampoff', 0.2); }, 700);
+      later(() => { backLampState.on = 1; audio.sfx('lampon', 0.2); }, 1050);
+      later(() => { backLampState.on = 0; }, 1350);
+      later(() => { backLampState.on = 1; }, 1600);
+      ui.caption('第二条。没有人喊开始。', 4200);
+    }
+  });
 
   // ---------- 剧场内部 ----------
   const inner = new THREE.Group();
@@ -1161,6 +1363,48 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('swell');
       ui.caption('台上空无一人，音乐还在继续。', 4200);
+    }
+  });
+
+  // v1.7 影片彩蛋：舞台边一杯没人敢喝第二口的意式浓缩——
+  // 白瓷小杯 + 碟 + 方糖一粒（车削瓷件，光滑剖面）。
+  // E → 一声轻抿 + 台口灯不悦地压暗一拍（片场传说：口味极其挑剔）
+  const chinaMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe8e2d6, roughness: 0.22, clearcoat: 0.8, clearcoatRoughness: 0.2, envMapIntensity: 1.1
+  });
+  const espresso = new THREE.Group();
+  const saucer = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.075, 0.004),
+      new THREE.Vector2(0.1, 0.018), new THREE.Vector2(0.098, 0.022)
+    ], 24), chinaMat);
+  const cup = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.024, 0.016), new THREE.Vector2(0.03, 0.02),
+      new THREE.Vector2(0.048, 0.06), new THREE.Vector2(0.052, 0.082), new THREE.Vector2(0.05, 0.085)
+    ], 24), chinaMat);
+  const coffee = new THREE.Mesh(
+    new THREE.CircleGeometry(0.044, 20),
+    new THREE.MeshStandardMaterial({ color: 0x1a0d06, roughness: 0.25, envMapIntensity: 1.3 })
+  );
+  coffee.rotation.x = -Math.PI / 2;
+  coffee.position.y = 0.076;
+  const sugar = roundedBoxMesh(0.022, 0.014, 0.022, 0.004, chinaMat);
+  sugar.position.set(0.075, 0.03, 0.015);
+  sugar.rotation.y = 0.5;
+  espresso.add(saucer, cup, coffee, sugar);
+  espresso.position.set(2.2, 0.6, -2.85);
+  inner.add(espresso);
+  hotspots.add(cup, {
+    hint: 'E — 台边的一杯浓缩',
+    onActivate: () => {
+      audio.sfx('sip', 0.7);
+      later(() => {
+        stageSpot.intensity = 24;
+        audio.sfx('lampoff', 0.15);
+      }, 600);
+      later(() => { stageSpot.intensity = 46; }, 1700);
+      ui.caption('第一口之后，没有第二口。', 4200);
     }
   });
 
@@ -1416,11 +1660,14 @@ export function build(ctx) {
     }
   });
 
-  // 引语展签（本厅唯一文字展签）
-  const q1 = quotePlaque(quoteById('sense'), '#3ec5ff');
+  // 引语立牌（本厅唯一文字件，走近才显影）
+  const q1 = quoteStand(quoteById('sense'), '#3ec5ff');
   q1.position.set(-3.9, 0, -11.6);
   q1.rotation.y = 0.55;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration: ctx.narration, docent: DOCENT.sense
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()
@@ -1455,11 +1702,14 @@ export function build(ctx) {
 
   return {
     group,
-    spawn: { x: 0, z: 15.5, yaw: 0 },
-    bounds: multiRectBounds([ROAD, ROOM, DOOR, SHOULDER, ALLEY, BACKLOT]),
-    // 脚步材质分区：剧场厅内（含门廊）=地毯；路面/路肩/暗巷/背后空地=沥青
+    spawn: SPAWN,
+    bounds: multiRectBounds(WALK_RECTS),
+    // 脚步材质分区：剧场厅内（含门廊）=地毯；便道/暗巷=水泥；
+    // 背后空地=泥土；路面=沥青
     surfaceAt: (x, z) => {
       if (z <= DOOR.maxZ && x >= ROOM.minX && x <= ROOM.maxX && z >= ROOM.minZ) return 'carpet';
+      if (z <= BACKLOT.maxZ && x < ALLEY.minX) return 'dirt';
+      if (x > ROAD.maxX) return 'concrete';
       return 'asphalt';
     },
     // 混响分区：剧场厅内=绒面房间尾音；夜路/巷/空地=干外景
@@ -1468,7 +1718,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'backlot-scare': scareTrig },
+    eggs: { 'turn-scare': turnTrig, 'alley-dread': dreadTrig },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);
