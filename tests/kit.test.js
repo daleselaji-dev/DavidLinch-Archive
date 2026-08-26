@@ -93,6 +93,23 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
   });
 });
 
+describe('v1.5 拐角惊吓 / 对讲机资产', () => {
+  const src = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
+
+  it('lurkerFigure 潜行黑影 v2 已导出，且带 userData.update 痉挛驱动', () => {
+    expect(typeof kit.lurkerFigure).toBe('function');
+    expect(src).toMatch(/lurkerFigure[\s\S]{0,2400}userData\.update = \(dt, t, k/);
+  });
+
+  it('walkieTalkie 对讲机预制体已导出，暴露 body/ptt/ledMat/antenna 交互挂点', () => {
+    expect(typeof props.walkieTalkie).toBe('function');
+    const propsSrc = readFileSync(new URL('../src/halls/props.js', import.meta.url), 'utf8');
+    for (const hook of ['userData.body', 'userData.ptt', 'userData.ledMat', 'userData.antenna']) {
+      expect(propsSrc).toContain(hook);
+    }
+  });
+});
+
 describe('v1.3 道具预制体库导出面', () => {
   const PROPS = [
     'chandelier', 'fluorescentFixture', 'cardCatalog', 'jukebox', 'sedanCar',
