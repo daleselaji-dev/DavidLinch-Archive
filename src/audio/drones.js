@@ -46,14 +46,17 @@ export const DRONES = {
   },
   bluevelvet: {
     // 夜总会: 小调和声垫 + 唱片炒豆声
+    // v1.6 收紧：三度音压低 0.9Hz——和弦内一道听得见的「不对」在慢慢拍打；
+    // 底下再垫一层 36.7Hz 次低频（意识不到但皮肤知道）；LFO 放慢——慢速危险
     oscs: [
       { type: 'triangle', freq: 110, gain: 0.03 },
-      { type: 'triangle', freq: 130.8, gain: 0.022 },
-      { type: 'triangle', freq: 164.8, gain: 0.018 },
-      { type: 'sine', freq: 55, gain: 0.04 }
+      { type: 'triangle', freq: 129.9, gain: 0.022 },
+      { type: 'triangle', freq: 164.8, gain: 0.016 },
+      { type: 'sine', freq: 55, gain: 0.04 },
+      { type: 'sine', freq: 36.7, gain: 0.035 }
     ],
     noises: [{ type: 'crackle', gain: 0.05, filter: { type: 'highpass', freq: 1400, q: 0.6 } }],
-    lfo: { freq: 0.09, depth: 0.35 },
+    lfo: { freq: 0.05, depth: 0.45 },
     // 空座间偶尔有一声极轻的杯盏碰响——没人的酒馆自己在喝
     events: [{ sfx: 'sip', minGap: 19, maxGap: 42 }]
   },
