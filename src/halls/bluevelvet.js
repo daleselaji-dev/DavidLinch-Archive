@@ -28,7 +28,7 @@ export const meta = {
   look: {
     // v1.6 分级收紧：整体压暗 14%、雾更沉；红增益抬高（丝绒与口红的
     // 那种过亮的红）、绿被压扁、暗部灌进钴蓝——慢速危险，不再干净漂亮
-    saturation: 0.88, tint: 0xd8e2ff, fogColor: 0x02030a, fogDensity: 0.062,
+    saturation: 0.88, tint: 0xd8e2ff, fogColor: 0x02030a, fogDensity: 0.055,
     bg: 0x010208, exposure: 0.86, bloom: 1.1,
     halation: 0.18,
     grade: { lift: [0.002, 0.005, 0.026], gamma: [0.96, 0.99, 1.07], gain: [1.07, 0.95, 1.03] }
@@ -129,7 +129,7 @@ export function build(ctx) {
   backdrop.position.set(0, 0, -D / 2 + 0.5);
   group.add(backdrop);
   // 后幕自己的红洗光：让红在暗场里也「亮着」——像有人从幕后打光
-  const backdropWash = new THREE.PointLight(0xff2438, 3.2, 7, 1.7);
+  const backdropWash = new THREE.PointLight(0xff2438, 5.2, 7.5, 1.6);
   backdropWash.position.set(0, 2.6, -D / 2 + 1.5);
   group.add(backdropWash);
 
@@ -1091,7 +1091,7 @@ export function build(ctx) {
     const breathe = jukeState.on ? 1 + Math.sin(t * 0.9) * 0.16 : 1;
     spot.intensity += ((jukeState.on ? 82 : 60) * breathe - spot.intensity) * k;
     // 后幕的红随乐队醒来烧得更旺一点——那块过亮的红是舞台真正的主角
-    backdropWash.intensity += ((jukeState.on ? 4.4 : 3.2) + Math.sin(t * 0.7) * 0.5 - backdropWash.intensity) * k;
+    backdropWash.intensity += ((jukeState.on ? 6.6 : 5.2) + Math.sin(t * 0.7) * 0.7 - backdropWash.intensity) * k;
     for (const pl of pendantLights) pl.intensity += ((jukeState.on ? 0.9 : 1.8) - pl.intensity) * k;
     pendantBulbMat.emissiveIntensity += ((jukeState.on ? 0.9 : 1.9) - pendantBulbMat.emissiveIntensity) * k;
     for (const c of pendantCones) c.material.opacity += ((jukeState.on ? 0.025 : 0.042) - c.material.opacity) * k;

@@ -1270,12 +1270,15 @@ export function build(ctx) {
     blackout.v = 1;
     machineState.run = 0;
     audio.duck(1.2, 0.04, 2.4);
+    // v1.6 声先于影：歌先从黑里传出来，隔一拍台口才亮
+    stageTimers.push(setTimeout(() => {
+      audio.sfx('lullaby', 0.8);
+    }, 600));
     stageTimers.push(setTimeout(() => {
       stageGlow.intensity = 14;
       tinyFigure.visible = true;
-      audio.sfx('lullaby', 0.8);
       ui.caption('机器停了。那支歌不是唱给你听的。', 5200);
-    }, 1100));
+    }, 1600));
     stageTimers.push(setTimeout(() => {
       stageGlow.intensity = 0;
       tinyFigure.visible = false;

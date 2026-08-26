@@ -1461,7 +1461,7 @@ export function build(ctx) {
       radioState.on = 1;
       audio.sfx('radio', 1);
       audio.sfx('whisper', 0.8);
-      ui.caption('📻 它播的不是天气。是一个名字。你的。', 5200);
+      ui.caption('它播的不是天气。是一个名字。你的。', 5200);
     }, 1000));
     eggTimers.push(setTimeout(() => {
       lampState.on = prevLamp;
