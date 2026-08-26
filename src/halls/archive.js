@@ -10,7 +10,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng
 } from './kit.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
@@ -145,6 +145,16 @@ export function build(ctx) {
   });
 
   // 卡片目录柜 ×2（黄铜拉手 + 标签框；各有一只可拉的抽屉）
+  // v1.4 §3.1：抽屉里塞进一沓索引卡（卡沿纹理），拉开时能看见"卡片都空着"
+  const cardWadTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#cfc5aa';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(90,78,58,0.6)';
+    g.lineWidth = 1;
+    for (let y = 2; y < s; y += 3) {
+      g.beginPath(); g.moveTo(0, y + (Math.random() - 0.5) * 1.2); g.lineTo(s, y + (Math.random() - 0.5) * 1.2); g.stroke();
+    }
+  });
   const catalogs = [
     { x: W / 2 - 0.55, z: -2.2, ry: -Math.PI / 2 },
     { x: -W / 2 + 0.55, z: 13.6, ry: Math.PI / 2 }
@@ -153,6 +163,13 @@ export function build(ctx) {
     cab.position.set(x, 0, z);
     cab.rotation.y = ry;
     group.add(cab);
+    const wad = new THREE.Mesh(
+      new THREE.BoxGeometry(0.17, 0.07, 0.2),
+      new THREE.MeshStandardMaterial({ map: cardWadTex, roughness: 0.92 })
+    );
+    wad.rotation.y = 0.04;
+    wad.position.y = 0.015;
+    cab.userData.drawer.add(wad);
     const state = { open: 0, target: 0 };
     const closedZ = cab.userData.drawer.position.z;
     updaters.push((dt) => {
@@ -170,6 +187,124 @@ export function build(ctx) {
     return cab;
   });
   void catalogs;
+
+  // ---------- 档案盒堆（v1.4 §3.1）：牛皮纸档案盒三摞 + 标签图集 + 一只虚掩的盖 ----------
+  const kraftMat = new THREE.MeshStandardMaterial({
+    map: canvasTexture(128, (g, s) => {
+      g.fillStyle = '#6b5738';
+      g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 500; i++) {
+        g.fillStyle = `rgba(${40 + Math.random() * 40 | 0},${32 + Math.random() * 32 | 0},${18 + Math.random() * 20 | 0},0.16)`;
+        g.fillRect(Math.random() * s, Math.random() * s, 2 + Math.random() * 4, 1 + Math.random() * 2);
+      }
+      // 四边压深（盒沿包边观感）
+      g.strokeStyle = 'rgba(30,22,12,0.55)';
+      g.lineWidth = 6;
+      g.strokeRect(3, 3, s - 6, s - 6);
+    }),
+    roughness: 0.94
+  });
+  const boxR = rng(83);
+  const boxGeos = [];
+  const lidAnchor = { x: 0, y: 0, z: 0 };
+  const stacks = [
+    { x: W / 2 - 0.62, z: 0.85, n: 5, ry: 0.06 },
+    { x: W / 2 - 0.58, z: 1.62, n: 3, ry: -0.1 },
+    { x: -W / 2 + 0.62, z: 12.3, n: 4, ry: 0.12 }
+  ];
+  for (const [si, st] of stacks.entries()) {
+    for (let i = 0; i < st.n; i++) {
+      const jx = (boxR() - 0.5) * 0.05;
+      const jz = (boxR() - 0.5) * 0.05;
+      const jr = st.ry + (boxR() - 0.5) * 0.14;
+      const y = 0.075 + i * 0.15;
+      boxGeos.push(xform(roundedBoxGeo(0.44, 0.145, 0.34, 0.012, 2), st.x + jx, y, st.z + jz, 0, jr, 0));
+      if (si === 0 && i === st.n - 1) {
+        lidAnchor.x = st.x + jx;
+        lidAnchor.y = y + 0.0725;
+        lidAnchor.z = st.z + jz;
+      }
+    }
+  }
+  group.add(mergedMesh(boxGeos, kraftMat));
+  // 标签图集：一张 256 画布 4×2 格，各标签编号栏留空
+  const labelAtlas = canvasTexture(256, (g, s) => {
+    const r2 = rng(19);
+    for (let k = 0; k < 8; k++) {
+      const cx = (k % 4) * 64;
+      const cy = Math.floor(k / 4) * 128;
+      g.fillStyle = '#ddd2b4';
+      g.fillRect(cx + 6, cy + 34, 52, 60);
+      g.strokeStyle = 'rgba(90,20,26,0.85)';
+      g.lineWidth = 2;
+      g.strokeRect(cx + 9, cy + 37, 46, 54);
+      g.fillStyle = 'rgba(40,32,22,0.9)';
+      g.font = '10px "Courier New", monospace';
+      g.textAlign = 'center';
+      g.fillText('ARCHIVO', cx + 32, cy + 52);
+      g.strokeStyle = 'rgba(40,32,22,0.6)';
+      g.lineWidth = 1;
+      for (let y2 = 0; y2 < 3; y2++) {
+        g.beginPath();
+        g.moveTo(cx + 14, cy + 64 + y2 * 10);
+        g.lineTo(cx + 50, cy + 64 + y2 * 10);
+        g.stroke();
+      }
+      if (r2() < 0.4) {
+        g.fillStyle = 'rgba(90,20,26,0.7)';
+        g.font = '9px "Courier New", monospace';
+        g.fillText('N\u00b0 \u25a1\u25a1\u25a1', cx + 32, cy + 62);
+      }
+    }
+  });
+  const labelGeos = [];
+  const labelUV = (geo, k) => {
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, ((k % 4) + uv.getX(i)) / 4, 1 - (Math.floor(k / 4) + (1 - uv.getY(i))) / 2);
+    }
+    return geo;
+  };
+  let li = 0;
+  for (const st of stacks) {
+    const facing = st.x > 0 ? -1 : 1; // 标签面朝走廊
+    for (let i = 0; i < st.n; i += 2) {
+      const gplane = labelUV(new THREE.PlaneGeometry(0.11, 0.115), li % 8);
+      labelGeos.push(xform(gplane, st.x + facing * 0.228, 0.08 + i * 0.15, st.z, 0, facing > 0 ? Math.PI / 2 : -Math.PI / 2, 0));
+      li += 1;
+    }
+  }
+  group.add(mergedMesh(labelGeos, new THREE.MeshStandardMaterial({
+    map: labelAtlas, transparent: true, roughness: 0.9,
+    polygonOffset: true, polygonOffsetFactor: -1
+  })));
+  // 顶盒的盖子虚掩着：E → 盖子再滑开一点，里面飘出一点灰（尘埃小场 + page 声）
+  const lid = new THREE.Mesh(roundedBoxGeo(0.46, 0.03, 0.36, 0.01, 2), kraftMat);
+  lid.position.set(lidAnchor.x, lidAnchor.y + 0.015, lidAnchor.z);
+  lid.rotation.set(0.02, 0.18, -0.015);
+  group.add(lid);
+  const lidDust = dustField(14, { x: 0.5, y: 0.5, z: 0.5 }, { opacity: 0, size: 0.03, color: 0xd8ccb0 });
+  lidDust.position.set(lidAnchor.x, lidAnchor.y + 0.3, lidAnchor.z);
+  group.add(lidDust);
+  updaters.push(lidDust.userData.update);
+  const lidState = { open: false, k: 0, dust: 0 };
+  updaters.push((dt) => {
+    lidState.k += ((lidState.open ? 1 : 0) - lidState.k) * Math.min(1, dt * 5);
+    lid.rotation.y = 0.18 + lidState.k * 0.4;
+    lid.position.x = lidAnchor.x - lidState.k * 0.09;
+    lid.position.y = lidAnchor.y + 0.015 + lidState.k * 0.012;
+    if (lidState.dust > 0) lidState.dust -= dt;
+    lidDust.material.opacity = Math.max(0, Math.min(lidState.dust, 1)) * 0.4;
+  });
+  hotspots.add(lid, {
+    hint: 'E — 虚掩的盒盖',
+    onActivate: () => {
+      lidState.open = !lidState.open;
+      if (lidState.open) lidState.dust = 2.2;
+      audio.sfxAt('page', lidAnchor.x, lidAnchor.z, 0.5, 3);
+      if (lidState.open) ui.caption('编号栏是空的。里面也是。', 3400);
+    }
+  });
 
   // 护墙板（壁板矩形阵列，合并单 mesh）
   const wainGeos = [];
