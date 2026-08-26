@@ -110,6 +110,7 @@ async function goTo(id) {
   if (busy || (current && current.id === id)) return;
   busy = true;
   ui.closeAll();
+  ui.hidePlaque();
   ui.fade(true);
   if (current) audio.sfx('whoosh');
   await sleep(650);
@@ -328,5 +329,5 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
-  version: '1.4.0'
+  version: '1.5.0'
 };

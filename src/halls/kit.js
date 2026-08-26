@@ -287,18 +287,62 @@ export function curtainWithValance(width, height, color = PALETTE.velvet, folds 
   return g;
 }
 
-/** 围合式帷幕墙（圆弧排布，可留缺口） */
+/**
+ * 围合式帷幕墙（v1.5 整体化）：一件连续的圆柱幕，褶皱沿整个弧长
+ * 不间断——不再由多段独立布片拼合（旧做法在段与段之间留下
+ * 无来由的接缝，把帷幕读碎了）。可留缺口（arc < 2π）。
+ * segments 参数保留以兼容旧签名，仅作褶皱密度参考。
+ */
 export function curtainRing(radius, height, color, segments = 18, arc = Math.PI * 2, startAngle = 0) {
   const group = new THREE.Group();
-  const segW = (arc * radius) / segments;
-  const mat = velvetMaterial(color);
-  for (let i = 0; i < segments; i++) {
-    const a = startAngle + (i + 0.5) * (arc / segments);
-    const m = curtain(segW * 1.06, height, color, 3, mat);
-    m.position.set(Math.cos(a) * radius, height / 2, Math.sin(a) * radius);
-    m.lookAt(0, height / 2, 0);
-    group.add(m);
+  const closed = Math.abs(arc - Math.PI * 2) < 1e-4;
+  // 褶皱数按弧长取整——整圆时波数为整数，首尾相接零缝
+  const folds = Math.max(10, Math.round(radius * arc * 0.85));
+  const m1 = folds;
+  const m2 = Math.round(folds * 2.65);
+  const m3 = Math.round(folds * 5.85);
+  const radial = Math.min(420, Math.max(120, folds * 6));
+  // CylinderGeometry 参数角 θ：x = r·sinθ, z = r·cosθ；
+  // 世界方位角 φ（x = r·cosφ, z = r·sinφ）↔ θ = π/2 − φ
+  const geo = new THREE.CylinderGeometry(
+    radius, radius, height, radial, 8, true,
+    Math.PI / 2 - (startAngle + arc), arc
+  );
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const phi = Math.atan2(x, z); // 连续角（整数波数下 sin 跨缝连续）
+    const v = y / height + 0.5;
+    const sag = 1 - Math.pow(Math.abs(y / height) * 2, 2) * 0.12;
+    const hem = 1 + (1 - v) * 0.25;
+    const off =
+      (Math.sin(phi * m1) * 0.16 +
+        Math.sin(phi * m2 + 1.7) * 0.05 +
+        Math.sin(phi * m3 + 0.6) * 0.02) * sag * hem;
+    const s = (radius + off) / radius;
+    pos.setX(i, x * s);
+    pos.setZ(i, z * s);
   }
+  geo.computeVertexNormals();
+  // 整圆时焊接接缝法线：首列与末列顶点同位置，直接取平均
+  if (closed) {
+    const nrm = geo.attributes.normal;
+    const cols = radial + 1;
+    for (let row = 0; row < 9; row++) {
+      const a = row * cols;
+      const b = row * cols + radial;
+      const nx = (nrm.getX(a) + nrm.getX(b)) / 2;
+      const ny = (nrm.getY(a) + nrm.getY(b)) / 2;
+      const nz = (nrm.getZ(a) + nrm.getZ(b)) / 2;
+      nrm.setXYZ(a, nx, ny, nz);
+      nrm.setXYZ(b, nx, ny, nz);
+    }
+  }
+  const mesh = new THREE.Mesh(geo, velvetMaterial(color));
+  mesh.position.y = height / 2;
+  group.add(mesh);
   return group;
 }
 
@@ -551,60 +595,110 @@ function wrapText(g, text, maxWidth) {
 }
 
 /**
- * 引语展签 —— 只有他自己的话（中英 + 出处），无策展解读。
- * quote: { zh, en, source }
+ * 引语立牌（v1.5 —— show, don't tell）：
+ * 取代旧的墙挂大字展签。一支黄铜细杆托一块斜面小板，
+ * 远看几乎全黑，只有一枚微亮的引号——字在你走近之前不存在。
+ * 走近（quoteStandUpdater）→ 板上那句话缓缓显影，
+ * HUD 侧卡浮现原文 + 一句解释 + 一句评述。
+ * quote: { zh, en, source, note?, aside? }
  */
-export function quotePlaque(quote, accent = '#c9a35c') {
+export function quoteStand(quote, accent = '#c9a35c') {
   const group = new THREE.Group();
-  const tex = canvasTexture(1024, (g, s) => {
-    g.fillStyle = '#0e0709';
-    g.fillRect(0, 0, s, s);
-    g.strokeStyle = accent;
-    g.lineWidth = 3;
-    g.strokeRect(34, 34, s - 68, s - 68);
-    // 大引号
-    g.fillStyle = accent;
-    g.font = '400 170px Georgia, serif';
-    g.fillText('\u201c', 72, 220);
-    // 中文引语
-    g.fillStyle = '#f2e9dc';
-    g.font = '400 64px "Songti SC","SimSun",Georgia,serif';
-    g.textAlign = 'left';
-    const zhLines = wrapText(g, quote.zh, s - 220);
-    let y = 330;
-    for (const line of zhLines) {
-      g.fillText(line, 110, y);
-      y += 96;
-    }
-    // 英文原文
-    g.fillStyle = 'rgba(242,233,220,0.55)';
-    g.font = 'italic 34px Georgia, serif';
-    const enLines = wrapText(g, quote.en, s - 220);
-    y += 30;
-    for (const line of enLines) {
-      g.fillText(line, 110, y);
-      y += 48;
-    }
-    // 出处
-    g.fillStyle = accent;
-    g.font = '28px "Courier New", monospace';
-    g.textAlign = 'right';
-    g.fillText('— DAVID LYNCH · ' + quote.source, s - 90, s - 84);
+  const brass = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x6b5232, roughness: 0.35, metalness: 0.9, envMapIntensity: 1.1
   });
-  const board = roundedBoxMesh(1.7, 1.7, 0.055, 0.02,
+  // 配重圆座 + 细杆（一条车削剖面）
+  const post = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.17, 0), new THREE.Vector2(0.16, 0.025), new THREE.Vector2(0.05, 0.06),
+      new THREE.Vector2(0.024, 0.12), new THREE.Vector2(0.017, 0.9), new THREE.Vector2(0.03, 0.96)
+    ], 14),
+    brass
+  );
+  group.add(post);
+  // 斜面小板：静默态——近黑底 + 一枚微亮引号
+  const dimTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#0c0709';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(201,163,92,0.35)';
+    g.lineWidth = 2;
+    g.strokeRect(6, 6, s - 12, s - 12);
+    g.fillStyle = 'rgba(201,163,92,0.6)';
+    g.font = '400 62px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillText('\u201c', s / 2, s / 2 + 24);
+  });
+  const tilt = new THREE.Group();
+  tilt.position.y = 0.99;
+  tilt.rotation.x = -0.5;
+  const board = roundedBoxMesh(0.54, 0.4, 0.03, 0.012,
     new THREE.MeshStandardMaterial({
-      map: tex, roughness: 0.58,
-      emissive: 0xf2e9dc, emissiveMap: tex, emissiveIntensity: 0.4
+      map: dimTex, roughness: 0.55,
+      emissive: 0xf2e9dc, emissiveMap: dimTex, emissiveIntensity: 0.28
     }));
-  board.position.y = 1.55;
-  const postMat = new THREE.MeshStandardMaterial({ map: brushedMetalTexture(), color: 0x584124, roughness: 0.35, metalness: 0.9 });
-  const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 1.55, 10), postMat);
-  postL.position.set(-0.6, 0.77, 0);
-  const postR = postL.clone();
-  postR.position.x = 0.6;
-  group.add(board, postL, postR);
+  tilt.add(board);
+  // 显影层：只有那句话（解释与评述交给走近后的侧卡）
+  const litTex = canvasTexture(512, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    g.fillStyle = accent;
+    g.font = '400 96px Georgia, serif';
+    g.textAlign = 'left';
+    g.fillText('\u201c', 44, 130);
+    g.fillStyle = '#f2e9dc';
+    g.font = '400 46px "Songti SC","SimSun",Georgia,serif';
+    const zhLines = wrapText(g, quote.zh, s - 128);
+    let y = 208;
+    for (const line of zhLines) {
+      g.fillText(line, 64, y);
+      y += 68;
+    }
+    g.fillStyle = 'rgba(201,163,92,0.85)';
+    g.font = '26px "Courier New", monospace';
+    g.textAlign = 'right';
+    g.fillText('— DAVID LYNCH', s - 52, s - 56);
+  });
+  const litMat = new THREE.MeshBasicMaterial({
+    map: litTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false
+  });
+  const lit = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.37), litMat);
+  lit.position.z = 0.018;
+  tilt.add(lit);
+  group.add(tilt);
   group.userData.board = board;
+  group.userData.quote = quote;
+  group.userData.setNear = (k) => {
+    litMat.opacity = k;
+    board.material.emissiveIntensity = 0.28 + k * 0.5;
+  };
   return group;
+}
+
+/**
+ * 立牌接近驱动器：加入展厅 updaters —— 玩家走进 radius 内，
+ * 板上文字显影 + HUD 侧卡浮现；走出（带迟滞）即收回。
+ */
+export function quoteStandUpdater(stand, player, ui, { radius = 3.0 } = {}) {
+  const wp = new THREE.Vector3();
+  let ready = false;
+  let k = 0;
+  let shown = false;
+  return (dt) => {
+    if (!ready) {
+      stand.getWorldPosition(wp);
+      ready = true;
+    }
+    const d = Math.hypot(player.x - wp.x, player.z - wp.z);
+    const near = d < radius;
+    k += ((near ? 1 : 0) - k) * Math.min(1, (dt || 0.016) * 3.2);
+    stand.userData.setNear(Math.max(0, Math.min(1, k)));
+    if (near && !shown) {
+      shown = true;
+      ui.showPlaque(stand.userData.quote);
+    } else if (shown && d > radius + 0.9) {
+      shown = false;
+      ui.hidePlaque();
+    }
+  };
 }
 
 /**

@@ -1,21 +1,26 @@
 // ============================================================
 // 展馆文案与旁白稿。
-// 文案原则（v1.3 —— 回到 v1.0 克制量级）：
+// 文案原则（v1.5 —— show, don't tell）：
 //   1. 尽量让林奇自己解释自己：全站以其公开访谈与著作中的
 //      短引语为唯一「解读」，不提供策展评述文章、不借理论名词；
 //   2. 旁白配额：全馆 ≤8 条，每条 ≤16 字，总字数 ≤110；
 //      只在首访、延迟出现一次；措辞为风格化空间提示
 //      （光/质感/空间感受）或公开事实一行，禁止剧情叙述；
-//   3. 展签宁缺毋滥：每厅林奇原话展签 ≤1；事实铭牌只写
-//      「片名 + 年份」一行；
+//   3. 引语立牌宁缺毋滥：每厅 ≤1 座，走近才显字；随行的
+//      note（一句解释）与 aside（一句评述/公开趣闻）各 ≤36 字，
+//      只写事实级内容，不写理论、不写剧情；
 //   4. 气氛交给空间、光、声与静默，不用文字解释气氛；
 //   5. 零原作叙事剧透：不复述任何电影/剧集情节，不引用影视
-//      对白 verbatim（源码级单测扫描禁词）。
+//      对白 verbatim（源码级单测扫描禁词）；
+//   6. 制作方法不入作品：旁白/立牌/字幕不谈技术与工艺
+//      （合规页的必要事实陈述除外，单测扫描禁词）。
 // 短引语 + 出处类型（访谈/著作）属非商业粉丝纪念语境下的合理
 // 使用；不摘抄任何受版权保护的长段文字。
 // ============================================================
 
 // ---------- 林奇原话短引语（访谈/著作，短句合理使用） ----------
+// note  = 一句简短解释（这话从哪儿来/在说什么，事实级）
+// aside = 一句评述或公开趣闻（克制，不展开）
 export const QUOTES = [
   {
     id: 'bigfish',
@@ -27,13 +32,17 @@ export const QUOTES = [
     id: 'meaning',
     en: 'It\u2019s better not to know so much about what things mean.',
     zh: '最好不要太清楚事物意味着什么。',
-    source: '公开访谈'
+    source: '公开访谈',
+    note: '他一生几乎不解释自己的作品。',
+    aside: '被追问含义时，他常常只是微笑。'
   },
   {
     id: 'sense',
     en: 'I don\u2019t know why people expect art to make sense. They accept the fact that life doesn\u2019t make sense.',
     zh: '我不明白为什么人们要求艺术讲得通——他们明明接受了生活讲不通这件事。',
-    source: '公开访谈'
+    source: '公开访谈',
+    note: '有人要一把钥匙，他给的总是沉默。',
+    aside: '影碟版曾附过十条提示，谜照旧是谜。'
   },
   {
     id: 'sound5050',
@@ -45,7 +54,9 @@ export const QUOTES = [
     id: 'home',
     en: 'The home is a place where things can go wrong.',
     zh: '家，就是会出事的地方。',
-    source: '公开访谈'
+    source: '公开访谈',
+    note: '最安稳的地方，他看得最久。',
+    aside: '他反复回到普通人家的门廊与走廊。'
   },
   {
     id: 'coffee',
@@ -57,7 +68,9 @@ export const QUOTES = [
     id: 'you',
     en: 'The thing about meditation is: you become more and more you.',
     zh: '冥想这件事是：你会越来越像你自己。',
-    source: '公开访谈'
+    source: '公开访谈',
+    note: '他坚持冥想四十多年，一天两次。',
+    aside: '据他自述，一次也没有落下过。'
   },
   {
     id: 'voice',
@@ -69,13 +82,17 @@ export const QUOTES = [
     id: 'philly',
     en: 'Philadelphia was my biggest influence.',
     zh: '费城是我一生最大的影响。',
-    source: '公开访谈（多次提及）'
+    source: '公开访谈（多次提及）',
+    note: '他在费城读过美术学院。',
+    aside: '他说那座城市的不安一直跟着他。'
   },
   {
     id: 'darkness',
     en: 'I learned that just beneath the surface there\u2019s another world.',
     zh: '我学到的是：就在表面底下，还有另一个世界。',
-    source: '公开访谈'
+    source: '公开访谈',
+    note: '说的是他记忆里小城明亮的草坪。',
+    aside: '小时候，他在树下见过成群的红蚂蚁。'
   },
   {
     id: 'doughnut',
@@ -95,7 +112,7 @@ export function quoteById(id) {
   return QUOTES.find((q) => q.id === id) || null;
 }
 
-// ---------- 旁白（v1.3：v1.0 克制量级。每厅一句 ≤16 字，
+// ---------- 旁白（v1.3 起保持 v1.0 克制量级。每厅一句 ≤16 字，
 // 风格化空间提示，首访一次，迟到而安静） ----------
 export const NARRATIONS = {
   welcome: { lang: 'zh-CN', text: '慢慢走。让眼睛先适应黑。' },
@@ -108,7 +125,8 @@ export const NARRATIONS = {
   studio: { lang: 'zh-CN', text: '他的房间。东西可以碰。' }
 };
 
-// 版权与合规声明（应用内页 + README 同步；只保留必要事实陈述）
+// 版权与合规声明（应用内页 + README 同步；只保留必要事实陈述——
+// 「程序化生成」在此页是版权事实陈述，不属于展陈文案）
 export const LEGAL = {
   title: '版权与合规声明',
   badge: '本项目为独立粉丝艺术纪念展 · 非官方 · 非授权商品 · 不作商业用途',
@@ -124,13 +142,5 @@ export const LEGAL = {
     '在非商业粉丝纪念展语境下属合理使用（fair use）；本馆不转载任何受版权保护的长段文字。',
     '作品名称与人名的出现仅用于事实性指称（nominative use）。若任何权利方认为本项目存在不当使用，' +
     '请通过项目仓库提出，我们将立即处理。'
-  ]
-};
-
-export const ABOUT_RENDER = {
-  title: '关于画质',
-  paras: [
-    '本馆所有画面为实时渲染：PBR 材质、Bloom、胶片颗粒、色差与暗角后处理、体积氛围与粒子，' +
-    '全部程序化生成，`Q` 键可切换画质档位。'
   ]
 };
