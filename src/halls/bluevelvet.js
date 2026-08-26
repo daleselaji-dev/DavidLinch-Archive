@@ -31,7 +31,9 @@ export const meta = {
     saturation: 0.88, tint: 0xd8e2ff, fogColor: 0x02030a, fogDensity: 0.055,
     bg: 0x010208, exposure: 0.86, bloom: 1.1,
     halation: 0.18,
-    grade: { lift: [0.002, 0.005, 0.026], gamma: [0.96, 0.99, 1.07], gain: [1.07, 0.95, 1.03] }
+    grade: { lift: [0.002, 0.005, 0.026], gamma: [0.96, 0.99, 1.07], gain: [1.07, 0.95, 1.03] },
+    // v1.9 B1：深夜歌厅的烟在呼吸（30s，±12%）
+    fogPulse: { period: 30, depth: 0.12 }
   }
 };
 

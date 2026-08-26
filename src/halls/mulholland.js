@@ -32,7 +32,9 @@ export const meta = {
     bg: 0x030204, exposure: 1.0, bloom: 0.9,
     // v1.4 P4/P5：梦境紫红暗部 + 暖高光（好莱坞夜与霓虹的双重性）
     halation: 0.16,
-    grade: { lift: [0.014, 0.004, 0.016], gamma: [1.0, 1.0, 1.03], gain: [1.05, 1.0, 0.96] }
+    grade: { lift: [0.014, 0.004, 0.016], gamma: [1.0, 1.0, 1.03], gain: [1.05, 1.0, 0.96] },
+    // v1.9 B1：夜路的雾快而不安（28s，±13%）
+    fogPulse: { period: 28, depth: 0.13 }
   }
 };
 
@@ -1894,7 +1896,7 @@ export function build(ctx) {
   group.add(innerHaze);
   updaters.push(innerHaze.userData.update);
 
-  // 路面夜雾与尘
+  // 路面夜雾与尘（v1.9 B2：透明度随雾呼吸同拍——夜路的雾会喘）
   const roadHaze = smokeLayer(80, { x: 12, z: 40 }, { opacity: 0.05, size: 10, yBase: 0.25, ySpread: 1.2, color: 0x8a92b8 });
   roadHaze.position.z = 2;
   group.add(roadHaze);
@@ -1902,6 +1904,10 @@ export function build(ctx) {
   const dust = dustField(150, { x: 12, y: 5, z: 36 }, { opacity: 0.3, size: 0.05, color: 0xaebdff });
   group.add(dust);
   updaters.push(dust.userData.update);
+  updaters.push(() => {
+    roadHaze.material.opacity = 0.05 * (1 + engine.breath * 0.32);
+    dust.material.opacity = 0.3 * (1 + engine.breath * 0.28);
+  });
 
   // 回大厅之门（夜路起点）
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });

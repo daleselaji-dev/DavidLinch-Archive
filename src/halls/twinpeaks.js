@@ -33,7 +33,9 @@ export const meta = {
     bg: 0x02040a, exposure: 0.95, bloom: 0.8,
     // v1.4：月夜冷分级——暗部青蓝、高光微收暖；halation 低（夜景只留窗光晕）
     halation: 0.11,
-    grade: { lift: [0.0, 0.008, 0.016], gamma: [1.0, 1.01, 1.02], gain: [0.95, 1.0, 1.05] }
+    grade: { lift: [0.0, 0.008, 0.016], gamma: [1.0, 1.01, 1.02], gain: [0.95, 1.0, 1.05] },
+    // v1.9 B1：林间夜雾长息（38s，±10%）
+    fogPulse: { period: 38, depth: 0.1 }
   }
 };
 
@@ -65,7 +67,7 @@ const insideWalkable = (x, z, margin = 1.6) => {
 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player, teleport } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, teleport } = ctx;
   const group = new THREE.Group();
   const updaters = [];
   const timers = [];
@@ -419,10 +421,13 @@ export function build(ctx) {
     onActivate: () => ui.showQuotes()
   });
 
-  // 地表雾 + 萤火
+  // 地表雾 + 萤火（v1.9 B2：林间地雾随呼吸相位起伏）
   const fogLayer = smokeLayer(120, { x: 70, z: 70 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
+  updaters.push(() => {
+    fogLayer.material.opacity = 0.045 * (1 + engine.breath * 0.3);
+  });
   // v1.4 六遍：萤火虫 v2——从「发光的灰」升级成真萤火：每只有自己的闪烁相位
   // （sin^8 尖脉冲、几秒一亮）+ 低空慢游走（不再像灰尘那样往下落）
   const ffCount = 44;

@@ -28,7 +28,9 @@ export const meta = {
     bg: 0x030407, exposure: 1.0, bloom: 0.75,
     // v1.4 P4/P5：档案荧光冷分级——青蓝暗部微抬 + 冷高光，halation 给灯管一点乳晕
     halation: 0.12,
-    grade: { lift: [0.006, 0.01, 0.016], gamma: [0.99, 1.0, 1.02], gain: [0.97, 1.0, 1.04] }
+    grade: { lift: [0.006, 0.01, 0.016], gamma: [0.99, 1.0, 1.02], gain: [0.97, 1.0, 1.04] },
+    // v1.9 B1：长廊的雾慢而稳（40s，±8%——档案的呼吸）
+    fogPulse: { period: 40, depth: 0.08 }
   }
 };
 

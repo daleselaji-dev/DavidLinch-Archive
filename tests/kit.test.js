@@ -87,6 +87,17 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
     expect(typeof kit[name]).toBe('function');
   });
 
+  it('v1.9 B4 瓷釉铁皮 enamelSet/enamelMat 已导出且四通道齐备（露铁走 metalnessMap）', () => {
+    expect(typeof kit.enamelSet).toBe('function');
+    expect(typeof kit.enamelMat).toBe('function');
+    const seg = src.slice(src.indexOf('export function enamelSet'), src.indexOf('// ---------- PBR 材质工厂'));
+    expect(seg).toContain("draw(g, s, 'albedo')");
+    expect(seg).toContain("draw(g, s, 'height')");
+    expect(seg).toContain("draw(g, s, 'rough')");
+    expect(seg).toContain("draw(g, s, 'metal')");
+    expect(seg).toContain('metal');
+  });
+
   it('P7 双层体积光锥 lightCone2 已导出（内芯+外晕+同步调制）', () => {
     expect(typeof kit.lightCone2).toBe('function');
     expect(src).toContain('setStrength');

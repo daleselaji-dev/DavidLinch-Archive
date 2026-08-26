@@ -26,7 +26,9 @@ export const meta = {
     bg: 0x030304, exposure: 0.88, bloom: 0.62,
     // v1.4 P4/P5：单色厅——冷灰暗部微抬 + 冷高光，halation 收敛（工业白光的乳晕）
     halation: 0.1,
-    grade: { lift: [0.01, 0.011, 0.014], gamma: [1.02, 1.02, 1.02], gain: [0.98, 1.0, 1.03] }
+    grade: { lift: [0.01, 0.011, 0.014], gamma: [1.02, 1.02, 1.02], gain: [0.98, 1.0, 1.03] },
+    // v1.9 B1：工业厅呼吸最急最深（26s，±14%——像机器的喘息）
+    fogPulse: { period: 26, depth: 0.14 }
   }
 };
 

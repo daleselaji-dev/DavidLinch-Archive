@@ -37,16 +37,27 @@ export const meta = {
     bg: 0x080304, exposure: 1.05, bloom: 0.9,
     // v1.4 P4/P5：暗部微蓝紫 + 高光偏暖增益 + 中等 halation（帷幕红晕）
     halation: 0.17,
-    grade: { lift: [0.012, 0.004, 0.018], gamma: [1.04, 1.0, 0.98], gain: [1.06, 1.0, 0.94] }
+    grade: { lift: [0.012, 0.004, 0.018], gamma: [1.04, 1.0, 0.98], gain: [1.06, 1.0, 0.94] },
+    // v1.9 B1：雾的呼吸（34s 一息，±10%）
+    fogPulse: { period: 34, depth: 0.1 }
   }
 };
 
 const R = 14.5;
 
+// v1.9 B3：开幕点灯只演一次（本次会话内重复进厅不再播）
+let openingPlayed = false;
+
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player, narration } = ctx;
+  const { engine, hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
+  // 开幕点灯门（各灯组的乘法闸）：首次进馆从黑里逐组升起
+  const openGate = openingPlayed
+    ? { bulb: [1, 1, 1, 1, 1, 1], chand: 1, amb: 1 }
+    : { bulb: [0, 0, 0, 0, 0, 0], chand: 0, amb: 0.22 };
+  const opening = { t: openingPlayed ? -1 : 0 };
+  openingPlayed = true;
 
   // 地板 —— 黑白折线拼花（v1.3 三通道：法线拼缝 + 蜡面粗糙度变化）
   const floor = floorMesh(R * 2.4, R * 2.4, chevronMat('#0b0b0d', '#ded7c8', { repeat: 7, seed: 21 }));
@@ -225,13 +236,13 @@ export function build(ctx) {
   group.add(crownWash);
   updaters.push((dt, t) => {
     lustre.rotation.y = t * 0.05;
-    // 极缓的烛光呼吸 × 调光档
+    // 极缓的烛光呼吸 × 调光档 × 开幕点灯门
     const breathe = 0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03;
-    lustre.userData.setPower(breathe * dim.v);
-    crownWash.intensity = 4.5 * breathe * dim.v;
+    lustre.userData.setPower(breathe * dim.v * openGate.chand);
+    crownWash.intensity = 4.5 * breathe * dim.v * openGate.chand;
     // 双层体积锥跟随调光（灯暗时光柱一并收薄）；
     // 踏上纪念台的问候拍（daisGreet）会让光柱涌亮一阵
-    cone.userData.setStrength(0.3 + breathe * dim.v * 0.7 + daisGreet.boost * 0.8);
+    cone.userData.setStrength((0.3 + breathe * dim.v * 0.7 + daisGreet.boost * 0.8) * openGate.chand);
   });
 
   // 悬浮标题霓虹
@@ -246,6 +257,8 @@ export function build(ctx) {
     sub.rotation.y = t * 0.12;
     title.userData.flicker(t, 3);
   });
+  // 开幕序列里霓虹最后才醒（先有火，再有名字）
+  if (opening.t >= 0) { title.visible = false; sub.visible = false; }
 
   // 六扇门
   const doors = [
@@ -283,6 +296,14 @@ export function build(ctx) {
     bulbs.push(bulb);
     updaters.push(makeFlicker(bulb.userData.light, bulb.userData.bulb.material, 5, i * 3.1));
   }
+  // 开幕点灯门：逐盏乘法闸（在颤动之后相乘，与彩蛋 blackout 同法）
+  updaters.push(() => {
+    for (let i = 0; i < 6; i++) {
+      if (openGate.bulb[i] >= 1) continue;
+      bulbs[i].userData.light.intensity *= openGate.bulb[i];
+      bulbs[i].userData.bulb.material.emissiveIntensity *= openGate.bulb[i];
+    }
+  });
 
   // ---------- 彩蛋：帷幕后的窃语 ----------
   const eggLight = new THREE.PointLight(0xd4243c, 0, 18, 1.5);
@@ -714,13 +735,18 @@ export function build(ctx) {
     }
   });
 
-  // 氛围: 地面烟雾 + 光尘
+  // 氛围: 地面烟雾 + 光尘（v1.9 B2：透明度随雾的呼吸相位同拍起伏——
+  // 亮的时候尘多一点，暗的时候沉下去）
   const smoke = smokeLayer(70, { x: R * 2, z: R * 2 }, { opacity: 0.045, size: 10, yBase: 0.3, ySpread: 1.6 });
   group.add(smoke);
   updaters.push(smoke.userData.update);
   const dust = dustField(240, { x: R * 2, y: 7, z: R * 2 }, { opacity: 0.4 });
   group.add(dust);
   updaters.push(dust.userData.update);
+  updaters.push(() => {
+    dust.material.opacity = 0.4 * (1 + engine.breath * 0.3);
+    smoke.material.opacity = 0.045 * (1 + engine.breath * 0.2);
+  });
 
   // 基础照明
   const amb = new THREE.AmbientLight(0x2a1214, 1.4);
@@ -732,10 +758,52 @@ export function build(ctx) {
   // 调光档缓动：中央顶光跟随、旋钮指针转档
   updaters.push((dt) => {
     dim.v += (dim.stops[dim.idx] - dim.v) * Math.min(1, dt * 4.5);
-    center.intensity = 14 * (0.22 + dim.v * 0.78);
+    center.intensity = 14 * (0.22 + dim.v * 0.78) * (0.12 + 0.88 * openGate.amb);
     const targetRz = -dim.idx * (Math.PI * 2 / 3);
     const kn = dimmer.userData.knob;
     kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
+  });
+
+  // ---------- v1.9 B3：开幕点灯序列（只演一次的开场白） ----------
+  // 黑起 → 六盏吊灯错拍点亮（各配一声很轻的 lampon）→ 主灯组与
+  // 光锥升起（swell 一口气）→ 霓虹标题最后醒来（chime）。全程 ≈7.2s；
+  // 本次会话内重复进厅直接满灯。
+  const openingSfx = { swell: false, neon: false, sub: false };
+  updaters.push((dt) => {
+    if (opening.t < 0) return;
+    opening.t += dt;
+    const T = opening.t;
+    for (let i = 0; i < 6; i++) {
+      const k = Math.min(1, Math.max(0, (T - (0.9 + i * 0.5)) / 0.35));
+      if (k > 0 && openGate.bulb[i] === 0) {
+        audio.sfxAt('lampon', bulbs[i].position.x, bulbs[i].position.z, 0.3);
+      }
+      openGate.bulb[i] = Math.max(openGate.bulb[i], k);
+    }
+    const kc = Math.min(1, Math.max(0, (T - 3.6) / 2.4));
+    openGate.chand = kc * kc * (3 - 2 * kc);
+    openGate.amb = 0.22 + 0.78 * openGate.chand;
+    amb.intensity = 1.4 * (0.3 + 0.7 * openGate.amb);
+    rim.intensity = 22 * openGate.amb;
+    steleWash.intensity = 3.4 * (0.15 + 0.85 * openGate.amb);
+    steleWashB.intensity = 2.6 * (0.15 + 0.85 * openGate.amb);
+    if (T >= 3.7 && !openingSfx.swell) { openingSfx.swell = true; audio.sfx('swell', 0.4); }
+    if (T >= 6.1 && !openingSfx.neon) {
+      openingSfx.neon = true;
+      title.visible = true;
+      audio.sfx('chime', 0.45);
+    }
+    if (T >= 6.6 && !openingSfx.sub) { openingSfx.sub = true; sub.visible = true; }
+    if (T >= 7.2) {
+      opening.t = -1;
+      openGate.bulb = [1, 1, 1, 1, 1, 1];
+      openGate.chand = 1;
+      openGate.amb = 1;
+      amb.intensity = 1.4;
+      rim.intensity = 22;
+      steleWash.intensity = 3.4;
+      steleWashB.intensity = 2.6;
+    }
   });
 
   return {
