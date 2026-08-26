@@ -1221,6 +1221,105 @@ export function build(ctx) {
   updaters.push(back.userData.update);
   hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
+  // v1.4 五遍：总闸刀开关（西墙门洞右肩）——石板配电板 + 双颚黄铜夹 +
+  // 胶木柄刀闸 + 瓷瓶/布线进墙。E → 拉闸：全屋电灯塌下去只剩炉火，
+  // 机器拖慢喘一口……两秒后闸刀自己弹回、灯涌回来——它不让你关
+  const bk = new THREE.Group();
+  bk.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.72, 0.045),
+    new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.55 })));
+  // 支架双臂跨过沿墙管排（板装在管架前——不然刀闸埋在管子后面）
+  bk.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.05, 0.05, 0.52), -0.16, -0.02, -0.28),
+    xform(new THREE.BoxGeometry(0.05, 0.05, 0.52), 0.16, -0.02, -0.28),
+    xform(new THREE.BoxGeometry(0.09, 0.2, 0.03), -0.16, -0.02, -0.53),
+    xform(new THREE.BoxGeometry(0.09, 0.2, 0.03), 0.16, -0.02, -0.53)
+  ], new THREE.MeshStandardMaterial({ color: 0x232428, roughness: 0.5, metalness: 0.6 })));
+  bk.add(mergedMesh([
+    ...[[-0.21, 0.32], [0.21, 0.32], [-0.21, -0.32], [0.21, -0.32]].map(([bx, by]) =>
+      xform(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 8), bx, by, 0.024, Math.PI / 2, 0, 0)),
+    // 双颚夹（上端）+ 铰座（下端）
+    xform(new THREE.BoxGeometry(0.05, 0.07, 0.03), -0.08, 0.22, 0.045),
+    xform(new THREE.BoxGeometry(0.05, 0.07, 0.03), 0.08, 0.22, 0.045),
+    xform(new THREE.BoxGeometry(0.06, 0.05, 0.04), -0.08, -0.14, 0.045),
+    xform(new THREE.BoxGeometry(0.06, 0.05, 0.04), 0.08, -0.14, 0.045)
+  ], M.brass));
+  // 瓷瓶一对 + 布线进墙（顶部圆管导管）
+  bk.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.02, 0.028, 0.05, 10), -0.08, 0.31, 0.04),
+    xform(new THREE.CylinderGeometry(0.02, 0.028, 0.05, 10), 0.08, 0.31, 0.04),
+    xform(new THREE.CylinderGeometry(0.014, 0.014, 0.3, 8), -0.08, 0.48, 0.028),
+    xform(new THREE.CylinderGeometry(0.014, 0.014, 0.3, 8), 0.08, 0.48, 0.028)
+  ], new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.35, envMapIntensity: 0.9 })));
+  // 刀闸（铰在下端，双刀 + 胶木横柄）
+  const leverPivot = new THREE.Group();
+  leverPivot.position.set(0, -0.14, 0.055);
+  const bkLever = mergedMesh([
+    xform(new THREE.BoxGeometry(0.022, 0.38, 0.012), -0.08, 0.19, 0),
+    xform(new THREE.BoxGeometry(0.022, 0.38, 0.012), 0.08, 0.19, 0),
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 0.26, 10), 0, 0.36, 0.02, 0, 0, Math.PI / 2)
+  ], new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.4, metalness: 0.3 }));
+  leverPivot.add(bkLever);
+  bk.add(leverPivot);
+  // 红色带电指示灯（拉闸时熄灭）+ 板上方一盏小工作灯（同受总闸管辖）
+  const pilotMat = new THREE.MeshStandardMaterial({ color: 0x2a0806, emissive: 0xff2a1a, emissiveIntensity: 2.4 });
+  const pilot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), pilotMat);
+  pilot.position.set(0, 0.13, 0.05);
+  bk.add(pilot);
+  const pilotGlow = new THREE.PointLight(0xff3020, 0.7, 1.4, 2);
+  pilotGlow.position.set(0, 0.13, 0.12);
+  bk.add(pilotGlow);
+  const bkWork = new THREE.PointLight(0xffd9a8, 2.0, 3.8, 1.8);
+  bkWork.position.set(0, 0.3, 0.85);
+  bk.add(bkWork);
+  bk.position.set(-S / 2 + 0.56, 1.55, 2.9);
+  bk.rotation.y = Math.PI / 2;
+  group.add(bk);
+  const breakerState = { t: -1, dim: 1 };
+  updaters.push((dt) => {
+    let target = 1;
+    if (breakerState.t >= 0) {
+      breakerState.t += dt;
+      const u = breakerState.t;
+      if (u < 0.22) leverPivot.rotation.x = -(u / 0.22) * 1.3;
+      else if (u < 2.6) leverPivot.rotation.x = -1.3;
+      else if (u < 2.7) leverPivot.rotation.x = -1.3 + ((u - 2.6) / 0.1) * 1.3;
+      else leverPivot.rotation.x = 0;
+      target = u > 0.18 && u < 2.62 ? 0.05 : 1;
+      if (u > 3.8) breakerState.t = -1;
+    }
+    breakerState.dim += (target - breakerState.dim) * Math.min(1, dt * (target < breakerState.dim ? 11 : 7));
+    if (breakerState.dim < 0.999) {
+      const d2 = breakerState.dim;
+      // 逐帧重设型的灯：乘法压暗（各自更新器已在本帧先行写入基线）
+      for (const c of cageLights) {
+        c.light.intensity *= d2;
+        c.bulb.material.emissiveIntensity *= d2;
+      }
+      annexLamp.intensity *= d2;
+      alight.intensity *= d2;
+      bellyFill.intensity = 2.4 * d2; // 静态灯：绝对赋值
+      bkWork.intensity = 2.0 * d2;
+      pilotGlow.intensity = 0.7 * d2;
+      pilotMat.emissiveIntensity = 2.4 * d2;
+    }
+  });
+  hotspots.add(bkLever, {
+    hint: 'E — 总闸',
+    onActivate: () => {
+      if (breakerState.t >= 0) return;
+      breakerState.t = 0;
+      machineState.run = 0.22; // 电走了，机器拖慢喘一口（恢复更新器会拉回）
+      audio.sfxAt('switch', -S / 2, 2.9, 0.8, 4);
+      setTimeout(() => audio.sfx('lampoff', 0.5), 220);
+      setTimeout(() => audio.sfx('heartbeat', 0.25), 1200); // 黑里只剩炉火和它
+      setTimeout(() => {
+        audio.sfxAt('clank', -S / 2, 2.9, 0.7, 4);
+        audio.sfx('lampon', 0.45);
+      }, 2620);
+      setTimeout(() => ui.caption('它不让你关。', 3800), 2900);
+    }
+  });
+
   // 氛围
   const haze = smokeLayer(60, { x: S, z: S }, { opacity: 0.06, size: 9, yBase: 0.5, ySpread: 2.4, color: 0xb9bec4 });
   group.add(haze);
