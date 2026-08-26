@@ -355,6 +355,69 @@ export function build(ctx) {
     }
   });
 
+  // v1.4 五遍：节拍器（唱机矮柜左端）——方锥台身 + 摆杆/滑锤 + 侧发条钥匙。
+  // E → 摆起来嗒嗒数拍，八拍后停在半拍上（不在正中——时间卡住了）
+  const metro = new THREE.Group();
+  const metroBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.048, 0.088, 0.26, 4, 1),
+    woodPbr({ base: [56, 34, 16], planks: 1, size: 128, seed: 53, gloss: 0.6 })
+  );
+  metroBody.rotation.y = Math.PI / 4;
+  metroBody.position.y = 0.13;
+  metro.add(metroBody);
+  metro.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.19, 0.022, 0.19), 0, 0.011, 0),
+    xform(new THREE.BoxGeometry(0.07, 0.016, 0.02), 0, 0.262, 0),
+    // 侧发条钥匙（杆 + 翼片）
+    xform(new THREE.CylinderGeometry(0.006, 0.006, 0.03, 6), 0.075, 0.1, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.BoxGeometry(0.012, 0.034, 0.008), 0.093, 0.1, 0)
+  ], M.brass));
+  const metroPend = new THREE.Group();
+  metroPend.position.set(0, 0.045, 0.056);
+  metroPend.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.0045, 0.0045, 0.2, 6), 0, 0.1, 0),
+    xform(new THREE.BoxGeometry(0.032, 0.022, 0.008), 0, 0.152, 0), // 滑锤
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.012, 10), 0, -0.02, 0) // 配重
+  ], new THREE.MeshStandardMaterial({ color: 0xc9cdd4, roughness: 0.3, metalness: 0.85 })));
+  metro.add(metroPend);
+  metro.position.set(2.32, 0.55, 6.18);
+  metro.rotation.y = Math.PI + 0.28; // 偏一点脸，让受光面朝屋里
+  group.add(metro);
+  // 状态机：phase 累积；8 个半拍后冻在 (n+0.25)π——半拍上、偏着。
+  // 初始态就冻在半拍：你发现它时摆杆已经歪着停住了
+  const metroState = { on: false, phase: Math.PI * 1.25, ticks: 0, amp: 1 };
+  const METRO_W = Math.PI / 0.42; // 半拍 0.42s
+  updaters.push((dt) => {
+    if (metroState.on) {
+      const prev = metroState.phase;
+      metroState.phase += dt * METRO_W;
+      metroState.amp = Math.min(1, metroState.amp + dt * 3);
+      // 每过半拍（sin 极值点 = phase 过 (n+0.5)π）嗒一声
+      const k0 = Math.floor(prev / Math.PI - 0.5);
+      const k1 = Math.floor(metroState.phase / Math.PI - 0.5);
+      if (k1 > k0) {
+        metroState.ticks += 1;
+        audio.sfxAt('click', 2.32 + (metroState.ticks % 2 ? 0.5 : -0.5), 6.18, 0.24, 4);
+        if (metroState.ticks >= 8) {
+          // 冻在下一个 (n+0.25)π：过零后爬升到 0.707A 的地方
+          metroState.on = false;
+          metroState.phase = (Math.floor(metroState.phase / Math.PI) + 1.25) * Math.PI;
+          setTimeout(() => ui.caption('它停在半拍上。', 3800), 600);
+        }
+      }
+    }
+    metroPend.rotation.z = Math.sin(metroState.phase) * 0.5 * metroState.amp;
+  });
+  hotspots.add(metroBody, {
+    hint: 'E — 节拍器',
+    onActivate: () => {
+      if (metroState.on) return;
+      metroState.on = true;
+      metroState.ticks = 0;
+      audio.sfxAt('ratchet', 2.32, 6.18, 0.3, 3);
+    }
+  });
+
   // 吊扇（拉链 → 转/停）
   const fan = ceilingFan({ mats: M });
   fan.position.set(0.4, H, 0.8);
