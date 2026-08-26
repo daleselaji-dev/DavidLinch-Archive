@@ -530,6 +530,119 @@ export function build(ctx) {
     }
   });
 
+  // ---------- 公交站（v1.4 五遍）：混凝土墩长凳 + 晒褪广告背板 + 歪站牌 ----------
+  // E → 长凳往下沉一点、板条吱呀、你旁边浮起一缕烟——没有人坐在那里
+  const busStop = new THREE.Group();
+  busStop.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.14, 0.44, 0.56), -0.82, 0.22, 0),
+    xform(new THREE.BoxGeometry(0.14, 0.44, 0.56), 0.82, 0.22, 0),
+    xform(new THREE.BoxGeometry(0.2, 0.06, 0.6), -0.82, 0.03, 0),
+    xform(new THREE.BoxGeometry(0.2, 0.06, 0.6), 0.82, 0.03, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x8e8b84, roughness: 0.95 })));
+  const benchSlats = mergedMesh([
+    xform(new THREE.BoxGeometry(1.9, 0.045, 0.13), 0, 0.465, 0.14),
+    xform(new THREE.BoxGeometry(1.9, 0.045, 0.13), 0, 0.465, -0.02),
+    xform(new THREE.BoxGeometry(1.9, 0.045, 0.13), 0, 0.465, -0.18),
+    // 靠背上下沿木条（夹住广告板）
+    xform(new THREE.BoxGeometry(1.9, 0.06, 0.05), 0, 1.06, -0.3, -0.1, 0, 0),
+    xform(new THREE.BoxGeometry(1.9, 0.06, 0.05), 0, 0.56, -0.25, -0.1, 0, 0)
+  ], woodMat({ base: [52, 38, 24], planks: 1, size: 128, seed: 87, gloss: 0.25 }));
+  busStop.add(benchSlats);
+  // 广告背板：晒得只剩奶白底 + 一道褪色的笑容弧 + 雨痕
+  const adTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#c9bfa8';
+    g.fillRect(0, 0, s, s);
+    const r2 = rng(29);
+    for (let i = 0; i < 26; i++) { // 雨痕竖streak
+      g.fillStyle = `rgba(120,108,88,${0.05 + r2() * 0.09})`;
+      const x = r2() * s;
+      g.fillRect(x, r2() * s * 0.3, 1.5 + r2() * 2.5, s * (0.4 + r2() * 0.6));
+    }
+    // 只剩一个笑容（弧线断续，像磨掉一半的印刷）
+    g.strokeStyle = 'rgba(60,32,28,0.55)';
+    g.lineWidth = 7;
+    g.setLineDash([16, 11]);
+    g.beginPath();
+    g.arc(s / 2, s * 0.3, s * 0.24, Math.PI * 0.15, Math.PI * 0.85);
+    g.stroke();
+    g.setLineDash([]);
+    // 边框磨损
+    g.strokeStyle = 'rgba(70,58,40,0.5)';
+    g.lineWidth = 5;
+    g.strokeRect(6, 6, s - 12, s - 12);
+  });
+  const adPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.84, 0.46),
+    new THREE.MeshStandardMaterial({ map: adTex, roughness: 0.85 }));
+  adPanel.position.set(0, 0.81, -0.275);
+  adPanel.rotation.x = -0.1;
+  busStop.add(adPanel);
+  // 歪站牌：细杆 + 锈箍 + 空白客车图形牌（不添字）
+  const busPole = new THREE.Group();
+  busPole.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.03, 0.035, 2.7, 10), 0, 1.35, 0),
+    xform(new THREE.CylinderGeometry(0.037, 0.037, 0.09, 10), 0, 0.5, 0),
+    xform(new THREE.CylinderGeometry(0.037, 0.037, 0.06, 10), 0, 1.62, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x5a5148, roughness: 0.6, metalness: 0.5 })));
+  const busSignTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#182238';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#d8d2c0';
+    g.lineWidth = 4;
+    g.strokeRect(8, 8, s - 16, s - 16);
+    // 客车图形：圆角车身 + 车窗条 + 双轮
+    g.fillStyle = '#d8d2c0';
+    g.beginPath();
+    g.roundRect(26, 44, 76, 34, 8);
+    g.fill();
+    g.fillStyle = '#182238';
+    g.fillRect(32, 50, 64, 10);
+    g.fillStyle = '#d8d2c0';
+    g.beginPath();
+    g.arc(42, 82, 7, 0, Math.PI * 2);
+    g.arc(86, 82, 7, 0, Math.PI * 2);
+    g.fill();
+  });
+  const busSign = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3),
+    new THREE.MeshStandardMaterial({ map: busSignTex, roughness: 0.55, side: THREE.DoubleSide }));
+  busSign.position.set(0, 2.45, 0.02);
+  busPole.add(busSign);
+  busPole.position.set(0.95, 0, 0.42);
+  busPole.rotation.z = 0.05;
+  busStop.add(busPole);
+  // 烟缕（凳子远端上方，平时隐形）
+  const benchWisp = smokeLayer(3, { x: 0.08, z: 0.08 }, { opacity: 0, size: 0.3, yBase: 0, ySpread: 0.5, color: 0xc8ccd4 });
+  benchWisp.position.set(-0.62, 0.95, 0);
+  busStop.add(benchWisp);
+  updaters.push(benchWisp.userData.update);
+  busStop.position.set(5.5, 0, 11.4);
+  busStop.rotation.y = -Math.PI / 2 - 0.04;
+  group.add(busStop);
+  const benchState = { t: -1 };
+  updaters.push((dt) => {
+    if (benchState.t < 0) return;
+    benchState.t += dt;
+    const u = benchState.t;
+    // 下沉（过阻尼弹簧）+ 4s 里烟缕起又散
+    const dip = u < 0.3 ? (u / 0.3) * 0.016 : 0.016 * (1 + Math.sin((u - 0.3) * 7) * 0.18 * Math.exp(-(u - 0.3) * 3));
+    busStop.position.y = -dip;
+    benchWisp.material.opacity = u < 0.8 ? u * 0.22 : Math.max(0, 0.18 - (u - 0.8) * 0.05);
+    if (u > 4.4) {
+      benchState.t = -1;
+      busStop.position.y = 0;
+      benchWisp.material.opacity = 0;
+    }
+  });
+  hotspots.add(benchSlats, {
+    hint: 'E — 等车的长凳',
+    onActivate: () => {
+      if (benchState.t >= 0) return;
+      benchState.t = 0;
+      audio.sfxAt('creak', 5.5, 11.4, 0.4, 3);
+      setTimeout(() => audio.sfx('breath', 0.32), 900);
+      ui.caption('长凳往下沉了一点。你旁边没有人。', 4400);
+    }
+  });
+
   // ---------- 剧场外壳（侧墙/后墙——暗巷贴着它走） ----------
   const shellTex = canvasTexture(256, (g, s) => {
     g.fillStyle = '#191216';
