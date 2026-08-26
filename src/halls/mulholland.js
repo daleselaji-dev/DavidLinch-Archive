@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
-  smokeLayer, dustField, lightCone, quotePlaque, vitrine,
+  smokeLayer, dustField, lightCone, lightCone2, quotePlaque, vitrine,
   darkFigure, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
   asphaltMat, woodMat, rng
@@ -918,7 +918,8 @@ export function build(ctx) {
   stageSpot.position.set(0, 6.2, -1.8);
   stageSpot.target.position.set(-1.6, 0.7, -4.2);
   inner.add(stageSpot, stageSpot.target);
-  const stageCone = lightCone(0.35, 1.5, 5.4, 0xffeedd, 0.06);
+  // v1.4 P7：剧场聚光升级双层锥（内芯亮 + 外晕柔）
+  const stageCone = lightCone2(0.35, 1.5, 5.4, 0xffeedd, 0.06);
   stageCone.position.set(-1.6, 3.2, -4.2);
   inner.add(stageCone);
   // 台口拱架：条纹壁柱 ×2（基座/柱身/柱帽 + 竖棱）+ 双级楣梁 + 鎏金内沿

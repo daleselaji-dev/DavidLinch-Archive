@@ -90,9 +90,10 @@ function createWindow() {
         // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28）：每厅非导航可交互物 ≥ 阈值，
         // 且逐一激活（onActivate 全链无异常）后才放行去下一厅
         // v1.4 阶段 4 普查：12/21/14/14/15/14/16（总 106 ≥ 105）—— 阈值锁在普查值 -1，防回退
+        // v1.4 终版普查 -1（实测 12/23/14/14/16/14/16）
         const INTERACTIVE_MIN = {
-          lobby: 11, archive: 20, eraserhead: 13, bluevelvet: 13,
-          twinpeaks: 14, mulholland: 13, studio: 15
+          lobby: 11, archive: 22, eraserhead: 13, bluevelvet: 13,
+          twinpeaks: 15, mulholland: 13, studio: 15
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true

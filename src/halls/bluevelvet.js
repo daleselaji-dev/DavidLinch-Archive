@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
-  neonSign, micStand, smokeLayer, dustField, lightCone, quotePlaque, vitrine,
+  neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quotePlaque, vitrine,
   velvetMaterial, zoneTrigger, rectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
   woodMat, fabricMat, rng
@@ -129,7 +129,8 @@ export function build(ctx) {
   spot.position.set(0, H - 0.2, -D / 2 + 3.4);
   spot.target.position.set(0, 0.6, -D / 2 + 2.3);
   group.add(spot, spot.target);
-  const cone = lightCone(0.35, 1.7, 5.2, 0xdfe6ff, 0.07);
+  // v1.4 P7：舞台聚光升级双层锥（内芯亮 + 外晕柔）
+  const cone = lightCone2(0.35, 1.7, 5.2, 0xdfe6ff, 0.07);
   cone.position.set(0, 3.1, -D / 2 + 2.3);
   group.add(cone);
   // v1.4 二遍：舞台生活痕迹——返听音箱楔（网面朝话筒）+ 话筒线沿台面
