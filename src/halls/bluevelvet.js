@@ -207,6 +207,24 @@ export function build(ctx) {
     pullRope.rotation.x = Math.sin(curtainShudder.t * 5.5) * 0.2 * curtainShudder.e;
     footWash.intensity = 3 + curtainShudder.e * 5;
   });
+  // v1.4 四遍：后幕呼吸——丝绒在没人看它的时候也在动。
+  // 顶端被杆钉死（权重 0.15）、底摆最重（1.0）；褶皱幅度慢相位起伏 +
+  // 一支横向游走波：逐顶点只改 Z、每帧重算法线（~1600 顶点，可忽略）
+  const breathMesh = backdrop.children[0];
+  const bGeo = breathMesh.geometry;
+  const bPos = bGeo.attributes.position;
+  const bBase = bPos.array.slice();
+  updaters.push((dt, t) => {
+    if (curtainShudder.e > 0.004) return; // 寒颤时让位
+    for (let i = 0; i < bPos.count; i++) {
+      const u = bBase[i * 3] / 9.4 + 0.5;
+      const w = 1 - (bBase[i * 3 + 1] / 5.2 + 0.5) * 0.85;
+      bPos.array[i * 3 + 2] = bBase[i * 3 + 2] * (1 + Math.sin(u * 5 + t * 0.6) * 0.16 * w) +
+        Math.sin(u * Math.PI * 2 + t * 0.85) * 0.05 * w;
+    }
+    bPos.needsUpdate = true;
+    bGeo.computeVertexNormals();
+  });
   hotspots.add(tassel, {
     hint: 'E — 拉动幕绳',
     onActivate: () => {
