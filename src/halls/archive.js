@@ -10,9 +10,11 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, roundedBoxGeo, lightCone
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone
 } from './kit.js';
-import { propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp } from './props.js';
+import {
+  propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
+} from './props.js';
 
 export const meta = {
   id: 'archive',
@@ -21,7 +23,13 @@ export const meta = {
   narration: 'archive',
   space: 'hall',
   floorSfx: 'wood',
-  look: { saturation: 0.82, tint: 0xe8f0ff, fogColor: 0x05060a, fogDensity: 0.055, bg: 0x030407, exposure: 1.0, bloom: 0.75 }
+  look: {
+    saturation: 0.82, tint: 0xe8f0ff, fogColor: 0x05060a, fogDensity: 0.055,
+    bg: 0x030407, exposure: 1.0, bloom: 0.75,
+    // v1.4 P4/P5：档案荧光冷分级——青蓝暗部微抬 + 冷高光，halation 给灯管一点乳晕
+    halation: 0.12,
+    grade: { lift: [0.006, 0.01, 0.016], gamma: [0.99, 1.0, 1.02], gain: [0.97, 1.0, 1.04] }
+  }
 };
 
 const W = 9;
@@ -273,6 +281,90 @@ export function build(ctx) {
       audio.sfxAt('switch', -2.85, -14, 0.32, 3);
     }
   });
+  // v1.4 P3/P6：借书日期章 + 印台 + 借书卡（E → 章落下盖一记，卡上浮出空白日期）
+  const stamp = new THREE.Group();
+  const stampKnob = new THREE.LatheGeometry([
+    new THREE.Vector2(0.001, 0), new THREE.Vector2(0.014, 0.002), new THREE.Vector2(0.018, 0.05),
+    new THREE.Vector2(0.008, 0.075), new THREE.Vector2(0.026, 0.1), new THREE.Vector2(0.03, 0.13),
+    new THREE.Vector2(0.012, 0.145), new THREE.Vector2(0.001, 0.148)
+  ], 12);
+  stamp.add(mergedMesh([xform(stampKnob, 0, 0.03, 0)],
+    woodMat({ base: [46, 26, 14], planks: 1, size: 128, seed: 61, gloss: 0.6 })));
+  stamp.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.085, 0.018, 0.05), 0, 0.021, 0),
+    xform(new THREE.BoxGeometry(0.07, 0.012, 0.04), 0, 0.006, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.4, metalness: 0.8 })));
+  stamp.position.set(0.34, 0.78, 0.1);
+  stamp.rotation.y = 0.4;
+  readTable.add(stamp);
+  const inkPad = mergedMesh([
+    xform(roundedBoxGeo(0.13, 0.018, 0.095, 0.006, 2), 0, 0.009, 0),
+    xform(new THREE.BoxGeometry(0.115, 0.008, 0.08), 0, 0.021, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x30080e, roughness: 0.9 }));
+  inkPad.position.set(0.54, 0.78, -0.13);
+  inkPad.rotation.y = -0.3;
+  readTable.add(inkPad);
+  const mkCardTex = (stamped) => canvasTexture(64, (g, s) => {
+    g.fillStyle = '#e6ddc6';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(70,58,44,0.55)';
+    g.lineWidth = 1;
+    for (let i = 1; i < 6; i++) {
+      g.beginPath(); g.moveTo(6, 10 + i * 8); g.lineTo(s - 6, 10 + i * 8); g.stroke();
+    }
+    g.fillStyle = 'rgba(70,58,44,0.8)';
+    g.font = '7px "Courier New", monospace';
+    g.fillText('DATE DUE', 6, 9);
+    if (stamped) {
+      g.save();
+      g.translate(s / 2, s / 2 + 4);
+      g.rotate(-0.12);
+      g.fillStyle = 'rgba(170,22,34,0.85)';
+      g.font = '700 11px "Courier New", monospace';
+      g.textAlign = 'center';
+      g.fillText('\u25a1\u25a1 \u00b7 \u25a1\u25a1', 0, 0);
+      g.strokeStyle = 'rgba(170,22,34,0.7)';
+      g.strokeRect(-22, -11, 44, 16);
+      g.restore();
+    }
+  });
+  const cardBlank = mkCardTex(false);
+  const cardStamped = mkCardTex(true);
+  const cardMat = new THREE.MeshStandardMaterial({ map: cardBlank, roughness: 0.9 });
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.1), cardMat);
+  card.rotation.x = -Math.PI / 2;
+  card.rotation.z = 0.18;
+  card.position.set(0.33, 0.784, 0.1);
+  readTable.add(card);
+  const stampState = { t: -1, inked: false };
+  updaters.push((dt) => {
+    if (stampState.t < 0) return;
+    stampState.t += dt;
+    // 抬起 → 砸下 → 回弹的一拍（0.55s）
+    const k = stampState.t / 0.55;
+    if (k >= 1) { stamp.position.y = 0.78; stampState.t = -1; return; }
+    const lift = Math.sin(Math.min(k * 2.2, 1) * Math.PI) * 0.09;
+    const slam = k > 0.62 ? Math.sin((k - 0.62) / 0.38 * Math.PI) * 0.012 : 0;
+    stamp.position.y = 0.78 + lift - slam;
+    if (!stampState.inked && k > 0.62) {
+      stampState.inked = true;
+      cardMat.map = cardStamped;
+      cardMat.needsUpdate = true;
+      audio.sfxAt('thud', -2.5, -14, 0.4, 2.5);
+    }
+  });
+  hotspots.add(stamp, {
+    hint: 'E — 借书日期章',
+    onActivate: () => {
+      if (stampState.t >= 0) return;
+      stampState.t = 0;
+      stampState.inked = false;
+      cardMat.map = cardBlank;
+      cardMat.needsUpdate = true;
+      audio.sfxAt('page', -2.5, -14, 0.3, 2.5);
+      ui.caption('盖下去的日期是空白的。', 3400);
+    }
+  });
 
   // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
   const projector = filmProjector({ mats: M });
@@ -335,6 +427,60 @@ export function build(ctx) {
       projState.on = !projState.on;
       audio.sfxAt(projState.on ? 'projector' : 'switch', -2.0, 8.2, 0.7);
       if (projState.on) ui.caption('每秒二十四格的空白。', 3600);
+    }
+  });
+
+  // ---------- 滚动图书梯（v1.4 P3 新件）：黄铜墙轨 + 双弦梯 + 挂钩 + 胶轮 ----------
+  // E → 沿墙轨滚去另一端（轮子转、黄铜钩磨轨、木身吱呀）
+  group.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 4.2, 10), W / 2 - 0.16, 4.35, 2.4, Math.PI / 2, 0, 0),
+    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 0.6),
+    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 2.4),
+    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2)
+  ], M.brass));
+  const ladder = new THREE.Group();
+  const ladderWood = woodMat({ base: [34, 22, 13], planks: 1, size: 256, seed: 44, gloss: 0.45 });
+  const stringerGeo = roundedBoxGeo(0.035, 4.55, 0.09, 0.012, 2);
+  const ladderGeos = [
+    xform(stringerGeo, -0.26, 2.275, 0),
+    xform(stringerGeo, 0.26, 2.275, 0)
+  ];
+  for (let i = 0; i < 11; i++) {
+    ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
+  }
+  ladder.add(mergedMesh(ladderGeos, ladderWood));
+  // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉
+  ladder.add(mergedMesh([
+    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
+    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
+    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
+    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045)
+  ], M.brass));
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
+  const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);
+  wheelL.rotation.z = Math.PI / 2;
+  wheelL.position.set(-0.26, 0.05, 0.06);
+  const wheelR = wheelL.clone();
+  wheelR.position.x = 0.26;
+  ladder.add(wheelL, wheelR);
+  ladder.position.set(W / 2 - 1.12, 0, 2.4);
+  ladder.rotation.z = -0.21;
+  group.add(ladder);
+  const ladderState = { z: 2.4, target: 3.5 };
+  updaters.push((dt) => {
+    const dz = (ladderState.target - ladderState.z) * Math.min(1, dt * 2.2);
+    ladderState.z += dz;
+    ladder.position.z = ladderState.z;
+    wheelL.rotation.x += dz / 0.05;
+    wheelR.rotation.x += dz / 0.05;
+  });
+  hotspots.add(ladder.children[0], {
+    hint: 'E — 推一把图书梯',
+    onActivate: () => {
+      ladderState.target = ladderState.target > 2.4 ? 1.3 : 3.5;
+      audio.sfxAt('creak', W / 2 - 1, ladderState.z, 0.5, 3);
+      setTimeout(() => audio.sfxAt('thud', W / 2 - 1, ladderState.target, 0.3, 3), 900);
+      ui.caption('最上面一格，谁也够不着。', 3200);
     }
   });
 
@@ -438,20 +584,42 @@ export function build(ctx) {
     hint: 'E — 生平与荣誉',
     onActivate: () => ui.showArtist()
   });
+  // v1.4 P3 纪念墙 v2：五通道脉络大理石门套——双壁柱（础/身/顶帽）+ 过梁横楣 +
+  // 整块大理石台基踏步；烛台桌整个抬上台基；前场一对黄铜绒绳（瞻仰的距离感）
+  const memMarble = marbleMat({ seed: 27, repX: 1, repY: 2, veinA: [70, 74, 88] });
+  group.add(mergedMesh([
+    // 台基踏步（贯通整面墙前）
+    xform(new THREE.BoxGeometry(8.2, 0.14, 1.9), 0, 0.07, -L / 2 + 1.0),
+    xform(new THREE.BoxGeometry(8.6, 0.06, 2.2), 0, 0.03, -L / 2 + 1.12),
+    // 壁柱 ×2：柱础 / 柱身 / 顶帽
+    xform(new THREE.BoxGeometry(0.66, 0.5, 0.5), -3.62, 0.39, -L / 2 + 0.3),
+    xform(new THREE.BoxGeometry(0.66, 0.5, 0.5), 3.62, 0.39, -L / 2 + 0.3),
+    xform(roundedBoxGeo(0.52, 4.3, 0.38, 0.04), -3.62, 2.75, -L / 2 + 0.26),
+    xform(roundedBoxGeo(0.52, 4.3, 0.38, 0.04), 3.62, 2.75, -L / 2 + 0.26),
+    xform(new THREE.BoxGeometry(0.66, 0.22, 0.5), -3.62, 5.0, -L / 2 + 0.3),
+    xform(new THREE.BoxGeometry(0.66, 0.22, 0.5), 3.62, 5.0, -L / 2 + 0.3),
+    // 过梁横楣（压在双柱顶上）
+    xform(new THREE.BoxGeometry(8.0, 0.42, 0.46), 0, 5.32, -L / 2 + 0.3)
+  ], memMarble));
+  for (const sx of [-1, 1]) {
+    const rope = stanchionRope({ span: 2.0, mats: M });
+    rope.position.set(sx * 1.45, 0, -L / 2 + 2.5);
+    group.add(rope);
+  }
 
-  // 纪念墙前的"烛火"排
+  // 纪念墙前的"烛火"排（v1.4：整桌抬上大理石台基）
   for (let i = 0; i < 7; i++) {
     const x = -1.8 + i * 0.6;
     const candle = new THREE.Mesh(
       new THREE.CylinderGeometry(0.045, 0.055, 0.28, 10),
       new THREE.MeshStandardMaterial({ color: 0xd9cfc0, roughness: 0.8 })
     );
-    candle.position.set(x, 0.6, -L / 2 + 1.3);
+    candle.position.set(x, 0.74, -L / 2 + 1.3);
     const flame = new THREE.Mesh(
       new THREE.SphereGeometry(0.028, 8, 8),
       new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffb45e, emissiveIntensity: 5 })
     );
-    flame.position.set(x, 0.78, -L / 2 + 1.3);
+    flame.position.set(x, 0.92, -L / 2 + 1.3);
     group.add(candle, flame);
     updaters.push((dt, t) => {
       flame.material.emissiveIntensity = 4.2 + Math.sin(t * 9 + i * 2.4) * 1.1 + Math.random() * 0.5;
@@ -459,7 +627,7 @@ export function build(ctx) {
   }
   const table = roundedBoxMesh(5, 0.46, 0.7, 0.04,
     new THREE.MeshStandardMaterial({ map: woodTexture({ base: [20, 12, 8], planks: 2, size: 128 }), roughness: 0.5 }));
-  table.position.set(0, 0.23, -L / 2 + 1.3);
+  table.position.set(0, 0.37, -L / 2 + 1.3);
   const memLight = new THREE.PointLight(0xffb45e, 7, 10, 1.8);
   memLight.position.set(0, 1.6, -L / 2 + 2);
   group.add(table, memLight);
