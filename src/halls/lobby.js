@@ -6,10 +6,10 @@
 import * as THREE from 'three';
 import {
   PALETTE, curtainRing, floorMesh, neonSign, doorway,
-  smokeLayer, dustField, lightCone, hangingBulb, makeFlicker,
+  smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quotePlaque, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat, canvasTexture, rng
+  chevronMat, woodMat, marbleMat
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -24,7 +24,13 @@ export const meta = {
   narration: 'lobby',
   space: 'hall',
   floorSfx: 'wood',
-  look: { saturation: 1.04, tint: 0xfff4ee, fogColor: 0x0a0406, fogDensity: 0.05, bg: 0x080304, exposure: 1.05, bloom: 0.9 }
+  look: {
+    saturation: 1.04, tint: 0xfff4ee, fogColor: 0x0a0406, fogDensity: 0.05,
+    bg: 0x080304, exposure: 1.05, bloom: 0.9,
+    // v1.4 P4/P5：暗部微蓝紫 + 高光偏暖增益 + 中等 halation（帷幕红晕）
+    halation: 0.17,
+    grade: { lift: [0.012, 0.004, 0.018], gamma: [1.04, 1.0, 0.98], gain: [1.06, 1.0, 0.94] }
+  }
 };
 
 const R = 14.5;
@@ -49,29 +55,14 @@ export function build(ctx) {
   ringInner.position.y = 0.006;
   group.add(ringOuter, ringInner);
 
-  // 帷幕脚下的深色大理石镶边带（拼花地面 → 幕墙的过渡）+ 内缘鎏金细线
-  const marbleTex = canvasTexture(256, (g, s) => {
-    g.fillStyle = '#141117';
-    g.fillRect(0, 0, s, s);
-    const r = rng(53);
-    for (let v = 0; v < 14; v++) {
-      let x = r() * s;
-      let y = r() * s;
-      g.strokeStyle = `rgba(${170 + r() * 40 | 0},${165 + r() * 35 | 0},${175 + r() * 30 | 0},${(0.05 + r() * 0.08).toFixed(3)})`;
-      g.lineWidth = 0.6 + r() * 1.8;
-      g.beginPath();
-      g.moveTo(x, y);
-      for (let i = 0; i < 26; i++) {
-        x += (r() - 0.5) * 30;
-        y += (r() - 0.35) * 22;
-        g.lineTo(x, y);
-      }
-      g.stroke();
-    }
-  }, 3, 3);
+  // 帷幕脚下的深色大理石镶边带（v1.4 P2：五通道脉络大理石——
+  // 随机游走主脉+云斑+踩踏磨损+AO，抛光 clearcoat 映吊灯）+ 内缘鎏金细线
   const marbleBand = new THREE.Mesh(
     new THREE.RingGeometry(R - 1.35, R - 0.05, 72),
-    new THREE.MeshStandardMaterial({ map: marbleTex, roughness: 0.22, envMapIntensity: 1.1 })
+    marbleMat({
+      base: [32, 28, 36], veinA: [172, 174, 186], veinB: [112, 100, 90],
+      size: 512, seed: 53, gloss: 0.88, env: 1.5, repX: 3, repY: 3, normalScale: 0.4
+    })
   );
   marbleBand.rotation.x = -Math.PI / 2;
   marbleBand.position.y = 0.007;
@@ -108,8 +99,11 @@ export function build(ctx) {
     group.add(col);
   }
 
-  // 中央纪念台（叠级 + 鎏金沿）
-  const daisMat = new THREE.MeshStandardMaterial({ color: 0x140b0e, roughness: 0.35, metalness: 0.3, envMapIntensity: 0.8 });
+  // 中央纪念台（v1.4：深色抛光大理石叠级 + 鎏金沿——碑座与地面同石种呼应）
+  const daisMat = marbleMat({
+    base: [24, 19, 26], veinA: [150, 148, 162], veinB: [98, 86, 76],
+    size: 512, seed: 57, gloss: 0.9, env: 1.25, normalScale: 0.35
+  });
   const dais = mergedMesh([
     xform(new THREE.CylinderGeometry(2.7, 2.85, 0.12, 48), 0, 0.06, 0),
     xform(new THREE.CylinderGeometry(2.45, 2.6, 0.12, 48), 0, 0.18, 0)
@@ -120,7 +114,8 @@ export function build(ctx) {
   daisTrim.position.y = 0.24;
   group.add(daisTrim);
 
-  const cone = lightCone(0.7, 3.1, 7.6, 0xf2e9dc, 0.055);
+  // 双层体积光锥（v1.4 P7：内芯亮 + 外晕柔，跟随调光档）
+  const cone = lightCone2(0.7, 3.1, 7.6, 0xf2e9dc, 0.05);
   cone.position.y = 4.2;
   group.add(cone);
 
@@ -148,6 +143,8 @@ export function build(ctx) {
     const breathe = 0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03;
     lustre.userData.setPower(breathe * dim.v);
     crownWash.intensity = 4.5 * breathe * dim.v;
+    // 双层体积锥跟随调光（灯暗时光柱一并收薄）
+    cone.userData.setStrength(0.3 + breathe * dim.v * 0.7);
   });
 
   // 悬浮标题霓虹

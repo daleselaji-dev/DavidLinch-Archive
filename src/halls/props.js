@@ -90,6 +90,43 @@ export function chandelier({ arms = 6, radius = 1.15, mats } = {}) {
   flameGeo.dispose();
   const bulbs = mergedMesh(bulbGeos, bulbMat);
   g.add(bulbs);
+  // v1.4 吊灯 v3（P3 微观质感）：水晶垂坠排 + 臂间垂弧珠链 + 底部大尖坠——
+  // 高光边由玻璃材质承担，转动时随环境贴图闪烁
+  const crystalMat = new THREE.MeshPhysicalMaterial({
+    color: 0xeef4ff, metalness: 0, roughness: 0.05,
+    transparent: true, opacity: 0.55, envMapIntensity: 2.8,
+    clearcoat: 1, clearcoatRoughness: 0.05
+  });
+  const dropGeo = new THREE.OctahedronGeometry(0.032, 0);
+  dropGeo.scale(1, 1.9, 1);
+  const beadGeo = new THREE.SphereGeometry(0.014, 8, 6);
+  const crystalGeos = [];
+  for (let i = 0; i < arms; i++) {
+    const a = (i / arms) * Math.PI * 2;
+    const dx = Math.cos(a);
+    const dz = Math.sin(a);
+    // 烛杯下三连垂坠：珠-珠-尖
+    crystalGeos.push(xform(beadGeo, dx * radius, 0.335, dz * radius));
+    crystalGeos.push(xform(beadGeo, dx * radius, 0.305, dz * radius));
+    crystalGeos.push(xform(dropGeo, dx * radius, 0.24, dz * radius));
+    // 臂间中点内挂一枚小坠
+    const am = a + Math.PI / arms;
+    crystalGeos.push(xform(dropGeo, Math.cos(am) * radius * 0.6, 0.18, Math.sin(am) * radius * 0.6, 0, 0, 0, 0.75));
+    // 臂-臂垂弧珠链
+    const a1 = ((i + 1) / arms) * Math.PI * 2;
+    for (let k = 1; k < 6; k++) {
+      const t = k / 6;
+      const ax = dx * radius * (1 - t) + Math.cos(a1) * radius * t;
+      const az = dz * radius * (1 - t) + Math.sin(a1) * radius * t;
+      crystalGeos.push(xform(beadGeo, ax, 0.4 - Math.sin(t * Math.PI) * 0.13, az));
+    }
+  }
+  crystalGeos.push(xform(dropGeo, 0, -0.09, 0, 0, 0, 0, 1.9));
+  dropGeo.dispose();
+  beadGeo.dispose();
+  const crystals = mergedMesh(crystalGeos, crystalMat);
+  g.add(crystals);
+  g.userData.crystals = crystals;
   const light = new THREE.PointLight(0xffd9a0, 9, 15, 1.7);
   light.position.y = 0.6;
   g.add(light);
@@ -98,6 +135,7 @@ export function chandelier({ arms = 6, radius = 1.15, mats } = {}) {
   g.userData.setPower = (v) => {
     light.intensity = 9 * v;
     bulbMat.emissiveIntensity = 3.0 * Math.max(0.03, v);
+    crystalMat.opacity = 0.35 + Math.max(0.03, v) * 0.25;
   };
   return g;
 }
