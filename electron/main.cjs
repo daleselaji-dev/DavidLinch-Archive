@@ -87,13 +87,14 @@ function createWindow() {
             app.exit(1);
           }
         }).catch(() => {});
-        // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28 / v1.7 门禁 42）：
+        // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28 / v1.7 门禁 42 / v1.9 门禁 48）：
         // 每厅非导航可交互物 ≥ 阈值，且逐一激活（onActivate 全链无异常）
-        // 后才放行去下一厅。v1.8 增补后重锁普查-1：
-        // 穆赫兰道 +1（墙角刮痕）
+        // 后才放行去下一厅。v1.9 阶段 2 七厅两件后重锁普查-1：
+        // 普查 16/26/19/17/20/19/20 = 137（长明灯/束带/落地灯拉链/柴堆/
+        // 歪瓷碗/衣帽间/蒸汽立管/擦痕/铅笔刀/表盘/阀牌/放大镜/检修牌…）
         const INTERACTIVE_MIN = {
-          lobby: 11, archive: 23, eraserhead: 16, bluevelvet: 14,
-          twinpeaks: 17, mulholland: 18, studio: 17
+          lobby: 15, archive: 25, eraserhead: 18, bluevelvet: 16,
+          twinpeaks: 18, mulholland: 19, studio: 19
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
