@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
-  quotePlaque, zoneTrigger,
+  quoteStand, quoteStandUpdater, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
@@ -1472,11 +1472,12 @@ export function build(ctx) {
   const radioTrig = zoneTrigger({ x: -7.0, z: -5.2, r: 1.35 }, radioEgg, { cooldown: 45 });
   updaters.push((dt) => radioTrig.update(player, dt));
 
-  // ---------- 展签（全厅仅一块，短原话） ----------
-  const q1 = quotePlaque(quoteById('you'), '#ffb25e');
+  // ---------- 引语立牌（全厅仅一座，走近才显影） ----------
+  const q1 = quoteStand(quoteById('you'), '#ffb25e');
   q1.position.set(2.2, 0, -5.6);
   q1.rotation.y = 0.35;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()

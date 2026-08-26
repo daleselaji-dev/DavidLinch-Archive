@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
-  smokeLayer, dustField, quotePlaque, vitrine, darkFigure,
+  smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
   concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat
@@ -1321,11 +1321,12 @@ export function build(ctx) {
     }
   });
 
-  // 引语展签（本厅唯一文字展签：费城）
-  const q1 = quotePlaque(quoteById('philly'), '#9fb4c7');
+  // 引语立牌（本厅唯一文字件：费城，走近才显影）
+  const q1 = quoteStand(quoteById('philly'), '#9fb4c7');
   q1.position.set(-5.6, 0, 2.2);
   q1.rotation.y = 1.35;
   group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()
