@@ -318,7 +318,8 @@ export function build(ctx) {
     hint: 'E — 树梢上的一双眼睛',
     onActivate: () => {
       if (owlState.t < 0) owlState.t = 0;
-      audio.sfxAt('whisper', -6.3, 5.7, 0.5, 5);
+      audio.sfxAt('flutter', -6.3, 5.7, 0.7, 5);
+      setTimeout(() => audio.sfxAt('owl', -6.3, 5.7, 0.5, 6), 900);
       ui.caption('它先看见你的。', 3200);
     }
   });

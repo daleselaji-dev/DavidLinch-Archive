@@ -823,8 +823,7 @@ export function build(ctx) {
     hint: 'E — 香槟冰桶',
     onActivate: () => {
       if (bucketState.t < 0) bucketState.t = 0;
-      audio.sfxAt('clank', 6.85, 3.75, 0.22, 3);
-      setTimeout(() => audio.sfxAt('chime', 6.85, 3.75, 0.16, 3), 260);
+      audio.sfxAt('iceclink', 6.85, 3.75, 0.6, 3);
       ui.caption('冰早就化了。酒还在等人。', 3400);
     }
   });

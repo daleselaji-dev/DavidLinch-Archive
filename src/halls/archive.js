@@ -350,7 +350,6 @@ export function build(ctx) {
       stampState.inked = true;
       cardMat.map = cardStamped;
       cardMat.needsUpdate = true;
-      audio.sfxAt('thud', -2.5, -14, 0.4, 2.5);
     }
   });
   hotspots.add(stamp, {
@@ -361,7 +360,7 @@ export function build(ctx) {
       stampState.inked = false;
       cardMat.map = cardBlank;
       cardMat.needsUpdate = true;
-      audio.sfxAt('page', -2.5, -14, 0.3, 2.5);
+      audio.sfxAt('stamp', -2.5, -14, 0.8, 2.5); // 音色自带抬起→闷压时间线
       ui.caption('盖下去的日期是空白的。', 3400);
     }
   });
@@ -478,8 +477,8 @@ export function build(ctx) {
     hint: 'E — 推一把图书梯',
     onActivate: () => {
       ladderState.target = ladderState.target > 2.4 ? 1.3 : 3.5;
-      audio.sfxAt('creak', W / 2 - 1, ladderState.z, 0.5, 3);
-      setTimeout(() => audio.sfxAt('thud', W / 2 - 1, ladderState.target, 0.3, 3), 900);
+      audio.sfxAt('ladderroll', W / 2 - 1, ladderState.z, 0.8, 4);
+      setTimeout(() => audio.sfxAt('thud', W / 2 - 1, ladderState.target, 0.28, 3), 950);
       ui.caption('最上面一格，谁也够不着。', 3200);
     }
   });

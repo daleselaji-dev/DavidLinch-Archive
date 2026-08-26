@@ -533,8 +533,7 @@ export function build(ctx) {
     hint: 'E — 伞架',
     onActivate: () => {
       umbState.t = 0;
-      audio.sfxAt('clank', 1.9, 7.9, 0.35, 3);
-      setTimeout(() => audio.sfxAt('creak', 1.9, 7.9, 0.3, 3), 220);
+      audio.sfxAt('jostle', 1.9, 7.9, 0.7, 3);
       ui.caption('外面没有在下雨。里面也没有。', 3400);
     }
   });

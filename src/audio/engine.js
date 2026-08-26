@@ -485,6 +485,63 @@ export class AudioEngine {
         }
         break;
       }
+      // ---------- v1.4 阶段 5 新音色（配套阶段 3/4 新交互） ----------
+      case 'coin': { // 硬币落进黄铜碟：非谐亮鸣两跳半 + 细碎落定
+        for (const [d, k] of [[0, 1], [0.16, 0.6], [0.27, 0.35]]) {
+          tone('sine', 3620, 3580, 0.12 * k + 0.04, 0.05 * k, d);
+          tone('sine', 5430, 5390, 0.08 * k + 0.03, 0.028 * k, d + 0.002);
+          noise('white', 0.015, 'highpass', 6000, 2, 0.03 * k, d);
+        }
+        noise('white', 0.09, 'bandpass', 4200, 3, 0.018, 0.36, 0.02);
+        break;
+      }
+      case 'springdoor': { // 报箱弹簧门：拉簧上滑吱一声 + 回摔闷响 + 两次余振
+        const f = noise('white', 0.16, 'bandpass', 1500, 8, 0.06, 0, 0.03);
+        f.frequency.linearRampToValueAtTime(2600, t + 0.14);
+        tone('sine', 70, 44, 0.16, 0.16, 0.2);
+        noise('brown', 0.1, 'lowpass', 300, 1, 0.1, 0.2);
+        tone('sine', 62, 40, 0.1, 0.08, 0.42);
+        tone('sine', 58, 38, 0.07, 0.04, 0.58);
+        break;
+      }
+      case 'ladderroll': { // 图书梯沿轨滚动：轮滚低鸣 + 一串轮嗒 + 木身吱呀下滑
+        noise('brown', 1.0, 'lowpass', 190, 1, 0.1, 0, 0.25);
+        for (let i = 0; i < 7; i++) {
+          noise('white', 0.016, 'bandpass', 2100 + (i % 3) * 350, 6, 0.02, 0.08 + i * 0.13);
+        }
+        const f = noise('pink', 0.5, 'bandpass', 880, 9, 0.045, 0.15, 0.12);
+        f.frequency.linearRampToValueAtTime(560, t + 0.6);
+        break;
+      }
+      case 'flutter': { // 黑暗里翅膀扇了三下：柔软气流扑 + 一点低空尾流
+        for (let i = 0; i < 3; i++) {
+          noise('pink', 0.12, 'bandpass', 480 + i * 60, 1.6, 0.09 - i * 0.02, i * 0.16, 0.04);
+        }
+        noise('pink', 0.5, 'lowpass', 300, 1, 0.028, 0.4, 0.2);
+        break;
+      }
+      case 'stamp': { // 日期章一拍：抬起小咔 + 橡胶闷压 + 台面短鸣
+        noise('white', 0.02, 'highpass', 2600, 2, 0.03);
+        tone('sine', 130, 70, 0.09, 0.12, 0.3);
+        noise('brown', 0.07, 'lowpass', 380, 1, 0.09, 0.3);
+        noise('pink', 0.03, 'bandpass', 900, 4, 0.03, 0.33);
+        break;
+      }
+      case 'iceclink': { // 冰桶里瓶子磕了两下桶壁 + 一点水晃
+        tone('sine', 2350, 2320, 0.09, 0.05);
+        tone('sine', 3520, 3480, 0.06, 0.028, 0.005);
+        tone('sine', 2200, 2170, 0.07, 0.032, 0.19);
+        noise('pink', 0.3, 'bandpass', 620, 2.5, 0.035, 0.22, 0.09);
+        break;
+      }
+      case 'jostle': { // 伞架被碰了一下：伞骨细响一串 + 木柄互磕
+        for (let i = 0; i < 4; i++) {
+          tone('sine', 1450 + (i % 2) * 380, 1400, 0.05, 0.028, i * 0.07);
+        }
+        noise('brown', 0.12, 'lowpass', 420, 1, 0.07);
+        tone('sine', 320, 250, 0.06, 0.04, 0.16);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

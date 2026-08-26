@@ -292,7 +292,7 @@ export function build(ctx) {
       if (coinState.t < 0) coinState.t = 0;
       audio.sfxAt('switch', 4.6, -12.8, 0.18, 3);
       later(() => {
-        audio.sfxAt('chime', 4.83, -12.8, 0.5, 4);
+        audio.sfxAt('coin', 4.83, -12.8, 0.8, 4);
         coinFlare.v = 1;
       }, 430);
       ui.caption('找零不会来了。', 3200);
@@ -362,8 +362,7 @@ export function build(ctx) {
     hint: 'E — 投币报箱',
     onActivate: () => {
       if (newsState.t < 0) newsState.t = 0;
-      audio.sfxAt('clank', 4.85, 6.4, 0.45, 3);
-      later(() => audio.sfxAt('thud', 4.85, 6.4, 0.4, 3), 340);
+      audio.sfxAt('springdoor', 4.85, 6.4, 0.75, 3);
       ui.caption('头版是空白的。日期也是。', 3400);
     }
   });
