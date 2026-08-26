@@ -16,7 +16,7 @@ import {
   woodMat, fabricMat, rng
 } from './kit.js';
 import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'bluevelvet',
@@ -1193,7 +1193,9 @@ export function build(ctx) {
   q1.position.set(-6.4, 0, 4.6);
   q1.rotation.y = 1.15;
   group.add(q1);
-  updaters.push(quoteStandUpdater(q1, player, ui));
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.home
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()

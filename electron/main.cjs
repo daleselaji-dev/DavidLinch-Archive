@@ -87,14 +87,14 @@ function createWindow() {
             app.exit(1);
           }
         }).catch(() => {});
-        // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28）：每厅非导航可交互物 ≥ 阈值，
-        // 且逐一激活（onActivate 全链无异常）后才放行去下一厅。
-        // v1.5 减法：主动去掉清单打卡式交互（大厅伞架/烟灰缸/围栏、
-        // 双峰缺角派、蓝丝绒杯架）——阈值随普查下调是「有意的减」，
-        // 但仍锁普查-1 防继续流失
+        // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28 / v1.7 门禁 42）：
+        // 每厅非导航可交互物 ≥ 阈值，且逐一激活（onActivate 全链无异常）
+        // 后才放行去下一厅。v1.7 增补后重锁普查-1：
+        // 大厅 +2（帷幕触摸/独石光缝）、穆赫兰道 +2（台边浓缩/场记板）、
+        // 双峰 +1（绒垫原木）
         const INTERACTIVE_MIN = {
-          lobby: 9, archive: 23, eraserhead: 16, bluevelvet: 14,
-          twinpeaks: 16, mulholland: 15, studio: 17
+          lobby: 11, archive: 23, eraserhead: 16, bluevelvet: 14,
+          twinpeaks: 17, mulholland: 17, studio: 17
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -109,40 +109,62 @@ function createWindow() {
           console.error(`[smoke] 交互检查失败 ${hall}: ${err && err.message}`);
           app.exit(1);
         });
-        // v1.6 门禁 37：穆赫兰道后巷通路走通性 + 惊吓自然触发断言。
-        // walkPath 把真实玩家逐帧走过 路→右侧便道→票亭转角→暗巷→背后空地，
-        // 全程被 bounds 钳制（撞墙即失败）；终点落在触发圈内，下一帧惊吓
-        // 自然引爆，2.9s 后空间错位应把玩家移回巷口 (9.7, 9.5)。
+        // v1.6 门禁 37 / v1.7 门禁 40：穆赫兰道后巷通路走通性 + 转身惊吓
+        // 自然触发断言。walkPath 把真实玩家逐帧走过 路→右侧便道→票亭
+        // 转角→暗巷→背后空地（全程 bounds 钳制，撞墙即失败）；站定
+        // 1.6s（> armTime 上膛）后 spinYaw(π) 模拟猛回头——转身触发器
+        // 在下一渲染帧看到 yaw 突变即自然引爆，空间错位应把玩家移回
+        // 巷口 (9.7, 9.5)。
         const maybeWalkTest = (done) => {
           if (hall !== 'mulholland') { done(); return; }
           const route = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -29.5], [2.0, -30.3]]);
           win.webContents.executeJavaScript(`window.__SV__.walkPath(${route})`, true).then((r) => {
             console.log(`[smoke] 后巷走通性 mulholland: ${JSON.stringify(r)}`);
             if (!r || !r.ok) {
-              console.error('[smoke] 后巷通路不通：玩家撞墙走不到惊吓触发点');
+              console.error('[smoke] 后巷通路不通：玩家撞墙走不到空地站定点');
               app.exit(1);
               return;
             }
-            const t0 = Date.now();
-            const poll = () => {
-              win.webContents.executeJavaScript(
-                '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
-              ).then((at) => {
-                if (at === '9.7,9.5') {
-                  console.log('[smoke] 惊吓自然触发 OK：走进触发圈 → 空间错位移回巷口 (9.7,9.5)');
-                  setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
-                } else if (Date.now() - t0 > 9000) {
-                  console.error(`[smoke] 走进触发圈后惊吓未完成（机位 ${at}，期望 9.7,9.5）`);
-                  app.exit(1);
-                } else {
-                  setTimeout(poll, 500);
-                }
+            // 站定上膛（armTime 1s 按游戏时钟计；swiftshader ≈1–2.5fps 且
+            // dt 钳 0.1s → 游戏时间只有真实时间的 1/4~1/10，上膛可能要
+            // 十几秒真实时间）。每 3s 甩一次头（真人也会再回头），累计角
+            // 每次重新拉满，等 dwell 追上 armTime 那一甩即自然引爆；
+            // 总预算 40s 覆盖全巡检内存压力下的最低帧率。
+            const spin = () =>
+              win.webContents.executeJavaScript('window.__SV__.spinYaw(Math.PI)', true).then(() => {
+                console.log('[smoke] 模拟猛回头 spinYaw(π)：等待转身惊吓自然触发…');
               }).catch((err) => {
-                console.error('[smoke] 后巷断言失败', err && err.message ? err.message : err);
+                console.error('[smoke] spinYaw 执行失败', err && err.message ? err.message : err);
                 app.exit(1);
               });
-            };
-            setTimeout(poll, 800);
+            setTimeout(() => {
+              spin();
+              const t0 = Date.now();
+              let lastSpin = t0;
+              const poll = () => {
+                win.webContents.executeJavaScript(
+                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+                ).then((at) => {
+                  if (at === '9.7,9.5') {
+                    console.log('[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)');
+                    setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
+                  } else if (Date.now() - t0 > 40000) {
+                    console.error(`[smoke] 猛回头后惊吓未完成（机位 ${at}，期望 9.7,9.5）`);
+                    app.exit(1);
+                  } else {
+                    if (Date.now() - lastSpin > 3000) {
+                      lastSpin = Date.now();
+                      spin();
+                    }
+                    setTimeout(poll, 500);
+                  }
+                }).catch((err) => {
+                  console.error('[smoke] 后巷断言失败', err && err.message ? err.message : err);
+                  app.exit(1);
+                });
+              };
+              setTimeout(poll, 800);
+            }, 4000);
           }).catch((err) => {
             console.error('[smoke] walkPath 执行失败', err && err.message ? err.message : err);
             app.exit(1);

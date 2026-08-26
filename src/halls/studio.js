@@ -14,7 +14,7 @@ import {
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'studio',
@@ -1477,7 +1477,9 @@ export function build(ctx) {
   q1.position.set(2.2, 0, -5.6);
   q1.rotation.y = 0.35;
   group.add(q1);
-  updaters.push(quoteStandUpdater(q1, player, ui));
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.you
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()

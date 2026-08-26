@@ -12,7 +12,7 @@ import {
   concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'eraserhead',
@@ -1329,7 +1329,9 @@ export function build(ctx) {
   q1.position.set(-5.6, 0, 2.2);
   q1.rotation.y = 1.35;
   group.add(q1);
-  updaters.push(quoteStandUpdater(q1, player, ui));
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration: ctx.narration, docent: DOCENT.philly
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()

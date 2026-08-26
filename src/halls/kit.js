@@ -677,11 +677,13 @@ export function quoteStand(quote, accent = '#c9a35c') {
  * 立牌接近驱动器：加入展厅 updaters —— 玩家走进 radius 内，
  * 板上文字显影 + HUD 侧卡浮现；走出（带迟滞）即收回。
  */
-export function quoteStandUpdater(stand, player, ui, { radius = 3.0 } = {}) {
+export function quoteStandUpdater(stand, player, ui, { radius = 3.0, narration = null, docent = null } = {}) {
   const wp = new THREE.Vector3();
   let ready = false;
   let k = 0;
   let shown = false;
+  let spoke = false;
+  let dwell = 0;
   return (dt) => {
     if (!ready) {
       stand.getWorldPosition(wp);
@@ -697,6 +699,18 @@ export function quoteStandUpdater(stand, player, ui, { radius = 3.0 } = {}) {
     } else if (shown && d > radius + 0.9) {
       shown = false;
       ui.hidePlaque();
+    }
+    // v1.7 导览层：立牌只显名言；背景与访谈语境由讲解员在
+    // 你驻足端详（1.6s）之后低声补上——每次进厅只讲一遍，
+    // 且不打断正在进行的其他讲解
+    if (near && docent && narration && !spoke) {
+      dwell += dt || 0.016;
+      if (dwell > 1.6 && !narration.letters.active) {
+        spoke = true;
+        narration.speak(docent);
+      }
+    } else if (!near) {
+      dwell = 0;
     }
   };
 }
@@ -803,6 +817,104 @@ export function darkFigure(height = 2.1) {
   head.rotation.z = 0.14; // 微微歪头——最不对劲的细节
   group.add(body, head);
   return group;
+}
+
+/**
+ * 帷形人影 —— 顺滑车削的抽象人形剪影（v1.7 转身惊吓主体）。
+ * 一条连续车削剖面走完 裙裾→收腰→肩→颈→头，48 段径向；
+ * 布褶是随高度衰减的正弦竖褶（无随机噪声，不起疙瘩），
+ * 全程光滑法线。绒黑体表 + 极暗红内衬自发光：闪光拍里只读出
+ * 「一个完整的人形」，看不清任何细节。
+ * userData: { pivot 前倾/摆动枢轴, mat, setRush(k) 奔袭形变 }
+ */
+export function veiledFigure(height = 2.25) {
+  const group = new THREE.Group();
+  const pivot = new THREE.Group();
+  group.add(pivot);
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0x070408, roughness: 0.88, metalness: 0,
+    sheen: 0.6, sheenColor: 0x2a0a12, sheenRoughness: 0.6,
+    emissive: 0x180205, emissiveIntensity: 0.45
+  });
+  const H = height;
+  const prof = [
+    [0.34, 0], [0.335, 0.02], [0.3, 0.1], [0.245, 0.24], [0.2, 0.38],
+    [0.165, 0.52], [0.15, 0.6], [0.168, 0.7], [0.182, 0.775], [0.15, 0.815],
+    [0.08, 0.845], [0.062, 0.865], [0.082, 0.895], [0.088, 0.94],
+    [0.062, 0.982], [0.001, 1.0]
+  ].map(([r, y]) => new THREE.Vector2(r * H * 0.5, y * H));
+  const geo = new THREE.LatheGeometry(prof, 48);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const a = Math.atan2(z, x);
+    const fall = Math.max(0, 1 - y / (H * 0.78)); // 褶皱只在下身，肩颈头保持光洁
+    const fold = 1 + Math.sin(a * 7) * 0.045 * fall + Math.sin(a * 3 + 1.7) * 0.03 * fall;
+    pos.setX(i, x * fold);
+    pos.setZ(i, z * fold);
+  }
+  geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, mat);
+  pivot.add(body);
+  pivot.rotation.z = 0.05; // 整个剪影微微偏着头——最不对劲的一度
+  group.userData.pivot = pivot;
+  group.userData.mat = mat;
+  /** 奔袭形变：k∈[0,1] —— 前倾扑近 + 裙裾展开 + 轻微侧摆（连续，无痉挛）。
+   *  lookAt 后组的 +z 朝向玩家，正向 rotation.x 即「朝你前倾」。 */
+  group.userData.setRush = (k, t = 0) => {
+    pivot.rotation.x = 0.28 * k;
+    pivot.rotation.z = 0.05 + Math.sin(t * 9) * 0.05 * k;
+    body.scale.set(1 + k * 0.12, 1, 1 + k * 0.12);
+  };
+  return group;
+}
+
+/**
+ * 转身触发器（v1.7 惊吓核心机制）—— 玩家在指定区域驻留
+ * armTime 秒「上膛」后，快速转身/突然回看（滑动时间窗内累计
+ * yaw 转角冲过阈值）即触发。不踩圈、不按键：回头那一下才是扳机。
+ * 阈值经指数窗衰减：慢扫视累计不起来（180° 用 1s 转完 ≈ 1.4 rad，
+ * 不触发）；甩头式回望（180° 半秒内）一定冲过 2.0 rad。
+ * zone: 矩形数组 [{minX,maxX,minZ,maxZ}]
+ * 返回 { update(pose, dt), force() }；pose = { x, z, yaw }
+ */
+export function turnTrigger(zone, onFire, { minTurn = 2.0, window = 0.5, armTime = 1.0, cooldown = 45 } = {}) {
+  let prevYaw = null;
+  let acc = 0;
+  let dwell = 0;
+  let coolT = 0;
+  const inZone = (x, z) =>
+    zone.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
+  return {
+    update(pose, dt = 0.016) {
+      if (coolT > 0) coolT -= dt;
+      const inside = inZone(pose.x, pose.z);
+      dwell = inside ? dwell + dt : 0;
+      let d = 0;
+      if (prevYaw !== null) {
+        d = pose.yaw - prevYaw;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+      }
+      prevYaw = pose.yaw;
+      acc = acc * Math.exp(-dt / window) + Math.abs(d);
+      if (inside && dwell >= armTime && coolT <= 0 && acc >= minTurn) {
+        acc = 0;
+        dwell = 0;
+        coolT = cooldown;
+        onFire();
+      }
+    },
+    /** 冒烟测试直接引爆 */
+    force() {
+      coolT = cooldown;
+      onFire();
+    }
+  };
 }
 
 /**

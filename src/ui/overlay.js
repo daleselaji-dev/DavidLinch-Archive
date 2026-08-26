@@ -141,7 +141,8 @@ export class UI {
   }
 
   /**
-   * 走近引语立牌 → 浮现卡片：那句话 + 一句解释 + 一句评述。
+   * 走近引语立牌 → 浮现卡片：只有那句话与出处（v1.7）。
+   * 背景与访谈语境不塞进弹层——由讲解旁白在你驻足后低声补上。
    * 不挂满墙，不先说话——你不走过去，它什么都不是。
    */
   showPlaque(q) {
@@ -151,8 +152,6 @@ export class UI {
       this.plaqueCard.replaceChildren();
       this.plaqueCard.append(el('p', 'pc-zh', '「' + q.zh + '」'));
       this.plaqueCard.append(el('p', 'pc-en', q.en));
-      if (q.note) this.plaqueCard.append(el('p', 'pc-note', q.note));
-      if (q.aside) this.plaqueCard.append(el('p', 'pc-aside', q.aside));
       this.plaqueCard.append(el('p', 'pc-src', '— DAVID LYNCH · ' + q.source));
     }
     if (!this.plaqueCard.classList.contains('on')) {

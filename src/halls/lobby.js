@@ -2,9 +2,14 @@
 // 总览大厅 —— THE VELVET FOYER 天鹅绒大厅
 // 红天鹅绒环形围合（v1.5 整体化单件幕）+ 黑白折线地板 +
 // 立柱环 + 六扇门 + 中央纪念台。
-// v1.5 减法：撤掉围栏/烟灰缸/伞架/长凳对/内金圈——恢复第一眼
-// 构图的呼吸感；中央纪念碑是唯一焦点，视线上不许有东西打断它。
-// 文字极少：一座走近才显字的引语立牌。
+// v1.7 第一版构图回归：中央只有「台 + 光锥 + 独石碑」三件——
+// 碑换成全高 2.9m 的「一道光缝」独石（正面铭文/背面烟纹/
+// 侧棱光缝，任何角度轮廓完整），双面洗光，不再是黑里显露
+// 一半的方块。全部小件退到柱环内缘（r≈10.6）各归其位：
+// 入口两翼=名册讲台+迎宾铃（接待），东=留声机（音乐角），
+// 西=空白胶片柜，西南=引语立牌，东南=花圈+大衣（悼念角）；
+// 中央 8m 半径空场只留献花的铜瓶。文字极少：一座走近才
+// 显字的引语立牌。
 // ============================================================
 import * as THREE from 'three';
 import {
@@ -18,7 +23,7 @@ import {
   propMats, chandelier, memorialStele, gramophone,
   lectern, ushersBell, dimmerPlate, callaLily, lilyMats
 } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 
 export const meta = {
   id: 'lobby',
@@ -74,10 +79,34 @@ export function build(ctx) {
   group.add(marbleBand, marbleLine);
 
   // 帷幕环形墙 + 帷头层 + 深色天花与线脚
-  group.add(curtainRing(R, 8.4, PALETTE.velvet, 26));
+  const curtainWall = curtainRing(R, 8.4, PALETTE.velvet, 26);
+  group.add(curtainWall);
   const valance = curtainRing(R - 0.12, 1.35, 0xa8142a, 30);
   valance.position.y = 7.25;
   group.add(valance);
+  // v1.7 触觉反馈：摸一下帷幕——一阵波纹爬上整幅绒面，
+  // 帷头随之下坠又弹回（点哪儿都有回应的第一课）
+  const curtainRipple = { t: -1 };
+  updaters.push((dt) => {
+    if (curtainRipple.t < 0) return;
+    curtainRipple.t += dt;
+    const u = curtainRipple.t;
+    if (u > 2.8) {
+      curtainRipple.t = -1;
+      valance.position.y = 7.25;
+      return;
+    }
+    valance.position.y = 7.25 - Math.sin(Math.min(u * 3, Math.PI)) * 0.1 * Math.exp(-u * 1.1);
+    curtainWall.rotation.y = Math.sin(u * 5.2) * 0.0035 * Math.exp(-u * 1.4);
+  });
+  hotspots.add(curtainWall.children[0], {
+    hint: 'E — 摸一下天鹅绒',
+    onActivate: () => {
+      if (curtainRipple.t < 0) curtainRipple.t = 0;
+      audio.sfx('curtain', 0.6);
+      if (Math.random() < 0.22) setTimeout(() => audio.sfx('whisper', 0.25), 700);
+    }
+  });
   const ceil = new THREE.Mesh(
     new THREE.CircleGeometry(R * 1.25, 40),
     new THREE.MeshStandardMaterial({ color: 0x080405, roughness: 0.95 })
@@ -145,7 +174,8 @@ export function build(ctx) {
   cone.position.y = 4.2;
   group.add(cone);
 
-  // 中央纪念碑 v2（削角碑身 + 鎏金铭文 + 叠级基座；关于林奇 热点）
+  // 中央纪念碑 v3「一道光缝」（v1.7）：全高独石 + 侧棱光缝 +
+  // 正面铭文/背面烟纹；关于林奇 热点
   const stele = memorialStele({ mats: M });
   stele.position.y = 0.24;
   group.add(stele);
@@ -153,11 +183,36 @@ export function build(ctx) {
     hint: 'E — 关于大卫·林奇（1946–2025）',
     onActivate: () => ui.showArtist()
   });
-  // v1.5 焦点修复：碑文正面一盏低位暖洗光——进门第一眼
-  // 就能读到名字与年份，不再是黑里一块看不清的东西
+  // 双面洗光：正面读铭文，背面读烟纹——绕到哪一面都不是黑板
   const steleWash = new THREE.PointLight(0xffe6c4, 3.4, 4.6, 2);
   steleWash.position.set(0, 1.6, 2.0);
-  group.add(steleWash);
+  const steleWashB = new THREE.PointLight(0xffe6c4, 2.6, 4.4, 2);
+  steleWashB.position.set(0, 1.8, -2.0);
+  group.add(steleWash, steleWashB);
+  // 光缝呼吸 + 触碰应答：E → 光缝涌亮一拍 + 石钟低鸣
+  const seamPulse = { t: -1 };
+  updaters.push((dt, t) => {
+    const breathe = 1.4 + Math.sin(t * 0.9) * 0.25;
+    let flare = 0;
+    if (seamPulse.t >= 0) {
+      seamPulse.t += dt;
+      if (seamPulse.t > 2.6) seamPulse.t = -1;
+      else flare = Math.sin(Math.min(1, seamPulse.t / 2.6) * Math.PI) * 2.2;
+    }
+    stele.userData.setSeam(breathe + flare);
+  });
+  const seamTouched = { once: false };
+  hotspots.add(stele.children[0], {
+    hint: 'E — 独石与光缝',
+    onActivate: () => {
+      seamPulse.t = 0;
+      audio.sfx('stonechime', 0.7);
+      if (!seamTouched.once) {
+        seamTouched.once = true;
+        ui.caption('石头是温的。', 3200);
+      }
+    }
+  });
 
   // 黄铜六臂吊灯（挂在天花线脚中心）；dim 为墙面调光旋钮的三档状态
   const dim = { stops: [1, 0.52, 0.16], idx: 0, v: 1 };
@@ -174,8 +229,9 @@ export function build(ctx) {
     const breathe = 0.92 + Math.sin(t * 2.1) * 0.05 + Math.sin(t * 5.7) * 0.03;
     lustre.userData.setPower(breathe * dim.v);
     crownWash.intensity = 4.5 * breathe * dim.v;
-    // 双层体积锥跟随调光（灯暗时光柱一并收薄）
-    cone.userData.setStrength(0.3 + breathe * dim.v * 0.7);
+    // 双层体积锥跟随调光（灯暗时光柱一并收薄）；
+    // 踏上纪念台的问候拍（daisGreet）会让光柱涌亮一阵
+    cone.userData.setStrength(0.3 + breathe * dim.v * 0.7 + daisGreet.boost * 0.8);
   });
 
   // 悬浮标题霓虹
@@ -264,7 +320,23 @@ export function build(ctx) {
   const whisperTrig = zoneTrigger({ x: 0, z: -10.6, r: 2.4 }, whisperEgg, { cooldown: 40 });
   updaters.push((dt) => whisperTrig.update(player, dt));
 
+  // ---------- 彩蛋：走上纪念台 ----------
+  // 第一次踏上中央台面：光锥应声涌亮、光缝同拍呼吸——
+  // 这座馆认得每一个走到碑前的人
+  const daisGreet = { boost: 0 };
+  updaters.push((dt) => {
+    if (daisGreet.boost <= 0) return;
+    daisGreet.boost = Math.max(0, daisGreet.boost - dt * 0.4);
+  });
+  const daisTrig = zoneTrigger({ x: 0, z: 0, r: 3.0 }, () => {
+    daisGreet.boost = 1;
+    seamPulse.t = 0;
+    audio.sfx('swell', 0.5);
+  }, { cooldown: 90 });
+  updaters.push((dt) => daisTrig.update(player, dt));
+
   // 留声机（车削黄铜喇叭）—— 摇柄可用：上发条 → 唱片转 + 爵士层
+  // v1.7 归位：东柱脚「音乐角」（柱环内缘），中央视线彻底让空
   const gramoTable = new THREE.Mesh(
     new THREE.LatheGeometry([
       new THREE.Vector2(0.34, 0), new THREE.Vector2(0.3, 0.04), new THREE.Vector2(0.07, 0.1),
@@ -272,11 +344,11 @@ export function build(ctx) {
     ], 18),
     woodMat({ base: [30, 18, 12], planks: 2, size: 256, seed: 44 })
   );
-  gramoTable.position.set(4.6, 0, 2.4);
+  gramoTable.position.set(10.6, 0, 0);
   group.add(gramoTable);
   const gramo = gramophone({ mats: M });
-  gramo.position.set(4.6, 0.9, 2.4);
-  gramo.rotation.y = -2.05;
+  gramo.position.set(10.6, 0.9, 0);
+  gramo.rotation.y = -Math.PI / 2;
   group.add(gramo);
   const gramoState = { wind: 0, spin: 0 };
   updaters.push((dt) => {
@@ -294,17 +366,17 @@ export function build(ctx) {
       const first = gramoState.wind <= 0;
       gramoState.wind = 46;
       if (first) {
-        audio.sfxAt('crank', 4.6, 2.4, 0.9);
+        audio.sfxAt('crank', 10.6, 0, 0.9);
         narration.jazz.setEnabled(true);
         ui.caption('黄铜喇叭醒了。', 3200);
       }
     }
   });
 
-  // 展柜：一卷空白胶片
+  // 展柜：一卷空白胶片（v1.7 归位：西柱脚，与东侧留声机对望）
   const reelCase = vitrine('空白胶片', 'THE UNMADE FILM', '#c9a35c');
-  reelCase.position.set(-3.8, 0, 3.0);
-  reelCase.rotation.y = 0.9;
+  reelCase.position.set(-10.6, 0, 0);
+  reelCase.rotation.y = Math.PI / 2;
   group.add(reelCase);
   const reelMat = new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(), color: 0x8a8f96, roughness: 0.25, metalness: 0.9, envMapIntensity: 1.3
@@ -333,24 +405,29 @@ export function build(ctx) {
   });
 
   // 引语立牌（本厅唯一文字件）：远看只是一支黄铜细杆，
-  // 走近，那句话才在板上显影 + 侧卡附一句解释一句评述
+  // 走近，那句话才在板上显影——立牌只给名言；背景与访谈
+  // 语境由讲解员在你驻足后低声补上（v1.7 导览层）。
+  // 归位：西南柱脚，在去穆赫兰道门的路上。
   const q1 = quoteStand(quoteById('meaning'), '#c9a35c');
-  q1.position.set(-4.4, 0, -2.4);
-  q1.rotation.y = Math.atan2(4.4, 2.4);
+  q1.position.set(-5.3, 0, -9.18);
+  q1.rotation.y = Math.atan2(5.3, 9.18);
   group.add(q1);
-  updaters.push(quoteStandUpdater(q1, player, ui));
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.meaning
+  }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
     onActivate: () => ui.showQuotes()
   });
 
   // ============================================================
-  // v1.3 互动带：名册讲台 / 调光旋钮 / 迎宾铃 / 献花 / 绒绳围栏
+  // v1.3 互动带：名册讲台 / 调光旋钮 / 迎宾铃 / 献花
+  // v1.7 归位：讲台与迎宾铃分列入口两翼（接待前厅的构图理由）
   // ============================================================
-  // 访客名册讲台 —— 打开留言簿
+  // 访客名册讲台 —— 打开留言簿（入口左翼）
   const stand = lectern({ mats: M });
-  stand.position.set(3.4, 0, 6.2);
-  stand.rotation.y = -0.95;
+  stand.position.set(-5.3, 0, 9.18);
+  stand.rotation.y = Math.atan2(5.3, -9.18);
   group.add(stand);
   hotspots.add(stand.userData.desk, {
     hint: 'E — 访客名册（写一句话）',
@@ -375,7 +452,7 @@ export function build(ctx) {
     }
   });
 
-  // 迎宾铃 —— 一按，六扇门齐声增亮一拍（连锁反馈）
+  // 迎宾铃 —— 一按，六扇门齐声增亮一拍（连锁反馈；入口右翼）
   const bellTable = new THREE.Mesh(
     new THREE.LatheGeometry([
       new THREE.Vector2(0.3, 0), new THREE.Vector2(0.27, 0.04), new THREE.Vector2(0.06, 0.09),
@@ -383,17 +460,17 @@ export function build(ctx) {
     ], 18),
     woodMat({ base: [30, 18, 12], planks: 2, size: 256, seed: 45 })
   );
-  bellTable.position.set(-4.9, 0, 5.4);
+  bellTable.position.set(5.3, 0, 9.18);
   group.add(bellTable);
   const bell = ushersBell({ mats: M });
-  bell.position.set(-4.9, 0.94, 5.4);
+  bell.position.set(5.3, 0.94, 9.18);
   group.add(bell);
   const bellPulse = { t: 0 };
   hotspots.add(bell.userData.dome, {
     hint: 'E — 迎宾铃',
     onActivate: () => {
       bellPulse.t = 1.6;
-      audio.sfxAt('bell', -4.9, 5.4, 1.0);
+      audio.sfxAt('bell', 5.3, 9.18, 1.0);
     }
   });
   updaters.push((dt) => {
@@ -405,7 +482,8 @@ export function build(ctx) {
   });
 
   // 献花 —— 黄铜瓶取一支马蹄莲，放到碑前（最多七支）。
-  // v1.5：花落在台基前缘围成一小段弧，不再排成一排横在碑前
+  // v1.7：铜瓶是中央空场里唯一的小件——构图理由只有一个：
+  // 给碑献花。花落在台基前缘围成一小段弧。
   const urn = new THREE.Mesh(
     new THREE.LatheGeometry([
       new THREE.Vector2(0.16, 0), new THREE.Vector2(0.14, 0.03), new THREE.Vector2(0.06, 0.09),
@@ -413,12 +491,12 @@ export function build(ctx) {
     ], 18),
     M.brass
   );
-  urn.position.set(3.5, 0, 2.2);
+  urn.position.set(2.9, 0, 2.9);
   group.add(urn);
   const lilyShared = lilyMats();
   [[0, 0.2], [2.1, 0.28], [4.2, 0.24]].forEach(([ry, rz]) => {
     const l = callaLily(lilyShared);
-    l.position.set(3.5, 0.4, 2.2);
+    l.position.set(2.9, 0.4, 2.9);
     l.rotation.set(0, ry, rz);
     group.add(l);
   });
@@ -494,7 +572,9 @@ export function build(ctx) {
   hatPivot.position.set(-0.1, 1.85, -0.05);
   hatPivot.rotation.set(0.16, 0, -0.12);
   coatTree.add(hatPivot);
-  coatTree.position.set(5.1, 0, -3.1);
+  // v1.7 归位：大衣与花圈合成东南「悼念角」——他的衣帽，
+  // 和每天有人换的白花，在同一个柱间说同一件事
+  coatTree.position.set(6.9, 0, -7.7);
   group.add(coatTree);
   const coatState = { t: -1 };
   updaters.push((dt) => {
@@ -510,7 +590,7 @@ export function build(ctx) {
     hint: 'E — 挂着的大衣',
     onActivate: () => {
       coatState.t = 0;
-      audio.sfxAt('creak', 5.1, -3.1, 0.3, 3);
+      audio.sfxAt('creak', 6.9, -7.7, 0.3, 3);
       setTimeout(() => audio.sfx('whisper', 0.35), 500);
       ui.caption('扣子系到最上面一颗。他总是这样。', 3800);
     }
@@ -584,8 +664,8 @@ export function build(ctx) {
     xform(new THREE.PlaneGeometry(0.13, 0.42), 0.3, 0.06, 0.1, 0.06, 0, -0.1)
   ], sashMat));
   wreathEasel.add(wreathPivot);
-  wreathEasel.position.set(6.5, 0, -8.4);
-  wreathEasel.rotation.y = Math.atan2(-6.5, 8.4);
+  wreathEasel.position.set(5.3, 0, -9.18);
+  wreathEasel.rotation.y = Math.atan2(-5.3, 9.18);
   group.add(wreathEasel);
   // 飘落的白瓣 ×2（平时藏起；激活后错拍落下、边落边淡）
   const petals = [];
@@ -628,7 +708,7 @@ export function build(ctx) {
     onActivate: () => {
       wreathState.t = 0;
       for (const pt of petals) pt.t = 0;
-      audio.sfxAt('creak', 6.5, -8.4, 0.22, 3);
+      audio.sfxAt('creak', 5.3, -9.18, 0.22, 3);
       setTimeout(() => audio.sfx('flutter', 0.18), 350);
       ui.caption('白花每天都是新的。没人见过换花的人。', 4200);
     }
@@ -663,6 +743,6 @@ export function build(ctx) {
     spawn: { x: 0, z: 8.6, yaw: 0 },
     bounds: circleBounds(R - 2.4),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'curtain-whisper': whisperTrig }
+    eggs: { 'curtain-whisper': whisperTrig, 'dais-light': daisTrig }
   };
 }

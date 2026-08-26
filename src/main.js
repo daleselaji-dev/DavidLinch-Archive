@@ -128,6 +128,12 @@ async function goTo(id) {
     engine, audio, ui, hotspots, goTo,
     narration, store,
     player: controls.yawObject.position,
+    // 位姿（含朝向）：转身惊吓等机制需要 yaw 角速度
+    pose: () => ({
+      x: controls.yawObject.position.x,
+      z: controls.yawObject.position.z,
+      yaw: controls.yawObject.rotation.y
+    }),
     teleport: (x, z, yaw) => controls.teleport(x, z, yaw)
   });
   engine.scene.add(built.group);
@@ -318,6 +324,15 @@ window.__SV__ = {
   /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹） */
   player: () => ({ x: controls.yawObject.position.x, z: controls.yawObject.position.z }),
   /**
+   * 冒烟（v1.7 门禁 40）：模拟「猛回头」——瞬间转过 rad 弧度。
+   * 转身触发器在下一渲染帧会看到这次 yaw 突变（等价于真人
+   * 半秒内甩头 180°），像真玩家一样自然触发惊吓。
+   */
+  spinYaw: (rad = Math.PI) => {
+    controls.yawObject.rotation.y += rad;
+    return controls.yawObject.rotation.y;
+  },
+  /**
    * 冒烟（v1.6 门禁 37）：把真实玩家沿路点逐帧「走」过去——每步 7cm、
    * 每步过当前展厅的 bounds 钳制，不瞬移不作弊。撞墙走不到即 ok:false。
    * 终点若落在区域触发器内，下一渲染帧会像真人走进去一样自然触发。
@@ -355,5 +370,5 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
-  version: '1.6.0'
+  version: '1.7.0'
 };
