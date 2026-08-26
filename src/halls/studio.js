@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quoteStand, quoteStandUpdater, zoneTrigger,
-  mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
+  mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
@@ -315,6 +315,120 @@ export function build(ctx) {
   tw.position.set(-6.45, 0.905, -1.6);
   tw.rotation.y = Math.PI / 2;
   group.add(tw);
+
+  // ---------- 北墙矮柜 + 开盘磁带机（v1.9 抛光第 6 遍）----------
+  // 默认机位正对的整面秃墙有了着落：胡桃木矮柜，柜上一台开盘机
+  // 斜放着——左盘满右盘空，像刚倒完一半。E → 双盘转起来，
+  // 房间的声音从带子上放回来（tapewhirr：马达+带嘶+低语），然后停。
+  {
+    const sb = new THREE.Group();
+    const sbWood = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [38, 24, 13], planks: 3, size: 256, seed: 71 }), roughness: 0.55
+    });
+    const sbDark = new THREE.MeshStandardMaterial({ color: 0x14100b, roughness: 0.85 });
+    sb.add(mergedMesh([
+      xform(roundedBoxGeo(1.5, 0.045, 0.42, 0.012, 2), 0, 0.62, 0),          // 顶板
+      xform(new THREE.BoxGeometry(0.03, 0.44, 0.4), -0.72, 0.38, 0),         // 左右侧板
+      xform(new THREE.BoxGeometry(0.03, 0.44, 0.4), 0.72, 0.38, 0),
+      xform(new THREE.BoxGeometry(1.44, 0.03, 0.4), 0, 0.175, 0),            // 底板
+      xform(new THREE.BoxGeometry(1.44, 0.44, 0.02), 0, 0.38, -0.19),        // 背板
+      // 四只车削感短脚（锥台）
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), -0.66, 0.08, 0.15),
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), 0.66, 0.08, 0.15),
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), -0.66, 0.08, -0.15),
+      xform(new THREE.CylinderGeometry(0.02, 0.032, 0.16, 8), 0.66, 0.08, -0.15)
+    ], sbWood));
+    // 滑门两扇：右扇没关严、错开一条黑缝（柜里的暗）
+    const inset = new THREE.Mesh(new THREE.PlaneGeometry(1.38, 0.4), sbDark);
+    inset.position.set(0, 0.39, 0.185);
+    sb.add(inset);
+    sb.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.71, 0.4, 0.014), -0.355, 0.39, 0.198),
+      xform(new THREE.BoxGeometry(0.71, 0.4, 0.014), 0.295, 0.39, 0.212),
+      // 门上两枚凹指孔（小圆片示意）
+      xform(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 10), -0.09, 0.39, 0.207, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 10), 0.05, 0.39, 0.221, Math.PI / 2, 0, 0)
+    ], sbWood));
+    // 开盘机：铝面卧式机身 + 双盘 + 走带头桥 + 两枚旋钮 + VU 窗
+    const deck = new THREE.Group();
+    const deckBody = new THREE.Mesh(roundedBoxGeo(0.52, 0.09, 0.34, 0.012, 2),
+      new THREE.MeshStandardMaterial({
+        map: brushedMetalTexture(64, 120, 26), color: 0x9a9c9e, roughness: 0.38, metalness: 0.8
+      }));
+    deckBody.position.y = 0.045;
+    deck.add(deckBody);
+    const reelMat = new THREE.MeshStandardMaterial({ color: 0x232528, roughness: 0.35, metalness: 0.7 });
+    const tapeMat = new THREE.MeshStandardMaterial({ color: 0x2e1d12, roughness: 0.6 });
+    const mkReel = (rx, tapeR) => {
+      const reel = new THREE.Group();
+      reel.add(new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, 0.01, 20), reelMat));
+      const spoke = new THREE.BoxGeometry(0.17, 0.014, 0.02);
+      reel.add(mergedMesh([
+        xform(spoke, 0, 0.004, 0), xform(spoke, 0, 0.004, 0, 0, Math.PI / 3, 0),
+        xform(spoke, 0, 0.004, 0, 0, -Math.PI / 3, 0),
+        xform(new THREE.CylinderGeometry(0.022, 0.022, 0.022, 10), 0, 0.008, 0)
+      ], reelMat));
+      if (tapeR > 0) {
+        const tape = new THREE.Mesh(new THREE.CylinderGeometry(tapeR, tapeR, 0.008, 18), tapeMat);
+        tape.position.y = -0.002;
+        reel.add(tape);
+      }
+      reel.position.set(rx, 0.098, -0.05);
+      deck.add(reel);
+      return reel;
+    };
+    const reelL = mkReel(-0.125, 0.082); // 左盘满
+    const reelR = mkReel(0.125, 0.03);   // 右盘几乎空
+    // 走带头桥 + 旋钮 + VU 小窗（琥珀微光，放音时呼吸）
+    const vuMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1408, emissive: 0xffb45e, emissiveIntensity: 0.25, roughness: 0.6
+    });
+    deck.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.2, 0.03, 0.05), 0, 0.1, 0.1),
+      xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), -0.19, 0.1, 0.11),
+      xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), 0.19, 0.1, 0.11)
+    ], reelMat));
+    const vu = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.028), vuMat);
+    vu.position.set(0, 0.078, 0.171);
+    vu.rotation.x = -0.18;
+    deck.add(vu);
+    deck.position.set(-0.08, 0.6425, 0.02);
+    deck.rotation.y = -0.14; // 斜放——不是摆给人看的，是自己在用
+    sb.add(deck);
+    sb.position.set(-1.4, 0, -6.06);
+    group.add(sb);
+    // 放音状态机：起转 0.6s → 稳走 → 3.9s 减速 → 微倒带顿挫 → 停
+    const tapeRun = { t: -1, said: false };
+    updaters.push((dt, t) => {
+      vuMat.emissiveIntensity = 0.22 + Math.sin(t * 1.3) * 0.05;
+      if (tapeRun.t < 0) return;
+      tapeRun.t += dt;
+      const T = tapeRun.t;
+      let speed = 0;
+      if (T < 0.6) speed = (T / 0.6) * (T / 0.6) * 1.0;
+      else if (T < 3.6) speed = 1.0;
+      else if (T < 4.1) speed = Math.max(0, 1.0 - (T - 3.6) / 0.5);
+      else if (T < 4.28) speed = -0.22 * (1 - (T - 4.1) / 0.18); // 停机那一下倒抽
+      reelL.rotation.y -= speed * dt * 6.8;
+      reelR.rotation.y -= speed * dt * 9.4; // 收带盘转得快
+      vuMat.emissiveIntensity = speed > 0
+        ? 0.35 + Math.abs(Math.sin(T * 7.3)) * 0.9 * Math.min(1, speed)
+        : vuMat.emissiveIntensity;
+      if (T > 4.4) tapeRun.t = -1;
+    });
+    hotspots.add(deckBody, {
+      hint: 'E — 开盘机',
+      onActivate: () => {
+        if (tapeRun.t >= 0) return;
+        tapeRun.t = 0;
+        audio.sfxAt('tapewhirr', -1.48, -6.04, 0.6, 3);
+        if (!tapeRun.said) {
+          tapeRun.said = true;
+          later(() => ui.caption('录的是没人时的房间。', 3800), 900);
+        }
+      }
+    });
+  }
   hotspots.add(tw.userData.body, {
     hint: 'E — 打字机',
     onActivate: () => {

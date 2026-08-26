@@ -854,6 +854,99 @@ export function build(ctx) {
     }
   });
 
+  // ---------- 凳上的饭盒（v1.9 抛光第 6 遍）----------
+  // 北墙下一只三脚圆凳，凳上一只工人饭盒：拱盖、铁丝提手、
+  // 搭扣挂着没扣。保温瓶靠着凳腿。换班的人没来拿。
+  // E → 拱盖掀开一条缝又落回（里面是空的，一直是）。
+  {
+    const stool = new THREE.Group();
+    const stoolWood = woodMat({ base: [26, 22, 19], planks: 1, size: 128, seed: 47 });
+    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.17, 0.035, 16), stoolWood);
+    seat.position.y = 0.55;
+    stool.add(seat);
+    const legGeos = [];
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.5;
+      legGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.02, 0.56, 8),
+        Math.cos(a) * 0.12, 0.27, Math.sin(a) * 0.12,
+        Math.sin(a) * -0.16, 0, Math.cos(a) * 0.16));
+    }
+    // 三腿中段一圈踏棍
+    legGeos.push(xform(new THREE.CylinderGeometry(0.09, 0.09, 0.014, 12), 0, 0.2, 0));
+    stool.add(mergedMesh(legGeos, new THREE.MeshStandardMaterial({ color: 0x1a1613, roughness: 0.75 })));
+    // 饭盒：方身 + 半圆拱盖（铰在后沿）+ 铁丝提手 + 前搭扣
+    const pailMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(64, 60, 18), color: 0x3b4240, roughness: 0.5, metalness: 0.65
+    });
+    const pailBody = new THREE.Mesh(roundedBoxGeo(0.3, 0.15, 0.17, 0.012, 2), pailMat);
+    pailBody.position.set(0, 0.645, 0);
+    stool.add(pailBody);
+    const lidPivot = new THREE.Group();
+    lidPivot.position.set(0, 0.72, -0.085); // 铰链在盒身后上沿
+    const lid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.085, 0.085, 0.29, 12, 1, false, 0, Math.PI),
+      pailMat
+    );
+    lid.rotation.z = Math.PI / 2;
+    lid.position.set(0, 0, 0.085); // 拱盖圆心回到盒身中线
+    lidPivot.add(lid);
+    stool.add(lidPivot);
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0x191b1c, roughness: 0.45, metalness: 0.8 });
+    // 铁丝提手搭在拱盖上（挂进盖枢轴，掀盖时跟着走）
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.006, 6, 14, Math.PI), wireMat);
+    handle.rotation.x = 0.35;
+    handle.position.set(0, 0.012, 0.06);
+    lidPivot.add(handle);
+    // 前搭扣（挂着没扣——留在盒身上）
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.05, 0.008), wireMat);
+    latch.rotation.x = 0.22;
+    latch.position.set(0, 0.63, 0.089);
+    stool.add(latch);
+    // 保温瓶靠着凳腿（瓶身 + 杯盖 + 一圈箍）
+    const thermos = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.045, 0.048, 0.3, 12), 0, 0.15, 0),
+      xform(new THREE.CylinderGeometry(0.038, 0.042, 0.05, 12), 0, 0.325, 0),
+      xform(new THREE.CylinderGeometry(0.049, 0.049, 0.012, 12), 0, 0.09, 0)
+    ], new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(64, 80, 22), color: 0x565c5e, roughness: 0.42, metalness: 0.7
+    }));
+    thermos.position.set(0.24, 0, 0.05);
+    thermos.rotation.z = -0.09; // 斜靠凳腿
+    stool.add(thermos);
+    // 北墙下、汽笛链（x−0.8）与暖气炉龛（x≥3.95）之间的空档
+    stool.position.set(1.7, 0, -7.0);
+    stool.rotation.y = 0.4;
+    group.add(stool);
+    // E → 拱盖掀开一条缝、悬半拍、落回两跳；开合两声 + 首次一条字幕
+    const pailState = { t: -1, said: false };
+    updaters.push((dt) => {
+      if (pailState.t < 0) return;
+      pailState.t += dt;
+      const T = pailState.t;
+      let a = 0;
+      if (T < 0.35) a = (T / 0.35) * 0.62;
+      else if (T < 1.0) a = 0.62;
+      else if (T < 1.5) {
+        const k = (T - 1.0) / 0.5;
+        a = 0.62 * (1 - k * k) + (k > 0.8 ? Math.sin((k - 0.8) * 42) * 0.03 : 0);
+      } else { a = 0; pailState.t = -1; }
+      lidPivot.rotation.x = -a;
+    });
+    hotspots.add(pailBody, {
+      hint: 'E — 换班的饭盒',
+      onActivate: () => {
+        if (pailState.t >= 0) return;
+        pailState.t = 0;
+        audio.sfxAt('clank', 1.7, -7.0, 0.3, 3);
+        setTimeout(() => audio.sfxAt('thud', 1.7, -7.0, 0.22, 3), 1350);
+        if (!pailState.said) {
+          pailState.said = true;
+          setTimeout(() => ui.caption('饭盒是空的。从第一天起。', 3600), 800);
+        }
+      }
+    });
+  }
+
   // 铁笼吊灯
   const cageLights = [];
   for (const [x, z, seed] of [[0, 0, 1], [4.5, 3.5, 7], [-4.5, 4, 13]]) {
