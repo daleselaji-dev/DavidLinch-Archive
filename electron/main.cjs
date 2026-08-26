@@ -88,13 +88,13 @@ function createWindow() {
           }
         }).catch(() => {});
         // 交互密度门禁（QUALITY_GATES 20 / v1.4 门禁 28）：每厅非导航可交互物 ≥ 阈值，
-        // 且逐一激活（onActivate 全链无异常）后才放行去下一厅
-        // v1.4 阶段 4 普查：12/21/14/14/15/14/16（总 106 ≥ 105）—— 阈值锁在普查值 -1，防回退
-        // v1.4 终版普查 -1（实测 12/23/14/14/16/14/16）
-        // v1.4 五遍后普查：13/24/16/15/17/15/17（合计 117）——阈值锁普查-1
+        // 且逐一激活（onActivate 全链无异常）后才放行去下一厅。
+        // v1.5 减法：主动去掉清单打卡式交互（大厅伞架/烟灰缸/围栏、
+        // 双峰缺角派、蓝丝绒杯架）——阈值随普查下调是「有意的减」，
+        // 但仍锁普查-1 防继续流失
         const INTERACTIVE_MIN = {
-          lobby: 12, archive: 23, eraserhead: 16, bluevelvet: 15,
-          twinpeaks: 17, mulholland: 15, studio: 17
+          lobby: 9, archive: 23, eraserhead: 16, bluevelvet: 14,
+          twinpeaks: 16, mulholland: 15, studio: 17
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -139,13 +139,17 @@ function createWindow() {
               const p = s.addPost('冒烟机器人', '运行时冒烟测试留言');
               s.toggleLike(p.id); s.reply(p.id, '机器人', '自动回复');
               if (!s.list().find((x) => x.id === p.id).replies.length) throw new Error('留言闭环失败');
-              // 旁白模式全循环：letters → jazz(爵士层启动) → voice → off → letters
+              // 旁白模式全循环：letters → murmur(低语) → jazz(爵士层) → off → letters
               const n = window.__SV__.narration;
               const seen = [];
               for (let i = 0; i < 4; i++) seen.push(n.cycleMode().id);
-              if (!seen.includes('jazz') || !seen.includes('voice') || !seen.includes('off')) {
+              if (!seen.includes('murmur') || !seen.includes('jazz') || !seen.includes('off')) {
                 throw new Error('旁白模式循环缺项: ' + seen.join(','));
               }
+              // 低语模式在音频总线上安全（speak/stop 不抛错）
+              n.setMode('murmur');
+              n.speak('低语冒烟测试。');
+              n.stop();
               n.setMode('jazz');
               if (!n.jazz.playing) throw new Error('爵士氛围层未启动');
               n.setMode('letters');

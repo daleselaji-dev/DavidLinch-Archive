@@ -3,19 +3,32 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { NARRATION_MODES } from '../src/ui/narration.js';
 import * as ESSAY_MODULE from '../src/data/essays.js';
-import { NARRATIONS, QUOTES, LEGAL, ABOUT_RENDER, quoteById } from '../src/data/essays.js';
+import { NARRATIONS, QUOTES, LEGAL, quoteById } from '../src/data/essays.js';
 
 const HALL_KEYS = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'mulholland', 'studio'];
 
-describe('旁白模式体系', () => {
-  it('提供 字母显现 / 爵士+字母 / 语音+字母 / 关 四种模式', () => {
+describe('旁白模式体系（v1.5：清晰 TTS 退场）', () => {
+  it('提供 字母显现 / 低语+字母 / 爵士+字母 / 关 四种模式', () => {
     const ids = NARRATION_MODES.map((m) => m.id);
-    expect(ids).toEqual(['letters', 'jazz', 'voice', 'off']);
+    expect(ids).toEqual(['letters', 'murmur', 'jazz', 'off']);
   });
 
-  it('默认第一档是字母显现（旧式干读不再是唯一默认）', () => {
+  it('默认第一档是字母显现', () => {
     expect(NARRATION_MODES[0].id).toBe('letters');
     expect(NARRATION_MODES[0].desc).toContain('字母');
+  });
+
+  it('门禁 32：真人朗读（Web Speech TTS）已从全部源码退场', () => {
+    const srcDirs = ['ui', 'audio', 'data', 'halls', 'core'].map((d) => join(process.cwd(), 'src', d));
+    for (const dir of srcDirs) {
+      for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
+        const text = readFileSync(join(dir, f), 'utf-8');
+        expect(text, `${f} 仍引用 speechSynthesis`).not.toContain('speechSynthesis');
+        expect(text, `${f} 仍引用 SpeechSynthesisUtterance`).not.toContain('SpeechSynthesisUtterance');
+      }
+    }
+    const main = readFileSync(join(process.cwd(), 'src', 'main.js'), 'utf-8');
+    expect(main).not.toContain('speechSynthesis');
   });
 });
 
@@ -80,13 +93,51 @@ describe('文案哲学：只用林奇自己的话，二手解读退场', () => {
 
   it('全部文案不含空标签与理论名词堆砌', () => {
     const all = [
-      ...QUOTES.map((q) => q.zh + q.en),
+      ...QUOTES.map((q) => q.zh + q.en + (q.note || '') + (q.aside || '')),
       ...Object.values(NARRATIONS).map((n) => n.text),
-      LEGAL.title + LEGAL.badge + LEGAL.paras.join(''),
-      ABOUT_RENDER.title + ABOUT_RENDER.paras.join('')
+      LEGAL.title + LEGAL.badge + LEGAL.paras.join('')
     ].join('');
     for (const label of ['超现实主义大师', '梦核', '邪典之王', '鬼才导演', '拉康', '齐泽克', '精神分析']) {
       expect(all, `文案中出现标签/理论词: ${label}`).not.toContain(label);
+    }
+  });
+
+  it('「关于画质」类元叙述页已移除（不再导出 ABOUT_RENDER）', () => {
+    expect(ESSAY_MODULE.ABOUT_RENDER).toBeUndefined();
+  });
+});
+
+describe('立牌随行文案（v1.5：一句解释 + 一句评述，克制）', () => {
+  // 各厅立牌实际引用的引语必须带 note 与 aside
+  const USED = ['meaning', 'sense', 'home', 'you', 'philly', 'darkness'];
+
+  it.each(USED)('厅内引语 %s 带 note 与 aside，各 ≤36 字', (id) => {
+    const q = quoteById(id);
+    expect(q).toBeTruthy();
+    expect(q.note, `${id} 缺 note`).toBeTruthy();
+    expect(q.aside, `${id} 缺 aside`).toBeTruthy();
+    expect(q.note.length, `${id} note 过长`).toBeLessThanOrEqual(36);
+    expect(q.aside.length, `${id} aside 过长`).toBeLessThanOrEqual(36);
+  });
+
+  it('note/aside 是单句（不写长文，不堆多句）', () => {
+    for (const q of QUOTES) {
+      for (const s of [q.note, q.aside]) {
+        if (!s) continue;
+        const sentences = s.split(/[。！？]/).filter((x) => x.trim().length > 0);
+        expect(sentences.length, `${q.id} 随行文案多于一句: ${s}`).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('门禁 33：作品内文案不谈制作方法（禁元叙述扫描）', () => {
+    // 展陈文案 = 引语 + note/aside + 旁白（合规页的必要事实陈述除外）
+    const inArt = [
+      ...QUOTES.map((q) => q.zh + (q.note || '') + (q.aside || '')),
+      ...Object.values(NARRATIONS).map((n) => n.text)
+    ].join('');
+    for (const w of ['程序化', '建模', '渲染', '多边形', '着色器', 'PS5', '引擎', '帧率', '贴图']) {
+      expect(inArt, `展陈文案谈及制作方法: ${w}`).not.toContain(w);
     }
   });
 });
@@ -95,18 +146,28 @@ describe('展签预算：源码级审计（v1.3 收紧）', () => {
   const hallsDir = join(process.cwd(), 'src', 'halls');
   const hallFiles = readdirSync(hallsDir).filter((f) => f.endsWith('.js') && f !== 'kit.js');
 
-  it('每厅林奇原话展签（quotePlaque）≤ 1', () => {
+  it('每厅引语立牌（quoteStand）≤ 1', () => {
     for (const f of hallFiles) {
       const src = readFileSync(join(hallsDir, f), 'utf-8');
-      const count = (src.match(/quotePlaque\(/g) || []).length;
-      expect(count, `${f} 展签过多: ${count}`).toBeLessThanOrEqual(1);
+      const count = (src.match(/quoteStand\(/g) || []).length;
+      expect(count, `${f} 立牌过多: ${count}`).toBeLessThanOrEqual(1);
     }
   });
 
-  it('说明立牌（standPlaque）已全馆退场', () => {
+  it('墙挂式大字展签（quotePlaque）与说明立牌（standPlaque）已全馆退场', () => {
     for (const f of hallFiles) {
       const src = readFileSync(join(hallsDir, f), 'utf-8');
+      expect(src, `${f} 仍在使用 quotePlaque`).not.toContain('quotePlaque');
       expect(src, `${f} 仍在使用 standPlaque`).not.toContain('standPlaque');
+    }
+  });
+
+  it('每座立牌都接了接近驱动器（走近才显影，不是常亮）', () => {
+    for (const f of hallFiles) {
+      const src = readFileSync(join(hallsDir, f), 'utf-8');
+      const stands = (src.match(/quoteStand\(/g) || []).length;
+      const updaters = (src.match(/quoteStandUpdater\(/g) || []).length;
+      expect(updaters, `${f} 立牌缺接近驱动`).toBe(stands);
     }
   });
 
