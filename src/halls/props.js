@@ -1421,16 +1421,34 @@ export function viewScope({ mats } = {}) {
   const ped = new THREE.Mesh(pedGeo, M.iron);
   g.add(ped);
   const headGroup = new THREE.Group();
+  // v1.12 门禁 60（中尺度装配感）：叉架补**轴销螺栓**——镜头俯仰的
+  // 转轴不再是「筒悬在两块板中间」
   const fork = mergedMesh([
     xform(new THREE.BoxGeometry(0.03, 0.16, 0.05), -0.1, 0.05, 0),
     xform(new THREE.BoxGeometry(0.03, 0.16, 0.05), 0.1, 0.05, 0),
-    xform(new THREE.BoxGeometry(0.22, 0.03, 0.05), 0, -0.03, 0)
+    xform(new THREE.BoxGeometry(0.22, 0.03, 0.05), 0, -0.03, 0),
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 0.026, 10), -0.118, 0.1, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 0.026, 10), 0.118, 0.1, 0, 0, 0, Math.PI / 2)
   ], M.iron);
+  // v1.12 门禁 60：投币观景镜的标志解剖补齐——**双目眼罩板**（单筒
+  // 望远镜读感 → 眺望台双目镜读感）、**两侧持握把手**（扶着转的那
+  // 两根）、物镜圈、投币缝 + 退币钮。全并进筒身镀铬网格：零新增 mesh。
   const scopeBody = mergedMesh([
     xform(new THREE.CylinderGeometry(0.075, 0.09, 0.3, 14), -0.0, 0.1, -0.05, Math.PI / 2, 0, 0),
     xform(new THREE.CylinderGeometry(0.045, 0.05, 0.12, 12), -0.0, 0.1, 0.16, Math.PI / 2, 0, 0),
-    // 投币盒
-    xform(roundedBoxGeo(0.08, 0.1, 0.05, 0.01), 0, -0.02, 0.12)
+    // 双目眼罩板 + 左右眼罩筒
+    xform(roundedBoxGeo(0.115, 0.075, 0.02, 0.012), 0, 0.1, 0.226),
+    xform(new THREE.CylinderGeometry(0.021, 0.025, 0.045, 10), -0.029, 0.1, 0.245, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.021, 0.025, 0.045, 10), 0.029, 0.1, 0.245, Math.PI / 2, 0, 0),
+    // 物镜圈（前端唇缘）
+    xform(new THREE.TorusGeometry(0.086, 0.009, 8, 18), 0, 0.1, -0.198),
+    // 两侧持握把手（斜向外下）
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.15, 8), -0.105, 0.05, 0.06, 0, 0, 0.55),
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.15, 8), 0.105, 0.05, 0.06, 0, 0, -0.55),
+    // 投币盒 + 币缝 + 退币钮
+    xform(roundedBoxGeo(0.08, 0.1, 0.05, 0.01), 0, -0.02, 0.12),
+    xform(new THREE.BoxGeometry(0.032, 0.005, 0.014), 0, 0.032, 0.12),
+    xform(new THREE.CylinderGeometry(0.013, 0.013, 0.012, 10), 0.02, -0.05, 0.147, Math.PI / 2, 0, 0)
   ], M.chrome);
   headGroup.add(fork, scopeBody);
   headGroup.position.y = 1.16;
