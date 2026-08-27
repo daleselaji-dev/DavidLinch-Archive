@@ -152,7 +152,8 @@ export function build(ctx) {
   });
   const grille = new THREE.Mesh(
     new THREE.PlaneGeometry(0.48, 0.26),
-    new THREE.MeshStandardMaterial({ map: grilleTex, roughness: 0.9 })
+    // emissive 通道平时为 0——v1.8 试音啸叫时网面短暂泛蓝（有电流过）
+    new THREE.MeshStandardMaterial({ map: grilleTex, roughness: 0.9, emissive: 0x7a86c0, emissiveIntensity: 0 })
   );
   grille.position.z = 0.203;
   wedge.add(grille);
@@ -1127,6 +1128,39 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.8 彩蛋：返听音箱试音——台上那只监听楔一直开着。E → 载波
+  // 啸叫扫过一遍（radio 合成），聚光猛缩半拍再回来、台口脚灯跟着
+  // 闪一串、后幕打个寒颤：整套扩声真的通着电。冒烟名 monitor-howl。
+  // ============================================================
+  const howl = { t: -1 };
+  const runHowl = () => {
+    if (howl.t >= 0) return;
+    howl.t = 0;
+    audio.sfxAt('radio', 1.18, -D / 2 + 3.42, 0.85, 6);
+    curtainShudder.t = 0;
+    curtainShudder.e = Math.max(curtainShudder.e, 0.4);
+    ui.caption('试音。一，二。', 2600);
+    ui.docentNote('他说过：电影一半是声音。');
+  };
+  updaters.push((dt, t) => {
+    if (howl.t < 0) return;
+    howl.t += dt;
+    if (howl.t > 2.6) { howl.t = -1; return; }
+    // 啸叫包络：聚光先猛缩再过冲回稳；脚灯高频抖一串（叠乘在
+    // 乐队连锁的基线之后，自然衰减不抢写）
+    const u = howl.t / 2.6;
+    const dip = 1 - Math.exp(-((u - 0.18) ** 2) / 0.012) * 0.75 +
+      Math.exp(-((u - 0.5) ** 2) / 0.02) * 0.3;
+    spot.intensity *= Math.max(0.1, dip);
+    footLights.material.emissiveIntensity *= 1 + Math.sin(howl.t * 47) * 0.5 * (1 - u);
+    grille.material.emissiveIntensity = (1 - u) * 0.5;
+  });
+  hotspots.add(wedge.children[0], {
+    hint: 'E — 返听音箱（试音）',
+    onActivate: runHowl
+  });
+
   // ---------- 香槟冰桶（包厢旁；v1.4 阶段 4） ----------
   // 三腿黄铜架 + 车削银桶卷唇 + 深绿瓶斜倚：E → 桶身一晃、瓶子磕了一下桶壁
   const bucketGrp = new THREE.Group();
@@ -1309,6 +1343,6 @@ export function build(ctx) {
     spawn: { x: 0, z: 5.4, yaw: 0 },
     bounds: rectBounds(-W / 2 + 1.2, W / 2 - 1.2, -D / 2 + 3.2, D / 2 - 1.3),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'closet-side': closetTrig }
+    eggs: { 'closet-side': closetTrig, 'monitor-howl': { force: runHowl } }
   };
 }

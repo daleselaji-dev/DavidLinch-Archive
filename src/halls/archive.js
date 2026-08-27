@@ -169,6 +169,7 @@ export function build(ctx) {
 
   // 作品灯牌 —— 按年代沿两壁排布（事实性档案）
   const films = filmsSorted();
+  const plaqueLamps = []; // v1.8 年份巡礼：灯牌自发光 + 壁点光按年代波动
   films.forEach((film, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     const z = -L / 2 + 7 + Math.floor(i / 2) * 5.6;
@@ -183,6 +184,76 @@ export function build(ctx) {
     const spot = new THREE.PointLight(0xfff0dd, 2.2, 4.5, 2);
     spot.position.set(side * (W / 2 - 1.1), 3.3, z);
     group.add(spot);
+    plaqueLamps.push({ mat: plaque.material, spot, order: i, z });
+  });
+
+  // ============================================================
+  // v1.8 彩蛋：年份巡礼——入口墙上一支黄铜拨杆。E → 灯牌从
+  // 2017 逐块亮起回溯到 1966（光波倒着时间跑完整条长廊），
+  // 尽头一声铜磬。冒烟名 year-ripple。
+  // ============================================================
+  const rippleBox = new THREE.Group();
+  rippleBox.add(roundedBoxMesh(0.22, 0.34, 0.05, 0.015,
+    new THREE.MeshStandardMaterial({ color: 0x241610, roughness: 0.5 })));
+  const rippleLever = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.02, 0.16, 8), M.brass);
+  rippleLever.position.set(0, 0.02, 0.05);
+  rippleLever.rotation.x = 0.5;
+  rippleBox.add(rippleLever);
+  const rippleTag = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.16, 0.05),
+    new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#141008';
+        g.fillRect(0, 0, s, s);
+        g.fillStyle = '#c9a35c';
+        g.font = '600 34px Georgia, serif';
+        g.textAlign = 'center';
+        g.fillText('1966–2017', s / 2, s / 2 + 12);
+      }), roughness: 0.6
+    }));
+  rippleTag.position.set(0, -0.11, 0.028);
+  rippleBox.add(rippleTag);
+  rippleBox.position.set(W / 2 - 0.26, 1.42, L / 2 - 3.4);
+  rippleBox.rotation.y = -Math.PI / 2;
+  group.add(rippleBox);
+  // 巡礼次序：从最新一块（近入口）倒回最老一块（尽头）
+  const rippleOrder = [...plaqueLamps].sort((a, b) => b.z - a.z);
+  const ripple = { t: -1, STEP: 0.16, HOLD: 0.5 };
+  const startRipple = () => {
+    if (ripple.t >= 0) return;
+    ripple.t = 0;
+    audio.sfxAt('switch', W / 2 - 0.3, L / 2 - 3.4, 0.7, 3);
+    ui.caption('倒回去，一年一年。', 3200);
+    ui.docentNote('年表从动画短片排到最后一季。');
+    const total = rippleOrder.length * ripple.STEP + ripple.HOLD;
+    setTimeout(() => audio.sfxAt('chime', 0, -L / 2 + 4, 0.5, 20), total * 1000);
+  };
+  updaters.push((dt) => {
+    if (ripple.t < 0) return;
+    ripple.t += dt;
+    let alive = false;
+    rippleOrder.forEach((L2, k) => {
+      const ph = ripple.t - k * ripple.STEP;
+      // 光波钟形包络：每块灯牌被点亮 ~0.7s，拖一条余晖尾
+      const boost = ph > 0 ? Math.exp(-((ph - 0.3) ** 2) / 0.09) : 0;
+      if (ph < 1.4) alive = true;
+      L2.mat.emissiveIntensity = 0.5 + boost * 1.7;
+      L2.spot.intensity = 2.2 + boost * 7;
+    });
+    rippleLever.rotation.x = ripple.t < 0.3 ? -0.5 : 0.5;
+    if (!alive && ripple.t > rippleOrder.length * ripple.STEP + 2) {
+      ripple.t = -1;
+      rippleLever.rotation.x = 0.5;
+      for (const L2 of plaqueLamps) {
+        L2.mat.emissiveIntensity = 0.5;
+        L2.spot.intensity = 2.2;
+      }
+    }
+  });
+  hotspots.add(rippleBox.children[0], {
+    hint: 'E — 年份巡礼拨杆',
+    onActivate: startRipple
   });
 
   // 卡片目录柜 ×2（黄铜拉手 + 标签框；各有一只可拉的抽屉）
@@ -1120,6 +1191,6 @@ export function build(ctx) {
     spawn: { x: 0, z: L / 2 - 4, yaw: 0 },
     bounds: multiRectBounds([HALL, NICHE]),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'ghost-plaque': ghostTrig }
+    eggs: { 'ghost-plaque': ghostTrig, 'year-ripple': { force: startRipple } }
   };
 }

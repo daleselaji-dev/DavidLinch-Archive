@@ -493,6 +493,85 @@ export function build(ctx) {
     chaseBulbs.material.emissiveIntensity = 1.6 + (Math.sin(t * 7) * 0.5 + 0.5) * 1.4;
   });
 
+  // ============================================================
+  // v1.8 彩蛋：霓虹检修箱——门厅左肩一只上锁的灰铁箱（锁着，
+  // 但检修钮露在外面）。E → 整面招牌经历一次「故障」：粉霓虹
+  // 滑成错误的蓝、追逐灯乱序、全黑一拍，然后大字先回来，
+  // 「梦之剧场」晚一拍才亮（这栋楼的电有自己的想法）。
+  // 冒烟名 marquee-stutter。
+  // ============================================================
+  const jbox = new THREE.Group();
+  jbox.add(roundedBoxMesh(0.34, 0.46, 0.12, 0.02,
+    new THREE.MeshStandardMaterial({ color: 0x2e3236, roughness: 0.55, metalness: 0.6 })));
+  const jbtn = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.034, 0.03, 10),
+    new THREE.MeshStandardMaterial({ color: 0x801418, roughness: 0.4 }));
+  jbtn.rotation.x = Math.PI / 2;
+  jbtn.position.set(0.08, -0.14, 0.065);
+  jbox.add(jbtn);
+  // 检修铭条
+  const jtag = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.2, 0.05),
+    new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#1a1c1e';
+        g.fillRect(0, 0, s, s);
+        g.fillStyle = '#c8cdd2';
+        g.font = '600 30px "Courier New", monospace';
+        g.textAlign = 'center';
+        g.fillText('SERVICIO', s / 2, s / 2 + 10);
+      }), roughness: 0.6
+    }));
+  jtag.position.set(0, 0.16, 0.063);
+  jbox.add(jtag);
+  jbox.position.set(-4.55, 1.5, -13.6);
+  group.add(jbox);
+  const marqueeMat = marquee.children[0].material;
+  const marquee2Mat = marquee2.children[0].material;
+  const stutter = { t: -1 };
+  const runStutter = () => {
+    if (stutter.t >= 0) return;
+    stutter.t = 0;
+    audio.sfxAt('switch', -4.5, -13.5, 0.7, 4);
+    later(() => audio.sfxAt('fluor', 0, -13.6, 0.8, 12), 200);
+    later(() => audio.sfxAt('lampon', 0, -13.6, 0.7, 12), 2350);
+    later(() => ui.caption('梦之剧场回来晚了一拍。', 3600), 2600);
+    ui.docentNote('全片在洛杉矶实景取景。');
+  };
+  updaters.push((dt, t) => {
+    if (stutter.t < 0) return;
+    stutter.t += dt;
+    const u = stutter.t;
+    jbtn.position.z = 0.065 - (u < 0.25 ? 0.012 : 0);
+    if (u < 1.4) {
+      // 故障相：粉霓虹滑向错误的蓝 + 乱序抽搐
+      const gate = Math.sin(u * 43) * Math.sin(u * 17 + 2) > -0.2 ? 1 : 0.08;
+      marqueeMat.opacity *= gate;
+      marquee.children[1].intensity *= gate;
+      marqueeMat.color.setHSL(0.92 - u * 0.35, 0.95, 0.62);
+      chaseBulbs.material.emissiveIntensity = Math.random() < 0.4 ? 0.2 : 3.2;
+    } else if (u < 2.3) {
+      // 全黑一拍（招牌熄灭，夜路只剩路灯）
+      marqueeMat.opacity = 0;
+      marquee.children[1].intensity = 0;
+      marquee2Mat.opacity = 0;
+      marquee2.children[1].intensity = 0;
+      chaseBulbs.material.emissiveIntensity = 0.05;
+    } else if (u < 4.3) {
+      // 大字先回来；梦之剧场晚 2s
+      marqueeMat.color.set('#ff2e88');
+      marquee2Mat.opacity = 0;
+      marquee2.children[1].intensity = 0;
+    } else if (u > 5.4) {
+      stutter.t = -1;
+      marqueeMat.color.set('#ff2e88');
+    }
+  });
+  hotspots.add(jbox.children[0], {
+    hint: 'E — 霓虹检修箱',
+    onActivate: runStutter
+  });
+
   // v1.4 P3：剧场票亭（路缘外、门厅右肩；折窗 + 票口碗 + CERRADO 牌）
   const tbooth = ticketBooth({ mats: M });
   tbooth.position.set(5.35, 0, -12.8);
@@ -1766,7 +1845,8 @@ export function build(ctx) {
         force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); },
         state: () => `phase=${scare.phase} t=${scare.t.toFixed(2)} fig=${figure.position.x.toFixed(2)},${figure.position.z.toFixed(2)} vis=${figure.visible ? 1 : 0}`
       },
-      'no-band': noBandTrig
+      'no-band': noBandTrig,
+      'marquee-stutter': { force: runStutter }
     },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;

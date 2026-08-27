@@ -815,11 +815,103 @@ export function build(ctx) {
     kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
   });
 
+  // ============================================================
+  // v1.8 博物馆导览架：车削立柱 + 斜面台 + 三支胶木听筒挂黄铜钩 +
+  // 琥珀指示灯。E → 摘听筒：咔哒 + 调谐静电 + 一段馆方讲解
+  // （三段轮换，全为公开事实）；三段听全 → 吊灯轻轻压暗又亮起 +
+  // 帷幕后一声耳语（这座馆自己应了一声）。冒烟名 audio-guide。
+  // ============================================================
+  const guideStand = new THREE.Group();
+  const guideWood = new THREE.MeshStandardMaterial({ color: 0x1c1009, roughness: 0.5 });
+  guideStand.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.24, 0), new THREE.Vector2(0.22, 0.04), new THREE.Vector2(0.055, 0.1),
+      new THREE.Vector2(0.04, 0.95), new THREE.Vector2(0.07, 1.02)
+    ], 12), guideWood));
+  // 斜面台（讲解铭牌面板）+ 黄铜边条
+  const guideTop = mergedMesh([
+    xform(new THREE.BoxGeometry(0.52, 0.05, 0.36), 0, 1.08, 0, -0.32, 0, 0),
+    xform(new THREE.BoxGeometry(0.54, 0.012, 0.03), 0, 1.026, 0.164, -0.32, 0, 0)
+  ], guideWood);
+  guideStand.add(guideTop);
+  // 三支胶木听筒（听柄 + 双碗）挂在斜台前沿的黄铜钩上
+  const bakelite = new THREE.MeshStandardMaterial({ color: 0x121114, roughness: 0.35, envMapIntensity: 0.7 });
+  const hookGeosG = [];
+  const handsetMeshes = [];
+  for (let i = 0; i < 3; i++) {
+    const hx = (i - 1) * 0.17;
+    hookGeosG.push(xform(new THREE.TorusGeometry(0.02, 0.006, 6, 10), hx, 1.0, 0.19, Math.PI / 2, 0, 0));
+    const hs = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.016, 0.016, 0.15, 8), 0, 0, 0, 0, 0, 0),
+      xform(new THREE.SphereGeometry(0.032, 10, 8), 0, 0.085, 0.008),
+      xform(new THREE.SphereGeometry(0.032, 10, 8), 0, -0.085, 0.008)
+    ], bakelite);
+    hs.position.set(hx, 0.9, 0.2);
+    hs.rotation.x = 0.1;
+    guideStand.add(hs);
+    handsetMeshes.push(hs);
+  }
+  guideStand.add(mergedMesh(hookGeosG, M.brass));
+  // 琥珀指示灯（讲解播放时呼吸）
+  const guidePilotMat = new THREE.MeshStandardMaterial({
+    color: 0x2a1602, emissive: 0xff9a2e, emissiveIntensity: 0.25, roughness: 0.4
+  });
+  const guidePilot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), guidePilotMat);
+  guidePilot.position.set(0.2, 1.13, -0.05);
+  guideStand.add(guidePilot);
+  guideStand.position.set(-1.9, 0, 7.7);
+  guideStand.rotation.y = Math.atan2(1.9, -7.7) + Math.PI;
+  group.add(guideStand);
+  // 讲解词（馆方口吻，全为公开事实；单条 ≤28 字防说教）
+  const guideState = { t: -1, idx: 0, heard: new Set(), dip: 1, handset: null };
+  const GUIDE_CAPS = ['——沙沙。一号讲解。', '——沙沙。二号讲解。', '——沙沙。三号讲解。'];
+  const playGuide = () => {
+    const i = guideState.idx;
+    guideState.idx = (guideState.idx + 1) % 3;
+    guideState.t = 0;
+    guideState.handset = handsetMeshes[i];
+    audio.sfx('click', 0.7);
+    audio.sfxAt('radio', -1.9, 7.7, 0.5, 3);
+    ui.caption(GUIDE_CAPS[i], 2600);
+    if (i === 0) ui.docentNote('他 1946 年生于蒙大拿州米苏拉。');
+    if (i === 1) ui.docentNote('拍电影之前，他在费城学画。');
+    if (i === 2) ui.docentNote('这座馆里没有一帧原作画面。');
+    guideState.heard.add(i);
+    if (guideState.heard.size === 3) {
+      guideState.heard.clear();
+      // 连锁：吊灯压暗又亮起 + 帷幕后一声耳语——馆自己应了一声
+      guideState.dip = 0.12;
+      setTimeout(() => audio.sfx('whisper', 0.5), 900);
+      setTimeout(() => ui.caption('帷幕后有人听完了。', 3600), 1300);
+    }
+  };
+  hotspots.add(guideTop, {
+    hint: 'E — 导览讲解架',
+    onActivate: playGuide
+  });
+  updaters.push((dt, t) => {
+    // 指示灯呼吸 + 被摘听筒轻晃；连锁压暗指数回弹
+    if (guideState.t >= 0) {
+      guideState.t += dt;
+      guidePilotMat.emissiveIntensity = 1.6 + Math.sin(t * 9) * 0.7;
+      if (guideState.handset) {
+        guideState.handset.rotation.z = Math.sin(guideState.t * 6.5) * 0.16 * Math.max(0, 1 - guideState.t * 0.35);
+      }
+      if (guideState.t > 3.4) {
+        guideState.t = -1;
+        guidePilotMat.emissiveIntensity = 0.25;
+        if (guideState.handset) { guideState.handset.rotation.z = 0; guideState.handset = null; }
+      }
+    }
+    guideState.dip += (1 - guideState.dip) * Math.min(1, dt * 1.6);
+    if (guideState.dip < 0.999) center.intensity *= guideState.dip;
+  });
+
   return {
     group,
     spawn: { x: 0, z: 8.6, yaw: 0 },
     bounds: circleBounds(R - 2.4),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'curtain-whisper': whisperTrig }
+    eggs: { 'curtain-whisper': whisperTrig, 'audio-guide': { force: playGuide } }
   };
 }

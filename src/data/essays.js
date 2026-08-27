@@ -124,6 +124,12 @@ export const QUOTES = [
     en: 'I like things that go into hidden, mysterious places.',
     zh: '我喜欢那些通往隐秘之处的东西。',
     source: '公开访谈'
+  },
+  {
+    id: 'negativity',
+    en: 'Negativity is the enemy of creativity.',
+    zh: '负面情绪是创造力的敌人。',
+    source: '公开访谈（多次提及）'
   }
 ];
 

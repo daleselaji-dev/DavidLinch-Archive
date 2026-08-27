@@ -573,6 +573,59 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.8 彩蛋：工厂对讲机——北墙管道之间一只铸铁话箱（格栅 +
+  // 呼叫钮 + 红指示灯）。E → 咔哒 + 静电床；1.3s 后「楼下」应了
+  // 一声远门闷响，锅炉房三块压力表同时乱跳（这栋楼真的有人值班）。
+  // 冒烟名 intercom-reply。
+  // ============================================================
+  const intercom = new THREE.Group();
+  intercom.add(roundedBoxMesh(0.3, 0.42, 0.1, 0.02, pipeMat));
+  const grilleGeos = [];
+  for (let gy = -1; gy <= 1; gy++) {
+    grilleGeos.push(xform(new THREE.BoxGeometry(0.2, 0.018, 0.012), 0, 0.06 + gy * 0.045, 0.052));
+  }
+  intercom.add(mergedMesh(grilleGeos, new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.6, metalness: 0.5 })));
+  const callBtn = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.028, 0.032, 0.03, 10),
+    new THREE.MeshStandardMaterial({ color: 0x2c2620, roughness: 0.45, metalness: 0.6 }));
+  callBtn.rotation.x = Math.PI / 2;
+  callBtn.position.set(0, -0.12, 0.055);
+  intercom.add(callBtn);
+  const comPilotMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0505, emissive: 0xc42214, emissiveIntensity: 0.2, roughness: 0.5
+  });
+  const comPilot = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), comPilotMat);
+  comPilot.position.set(0.09, -0.12, 0.05);
+  intercom.add(comPilot);
+  intercom.position.set(1.9, 1.52, -S / 2 + 0.4);
+  group.add(intercom);
+  const comState = { t: -1 };
+  const callDown = () => {
+    if (comState.t >= 0 && comState.t < 2.4) return;
+    comState.t = 0;
+    audio.sfx('switch', 0.5);
+    audio.sfxAt('walkie', 1.9, -S / 2 + 0.5, 0.5, 4);
+    ui.caption('——咔。有人在听。', 2400);
+    setTimeout(() => {
+      audio.sfxAt('doorfar', -S / 2 - 4.5, 0, 0.85, 14);
+      pressure.surge = Math.max(pressure.surge, 2.6);
+      ui.caption('楼下应了一声。', 3000);
+      ui.docentNote('他在费城学画的年代住在工业区。');
+    }, 1300);
+  };
+  updaters.push((dt) => {
+    if (comState.t < 0) return;
+    comState.t += dt;
+    comPilotMat.emissiveIntensity = comState.t < 2.2 ? 1.8 + Math.sin(comState.t * 26) * 0.9 : 0.2;
+    callBtn.position.z = 0.055 - (comState.t < 0.25 ? 0.012 : 0);
+    if (comState.t > 6) comState.t = -1;
+  });
+  hotspots.add(intercom.children[0], {
+    hint: 'E — 工厂对讲机',
+    onActivate: callDown
+  });
+
   // 裸吊灯 —— 推一下就荡起来，光影跟着晃
   const swingBulb = hangingBulb(0xffe2b8, 2.5);
   swingBulb.position.set(1.9, H, -3.1);
@@ -1481,6 +1534,6 @@ export function build(ctx) {
     // 脚步材质分区：锅炉房检修步道=钢格栅；其余=水泥
     surfaceAt: (x, z) => (x >= -S / 2 - 2.4 && x <= -S / 2 - 0.8 && z >= -2.5 && z <= 2.5 ? 'metal' : 'concrete'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'radiator-stage': radiatorTrig }
+    eggs: { 'radiator-stage': radiatorTrig, 'intercom-reply': { force: callDown } }
   };
 }

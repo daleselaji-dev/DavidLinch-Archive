@@ -807,6 +807,53 @@ export function build(ctx) {
     }
   });
 
+  // ---------- v1.8：松节油罐（画架脚边）----------
+  // 锡罐 + 掀盖 + 罐口挂漆痕。E → 盖子啪嗒掀开又落回、
+  // 罐身晃两下，画架托板上的抹布跟着动一下（气味有形状）。
+  const turpCan = new THREE.Group();
+  const tinMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(64, 90, 40), color: 0x9a9d9a, roughness: 0.42, metalness: 0.85
+  });
+  turpCan.add(new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.2, 14), tinMat));
+  turpCan.children[0].position.y = 0.1;
+  const turpLid = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.022, 12), tinMat);
+  turpLid.position.set(0, 0.212, 0);
+  turpCan.add(turpLid);
+  // 罐口垂下来的干漆痕
+  turpCan.add(new THREE.Mesh(
+    new THREE.BoxGeometry(0.03, 0.09, 0.006),
+    new THREE.MeshStandardMaterial({ color: 0xc9c2ae, roughness: 0.95 })
+  ));
+  turpCan.children[2].position.set(0.065, 0.16, 0.02);
+  turpCan.position.set(-4.05, 0, -4.15);
+  group.add(turpCan);
+  const turpState = { t: -1 };
+  updaters.push((dt) => {
+    if (turpState.t < 0) return;
+    turpState.t += dt;
+    const decay = Math.max(0, 1 - turpState.t * 0.6);
+    if (decay <= 0) {
+      turpState.t = -1;
+      turpLid.position.y = 0.212;
+      turpLid.rotation.z = 0;
+      turpCan.rotation.z = 0;
+      return;
+    }
+    turpLid.position.y = 0.212 + Math.max(0, Math.sin(turpState.t * 6)) * 0.05 * decay;
+    turpLid.rotation.z = Math.sin(turpState.t * 5) * 0.5 * decay;
+    turpCan.rotation.z = Math.sin(turpState.t * 8.5) * 0.06 * decay;
+    rag.rotation.x = Math.sin(turpState.t * 7) * 0.05 * decay;
+  });
+  hotspots.add(turpCan.children[0], {
+    hint: 'E — 松节油罐',
+    onActivate: () => {
+      turpState.t = 0;
+      audio.sfxAt('clank', -4.05, -4.15, 0.4, 3);
+      ui.caption('松节油。他的香水。', 3000);
+      ui.docentNote('他说过最爱松节油的气味。');
+    }
+  });
+
   // ---------- v1.4 P3：颜料台（画架旁的小推台）----------
   // 台面/下层板/四腿 + 调色板（六坨顶点色颜料 + 可长出的新颜料）
   // + 调色刀组 ×3（铬刀身/木柄分材质合并）+ 颜料管 ×4（一支立着）+ 洗笔罐

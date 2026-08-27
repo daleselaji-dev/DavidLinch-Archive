@@ -1715,6 +1715,64 @@ export function build(ctx) {
   millSmoke.position.set(32.5, 0, -37);
   overlook.add(millSmoke);
   updaters.push(millSmoke.userData.update);
+
+  // ============================================================
+  // v1.8 彩蛋：厂笛拉杆——栏杆头上一支黄铜信号拉杆（旧厂区遗物，
+  // 线还通着）。E → 拉杆压下：远处锯木厂应一声汽笛、烟囱猛吐一大口，
+  // 值夜室的窗亮了几秒又灭（有人被吵醒看了一眼）。冒烟名 mill-whistle。
+  // ============================================================
+  const millWin = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.85, 0.6),
+    new THREE.MeshBasicMaterial({ color: 0xffb45e, transparent: true, opacity: 0, fog: false })
+  );
+  millWin.position.set(27.4, 2.3, -34.96);
+  overlook.add(millWin);
+  const wPost = new THREE.Group();
+  wPost.add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.0, 0.09),
+    new THREE.MeshStandardMaterial({ color: 0x1b120a, roughness: 0.85 })));
+  wPost.children[0].position.y = 0.5;
+  const wLever = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.02, 0.4, 8), M.brass);
+  wLever.geometry.translate(0, 0.2, 0);
+  wLever.position.set(0, 0.98, 0);
+  wLever.rotation.x = -0.7;
+  const wKnob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x5c1010, roughness: 0.4 }));
+  wKnob.position.set(0, 1.36, 0.26);
+  wPost.add(wLever, wKnob);
+  wPost.position.set(15.6, 0.16, -28.1);
+  overlook.add(wPost);
+  const millCall = { t: -1 };
+  const runMillWhistle = () => {
+    if (millCall.t >= 0) return;
+    millCall.t = 0;
+    audio.sfx('switch', 0.4);
+    setTimeout(() => audio.sfxAt('steamfar', 30, -38, 0.9, 30), 420);
+    setTimeout(() => ui.caption('锯木厂醒了一秒。', 3200), 1400);
+    ui.docentNote('外景取自华盛顿州的小瀑布镇。');
+  };
+  updaters.push((dt) => {
+    if (millCall.t < 0) return;
+    millCall.t += dt;
+    const u = millCall.t;
+    // 拉杆压下回弹；烟囱吐一大口；值夜室窗 1.4s 亮起 → 5s 后熄
+    const press = u < 0.5 ? u / 0.5 : Math.max(0, 1 - (u - 0.5) / 0.8);
+    wLever.rotation.x = -0.7 + press * 1.1;
+    wKnob.position.z = 0.26 - press * 0.24;
+    wKnob.position.y = 1.36 - press * 0.1;
+    millSmoke.material.opacity = 0.05 + Math.exp(-((u - 1.2) ** 2) / 0.8) * 0.14;
+    millWin.material.opacity = u > 1.4 && u < 5 ? Math.min(0.8, (u - 1.4) * 2) : Math.max(0, 0.8 - (u - 5) * 1.6);
+    if (u > 6.2) {
+      millCall.t = -1;
+      millWin.material.opacity = 0;
+      millSmoke.material.opacity = 0.05;
+      wLever.rotation.x = -0.7;
+      wKnob.position.set(0, 1.36, 0.26);
+    }
+  });
+  hotspots.add(wKnob, {
+    hint: 'E — 厂笛拉杆',
+    onActivate: runMillWhistle
+  });
   group.add(overlook);
 
   // ============================================================
@@ -1809,7 +1867,10 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'stone-circle': groveTrig, 'falls-vigil': vigilTrig, 'walkie-duet': { force: runDuet } },
+    eggs: {
+      'stone-circle': groveTrig, 'falls-vigil': vigilTrig,
+      'walkie-duet': { force: runDuet }, 'mill-whistle': { force: runMillWhistle }
+    },
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
 }
