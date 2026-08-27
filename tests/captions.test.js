@@ -64,3 +64,38 @@ describe('v1.10 P16 热点提示克制审计', () => {
     }
   });
 });
+
+// v1.10 P25 帮助面板键位同步审计——键位有三个入口（keydown 分发、
+// HUD 底栏按钮、帮助面板行表），任何一处新增/改动而另两处漏更新都
+// 属于「文档漂移」。这里把三方同步钉成断言。
+describe('v1.10 P25 帮助面板键位同步审计', () => {
+  const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const overlaySrc = readFileSync(new URL('../src/ui/overlay.js', import.meta.url), 'utf8');
+  // keydown 分发的全部单字母键
+  const boundKeys = [...mainSrc.matchAll(/case 'Key([A-Z])':/g)].map((m) => m[1]);
+  // 帮助面板 rows 块（键位列全文）
+  const rowsBlock = overlaySrc.slice(overlaySrc.indexOf('const rows = ['), overlaySrc.indexOf('];', overlaySrc.indexOf('const rows = [')));
+  const rowKeys = [...rowsBlock.matchAll(/\['([^']+)'/g)].map((m) => m[1]);
+  // HUD 底栏按钮的快捷键标注
+  const dockKeys = [...overlaySrc.matchAll(/mkBtn\('[^']+', '([A-Z])'/g)].map((m) => m[1]);
+
+  it('提取器在工作（keydown ≥10 键 / 帮助 ≥12 行 / 底栏 ≥8 钮）', () => {
+    expect(boundKeys.length).toBeGreaterThanOrEqual(10);
+    expect(rowKeys.length).toBeGreaterThanOrEqual(12);
+    expect(dockKeys.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('keydown 分发的每个键都在帮助面板有一行（含 H 自身与 Esc）', () => {
+    for (const k of boundKeys) {
+      const documented = rowKeys.some((cell) => new RegExp(`(^|[ /])${k}([ /]|$)`).test(cell));
+      expect(documented, `键 ${k} 未入帮助面板行表`).toBe(true);
+    }
+    expect(rowKeys.some((cell) => cell.includes('Esc')), 'Esc 未入帮助面板').toBe(true);
+  });
+
+  it('HUD 底栏每个按钮的快捷键标注都真实接在 keydown 上（无死标注）', () => {
+    for (const k of dockKeys) {
+      expect(boundKeys.includes(k), `底栏标注键 ${k} 在 keydown 中无分发`).toBe(true);
+    }
+  });
+});
