@@ -369,6 +369,15 @@ export class AudioEngine {
         tone('sine', 54, 92, 1.9, 0.07, 0.12);
         break;
       }
+      case 'fencewomp': { // v1.11 P16 巷内瓦楞铁皮被夜风推了一下: 板面弹性闷弹 + 高位薄嗒两声 + 落定
+        noise('brown', 0.55, 'lowpass', 220, 0.8, 0.16, 0, 0.05);
+        tone('sine', 74, 58, 0.5, 0.09);
+        noise('white', 0.1, 'bandpass', 2400, 6, 0.024, 0.04);
+        tone('square', 1240, 1180, 0.03, 0.018, 0.16);
+        tone('square', 980, 950, 0.03, 0.013, 0.35);
+        noise('brown', 0.22, 'lowpass', 300, 1, 0.05, 0.42);
+        break;
+      }
       case 'scrape': { // 金属刮擦（v1.8 拐角惊吓）: 宽带擦噪拖行下坠 + 双声高位金属啸 + 尾端石屑
         const f = noise('pink', 0.9, 'bandpass', 950, 3, 0.16, 0, 0.16);
         f.frequency.linearRampToValueAtTime(340, t + 0.85);

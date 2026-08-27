@@ -18,6 +18,7 @@ const SRC = {
   eraserhead: read('halls/eraserhead.js'),
   bluevelvet: read('halls/bluevelvet.js'),
   twinpeaks: read('halls/twinpeaks.js'),
+  mulholland: read('halls/mulholland.js'),
   studio: read('halls/studio.js'),
   engine: read('audio/engine.js')
 };
@@ -157,13 +158,22 @@ describe('v1.11 门禁 57：新音色 ≥3 在引擎且被接线', () => {
   it.each([
     ['wetstir', 'eraserhead'],
     ['reversecup', 'twinpeaks'],
-    ['deepdrip', 'studio']
+    ['deepdrip', 'studio'],
+    ['fencewomp', 'mulholland']
   ])('%s：引擎实现 + %s 接线', (name, hall) => {
     expect(SRC.engine).toContain(`case '${name}'`);
     expect(SRC[hall]).toContain(`'${name}'`);
   });
 
-  it('dreadswell（门禁 55 拐角恐惧拍）也在引擎——本轮新音色共 4 种', () => {
+  it('dreadswell（门禁 55 拐角恐惧拍）也在引擎——本轮新音色共 5 种', () => {
     expect(SRC.engine).toContain("case 'dreadswell'");
+  });
+
+  it('fencewomp 稀发层：惊吓进行中让位（scare.sub 守卫）+ 位置沿围栏随机', () => {
+    const at = SRC.mulholland.indexOf("audio.sfxAt('fencewomp'");
+    expect(at).toBeGreaterThan(-1);
+    const seg = SRC.mulholland.slice(Math.max(0, at - 400), at + 120);
+    expect(seg).toContain('if (scare.sub !== null) return');
+    expect(seg).toContain('11.55, -8 - fenceRng() * 18');
   });
 });

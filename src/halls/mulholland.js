@@ -1546,6 +1546,19 @@ export function build(ctx) {
   const LURK_OUT = new THREE.Vector3(8.55, 0, -27.15);
   const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
 
+  // v1.11 P16：夜风偶尔推一下巷侧瓦楞围栏（fencewomp，seeded 稀发）——
+  // 位置沿围栏随机（x=11.55 那面），每次都从不太一样的地方响。给长巷
+  // 一个「这里的铁皮都松了」的材料证词；惊吓进行中不叠（不稀释节拍）。
+  const fenceRng = rng(67);
+  const fenceState = { timer: 40 + fenceRng() * 50 };
+  updaters.push((dt) => {
+    fenceState.timer -= dt;
+    if (fenceState.timer > 0) return;
+    fenceState.timer = 75 + fenceRng() * 55;
+    if (scare.sub !== null) return; // 这一阵风让给惊吓
+    audio.sfxAt('fencewomp', 11.55, -8 - fenceRng() * 18, 0.16, 4);
+  });
+
   // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还
   const wakeUp = (caption) => {
     teleport(WAKE_POINT.x, WAKE_POINT.z, Math.PI);
