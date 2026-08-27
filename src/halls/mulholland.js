@@ -1374,14 +1374,75 @@ export function build(ctx) {
 
   // 大垃圾箱（那个东西住在它后面）——艺术二遍：
   // 斜口箱体 + 竖向压筋 + 双开盖微错位 + 侧袋钩 + 脚轮，惊吓闪光时剪影可信
-  const dumpMat = new THREE.MeshStandardMaterial({ color: 0x14231c, roughness: 0.8, metalness: 0.4 });
+  // v1.12 D-7（贴脸巡查病灶）：整箱一种无贴图近黑材质——肋条 4cm
+  // 起伏在同色暗光下零读出，贴脸是一块无特征黑板；而它是拐角惊吓的
+  // 戏剧锚点。shading 遍：工业漆面贴图（竖刷痕/底缘锈斑带/锈滴垂痕/
+  // 盖缘刮亮/撕掉招贴留下的浅色方斑——零文字合规）；几何遍：叉车袋
+  // ×2 + 四角护角钢并进肋条合并网格（零新增 mesh，mul 239 贴顶纪律）
+  const dumpTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#16241d';
+    g.fillRect(0, 0, s, s);
+    const dr = rng(73);
+    // 竖向刷痕（旧漆的方向感）
+    for (let i = 0; i < 60; i++) {
+      const x = dr() * s;
+      g.strokeStyle = dr() > 0.5
+        ? `rgba(42,62,52,${0.08 + dr() * 0.12})`
+        : `rgba(10,18,14,${0.08 + dr() * 0.16})`;
+      g.lineWidth = 1 + dr() * 3;
+      g.beginPath();
+      g.moveTo(x, dr() * 40);
+      g.lineTo(x + (dr() - 0.5) * 10, s - dr() * 30);
+      g.stroke();
+    }
+    // 撕掉招贴留下的浅色方斑（只有一块颜色更嫩的漆——零文字）
+    g.fillStyle = 'rgba(56,78,64,0.32)';
+    g.fillRect(s * 0.6, s * 0.28, s * 0.24, s * 0.2);
+    g.strokeStyle = 'rgba(14,22,17,0.5)';
+    g.lineWidth = 2;
+    g.strokeRect(s * 0.6, s * 0.28, s * 0.24, s * 0.2);
+    // 底缘锈斑带 + 锈滴垂痕
+    for (let i = 0; i < 26; i++) {
+      const x = dr() * s;
+      const y = s - 6 - dr() * 34;
+      const r = 4 + dr() * 12;
+      g.fillStyle = `rgba(${74 + (dr() * 30) | 0},${44 + (dr() * 14) | 0},20,${0.2 + dr() * 0.3})`;
+      g.beginPath();
+      g.ellipse(x, y, r, r * (0.5 + dr() * 0.5), dr() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 7; i++) {
+      const x = dr() * s;
+      const y0 = s * (0.1 + dr() * 0.3);
+      g.strokeStyle = `rgba(66,40,18,${0.16 + dr() * 0.2})`;
+      g.lineWidth = 1.5 + dr() * 2;
+      g.beginPath();
+      g.moveTo(x, y0);
+      g.lineTo(x + (dr() - 0.5) * 6, y0 + s * (0.2 + dr() * 0.4));
+      g.stroke();
+    }
+    // 盖缘/上部磕碰刮亮（露底金属的斜短痕）
+    for (let i = 0; i < 14; i++) {
+      const x = dr() * s;
+      const y = dr() * s * 0.3;
+      g.strokeStyle = `rgba(120,128,122,${0.1 + dr() * 0.16})`;
+      g.lineWidth = 1 + dr();
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + 6 + dr() * 16, y + 2 + dr() * 6);
+      g.stroke();
+    }
+  });
+  const dumpMat = new THREE.MeshStandardMaterial({
+    map: dumpTex, roughness: 0.82, metalness: 0.3, envMapIntensity: 0.5
+  });
   const dumpster = new THREE.Group();
   const dumpBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.25, 1.3), dumpMat);
   dumpBody.position.y = 0.78;
   // 上沿外翻边
   const dumpRim = new THREE.Mesh(new THREE.BoxGeometry(2.72, 0.07, 1.42), dumpMat);
   dumpRim.position.y = 1.42;
-  // 竖向压筋（前后面各 5 道，合并）
+  // 竖向压筋（前后面各 5 道，合并）+ v1.12 D-7 叉车袋与四角护角钢
   const ribGeo = new THREE.BoxGeometry(0.07, 1.1, 0.04);
   const ribGeos = [];
   for (let i = 0; i < 5; i++) {
@@ -1390,6 +1451,19 @@ export function build(ctx) {
     ribGeos.push(xform(ribGeo, x, 0.76, -0.66));
   }
   ribGeo.dispose();
+  // 叉车袋：前后面各两只矩形套筒（垃圾车的叉齿从这里进）
+  const pocketGeo = new THREE.BoxGeometry(0.36, 0.2, 0.06);
+  for (const px of [-0.62, 0.62]) {
+    ribGeos.push(xform(pocketGeo, px, 0.42, 0.675));
+    ribGeos.push(xform(pocketGeo, px, 0.42, -0.675));
+  }
+  pocketGeo.dispose();
+  // 四角护角钢（竖向棱线，暗光下箱体的最外剪影）
+  const cornerGeo = new THREE.BoxGeometry(0.075, 1.18, 0.075);
+  for (const [cx, cz] of [[-1.29, 0.64], [1.29, 0.64], [-1.29, -0.64], [1.29, -0.64]]) {
+    ribGeos.push(xform(cornerGeo, cx, 0.77, cz));
+  }
+  cornerGeo.dispose();
   // 双开盖（微错位开角）+ 管状把手
   const lidGeo = new THREE.BoxGeometry(1.3, 0.07, 1.36);
   const lidL = new THREE.Mesh(lidGeo, dumpMat);
