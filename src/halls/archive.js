@@ -1464,9 +1464,16 @@ export function build(ctx) {
     hbPulse.t += dt;
     const u = hbPulse.t;
     if (u > 1.05) {
-      hbPulse.t = -1;
+      // v1.11 P14 余温：齐搏收拍后年表灯箱立刻归位，唯独幽灵灯牌
+      // 自己多留一分暖（+16%），用 26s 极缓退回常值——它记得被按过。
       for (const m of plaqueMats) m.emissiveIntensity = 0.5;
-      ghostPlaque.material.emissiveIntensity = 0.7;
+      const cool = (u - 1.05) / 26;
+      if (cool >= 1) {
+        hbPulse.t = -1;
+        ghostPlaque.material.emissiveIntensity = 0.7;
+        return;
+      }
+      ghostPlaque.material.emissiveIntensity = 0.7 * (1.16 - 0.16 * cool);
       return;
     }
     const k = hbBump(u, 0, 0.3) + hbBump(u, 0.42, 0.34) * 0.8;
@@ -1476,7 +1483,8 @@ export function build(ctx) {
   hotspots.add(ghostPlaque, {
     hint: 'E — 这块灯牌',
     onActivate: () => {
-      if (!ghostPlaque.visible || hbPulse.t >= 0) return;
+      // 搏动进行中不叠拍；余温期（>1.05s）可以再按——再来一记心跳
+      if (!ghostPlaque.visible || (hbPulse.t >= 0 && hbPulse.t <= 1.05)) return;
       hbPulse.t = 0;
       audio.sfxAt('heartbeat', -(W / 2 - 0.28), 8.2, 0.75, 3);
     }

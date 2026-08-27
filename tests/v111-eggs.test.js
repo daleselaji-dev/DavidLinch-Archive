@@ -120,14 +120,21 @@ describe('v1.11 门禁 57：几何与连锁守卫', () => {
     expect(SRC.archive.match(/ghostPlaque\.position\.y = -60|, -60, 8\.2\)/g)?.length)
       .toBeGreaterThanOrEqual(2);
     expect(SRC.archive).toContain('ghostPlaque.position.y = GHOST_Y');
-    // 热点守卫：不可见时按 E 无效
-    expect(SRC.archive).toContain('if (!ghostPlaque.visible || hbPulse.t >= 0) return');
+    // 热点守卫：不可见时按 E 无效；搏动进行中不叠拍（余温期可再按）
+    expect(SRC.archive).toContain('if (!ghostPlaque.visible || (hbPulse.t >= 0 && hbPulse.t <= 1.05)) return');
   });
 
   it('studio 小门三处预置位都贴墙脚（z=-9.27 后墙两处 + x=2.73 西墙一处）', () => {
     expect(SRC.studio).toContain('{ x: 3.02, z: -9.27, ry: 0 }');
     expect(SRC.studio).toContain('{ x: 2.73, z: -8.55, ry: Math.PI / 2 }');
     expect(SRC.studio).toContain('{ x: 5.75, z: -9.27, ry: 0 }');
+  });
+
+  it('archive 灯牌 P14：齐搏收拍后幽灵灯牌带 26s 余温（它记得被按过）', () => {
+    expect(SRC.archive).toContain('const cool = (u - 1.05) / 26');
+    expect(SRC.archive).toContain('0.7 * (1.16 - 0.16 * cool)');
+    // 年表灯箱不带余温（立刻归位）——只有那块不在年表上的记得
+    expect(SRC.archive).toContain('for (const m of plaqueMats) m.emissiveIntensity = 0.5;');
   });
 
   it('studio 小门 P13：三处预置位地面磨痕合并单 mesh（门会搬家这件事地板自己说）', () => {
