@@ -1711,8 +1711,13 @@ export function build(ctx) {
   menuBoard.position.set(31.55, 2.45, -7.8);
   dinerInner.add(menuBoard);
   // 柜台（v1.4 P2 欠账落地：五十年代 boomerang 层压板台面 + 金属包边踢脚）
+  // v1.12 D-15 克制化：近白底 + clearcoat 0.65 + env 1.2 在双吊灯正下
+  // 方整面镜面爆白（boomerang 纹样全部淹没）——底色压一档、蜡面收敛
   const counterTop = roundedBoxMesh(1.1, 0.1, 6.4, 0.04,
-    boomerangMat({ bg: [232, 222, 198], tones: ['#b8a682', '#8f2032', '#3a4652'], size: 512, seed: 37, repX: 2, repY: 6 }));
+    boomerangMat({
+      bg: [214, 203, 178], tones: ['#b8a682', '#8f2032', '#3a4652'],
+      size: 512, seed: 37, repX: 2, repY: 6, clearcoat: 0.4, env: 0.7
+    }));
   counterTop.position.set(30.7, 1.06, -7.8);
   const counterBody = roundedBoxMesh(0.95, 1.0, 6.3, 0.04,
     new THREE.MeshStandardMaterial({ color: 0x321820, roughness: 0.55 }));
