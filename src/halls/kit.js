@@ -624,10 +624,36 @@ export function doorway({ label, labelZh, color = '#3ec5ff', width = 2.4, height
     xform(new THREE.BoxGeometry(width + 1.1, 0.07, 0.6), 0, height + 0.38, 0),
     xform(new THREE.BoxGeometry(width + 1.0, 0.05, 0.55), 0, height - 0.02, 0)
   ], frameMat);
-  // 门内的"虚空" —— 微光涌动的黑
+  // 门内的"虚空" —— 微光涌动的黑。
+  // v1.12 D-13：纯色发光在近景读成一块平亮的色板（纵深全无）——改
+  // 灰度发光贴图给黑里做层次：底缘一线渗光（帘下漏出来的那种）+
+  // 中缝极暗竖隙 + 顶部收进全黑；各门仍按主题色 emissive 着色
+  const portalDepthTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#07070a';
+    g.fillRect(0, 0, s, s);
+    const floorGlow = g.createLinearGradient(0, s, 0, s * 0.52);
+    floorGlow.addColorStop(0, 'rgba(255,255,255,0.85)');
+    floorGlow.addColorStop(0.35, 'rgba(255,255,255,0.22)');
+    floorGlow.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = floorGlow;
+    g.fillRect(0, s * 0.52, s, s * 0.48);
+    // 中缝竖隙：极暗的一线亮——像两层帘子没合拢
+    const slit = g.createLinearGradient(s * 0.47, 0, s * 0.53, 0);
+    slit.addColorStop(0, 'rgba(255,255,255,0)');
+    slit.addColorStop(0.5, 'rgba(255,255,255,0.28)');
+    slit.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = slit;
+    g.fillRect(s * 0.44, 0, s * 0.12, s);
+    // 顶部两角沉进全黑（楣影）
+    const topShade = g.createLinearGradient(0, 0, 0, s * 0.4);
+    topShade.addColorStop(0, 'rgba(0,0,0,0.9)');
+    topShade.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = topShade;
+    g.fillRect(0, 0, s, s * 0.4);
+  });
   const voidMat = new THREE.MeshStandardMaterial({
     color: 0x02010a, roughness: 1,
-    emissive: new THREE.Color(color), emissiveIntensity: 0.16
+    emissive: new THREE.Color(color), emissiveMap: portalDepthTex, emissiveIntensity: 0.34
   });
   const portal = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.2, height - 0.1), voidMat);
   portal.position.y = height / 2;
@@ -644,7 +670,8 @@ export function doorway({ label, labelZh, color = '#3ec5ff', width = 2.4, height
   group.add(columns, rings, lintel, portal, sign, signZh, step, stepTrim);
   group.userData.portal = portal;
   group.userData.update = (dt, t) => {
-    portal.material.emissiveIntensity = 0.13 + Math.sin(t * 1.7) * 0.06;
+    // 贴图整体压暗后基线抬到 0.3（帘下渗光在呼吸，黑还是黑）
+    portal.material.emissiveIntensity = 0.3 + Math.sin(t * 1.7) * 0.12;
     sign.userData.flicker(t, width);
   };
   return group;
