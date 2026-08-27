@@ -197,19 +197,44 @@ export function cardCatalog({ cols = 4, rows = 5, mats } = {}) {
   const faceGeo = roundedBoxGeo(0.205, 0.155, 0.02, 0.008, 2);
   const pullGeo = new THREE.CylinderGeometry(0.008, 0.014, 0.05, 8);
   const frameGeo = new THREE.BoxGeometry(0.09, 0.035, 0.006);
+  // v1.12 门禁 61（二级细节）：三只「最常被拉的抽屉」——拉手被手汗磨亮
+  // （亮铜低粗糙度），拉手下方脸板漆面被指腹磨掉一圈软边光晕。
+  // 使用痕迹让 4×5 完全均匀的格子有了「谁用过它」的历史。
+  const wornSet = new Set(['1,2', '2,0', '3,3']);
+  const wornBrassGeos = [];
+  const wornHaloGeos = [];
+  const haloGeo = new THREE.PlaneGeometry(0.075, 0.055);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const x = -W / 2 + 0.16 + c * 0.24;
       const y = 0.19 + r * 0.19;
       if (r === rows - 2 && c === 1) continue; // 留给可拉抽屉
       faceGeos.push(xform(faceGeo, x, y, 0.235));
-      brassGeos.push(xform(pullGeo, x, y - 0.03, 0.255, Math.PI / 2, 0, 0));
+      const worn = wornSet.has(`${r},${c}`);
+      (worn ? wornBrassGeos : brassGeos)
+        .push(xform(pullGeo, x, y - 0.03, 0.255, Math.PI / 2, 0, 0));
       brassGeos.push(xform(frameGeo, x, y + 0.035, 0.246));
+      if (worn) wornHaloGeos.push(xform(haloGeo, x, y - 0.028, 0.2462));
     }
   }
-  faceGeo.dispose(); pullGeo.dispose(); frameGeo.dispose();
+  faceGeo.dispose(); pullGeo.dispose(); frameGeo.dispose(); haloGeo.dispose();
   g.add(mergedMesh(faceGeos, M.warmWood));
   g.add(mergedMesh(brassGeos, M.brass));
+  const polished = M.brass.clone();
+  polished.color = new THREE.Color(0xd8b878);
+  polished.roughness = 0.18;
+  g.add(mergedMesh(wornBrassGeos, polished));
+  const haloTex = canvasTexture(64, (g2, s) => {
+    const rad = g2.createRadialGradient(s / 2, s / 2, 2, s / 2, s / 2, s / 2);
+    rad.addColorStop(0, 'rgba(224,198,150,0.5)');
+    rad.addColorStop(0.55, 'rgba(224,198,150,0.22)');
+    rad.addColorStop(1, 'rgba(224,198,150,0)');
+    g2.fillStyle = rad;
+    g2.fillRect(0, 0, s, s);
+  });
+  g.add(mergedMesh(wornHaloGeos, new THREE.MeshStandardMaterial({
+    map: haloTex, transparent: true, depthWrite: false, roughness: 0.45
+  })));
   // 可拉抽屉（独立部件：面板 + 屉体 + 卡片）
   const drawer = new THREE.Group();
   const dFace = roundedBoxMesh(0.205, 0.155, 0.02, 0.008, M.warmWood);
