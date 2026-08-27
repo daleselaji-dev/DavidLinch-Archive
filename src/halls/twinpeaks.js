@@ -332,7 +332,15 @@ export function build(ctx) {
   curtainL.position.set(-0.85, 1.8, 0);
   const curtainR = curtain(1.6, 3.6, PALETTE.velvet, 3, gateMat);
   curtainR.position.set(0.85, 1.8, 0);
-  const lintelC = curtain(3.6, 0.9, PALETTE.velvet, 6, gateMat);
+  // v1.12 D-14：楣幕顶缘收口——裸 curtain 的褶裥剖面在顶端直接断口，
+  // 衬着夜空读成锯齿几何缺陷。加一根同料帘头卷（缝进顶边的卷边）
+  // 并进楣幕单 mesh（tp 240 贴顶纪律，网格数守恒）
+  const lintelSrc = curtain(3.6, 0.9, PALETTE.velvet, 6, gateMat);
+  const lintelC = mergedMesh([
+    xform(lintelSrc.geometry.clone(), 0, 0, 0),
+    xform(new THREE.CapsuleGeometry(0.13, 3.42, 6, 12), 0, 0.46, 0.02, 0, 0, Math.PI / 2)
+  ], gateMat);
+  lintelSrc.geometry.dispose();
   lintelC.position.set(0, 3.55, 0);
   const glowPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(1.2, 3.4),
