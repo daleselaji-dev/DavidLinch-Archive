@@ -152,6 +152,34 @@ describe('v1.9 阶段 2 新音色（配套七厅两件新交互；源码审计�
   });
 });
 
+describe('v1.10 阶段 2 新音色（配套七厅两件新交互；源码审计）', () => {
+  const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+  const NEW_V110 = ['winch', 'wallbox', 'lockerclang', 'waterlap', 'callbell', 'latchsnap'];
+  it.each(NEW_V110)('音色 %s 已实现', (name) => {
+    expect(src).toContain(`case '${name}'`);
+  });
+
+  it('新音色已在展厅接线（每种至少一处调用）', () => {
+    const halls = ['mulholland', 'archive', 'twinpeaks', 'bluevelvet', 'lobby', 'studio', 'eraserhead']
+      .map((h) => readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8'))
+      .join('\n');
+    for (const name of NEW_V110) {
+      expect(halls).toContain(`'${name}'`);
+    }
+  });
+
+  it('callbell 两短一长包络（三段起始时刻递增且末段最长）', () => {
+    const m = src.match(/case 'callbell'[\s\S]*?for \(const \[d, len\] of \[(.*?)\]\)/);
+    expect(m).toBeTruthy();
+    const triples = JSON.parse(`[${m[1]}]`);
+    expect(triples.length).toBe(3);
+    expect(triples[0][0]).toBeLessThan(triples[1][0]);
+    expect(triples[1][0]).toBeLessThan(triples[2][0]);
+    expect(triples[2][1]).toBeGreaterThan(triples[0][1]);
+    expect(triples[2][1]).toBeGreaterThan(triples[1][1]);
+  });
+});
+
 describe('v1.8 拐角惊吓音色（源码审计）', () => {
   const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
 
