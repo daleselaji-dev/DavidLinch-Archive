@@ -102,9 +102,16 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     expect(src).toMatch(/nightmareFigure[\s\S]{0,13000}userData\.update = \(dt, t, k/);
   });
 
-  it('梦魇形体不再是粗黑剪影：有眼窝/眼球/瞳孔、烟垢皮肤与长发细节', () => {
+  it('梦魇形体 v1.8：Blender 细模档（颅骨壳/连体破袍/双臂长手）+ 程序化眼球嘴缝', () => {
     const seg = src.slice(src.indexOf('export function nightmareFigure'));
-    for (const k of ['socket', 'eyeMat', 'pupil', 'skinTex', 'hairCap', 'mkEye', 'faceMat']) {
+    // 形体几何来自 Blender 权威细模档（gen_figure.py 烘焙）
+    expect(seg).toContain("blendGeo('figure/body')");
+    expect(seg).toContain("blendGeo('figure/head')");
+    for (const part of ['figure/armL', 'figure/armR', 'figure/handL', 'figure/handR']) {
+      expect(seg, `nightmareFigure 缺 Blender 细模件: ${part}`).toContain(`'${part}'`);
+    }
+    // 眼球/瞳孔/眼圈/嘴缝保持程序化（材质动画通道）
+    for (const k of ['socket', 'eyeMat', 'pupil', 'skinTex', 'mkEye', 'faceMat', 'ring', 'mouth.scale.y']) {
       expect(seg, `nightmareFigure 缺细节: ${k}`).toContain(k);
     }
     // 双眼不对称（歪斜/大小差是「不对劲」的核心细节）
@@ -112,16 +119,18 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     expect(seg).toContain('mkEye(1');
   });
 
-  it('v1.7 原作感长发：三组长绺（脑后/左鬓/右鬓）+ 最长垂到胸口 + 眼圈/眉棱/无声尖叫', () => {
+  it('v1.8 原作感长发（Blender 档）：三组长绺 mesh 独立摆动 + 脑后垂到胸口 + 扑时后掀', () => {
     const seg = src.slice(src.indexOf('export function nightmareFigure'));
-    for (const k of ['const strand =', 'mkClumps', 'hairBack', 'hairL', 'hairR', 'ring', 'brow', 'mouth.scale.y']) {
-      expect(seg, `nightmareFigure v1.7 缺细节: ${k}`).toContain(k);
+    for (const part of ['figure/hairBack', 'figure/hairL', 'figure/hairR']) {
+      expect(seg, `nightmareFigure 缺长发件: ${part}`).toContain(`blendGeo('${part}')`);
     }
-    // 脑后长绺最长必须垂到胸口量级（≥0.9m，头高 2.4m 的形体）
-    const m = seg.match(/mkClumps\(backAngles, ([\d.]+), ([\d.]+)/);
-    expect(m, '找不到脑后长绺 mkClumps 参数').toBeTruthy();
-    expect(Number(m[2])).toBeGreaterThanOrEqual(0.9);
-    // 扑时长发向后掀（k 驱动）
+    // 脑后长绺解码后必须垂到胸口量级（≥0.9m 纵向跨度，2.4m 身高档）
+    const hb = kit.blendGeo('figure/hairBack');
+    hb.computeBoundingBox();
+    expect(hb.boundingBox.max.y - hb.boundingBox.min.y).toBeGreaterThanOrEqual(0.9);
+    // 两鬓绺反相轻摆 + 扑（k 驱动）时整头长发向后掀
+    expect(seg).toContain('hairL.rotation.z');
+    expect(seg).toContain('hairR.rotation.z');
     expect(seg).toContain('hairBack.rotation.x');
   });
 
@@ -143,12 +152,60 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     expect(p.to.z).toBeCloseTo(-1, 6);
   });
 
-  it('一体化黑松 pineTree 已导出：树干/根盘/针叶冠合并单几何 + 顶点色', () => {
+  it('一体化黑松 pineTree v1.8（Blender 档）：hero/far 双 LOD 单几何 + 顶点色 + 预算内三角数', () => {
     expect(typeof kit.pineTree).toBe('function');
     const seg = src.slice(src.indexOf('export function pineTree'));
-    for (const k of ['trunk', 'flare', 'mergeGeometries', 'vertexColors: true', "setAttribute('color'"]) {
-      expect(seg.slice(0, 6000), `pineTree 缺要素: ${k}`).toContain(k);
-    }
+    expect(seg).toContain("blendGeo(detail ? 'pine/hero' : 'pine/far')");
+    expect(seg).toContain('vertexColors: true');
+    // 双 LOD 三角预算（双峰厅 70×hero + 190×far 必须压在 240k 内）
+    const hero = kit.blendGeo('pine/hero');
+    const far = kit.blendGeo('pine/far');
+    expect(hero.index.count / 3).toBeLessThanOrEqual(1000);
+    expect(far.index.count / 3).toBeLessThanOrEqual(400);
+    // 顶点色（针叶明暗/干皮色温）随几何一起烘焙
+    expect(hero.attributes.color).toBeTruthy();
+    expect(far.attributes.color).toBeTruthy();
+    // 树是立着的：纵向跨度按 1 单位规格化建模（scale 由调用方给）
+    hero.computeBoundingBox();
+    expect(hero.boundingBox.max.y).toBeGreaterThan(hero.boundingBox.max.x);
+  });
+
+  describe('v1.8 blendGeo 解码器（Blender 权威细模 → 运行时几何）', () => {
+    it('全部烘焙件可解码：位置/法线/顶点色/索引齐全且数量一致', () => {
+      const PARTS = [
+        'figure/body', 'figure/head', 'figure/hairBack', 'figure/hairL', 'figure/hairR',
+        'figure/armL', 'figure/armR', 'figure/handL', 'figure/handR',
+        'ladder/wood', 'ladder/brass', 'ladder/wheel', 'pine/hero', 'pine/far'
+      ];
+      for (const name of PARTS) {
+        const g = kit.blendGeo(name);
+        expect(g.attributes.position?.count, `${name} 缺位置`).toBeGreaterThan(0);
+        expect(g.attributes.normal?.count, `${name} 法线数不齐`).toBe(g.attributes.position.count);
+        expect(g.attributes.color?.count, `${name} 顶点色数不齐`).toBe(g.attributes.position.count);
+        expect(g.index?.count % 3, `${name} 索引非三角`).toBe(0);
+      }
+    });
+
+    it('未知资产名抛错（防拼写错误静默出空几何）', () => {
+      expect(() => kit.blendGeo('nope/nothing')).toThrow(/未知/);
+    });
+
+    it('法线解码后近单位长度（int8 量化误差 < 3%）', () => {
+      const g = kit.blendGeo('figure/head');
+      const n = g.attributes.normal;
+      for (let i = 0; i < n.count; i += 7) {
+        const len = Math.hypot(n.getX(i), n.getY(i), n.getZ(i));
+        expect(len).toBeGreaterThan(0.97);
+        expect(len).toBeLessThan(1.03);
+      }
+    });
+
+    it('cylUV/planarUV 给烘焙几何补 UV（canvas 纹理通道可用）', () => {
+      const g1 = kit.cylUV(kit.blendGeo('figure/body'), 2);
+      expect(g1.attributes.uv?.count).toBe(g1.attributes.position.count);
+      const g2 = kit.planarUV(kit.blendGeo('ladder/wood'), 0.8);
+      expect(g2.attributes.uv?.count).toBe(g2.attributes.position.count);
+    });
   });
 
   it('dreamFish 梦鱼已导出：一体车削鱼身 + 顶点色 + 鳞纹 + 发光侧线 + 眼 + 尾摆驱动', () => {

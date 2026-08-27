@@ -161,10 +161,12 @@ export function build(ctx) {
   ];
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
-  const heroPine = pineTree({ seed: 41, detail: 1 });
-  const farPine = pineTree({ seed: 42, detail: 0 });
-  const HERO_MAX = 96;
-  const FAR_MAX = 250;
+  // v1.8：pineTree 换 Blender 权威细模档（gen_pine.py 烘焙），
+  // hero 档 905 tris / far 档 301 tris——实例数按预算重配
+  const heroPine = pineTree({ detail: 1 });
+  const farPine = pineTree({ detail: 0 });
+  const HERO_MAX = 70;
+  const FAR_MAX = 190;
   const pinesHero = new THREE.InstancedMesh(heroPine.geo, heroPine.mat, HERO_MAX);
   const pinesFar = new THREE.InstancedMesh(farPine.geo, farPine.mat, FAR_MAX);
   const dummy = new THREE.Object3D();

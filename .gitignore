@@ -9,3 +9,10 @@ release/*
 
 # 冒烟视觉自检截屏（本地产物）
 shots*/
+
+# Blender 工具链与渲染产物（脚本与 .blend 入仓；渲染大图与本地 Blender 安装不入仓）
+tools/
+assets/blender/renders/
+assets/blender/exports/
+assets/blender/blends/*.blend1
+assets/blender/scripts/__pycache__/

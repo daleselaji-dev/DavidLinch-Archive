@@ -10,7 +10,8 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng,
+  blendGeo, planarUV
 } from './kit.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
@@ -704,41 +705,21 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2)
   ], M.brass));
   const ladder = new THREE.Group();
-  // v1.6 精修：暖色深木 + 低光泽（原先偏灰发亮）；弦木加厚
+  // v1.8：图书梯换 Blender 权威细模档（gen_ladder.py 烘焙）——
+  // 成型剖面弦木（旧木微弯）+ 11 根车削踏杆（端肩收颈/中腹鼓/
+  // 顶面踩磨平 + 磨损顶点色）+ 黄铜端销 ×22/加固横带 ×2/
+  // 3/4 圆挂钩（钩尾球）/轮叉板与轴螺栓；胶轮独立几何各自转动
   const ladderWood = woodMat({ base: [52, 33, 17], planks: 1, size: 256, seed: 44, gloss: 0.28 });
-  const stringerGeo = roundedBoxGeo(0.042, 4.55, 0.095, 0.014, 2);
-  const ladderGeos = [
-    xform(stringerGeo, -0.26, 2.275, 0),
-    xform(stringerGeo, 0.26, 2.275, 0)
-  ];
-  for (let i = 0; i < 11; i++) {
-    // 踏杆：中段微鼓的车削剖面（两端 0.015 → 中腹 0.019），久踩的圆润感
-    ladderGeos.push(xform(new THREE.CylinderGeometry(0.015, 0.019, 0.26, 10), -0.13, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
-    ladderGeos.push(xform(new THREE.CylinderGeometry(0.019, 0.015, 0.26, 10), 0.13, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
-  }
-  ladder.add(mergedMesh(ladderGeos, ladderWood));
-  // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉 + 踏杆端黄铜销钉 ×22
-  const brassBits = [
-    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
-    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045)
-  ];
-  for (let i = 0; i < 11; i++) {
-    for (const sx of [-1, 1]) {
-      brassBits.push(xform(
-        new THREE.CylinderGeometry(0.011, 0.013, 0.012, 8),
-        sx * 0.283, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2
-      ));
-    }
-  }
-  ladder.add(mergedMesh(brassBits, M.brass));
+  ladderWood.vertexColors = true; // Blender 烘焙的踩磨/色温变化
+  ladder.add(new THREE.Mesh(planarUV(blendGeo('ladder/wood'), 0.8), ladderWood));
+  const ladderBrass = M.brass.clone();
+  ladderBrass.vertexColors = true;
+  ladder.add(new THREE.Mesh(planarUV(blendGeo('ladder/brass'), 2), ladderBrass));
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
-  const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);
-  wheelL.rotation.z = Math.PI / 2;
+  const wheelL = new THREE.Mesh(blendGeo('ladder/wheel'), wheelMat);
   wheelL.position.set(-0.26, 0.05, 0.06);
-  const wheelR = wheelL.clone();
-  wheelR.position.x = 0.26;
+  const wheelR = new THREE.Mesh(blendGeo('ladder/wheel'), wheelMat);
+  wheelR.position.set(0.26, 0.05, 0.06);
   ladder.add(wheelL, wheelR);
   ladder.position.set(W / 2 - 1.12, 0, 2.4);
   ladder.rotation.z = -0.21;
