@@ -177,6 +177,60 @@ export function build(ctx) {
   moonLight.position.set(-30, 50, -60);
   group.add(moonLight);
 
+  // v1.10 抛光 P10「远处的光」：偶尔一道流星——每 60–110s（seeded）
+  // 在随机方位斜划 0.9s 就没了。抬头的人才看得见；没人抬头它也划。
+  const meteorTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const grad = g.createLinearGradient(0, 0, s, 0);
+    grad.addColorStop(0, 'rgba(220,232,255,0)');
+    grad.addColorStop(0.72, 'rgba(220,232,255,0.7)');
+    grad.addColorStop(1, 'rgba(255,255,255,1)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const meteor = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.6, 0.1),
+    new THREE.MeshBasicMaterial({
+      map: meteorTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, fog: false, toneMapped: false, side: THREE.DoubleSide
+    })
+  );
+  meteor.visible = false;
+  group.add(meteor);
+  const metRng = rng(83);
+  const metState = { t: -1, next: 42, from: new THREE.Vector3(), dir: new THREE.Vector3() };
+  updaters.push((dt) => {
+    if (metState.t < 0) {
+      metState.next -= dt;
+      if (metState.next > 0) return;
+      const az = metRng() * Math.PI * 2;
+      const el = 0.55 + metRng() * 0.35;
+      metState.from.set(Math.cos(az) * Math.cos(el) * 120, Math.sin(el) * 120, Math.sin(az) * Math.cos(el) * 120);
+      const sgn = metRng() < 0.5 ? 1 : -1;
+      metState.dir.set(-Math.sin(az) * sgn * 16, -7 - metRng() * 5, Math.cos(az) * sgn * 16);
+      // 长轴沿运动方向、板面朝观察区（基向量一次算好）
+      const xA = metState.dir.clone().normalize();
+      const nA = metState.from.clone().normalize();
+      const yA = new THREE.Vector3().crossVectors(nA, xA).normalize();
+      const zA = new THREE.Vector3().crossVectors(xA, yA);
+      meteor.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA));
+      meteor.visible = true;
+      metState.t = 0;
+      return;
+    }
+    metState.t += dt;
+    const u = metState.t / 0.9;
+    if (u >= 1) {
+      metState.t = -1;
+      metState.next = 60 + metRng() * 50;
+      meteor.visible = false;
+      meteor.material.opacity = 0;
+      return;
+    }
+    meteor.position.copy(metState.from).addScaledVector(metState.dir, u);
+    meteor.material.opacity = Math.sin(u * Math.PI) * 0.5;
+  });
+
   // ---------- 远景三层（v1.4 P8）：松林(中景) → 山脊剪影两环 → 双峰主峰 ----------
   const ridgeFar = ridgeRing(122, { baseH: 9, amp: 26, segs: 72, color: 0x020409, seed: 71 });
   const ridgeNear = ridgeRing(90, { baseH: 5, amp: 15, segs: 64, color: 0x040a10, seed: 72 });

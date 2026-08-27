@@ -103,3 +103,18 @@ describe('v1.10 P9 微动遍：没有东西完全静止（怠速动画，零带�
     expect(SRC.archive).toMatch(/mfCreep\.next = 21 \+ mfRng\(\) \* 13/);
   });
 });
+
+describe('v1.10 P10 远处的光（稀疏夜空事件，seeded 间隔）', () => {
+  it('twinpeaks 偶尔一道流星（60–110s、0.9s 划过、正弦包络）', () => {
+    expect(SRC.twinpeaks).toContain('metState');
+    expect(SRC.twinpeaks).toMatch(/metState\.next = 60 \+ metRng\(\) \* 50/);
+    expect(SRC.twinpeaks).toMatch(/meteor\.material\.opacity = Math\.sin\(u \* Math\.PI\)/);
+  });
+
+  it('mulholland 山腰远车头灯（75–120s、8.5s 缓移、途中被山形挡口）', () => {
+    expect(SRC.mulholland).toContain('farCar');
+    expect(SRC.mulholland).toMatch(/carState\.next = 75 \+ carRng\(\) \* 45/);
+    // 双头灯 + 路面拖晕合并单 mesh（预算只 +1）
+    expect(SRC.mulholland).toMatch(/mergedMesh\(\[\s*xform\(new THREE\.PlaneGeometry\(1\.2, 1\.2\)/);
+  });
+});

@@ -164,6 +164,60 @@ export function build(ctx) {
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   group.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xaebdff, size: 0.5, transparent: true, opacity: 0.7, fog: false })));
 
+  // v1.10 抛光 P10「远处的光」：山腰夜路上偶尔驶过一辆车——一对
+  // 头灯 + 灯下一道路面拖晕，沿远山腰缓移 8.5s，途中被山形挡几口，
+  // 拐弯就没了。每 75–120s（seeded）来一辆；灯永远到不了这条街。
+  const carGlowTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const grad = g.createRadialGradient(s / 2, s / 2, 1, s / 2, s / 2, s / 2);
+    grad.addColorStop(0, 'rgba(255,243,214,1)');
+    grad.addColorStop(0.4, 'rgba(255,236,196,0.4)');
+    grad.addColorStop(1, 'rgba(255,236,196,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const carMat = new THREE.MeshBasicMaterial({
+    map: carGlowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    depthWrite: false, fog: false, toneMapped: false, side: THREE.DoubleSide
+  });
+  const farCar = mergedMesh([
+    xform(new THREE.PlaneGeometry(1.2, 1.2), -0.8, 0, 0),
+    xform(new THREE.PlaneGeometry(1.2, 1.2), 0.8, 0, 0),
+    xform(new THREE.PlaneGeometry(5.6, 0.8), 0, -0.34, -0.15)
+  ], carMat);
+  farCar.visible = false;
+  group.add(farCar);
+  const carRng = rng(47);
+  const carState = { t: -1, next: 34, a0: 0, a1: 0 };
+  updaters.push((dt) => {
+    if (carState.t < 0) {
+      carState.next -= dt;
+      if (carState.next > 0) return;
+      // 只走南北路轴两端的天空带（街道走廊的尽头才看得见远山），
+      // 高度压在屋脊环(≤8.5)之上、山线(≤13)之下——山腰上的那条路
+      const side = carRng() < 0.5 ? -Math.PI / 2 : Math.PI / 2;
+      carState.a0 = side - 0.42 + carRng() * 0.2;
+      carState.a1 = carState.a0 + 0.55 + carRng() * 0.3;
+      farCar.visible = true;
+      carState.t = 0;
+      return;
+    }
+    carState.t += dt;
+    const u = carState.t / 8.5;
+    if (u >= 1) {
+      carState.t = -1;
+      carState.next = 75 + carRng() * 45;
+      carMat.opacity = 0;
+      farCar.visible = false;
+      return;
+    }
+    const a = carState.a0 + (carState.a1 - carState.a0) * u;
+    farCar.position.set(Math.cos(a) * 74, 9.6 + Math.sin(u * 4.6) * 0.4, Math.sin(a) * 74);
+    farCar.lookAt(0, 2, 0);
+    // 出弯入弯淡入淡出 + 途中被山形/树影挡两口（乘一层慢闸）
+    carMat.opacity = Math.sin(u * Math.PI) * 0.42 * (0.55 + 0.45 * Math.abs(Math.sin(u * 8.6 + 1.1)));
+  });
+
   // v1.4 P8 远景中层：城市屋脊剪影环（比群山近一层）+ 洛城水塔
   // 层次：路面 → 护栏 → 屋脊环(r≈62–70) → 群山(r≈78) → 地平线光晕(r=120)
   const skyGeos = [];
