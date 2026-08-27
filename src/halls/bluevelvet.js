@@ -1062,6 +1062,7 @@ export function build(ctx) {
       juke.userData.setOn(jukeState.on);
       audio.sfx(jukeState.on ? 'chime' : 'thud', 0.6);
       narration.jazz.setEnabled(jukeState.on);
+      narration.speakItem('bluevelvet-jukebox');
       if (jukeState.on) {
         ui.caption('隔壁房间的乐队醒了。', 3600);
         curtainShudder.t = 0;
@@ -1213,6 +1214,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('chime');
       ui.caption('绒面向着光，底布向着墙。', 3600);
+      narration.speakItem('bluevelvet-curtain');
     }
   });
 

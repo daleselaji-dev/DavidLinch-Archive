@@ -9,6 +9,7 @@ import { AudioEngine } from './audio/engine.js';
 import { UI } from './ui/overlay.js';
 import { Narration } from './ui/narration.js';
 import { GuestbookStore } from './ui/guestbook-store.js';
+import { HALL_QUOTES, quoteById } from './data/essays.js';
 
 const HALLS = {
   lobby: () => import('./halls/lobby.js'),
@@ -85,6 +86,8 @@ let busy = false;
 let entered = false;
 const visited = new Set();
 const preloaded = {};
+const hallTimers = [];    // 本厅旁白/名言定时器（换厅即清，不隔厅乱说话）
+const quoteCursor = {};   // 每厅名言轮播游标（同厅再访换下一条）
 
 async function loadHallModule(id) {
   if (!preloaded[id]) {
@@ -109,6 +112,8 @@ async function loadHallModule(id) {
 async function goTo(id) {
   if (busy || (current && current.id === id)) return;
   busy = true;
+  for (const t of hallTimers) clearTimeout(t);
+  hallTimers.length = 0;
   ui.closeAll();
   ui.fade(true);
   if (current) audio.sfx('whoosh');
@@ -146,11 +151,22 @@ async function goTo(id) {
   ui.fade(false);
   console.log(`[sv] hall-loaded ${id}`);
 
-  // 留白：只在首访、且等你先看一会儿之后，才低声说一句短话
+  // 留白：只在首访、且等你先看一会儿之后，才低声说一句短话；
+  // 风格线落定后，馆方讲解再低声补上背景（v1.6 两段式，均首访一次）
   if (!visited.has(id)) {
     visited.add(id);
     const key = id === 'lobby' && visited.size === 1 ? 'welcome' : mod.meta.narration;
-    setTimeout(() => narration.speakKey(key), 2600);
+    hallTimers.push(setTimeout(() => narration.speakKey(key), 2600));
+    hallTimers.push(setTimeout(() => narration.speakDocent(id), 11500));
+  }
+  // 名言浮现：驻留约一分钟后，轮播一条与该厅作品/创作相关的短引语
+  // （每次到访换下一条；正被其他旁白占用时本次让位）
+  const pool = HALL_QUOTES[id];
+  if (pool && pool.length) {
+    hallTimers.push(setTimeout(() => {
+      const q = quoteById(pool[(quoteCursor[id] = ((quoteCursor[id] ?? -1) + 1) % pool.length)]);
+      narration.speakQuote(q);
+    }, 52000 + Math.random() * 18000));
   }
   busy = false;
 }
@@ -316,6 +332,19 @@ window.__SV__ = {
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
   /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹） */
   player: () => ({ x: controls.yawObject.position.x, z: controls.yawObject.position.z }),
+  /** 截屏核验：调用当前展厅彩蛋的摆拍钩子（如 corner-scare 的 pose/unpose） */
+  poseEgg: (name, method = 'pose', ...args) => {
+    const egg = current && current.built.eggs && current.built.eggs[name];
+    if (egg && typeof egg[method] === 'function') { egg[method](...args); return true; }
+    return false;
+  },
+  /** 冒烟/截屏：按提示词激活单个热点（视觉复核指定交互用） */
+  activateByHint: (substr) => {
+    const m = hotspots.items.find((it) => (it.userData.hotspot.hint || '').includes(substr));
+    if (!m) return false;
+    m.userData.hotspot.onActivate();
+    return true;
+  },
   /** 冒烟测试：逐一激活当前展厅全部非导航交互（onActivate 链不得抛错），返回激活数 */
   activateAll: () => {
     let n = 0;
@@ -328,5 +357,5 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
-  version: '1.4.0'
+  version: '1.6.0'
 };

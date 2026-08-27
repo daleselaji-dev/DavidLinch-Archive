@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
-  quotePlaque, zoneTrigger,
+  quotePlaque, zoneTrigger, lightCone,
   mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
@@ -787,6 +787,7 @@ export function build(ctx) {
         paintState.progress = 0;
         audio.sfx('curtain', 0.4);
         ui.caption('画开始自己生长。', 3000);
+        narration.speakItem('studio-easel');
       }
     }
   });
@@ -1092,6 +1093,7 @@ export function build(ctx) {
     onActivate: () => {
       radioState.on = 1;
       audio.sfx('radio', 0.8);
+      narration.speakItem('studio-radio');
       const special = chain.step === 2;
       if (special) chain.step = 3;
       later(() => {
@@ -1289,31 +1291,165 @@ export function build(ctx) {
     candleLight.intensity = 2.1 + Math.sin(t * 8.1) * 0.5;
   });
 
-  // 深水序列：大鱼群（冥想时才可见）
+  // ---------- 深水序列 v3（v1.6 冥想深化）：五幕 ≈34s ----------
+  // 借 What Remains of Edith Finch 的「把内心可视化成一段可栖居的旅程」，
+  // 但一切留在林奇语汇里：黑水、鱼群、光柱、一粒被捞起的点子。
+  //   ① 下潜 0–8s：画面沉入冷水（分级两段加深）+ 气泡自你身边升起
+  //   ② 鱼群 8–13s：大鱼群环游 + 两根天光柱缓缓扫过
+  //   ③ 大鱼 13–21s：一条真正的大鱼从雾里向你盘旋逼近，贴身掠过
+  //   ④ 点子 21–30s：大鱼放下一粒金色的光——悬在你面前，
+  //      字幕浮出一条「捞起的点子」（每次冥想轮换，不重复打扰）
+  //   ⑤ 上浮 30–34s：光粒携气泡加速升走，暖光从头顶漫回，你浮上来
   const fishGroup = new THREE.Group();
   fishGroup.visible = false;
   const fishes = [];
-  for (let i = 0; i < 7; i++) {
-    const geo = new THREE.CapsuleGeometry(0.09 + Math.random() * 0.12, 0.7 + Math.random() * 1.6, 4, 8);
+  for (let i = 0; i < 9; i++) {
+    // 径向 12 段：端面朝镜头时仍是圆，不至于读成发光多边形盘
+    const geo = new THREE.CapsuleGeometry(0.07 + Math.random() * 0.09, 0.7 + Math.random() * 1.6, 4, 12);
     const mat = new THREE.MeshStandardMaterial({
       color: 0x0a1a2c, roughness: 0.3, metalness: 0.4,
-      emissive: 0x3ec5ff, emissiveIntensity: 0.7, transparent: true, opacity: 0.85
+      emissive: 0x2f9cd4, emissiveIntensity: 0.4, transparent: true, opacity: 0.8
     });
     const fish = new THREE.Mesh(geo, mat);
     fish.rotation.z = Math.PI / 2;
     fishGroup.add(fish);
     fishes.push({ fish, r: 2.5 + Math.random() * 3.5, h: 1.2 + Math.random() * 2.6, speed: 0.12 + Math.random() * 0.3, phase: Math.random() * 7 });
   }
+  // 大鱼：纺锤身 + 立尾鳍 + 背鳍 + 一粒金眼（贴身掠过时你会与它对视）
+  const bigMat = new THREE.MeshStandardMaterial({
+    color: 0x060e1c, roughness: 0.35, metalness: 0.5,
+    emissive: 0x1e3c66, emissiveIntensity: 0.5, transparent: true, opacity: 0.96
+  });
+  const bigFish = new THREE.Group();
+  const bigBodyGeo = new THREE.CapsuleGeometry(0.3, 1.9, 6, 12);
+  {
+    const p = bigBodyGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      p.setX(i, p.getX(i) * (1 - Math.abs(y) * 0.14)); // 向头尾收窄的纺锤
+    }
+    bigBodyGeo.computeVertexNormals();
+  }
+  const bigBody = new THREE.Mesh(bigBodyGeo, bigMat);
+  bigBody.rotation.z = Math.PI / 2;
+  const tailFin = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 3), bigMat);
+  tailFin.scale.z = 0.16;
+  tailFin.position.set(-1.45, 0, 0);
+  tailFin.rotation.z = -Math.PI / 2;
+  const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.36, 3), bigMat);
+  dorsal.scale.z = 0.14;
+  dorsal.position.set(0.1, 0.36, 0);
+  dorsal.rotation.z = -0.5;
+  const bigEye = new THREE.Mesh(
+    new THREE.SphereGeometry(0.045, 8, 7),
+    new THREE.MeshStandardMaterial({ color: 0x181206, emissive: 0xd8a84a, emissiveIntensity: 2.2 })
+  );
+  bigEye.position.set(0.88, 0.08, 0.24);
+  bigFish.add(bigBody, tailFin, dorsal, bigEye);
+  bigFish.visible = false;
+  fishGroup.add(bigFish);
+  // 气泡：一圈缓慢上升的微点，冥想时围着你呼吸
+  const bubbleGeo = new THREE.BufferGeometry();
+  const bubbleN = 56;
+  const bubblePos = new Float32Array(bubbleN * 3);
+  const bubbleSeed = [];
+  for (let i = 0; i < bubbleN; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 0.6 + Math.random() * 2.6;
+    bubblePos[i * 3] = Math.cos(a) * r;
+    bubblePos[i * 3 + 1] = Math.random() * 3.4;
+    bubblePos[i * 3 + 2] = Math.sin(a) * r;
+    bubbleSeed.push(0.22 + Math.random() * 0.5);
+  }
+  bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
+  const bubbles = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({
+    color: 0x9ecfef, size: 0.035, transparent: true, opacity: 0.5, depthWrite: false
+  }));
+  fishGroup.add(bubbles);
+  // 天光柱 ×2：水面漏下来的两根冷光，绕着你极缓地扫
+  const shaftA = lightCone(0.3, 1.6, 5.2, 0x9ecfff, 0.05);
+  const shaftB = lightCone(0.24, 1.2, 4.6, 0x9ecfff, 0.04);
+  shaftA.visible = shaftB.visible = false;
+  fishGroup.add(shaftA, shaftB);
+  // 捞起的点子：金色光粒 + 一盏随行小暖光
+  const moteMat = new THREE.MeshStandardMaterial({
+    color: 0x201404, emissive: 0xffd9a0, emissiveIntensity: 3, transparent: true, opacity: 1
+  });
+  const mote = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), moteMat);
+  const moteLight = new THREE.PointLight(0xffca7a, 0, 4.5, 2);
+  mote.add(moteLight);
+  mote.visible = false;
+  fishGroup.add(mote);
   group.add(fishGroup);
-  const meditation = { active: false, t: 0 };
+  // 捞起的点子（原创短念头，每次冥想轮换一条；不解释、不剧透）
+  const IDEAS = [
+    '一间只在夜里存在的房间。',
+    '一条比白天更长的路。',
+    '风把帷幕吹成一个人形。',
+    '电流的嗡鸣里躲着一支歌。',
+    '一杯永远不凉的咖啡。',
+    '楼下还有一层没亮灯的楼。'
+  ];
+  const meditation = { active: false, t: 0, idea: 0 };
+  const LOOK_MID = { saturation: 0.55, tint: 0x9ecfff, fogColor: 0x020610, fogDensity: 0.085, bg: 0x010409, exposure: 0.8, bloom: 1.2 };
+  const LOOK_DEEP = { saturation: 0.42, tint: 0x86b8e8, fogColor: 0x01040c, fogDensity: 0.11, bg: 0x000308, exposure: 0.68, bloom: 1.35 };
   updaters.push((dt, t) => {
     if (!meditation.active) return;
     meditation.t += dt;
+    const mt = meditation.t;
     fishGroup.position.set(player.x, 0, player.z);
+    // 鱼群：环游；④幕后缓缓散开（半径漂移出去）
+    const scatter = mt > 24 ? Math.min(1, (mt - 24) / 8) : 0;
     for (const f of fishes) {
       const a = t * f.speed + f.phase;
-      f.fish.position.set(Math.cos(a) * f.r, f.h + Math.sin(t * 0.6 + f.phase) * 0.4, Math.sin(a) * f.r);
+      const r = f.r * (1 + scatter * 1.6);
+      f.fish.position.set(Math.cos(a) * r, f.h + Math.sin(t * 0.6 + f.phase) * 0.4 + scatter * 2.2, Math.sin(a) * r);
       f.fish.rotation.y = -a;
+      f.fish.material.opacity = 0.85 * (1 - scatter * 0.7);
+    }
+    // 气泡上升（上浮幕加速），循环回底
+    const bp = bubbles.geometry.attributes.position;
+    const rise = mt > 30 ? 4 : 1;
+    for (let i = 0; i < bubbleN; i++) {
+      let y = bp.getY(i) + bubbleSeed[i] * dt * rise;
+      if (y > 3.6) y = 0.05;
+      bp.setY(i, y);
+      bp.setX(i, bp.getX(i) + Math.sin(t * 1.7 + i) * dt * 0.05);
+    }
+    bp.needsUpdate = true;
+    // 天光柱极缓地扫
+    shaftA.position.set(Math.cos(t * 0.11) * 2.2, 0, Math.sin(t * 0.11) * 2.2);
+    shaftB.position.set(Math.cos(-t * 0.07 + 2) * 3, 0, Math.sin(-t * 0.07 + 2) * 3);
+    // ③ 大鱼盘旋逼近（13–21s）：半径 8→1.6，深度 3.1→1.6，尾鳍摆动
+    if (mt > 13 && mt < 24) {
+      bigFish.visible = true;
+      const u = Math.min(1, (mt - 13) / 8);
+      const k = u * u * (3 - 2 * u);
+      const a = -t * 0.55 + 1.2;
+      const r = 8 - k * 6.4;
+      bigFish.position.set(Math.cos(a) * r, 3.1 - k * 1.5, Math.sin(a) * r);
+      bigFish.rotation.y = -a - Math.PI / 2 + Math.sin(t * 2.1) * 0.06;
+      tailFin.rotation.y = Math.sin(t * 5.2) * 0.5;
+      bigMat.emissiveIntensity = 0.5 + k * 0.4;
+    } else if (mt >= 24) {
+      // 放下点子后，大鱼沉回雾里
+      bigFish.position.y -= dt * 0.5;
+      bigFish.position.x -= dt * 1.6;
+      bigMat.emissiveIntensity = Math.max(0, bigMat.emissiveIntensity - dt * 0.4);
+      if (mt > 29) bigFish.visible = false;
+    }
+    // ④⑤ 点子光粒：悬停呼吸 → 上浮幕携光升走
+    if (mote.visible) {
+      if (mt < 30) {
+        mote.position.y = 1.55 + Math.sin(t * 1.8) * 0.06;
+        moteMat.emissiveIntensity = 2.6 + Math.sin(t * 3.1) * 0.7;
+        moteLight.intensity = 1.6 + Math.sin(t * 3.1) * 0.5;
+      } else {
+        mote.position.y += dt * 2.6;
+        moteMat.opacity = Math.max(0, moteMat.opacity - dt * 0.9);
+        moteLight.intensity = Math.max(0, moteLight.intensity - dt * 1.4);
+        if (moteMat.opacity <= 0) mote.visible = false;
+      }
     }
   });
   hotspots.add(cushion, {
@@ -1322,19 +1458,48 @@ export function build(ctx) {
       if (meditation.active) return;
       meditation.active = true;
       meditation.t = 0;
+      narration.speakItem('studio-cushion');
+      // ① 下潜
       audio.sfx('om');
       audio.duck(0.4, 0.2, 3.0);
-      engine.setLook({ saturation: 0.55, tint: 0x9ecfff, fogColor: 0x020610, fogDensity: 0.085, bg: 0x010409, exposure: 0.8, bloom: 1.2 });
+      engine.setLook(LOOK_MID);
       fishGroup.visible = true;
+      shaftA.visible = shaftB.visible = true;
+      mote.visible = false;
+      moteMat.opacity = 1;
       ui.caption('「想抓大鱼，就得潜到更深的水里去。」', 4600);
+      later(() => engine.setLook(LOOK_DEEP), 8000); // 再往下一层
       later(() => audio.sfx('om', 0.7), 5200);
+      // ③ 大鱼来了：一记低涌
+      later(() => audio.sfx('swell', 0.55), 13500);
+      later(() => audio.sfx('breath', 0.3), 19000);
+      // ④ 放下点子：光粒落在你面前 + 「捞起的点子」浮出
+      later(() => {
+        mote.visible = true;
+        // 悬在坐垫者的正前方（朝蜡烛弧的反侧）
+        mote.position.set(0, 1.55, 0);
+        audio.sfx('chime', 0.8);
+        const idea = IDEAS[meditation.idea];
+        meditation.idea = (meditation.idea + 1) % IDEAS.length;
+        const text = `捞起来的点子：${idea}`;
+        if (narration.enabled) narration.speak(text);
+        else ui.caption(text, 5200); // 旁白关着也不吞掉冥想的收获
+      }, 21500);
+      // ⑤ 上浮：暖光从头顶漫回
+      later(() => {
+        audio.sfx('om', 0.5);
+        engine.setLook(LOOK_MID);
+      }, 30000);
       later(() => {
         meditation.active = false;
         fishGroup.visible = false;
+        shaftA.visible = shaftB.visible = false;
+        bigFish.visible = false;
+        mote.visible = false;
         engine.setLook(meta.look);
         audio.sfx('chime', 0.5);
         ui.caption('你浮上来了。', 3000);
-      }, 11500);
+      }, 34000);
     }
   });
 

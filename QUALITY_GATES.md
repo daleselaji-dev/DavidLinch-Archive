@@ -401,6 +401,39 @@
 **验证方式**：`npm test` + `xvfb-run npx electron . --smoke`（triggerEggs 引爆
 corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
 
+### 33. 惊吓 v3「拐角即出」+ 一体松树 + 三层讲解 + 深水冥想（v1.6 新增）
+- [x] **惊吓时序 v3**：拐角 zoneTrigger 当帧引爆（无铺垫延迟）——silencecut +
+      全巷灯瞬灭（0s）→ 0.3s 黑影滑出站定 → 对视一拍 → 0.75s 处 0.22s 扑至面前
+      0.55m（边扑边佝偻下压至眼前）→ 1.15s 黑幕 → 1.95s 错位传送回巷口，
+      全程 ≈2.35s（eggs.test.js 时序断言）；原铺垫改为接近驱动前奏
+      （unease 随距拐角距离驱动壁灯闪烁 + 6m 内 dread 次声，不占触发后时间）
+- [x] **形体 v3 不再是剪影**：油灰垢斑皮（canvas albedo/bump 双用）+ 塌陷眼窝 +
+      不对称瓷白眼球（左低右高/针尖瞳/近距不眨）+ 暗缝嘴 + 缠结垂发 +
+      过膝双臂与四指长手 + 佝偻躯干（kit.test.js v3 细节断言）；
+      打光双通道：背后剪影红光 + 迎面病白冷光（故障日光灯抽搐闪，照清五官）；
+      `scripts/capture.cjs` 摆拍截屏复核（眼睛/垢斑皮/轮廓全部可读）
+- [x] **新连锁彩蛋 THE LATE CALL**：惊吓归来 18s 后电话亭自响（phonering 位置化），
+      接起只有拨号音与一次呼吸（eggs.test.js 接线断言）
+- [x] **一体化松树**：`pineGeometryMaterial` 单几何合并（树干/枝桩/塔冠）+
+      顶点色（sRGB→线性）+ 近/远 LOD 两档；twinpeaks 340 棵双 InstancedMesh
+      按半径 26m 分档；树干树冠不再分离（kit.test.js 断言 + 近景截屏复核）
+- [x] **三层讲解体系**（在门禁 19/25 的风格线配额之上叠加，预算独立入单测）：
+      ① 风格线 NARRATIONS 保持 ≤16 字且**元叙事清零**（「东西可以碰」删除）；
+      ② DOCENT 博物馆讲解 7 厅各一条 ≤34 字（只讲公开事实，进厅 7.5s 后）；
+      ③ ITEM_NOTES 物品旁白 14 件各 ≤26 字（检视触发，每次进馆一次）；
+      ④ HALL_QUOTES 名言轮播（QUOTES 12→16 条，驻留 75s 起每 90s 一条）；
+      三层禁词审计（元叙事/说教/叙事连接词）全部入 narration.test.js
+- [x] **冥想深水五幕 v3**（≈34s）：下潜分级两段 → 鱼群 9 条 + 天光柱 ×2 →
+      大鱼（纺锤身/立尾鳍/金眼）盘旋逼近贴身掠过 → 金色光粒「捞起的点子」
+      （6 条原创短念头轮换，旁白关闭时走 caption 兜底）→ 上浮暖光漫回；
+      鱼群 12 段径向 + 低自发光（端面不读成发光盘）
+- [x] 单测 187→**200** 全绿；`npm run smoke` 全绿；运行时 `--smoke` 全巡检全绿
+      （预算/交互阈值/彩蛋引爆含 corner-scare 与 late-call 不冲突）
+
+**验证方式**：`npm test`（200）+ `xvfb-run npx electron . --smoke` +
+`SV_CAP_DIR=… electron scripts/capture.cjs` 摆拍截屏逐张复核（惊吓三机位/
+松树两机位/冥想四幕）。
+
 ---
 
 ## 补充说明：关于「PS5 级别」

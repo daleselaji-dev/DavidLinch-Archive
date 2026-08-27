@@ -93,12 +93,40 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
   });
 });
 
-describe('v1.5 拐角惊吓 / 对讲机资产', () => {
+describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
   const src = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
 
-  it('lurkerFigure 潜行黑影 v2 已导出，且带 userData.update 痉挛驱动', () => {
+  it('lurkerFigure 潜行黑影 v3 已导出，且带 userData.update 痉挛驱动', () => {
     expect(typeof kit.lurkerFigure).toBe('function');
-    expect(src).toMatch(/lurkerFigure[\s\S]{0,2400}userData\.update = \(dt, t, k/);
+    expect(src).toMatch(/lurkerFigure[\s\S]{0,9000}userData\.update = \(dt, t, k/);
+  });
+
+  it('黑影 v3 不再是粗剪影：煤垢皮肤纹理 + 眼窝塌陷 + 双眼（不对称、会眨、微光）+ 垂发 + 长指手', () => {
+    // 皮肤三通道（map + bump 同图）
+    expect(src).toMatch(/skinTex[\s\S]{0,600}bumpMap: skinTex/);
+    // 眼窝/颊窝塌陷的颅骨塑形
+    expect(src).toContain('const socket = sink(');
+    // 双眼不对称 + 瞳孔 + 微光材质 + 眨眼状态机
+    expect(src).toContain('const eyeL = mkEye(');
+    expect(src).toContain('const eyeR = mkEye(');
+    expect(src).toMatch(/eyeMat[\s\S]{0,300}emissive: 0x/);
+    expect(src).toContain('userData.eyes = eyeMat');
+    expect(src).toMatch(/blink\.t/);
+    // 缠结垂发与张开的长指手
+    expect(src).toContain('const hair = mergedMesh(hairGeos');
+    expect(src).toContain('const mkHand = (side)');
+  });
+
+  it('一体化松树（v1.6）：树干+树冠单几何、顶点色、near/far 两档', () => {
+    expect(typeof kit.pineGeometryMaterial).toBe('function');
+    // 单几何合并（干/枝/冠/尖入同一 parts → mergeGeometries）
+    expect(src).toMatch(/pineGeometryMaterial\(detail = 'near'\)/);
+    expect(src).toMatch(/pineGeometryMaterial[\s\S]{0,5200}mergeGeometries\(parts, false\)/);
+    // 顶点色区分树皮/针叶（材质 vertexColors）
+    expect(src).toMatch(/pineGeometryMaterial[\s\S]{0,6000}vertexColors: true/);
+    // 根部外张 + 树皮棱 + 缘部下垂（一体化细节而非三只裸锥）
+    expect(src).toContain('const flare = y < 0.4');
+    expect(src).toMatch(/缘部|下垂/);
   });
 
   it('walkieTalkie 对讲机预制体已导出，暴露 body/ptt/ledMat/antenna 交互挂点', () => {

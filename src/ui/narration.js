@@ -6,7 +6,7 @@
 //   off      关闭旁白
 // 旧式「连续干读」不再作为默认。
 // ============================================================
-import { NARRATIONS } from '../data/essays.js';
+import { NARRATIONS, DOCENT, ITEM_NOTES } from '../data/essays.js';
 import { LetterDisplay } from './letters.js';
 import { JazzLayer } from '../audio/jazz.js';
 
@@ -66,6 +66,32 @@ export class Narration {
     const n = NARRATIONS[key];
     if (!n) return;
     this.speak(n.text, n.lang);
+  }
+
+  /** 馆方讲解（v1.6）：每厅一段博物馆背景讲解，风格线之后低声补上 */
+  speakDocent(key) {
+    const n = DOCENT[key];
+    if (!n) return;
+    this.speak(n.text, n.lang);
+  }
+
+  /**
+   * 物品旁白（v1.6）：重点展项首次交互时的馆方注脚。
+   * 每件一次不重复；正在显示其他旁白时让位（物性字幕已给即时反馈）。
+   */
+  speakItem(key) {
+    const n = ITEM_NOTES[key];
+    if (!n || this.mode === 'off') return;
+    if (!this._spokenItems) this._spokenItems = new Set();
+    if (this._spokenItems.has(key)) return;
+    this._spokenItems.add(key);
+    this.speak(n.text, n.lang);
+  }
+
+  /** 名言浮现（v1.6）：驻留后低声浮出一条短引语（带出处，不抢戏） */
+  speakQuote(q) {
+    if (!q || this.mode === 'off' || this.letters.active) return;
+    this.speak(`「${q.zh}」— ${q.source}`, 'zh-CN');
   }
 
   speak(text, lang = 'zh-CN') {

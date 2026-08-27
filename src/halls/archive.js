@@ -39,7 +39,7 @@ const HALL = { minX: -W / 2 + 1, maxX: W / 2 - 1, minZ: -L / 2 + 1.9, maxZ: L / 
 const NICHE = { minX: -W / 2 - 3.4, maxX: -W / 2 + 1.2, minZ: -2.4, maxZ: 2.4 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -688,6 +688,7 @@ export function build(ctx) {
       projState.on = !projState.on;
       audio.sfxAt(projState.on ? 'projector' : 'switch', -2.0, 8.2, 0.7);
       if (projState.on) ui.caption('每秒二十四格的空白。', 3600);
+      narration.speakItem('archive-projector');
     }
   });
 
@@ -742,6 +743,7 @@ export function build(ctx) {
       audio.sfxAt('ladderroll', W / 2 - 1, ladderState.z, 0.8, 4);
       setTimeout(() => audio.sfxAt('thud', W / 2 - 1, ladderState.target, 0.28, 3), 950);
       ui.caption('最上面一格，谁也够不着。', 3200);
+      narration.speakItem('archive-ladder');
     }
   });
 

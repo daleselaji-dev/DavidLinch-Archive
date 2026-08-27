@@ -149,7 +149,10 @@ export function build(ctx) {
   group.add(stele);
   hotspots.add(stele.userData.inscription, {
     hint: 'E — 关于大卫·林奇（1946–2025）',
-    onActivate: () => ui.showArtist()
+    onActivate: () => {
+      ui.showArtist();
+      narration.speakItem('lobby-stele');
+    }
   });
 
   // 黄铜六臂吊灯（挂在天花线脚中心）；dim 为墙面调光旋钮的三档状态
