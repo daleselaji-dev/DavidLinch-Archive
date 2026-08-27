@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test        # vitest 单元测试（381 用例）
+npm test        # vitest 单元测试（387 用例）
 npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 ```
 
@@ -26,7 +26,7 @@ npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron
 | `tests/v110-interactions.test.js` | **v1.10 交互反馈普查（P8）**：13 件新热点逐件断言 声+字幕+动画状态机 三通道齐备、五条连锁逐条审计、长毯/积水洼纯场景件口径、微动两遍 8 处怠速在源、流星/远车 seeded 包络、无人剧场三拍与无字幕口径 |
 | `tests/captions.test.js` | **讲解克制全量审计（P16）**：全馆 133 条字幕字面量 ≤22 字 + 零重复、146 条 hint 统一「E — 」前缀；**帮助面板键位三入口同步（P25）**：keydown/底栏按钮/帮助行表防漂移；**v1.11 A2 审计固化**：hint 括注白名单收口（新增括注强制人工过审）+ 被裁 5 处效果预告语禁止回流 |
 | `tests/antiplastic.test.js` | **防塑料全源门禁（P23）**：roughness <0.16 裸材质全厅普查零容忍、水面/玻璃/自发光正当放行入册且钉上限 ≤6 |
-| `tests/v111-eggs.test.js` | **v1.11 七件捏他彩蛋审计**：七件核心机制逐件在源（缠布呼吸/焦球裂纹/耳形衬垫/凝固咖啡双材质/小门三预置位掷点/灯牌齐搏 0.42s 对时/过影 seeded 稀发）；**克制口径**：空间自答五件 onActivate 零字幕断言、带字幕两件 ≤22 字；几何与连锁守卫（过影半径触不可及/opening 未完不来人/灯牌隐藏期挪 y=-60 防隐形网格被 raycast/过影→窃语 12s 连锁窗）；新音色 wetstir/reversecup/deepdrip/dreadswell 引擎实现 + 接线双断言 |
+| `tests/v111-eggs.test.js` | **v1.11 七件捏他彩蛋审计**：七件核心机制逐件在源（缠布呼吸/焦球裂纹/耳形衬垫/凝固咖啡双材质/小门三预置位掷点/灯牌齐搏 0.42s 对时/过影 seeded 稀发）；**克制口径**：空间自答五件 onActivate 零字幕断言、带字幕两件 ≤22 字；几何与连锁守卫（过影半径触不可及/opening 未完不来人/灯牌隐藏期挪 y=-60 防隐形网格被 raycast/过影→窃语 12s 连锁窗）；新音色 wetstir/reversecup/deepdrip/dreadswell/fencewomp 引擎实现 + 接线双断言；抛光遍「第二眼」六件源审计（磨痕/余温/镜像淡印/湿痕晕/方位漂移/镜角布光克制钉界） |
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -254,6 +254,6 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` 双击直接运行（免安装）
-- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.10.0.exe` 一键安装后可启动
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.11.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.11.0.exe` 一键安装后可启动
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常

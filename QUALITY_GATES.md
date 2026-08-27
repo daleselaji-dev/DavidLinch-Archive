@@ -824,11 +824,13 @@ DOCENT 配套）。✅ 全绿。
       整排 22 灯牌 lub-dub 齐搏与音色 0.42s 对时，零字幕）/ lobby 帷幕
       过影（seeded 90–150s 人形暗带 + 绒面脚步 + 帷头轻颤；12s 内触发
       窃语→贴耳 `breath` 连锁，零字幕）——共 7 件，v111-eggs.test 30 用例
-- [x] **抛光遍「第二眼」细节五件（P13–P18）**：小门三处磨痕（门会搬家
-      这件事地板自己说）/ 灯牌余温（只有不在年表上的记得，26s 缓退 +
+- [x] **抛光遍「第二眼」细节六件（P13–P18、P20）**：小门三处磨痕（门会
+      搬家这件事地板自己说）/ 灯牌余温（只有不在年表上的记得，26s 缓退 +
       余温期可再按）/ 首饰盒盖内镜像淡印（两面都记得）/ 壁龛湿痕晕
       （锌盆的年头，UV 重映射合并单 mesh + 包围盒自证成画）/ 椅臂咖啡
-      放不回原样（立回方位漂移 3–7° 累积钉界 ±20°，预算冻结厅零新增）
+      放不回原样（立回方位漂移 3–7° 累积钉界 ±20°，预算冻结厅零新增）/
+      镜角布光（0.9/2.2m 暖顶光只罩凳盒、光不指向镜子——克制钉界入测
+      强度 ≤1/半径 ≤2.5m，灯 29→30 预算内）
       ——全部零字幕零热点或复用既有热点，源审计逐件入测
 - [x] **新合成音色 5 种**（dreadswell/wetstir/reversecup/deepdrip +
       fencewomp 巷侧瓦楞铁皮夜风稀发层——位置沿围栏随机、惊吓进行中
@@ -843,15 +845,19 @@ DOCENT 配套）。✅ 全绿。
 **验证方式**：`--smoke` 逐厅断言 + v111-eggs.test + audio.test + 截屏（P1–P4）。
 
 ### 58. Release 1.11.0（v1.11 新增）
-- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
+- [x] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
       三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）
-- [ ] WORKLOG v1.11 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）
-- [ ] 版本 bump 1.11.0（package.json + `__SV__.version` 一致，dist 产物
-      内核对）；CHANGELOG v1.11.0
-- [ ] `release/*-1.11.0.exe` 双目标（wine 交叉打包 + PE32 校验）+
-      `SHA256SUMS.txt` 重写；旧版 1.10.0 exe 从本分支移除防混淆
-- [ ] `DOWNLOAD.md` raw 直链醒目标注「请下本轮 Portable-1.11.0」
-- [ ] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.11.0
+      ▸ 387 单测 / 静态冒烟 5/5 / 全冒烟 EXIT=0（/tmp/smoke-release.log）
+- [x] WORKLOG v1.11 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）
+      ▸ 06:24 起 28 段合计 ≈8h21m
+- [x] 版本 bump 1.11.0（package.json + `__SV__.version` 一致，dist 产物
+      内核对——asar 内 package.json 与 dist bundle 双处 1.11.0）；
+      CHANGELOG v1.11.0
+- [x] `release/*-1.11.0.exe` 双目标（wine 交叉打包 + PE32 校验 ×2）+
+      `SHA256SUMS.txt` 重写（98b747cf… / d888ea06…）；旧版 1.10.0 exe
+      从本分支移除防混淆
+- [x] `DOWNLOAD.md` raw 直链醒目标注「请下本轮 Portable-1.11.0」
+- [x] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.11.0
 
 ---
 
