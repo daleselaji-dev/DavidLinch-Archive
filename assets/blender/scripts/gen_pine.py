@@ -319,8 +319,8 @@ def build_game(P, radial=18, rims=3, with_stubs=True, with_caps=True):
             faces.append((lip0 + s, lip0 + (s + 1) % radial, base + (s + 1) % radial, base + s))
             faces.append((centre, base + (s + 1) % radial, base + s))
         items.append((verts, faces, cols))
-    # 树梢针叶收顶（低段数同族；远景档更省）
-    items.append(crown_spire(P, radial=8 if with_caps else 6, rings=3 if with_caps else 2,
+    # 树梢针叶收顶（低段数同族；远景档一环锥即可——预算 ≤450）
+    items.append(crown_spire(P, radial=8 if with_caps else 5, rings=3 if with_caps else 1,
                              seed=77, jag_amp=0.3))
     return svlib.merge_pydata(items)
 
