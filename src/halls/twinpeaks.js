@@ -1564,10 +1564,32 @@ export function build(ctx) {
     new THREE.MeshPhysicalMaterial({ color: 0x2a1408, transparent: true, opacity: 0.7, roughness: 0.1, envMapIntensity: 1.4 }));
   pot.position.set(30.7, 1.16, -6.4);
   dinerInner.add(potBase, pot);
+  // v1.10 抛光 P19「咖啡永远是热的」：壶口常年一缕蒸汽（几乎看不见），
+  // 每 40–70s（seeded）保温座回滴一声 drip、蒸汽旺一口再落回去。
+  // 没人续杯它也一直热着——这家店在等谁下夜班。
+  const potSteam = smokeLayer(3, { x: 0.05, z: 0.05 }, {
+    opacity: 0.11, size: 0.15, yBase: 0, ySpread: 0.36, color: 0xd8d0c4
+  });
+  potSteam.position.set(30.7, 1.28, -6.4);
+  dinerInner.add(potSteam);
+  updaters.push(potSteam.userData.update);
+  const potRng = rng(89);
+  const potState = { next: 26 + potRng() * 30, puff: 0 };
+  updaters.push((dt) => {
+    potState.next -= dt;
+    if (potState.next <= 0) {
+      potState.next = 40 + potRng() * 30;
+      potState.puff = 1;
+      audio.sfxAt('drip', 30.7, -6.4, 0.3, 4);
+    }
+    if (potState.puff > 0) potState.puff = Math.max(0, potState.puff - dt * 0.45);
+    potSteam.material.opacity = 0.11 * (1 + potState.puff * 0.9);
+  });
   hotspots.add(pot, {
     hint: 'E — 咖啡壶（续杯不要钱）',
     onActivate: () => {
       audio.sfx('sip');
+      potState.puff = 1; // 连锁：倒过咖啡，蒸汽旺一口
       ui.caption('续了一杯。', 2600);
     }
   });

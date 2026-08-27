@@ -124,6 +124,18 @@ describe('v1.10 P18 微动第二遍（四处怠速/稀疏微动，零带宽标�
   });
 });
 
+describe('v1.10 P19 咖啡永远是热的（twinpeaks diner 壶口蒸汽 + seeded 回滴）', () => {
+  it('壶口常年蒸汽缕在源 + 每 40–70s 回滴一声（seeded）', () => {
+    expect(SRC.twinpeaks).toContain('potSteam');
+    expect(SRC.twinpeaks).toMatch(/potState\.next = 40 \+ potRng\(\) \* 30/);
+    expect(SRC.twinpeaks).toMatch(/sfxAt\('drip', 30\.7, -6\.4/);
+  });
+
+  it('续杯连锁：E 倒咖啡蒸汽旺一口（puff 通道复用）', () => {
+    expect(SRC.twinpeaks).toMatch(/sfx\('sip'\);\s*\n\s*potState\.puff = 1/);
+  });
+});
+
 describe('v1.10 P10 远处的光（稀疏夜空事件，seeded 间隔）', () => {
   it('twinpeaks 偶尔一道流星（60–110s、0.9s 划过、正弦包络）', () => {
     expect(SRC.twinpeaks).toContain('metState');
