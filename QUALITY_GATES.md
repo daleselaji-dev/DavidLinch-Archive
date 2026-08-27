@@ -747,16 +747,19 @@ DOCENT 配套）。✅ 全绿。
 **验证方式**：`npm test` audio 组 + 冒烟 activateAll 不抛错。
 
 ### 54. Release 1.10.0（v1.10 新增）
-- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
+- [x] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
       三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）
-- [ ] WORKLOG v1.10 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）
-- [ ] 版本 bump 1.10.0（package.json + `__SV__.version` 一致，dist 产物内核对）；
-      CHANGELOG v1.10.0（说明取 1.10 而非 2.0 的理由）
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` + Setup NSIS 双目标
-      （wine 交叉打包；`file` PE32 校验）+ `SHA256SUMS.txt` 重写；
-      旧版 1.9.0 exe 从本分支移除防混淆
-- [ ] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.10.0」
-- [ ] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.10.0
+      ▸ 348 单测 / 构建冒烟 5/5 / 运行时冒烟 EXIT=0（与 exe 同源 dist）；
+      本轮惊吓自然触发累计 13/13
+- [x] WORKLOG v1.10 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）
+      ▸ 22:57–06:2x 逐段入册，合计 ≥8h（P1–P33 共 33 遍抛光）
+- [x] 版本 bump 1.10.0（package.json + `__SV__.version` 一致，dist 产物内核对）；
+      CHANGELOG v1.10.0（说明取 1.10 而非 2.0 的理由）▸ 三处 1.10.0 grep 核对
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` + Setup NSIS 双目标
+      （wine 交叉打包；`file` PE32 校验双过）+ `SHA256SUMS.txt` 重写
+      （87787ee5… / 0080fae8…）；旧版 1.9.0 exe 从本分支移除防混淆
+- [x] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.10.0」
+- [x] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.10.0
 
 ---
 
