@@ -294,15 +294,30 @@ export function build(ctx) {
     }
     const cx = px + ox;
     const cz = pz + oz;
+    // v1.12 D-4（剪影级）：直锥叶远看读成「尖星」——改**两段式拱叶**
+    // （根段近平展 + 梢段深垂头，喷泉剪影）+ 冠下一圈**枯叶裙**
+    // （LKG 没人修剪的棕榈都披着这个）。仍并进同一合并网格。
     const nf = 6 + ((prng() * 3) | 0);
     for (let f = 0; f < nf; f++) {
       const af = (f / nf) * Math.PI * 2 + prng() * 0.5;
-      const tilt = 0.95 + prng() * 0.85;
-      const fl = 2.2 + prng() * 1.3;
-      const cone = new THREE.ConeGeometry(0.16, fl, 4);
-      cone.translate(0, fl / 2, 0);
-      palmGeos.push(xform(cone, cx, hT, cz, 0, Math.PI - af, tilt));
+      const ry = Math.PI - af;
+      const t1 = 0.7 + prng() * 0.45;
+      const t2 = t1 + 0.55 + prng() * 0.3;
+      const l1 = 1.3 + prng() * 0.7;
+      const l2 = 1.1 + prng() * 0.6;
+      const seg1 = new THREE.ConeGeometry(0.15, l1, 4);
+      seg1.translate(0, l1 / 2, 0);
+      palmGeos.push(xform(seg1, cx, hT, cz, 0, ry, t1));
+      // 根段端点（Euler XYZ：dir = Ry(ry)·Rz(t)·ŷ）
+      const ex = cx - Math.sin(t1) * Math.cos(ry) * l1;
+      const ey = hT + Math.cos(t1) * l1;
+      const ez = cz + Math.sin(t1) * Math.sin(ry) * l1;
+      const seg2 = new THREE.ConeGeometry(0.1, l2, 4);
+      seg2.translate(0, l2 / 2, 0);
+      palmGeos.push(xform(seg2, ex, ey, ez, 0, ry, t2));
     }
+    const skirt = new THREE.ConeGeometry(0.42, 1.1, 6);
+    palmGeos.push(xform(skirt, cx, hT - 0.45, cz, Math.PI, 0, 0));
   }
   group.add(mergedMesh(palmGeos, new THREE.MeshBasicMaterial({ color: 0x030209, fog: false })));
 
