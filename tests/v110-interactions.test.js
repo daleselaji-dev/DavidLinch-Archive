@@ -104,6 +104,26 @@ describe('v1.10 P9 微动遍：没有东西完全静止（怠速动画，零带�
   });
 });
 
+describe('v1.10 P18 微动第二遍（四处怠速/稀疏微动，零带宽标量）', () => {
+  it('lobby 画架上的花圈从来没有真正静止过（±0.006，13s）', () => {
+    expect(SRC.lobby).toMatch(/wreathPivot\.rotation\.z = Math\.sin\(t \* 0\.48\) \* 0\.006/);
+  });
+
+  it('archive 气送管垂开的翻盖在铰链上极缓地悠（管里的气流没停过）', () => {
+    expect(SRC.archive).toMatch(/pnFlapPivot\.rotation\.x = 0\.95 \+ Math\.sin\(t \* 0\.74\) \* 0\.012/);
+  });
+
+  it('bluevelvet 冰桶的瓶每 50–85s 自己碰一下桶壁（seeded + 极轻 iceclink）', () => {
+    expect(SRC.bluevelvet).toContain('botIdle');
+    expect(SRC.bluevelvet).toMatch(/botIdle\.next = 50 \+ botRng\(\) \* 35/);
+    expect(SRC.bluevelvet).toMatch(/sfxAt\('iceclink', 6\.85, 3\.75, 0\.14/);
+  });
+
+  it('mulholland 站牌牌面在螺栓上打颤（8.2Hz 碎颤 × 0.9Hz 慢摆双叠）', () => {
+    expect(SRC.mulholland).toMatch(/busSign\.rotation\.x = Math\.sin\(t \* 8\.2\) \* 0\.004/);
+  });
+});
+
 describe('v1.10 P10 远处的光（稀疏夜空事件，seeded 间隔）', () => {
   it('twinpeaks 偶尔一道流星（60–110s、0.9s 划过、正弦包络）', () => {
     expect(SRC.twinpeaks).toContain('metState');

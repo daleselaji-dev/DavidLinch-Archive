@@ -1310,8 +1310,28 @@ export function build(ctx) {
   bucketGrp.position.set(6.85, 0, 3.75);
   group.add(bucketGrp);
   const bucketState = { t: -1 };
+  // v1.10 抛光 P18 微动：每 50–85s（seeded）瓶子自己碰一下桶壁——
+  // 极轻的一声 iceclink（0.14）+ 0.9s 小晃。冰早就化了，瓶还在动。
+  const botIdle = { next: 32, t: -1 };
+  const botRng = rng(37);
+  botIdle.next = 32 + botRng() * 40;
   updaters.push((dt) => {
-    if (bucketState.t < 0) return;
+    if (bucketState.t < 0) {
+      if (botIdle.t < 0) {
+        botIdle.next -= dt;
+        if (botIdle.next <= 0 ) {
+          botIdle.t = 0;
+          botIdle.next = 50 + botRng() * 35;
+          audio.sfxAt('iceclink', 6.85, 3.75, 0.14, 3);
+        }
+        return;
+      }
+      botIdle.t += dt;
+      const k = Math.max(0, 1 - botIdle.t / 0.9);
+      if (k <= 0) { botIdle.t = -1; bottle.rotation.z = -0.42; return; }
+      bottle.rotation.z = -0.42 + Math.sin(botIdle.t * 11) * 0.02 * k;
+      return;
+    }
     bucketState.t += dt;
     const decay = Math.max(0, 1 - bucketState.t * 0.7);
     if (decay <= 0) { bucketState.t = -1; bucketSway.rotation.z = 0; bottle.rotation.z = -0.42; return; }

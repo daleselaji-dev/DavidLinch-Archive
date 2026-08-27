@@ -1230,12 +1230,16 @@ export function build(ctx) {
     petals.push({ mesh: p, t: -1, delay: i * 0.55, x0: -0.12 + i * 0.26 });
   }
   const wreathState = { t: -1 };
-  updaters.push((dt) => {
+  updaters.push((dt, t) => {
     if (wreathState.t >= 0) {
       wreathState.t += dt;
       const decay = Math.max(0, 1 - wreathState.t * 0.5);
       if (decay <= 0) { wreathState.t = -1; wreathPivot.rotation.z = 0; }
       else wreathPivot.rotation.z = Math.sin(wreathState.t * 4.6) * 0.07 * decay;
+    } else {
+      // v1.10 抛光 P18 微动：画架上的花圈从来没有真正静止过
+      // （±0.006，13s 一个来回——像有人刚扶正过它）
+      wreathPivot.rotation.z = Math.sin(t * 0.48) * 0.006;
     }
     for (const pt of petals) {
       if (pt.t < 0) continue;

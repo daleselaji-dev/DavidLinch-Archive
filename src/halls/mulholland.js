@@ -1055,6 +1055,11 @@ export function build(ctx) {
   busPole.position.set(0.95, 0, 0.42);
   busPole.rotation.z = 0.05;
   busStop.add(busPole);
+  // v1.10 抛光 P18 微动：牌面在螺栓上打颤——远处道路的低频从来
+  // 没停过（8.2Hz 碎颤 ×0.9Hz 慢摆双叠，振幅肉眼将将可察）
+  updaters.push((dt, t) => {
+    busSign.rotation.x = Math.sin(t * 8.2) * 0.004 + Math.sin(t * 0.9) * 0.006;
+  });
   // 烟缕（凳子远端上方，平时隐形）
   const benchWisp = smokeLayer(3, { x: 0.08, z: 0.08 }, { opacity: 0, size: 0.3, yBase: 0, ySpread: 0.5, color: 0xc8ccd4 });
   benchWisp.position.set(-0.62, 0.95, 0);

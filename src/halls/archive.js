@@ -1115,8 +1115,13 @@ export function build(ctx) {
   pn.rotation.y = -Math.PI / 2;
   group.add(pn);
   const pnState = { t: -1 };
-  updaters.push((dt) => {
-    if (pnState.t < 0) return;
+  updaters.push((dt, t) => {
+    if (pnState.t < 0) {
+      // v1.10 抛光 P18 微动：垂开的黄铜翻盖在铰链上极缓地悠——
+      // 管子里漏出来的那一丝气流从没停过（±0.012，8.5s 一个来回）
+      pnFlapPivot.rotation.x = 0.95 + Math.sin(t * 0.74) * 0.012;
+      return;
+    }
     pnState.t += dt;
     const u = pnState.t;
     if (u < 0.45) {
