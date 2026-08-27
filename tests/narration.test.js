@@ -74,6 +74,12 @@ describe('文案哲学：只用林奇自己的话，二手解读退场', () => {
     expect(quoteById('nonexistent')).toBeNull();
   });
 
+  it('v1.9 深夜电台档新增引语（mystery/worlds/detectives/outofdark）', () => {
+    for (const id of ['mystery', 'worlds', 'detectives', 'outofdark']) {
+      expect(quoteById(id), `缺引语: ${id}`).toBeTruthy();
+    }
+  });
+
   it('策展文章体系已移除（不再导出 ESSAYS，原话摘录墙是唯一「解读」）', () => {
     expect(ESSAY_MODULE.ESSAYS).toBeUndefined();
   });
@@ -121,6 +127,24 @@ describe('展签预算：源码级审计（v1.3 收紧）', () => {
           expect(text.length, `${f} 字幕过长: ${text}`).toBeLessThanOrEqual(22);
         }
       }
+    }
+  });
+
+  it('物品旁白（ui.docentNote）：每厅 ≥3 条、每条 ≤28 字、只讲创作事实（v1.6）', () => {
+    for (const f of hallFiles.filter((n) => n !== 'props.js')) {
+      const src = readFileSync(join(hallsDir, f), 'utf-8');
+      let count = 0;
+      for (const line of src.split('\n')) {
+        if (!line.includes('ui.docentNote(')) continue;
+        count += 1;
+        const literals = line.match(/'([^']*)'/g) || [];
+        for (const lit of literals) {
+          const text = lit.slice(1, -1);
+          expect(text.length, `${f} 物品旁白过长: ${text}`).toBeLessThanOrEqual(28);
+          expect(text.length, `${f} 物品旁白过短: ${text}`).toBeGreaterThanOrEqual(8);
+        }
+      }
+      expect(count, `${f} 物品旁白不足（需 ≥3）`).toBeGreaterThanOrEqual(3);
     }
   });
 });

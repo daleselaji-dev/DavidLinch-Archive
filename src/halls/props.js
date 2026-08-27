@@ -10,7 +10,8 @@
 import * as THREE from 'three';
 import {
   roundedBoxGeo, roundedBoxMesh, mergedMesh, xform, canvasTexture,
-  woodMat, brassMat, chromeMat, ironMat, fabricMat, rng
+  woodMat, brassMat, chromeMat, ironMat, fabricMat, rng,
+  blendGeo, planarUV
 } from './kit.js';
 
 /** 每厅一次性创建的共享材质组（切厅时随 group 一并 dispose） */
@@ -821,21 +822,24 @@ export function angleLamp({ shadeColor = 0x1c4232, mats } = {}) {
 }
 
 // ============================================================
-// 林奇的房间 —— 木壳电子管收音机 v2（格栅 + 布网 + 表盘 + 双旋钮）
+// 木壳电子管收音机 v3（v1.9 Blender 权威细模档：gen_radio.py 烘焙）
+// 大教堂拱轮廓双层壳（主壳 + 凸出前脸板 + 出沿底板 + 背板风缝）
+// 与黄铜档（扇形格栅 ×5 / 表盘四梃框 / 双车削旋钮 / 台名铜条）；
+// 布网圆片、表盘玻璃与指针保持程序化（动画通道契约不变）。
 // ============================================================
 export function radioCabinet({ mats } = {}) {
   const M = mats || propMats();
   const g = new THREE.Group();
-  // 木壳：圆角箱体 + 拱形顶
-  const caseMat = M.warmWood;
-  const body = roundedBoxMesh(0.62, 0.4, 0.26, 0.03, caseMat);
-  body.position.y = 0.2;
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.6, 18, 1, false, 0, Math.PI), caseMat);
-  top.rotation.z = Math.PI / 2;
-  top.rotation.y = Math.PI / 2;
-  top.position.y = 0.4;
-  g.add(body, top);
-  // 扬声器布网 + 格栅竖条
+  const caseMat = M.warmWood.clone();
+  caseMat.vertexColors = true; // Blender 烘焙的竖木纹/拱缘磨损/扬声器暗窝
+  const body = new THREE.Mesh(planarUV(blendGeo('radio/body'), 1.4), caseMat);
+  const trimMat = M.brass.clone();
+  trimMat.vertexColors = true;
+  // 烘焙件必须补 UV 且关各向异性：拉丝切线在烘焙几何 + 软渲染下
+  // 出 NaN 会毒黑整帧（v1.9 档案柜塔现场取证同款教训）
+  trimMat.anisotropy = 0;
+  g.add(body, new THREE.Mesh(planarUV(blendGeo('radio/brass'), 2), trimMat));
+  // 扬声器布网（程序纹理）——贴进前脸板暗窝、藏在扇形格栅后
   const clothTex = canvasTexture(64, (g2, s) => {
     g2.fillStyle = '#3a2c18';
     g2.fillRect(0, 0, s, s);
@@ -843,35 +847,23 @@ export function radioCabinet({ mats } = {}) {
     for (let y = 0; y < s; y += 3) for (let x = 0; x < s; x += 3) g2.fillRect(x, y, 1.4, 1.4);
   }, 2, 2);
   const cloth = new THREE.Mesh(
-    new THREE.CircleGeometry(0.13, 22),
+    new THREE.CircleGeometry(0.122, 22),
     new THREE.MeshStandardMaterial({ map: clothTex, roughness: 0.95 })
   );
-  cloth.position.set(-0.13, 0.24, 0.132);
+  cloth.position.set(-0.13, 0.24, 0.1395);
   g.add(cloth);
-  const grillGeos = [];
-  const gbar = new THREE.BoxGeometry(0.014, 0.24, 0.01);
-  for (let i = 0; i < 5; i++) grillGeos.push(xform(gbar, -0.21 + i * 0.04, 0.24, 0.136));
-  gbar.dispose();
-  g.add(mergedMesh(grillGeos, M.brass));
-  // 表盘玻璃 + 指针
+  // 表盘玻璃 + 指针（studio.js 搜台动画走这两个挂点）
   const dialMat = new THREE.MeshStandardMaterial({
     color: 0x0a0a0a, emissive: 0xffc264, emissiveIntensity: 0.25
   });
-  const dial = roundedBoxMesh(0.2, 0.12, 0.015, 0.008, dialMat);
-  dial.position.set(0.14, 0.26, 0.134);
+  const dial = roundedBoxMesh(0.19, 0.11, 0.012, 0.006, dialMat);
+  dial.position.set(0.14, 0.26, 0.137);
   const needle = new THREE.Mesh(
     new THREE.BoxGeometry(0.005, 0.09, 0.004),
     new THREE.MeshStandardMaterial({ color: 0xd4243c })
   );
-  needle.position.set(0.14, 0.26, 0.143);
+  needle.position.set(0.14, 0.26, 0.146);
   g.add(dial, needle);
-  // 双旋钮（车削）
-  const knobGeo = lathe([[0.0, 0], [0.024, 0.005], [0.026, 0.02], [0.015, 0.028]], 12);
-  const knobs = mergedMesh([
-    xform(knobGeo, 0.08, 0.1, 0.135, Math.PI / 2, 0, 0),
-    xform(knobGeo, 0.2, 0.1, 0.135, Math.PI / 2, 0, 0)
-  ], M.brass);
-  g.add(knobs);
   g.userData.dialMat = dialMat;
   g.userData.needle = needle;
   g.userData.body = body;

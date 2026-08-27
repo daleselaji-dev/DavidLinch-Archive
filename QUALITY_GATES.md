@@ -7,7 +7,11 @@
 > **v1.3.0 新增门禁 19–24（讲解 v1.0 克制+零叙事剧透 / 交互密度 / PS4-tier 材质模型清单 /
 > 性能预算保持 / 音景抛光 / 1.3.0 重新打包）。**
 > **v1.4.0 新增门禁 25–31（讲解配额保持 / PS5-tier 画质 P1–P10 / 分厅重做清单 /
-> 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。未全绿不得交付。**
+> 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。**
+> **v1.6.0 新增门禁 33–34（惊吓 v3 拐角即出+细节眼睛 / 黑松一体化 / 博物馆讲解零元叙事 /
+> 冥想深潜 v2 / 悬停材质克隆 / 1.6.0 重新打包）。未全绿不得交付。**
+> **v1.8.0 新增门禁 37–38（Blender 4.1.1 权威细模管线 / 彩蛋+讲解扩容 / 1.8.0 重新打包）。**
+> **v1.9.0 新增门禁 39–40（细模第二批+连锁彩蛋+深夜电台+diner 光害治理 / 1.9.0 重新打包）。**
 
 ## 门禁清单
 
@@ -400,6 +404,143 @@
 
 **验证方式**：`npm test` + `xvfb-run npx electron . --smoke`（triggerEggs 引爆
 corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
+
+### 33. v1.6 精修四项：惊吓 v3 / 一体黑松 / 博物馆讲解 / 深潜 v2（v1.6 新增）
+- [x] **穆赫兰道惊吓 v3**：五幕改 dt 驱动节拍机（`BEATS` + `scare.t`，主链零 setTimeout——
+      eggs.test.js 源码断言），拐角 zoneTrigger 即触发即现身；`nightmareFigure` 细节资产
+      （布纹蒙皮/佝偻脊线/垂膝双臂/**不对称凸出反光眼**+发光虹点/垂开暗口/凝视微颤）+
+      脸下冷底光仰照；彩蛋截屏核验（`SV_EGG_SHOT=1` 补拍：黑影贴脸、双眼可见）；
+      顺修剧场砖墙「彩虹砖」（单色相亮度抖动）与红幕透缝（DoubleSide+转向）
+- [x] **黑松一体化**：`kit.pineTree` 干+根盘+皮棱+枝桩+六层针叶冠合并单几何
+      （顶点色近黑冠芯→冷月光绿缘梢），英雄/远景双 LOD 实例化 346 棵、seeded 确定性散布、
+      逐棵 instanceColor 微差——**干冠不可分离**（kit.test.js 断言单 geometry）；
+      林地苔斑同修单色相（月光下无碎彩纸）
+- [x] **博物馆讲解（零元叙事）**：元叙事表述清零（narration.test.js 禁词扫描含「可以碰」）；
+      进厅讲解卡 `DOCENT` ×7（两行博物馆式背景，首访 12s）；物品旁白 `ui.docentNote` ×21
+      （每厅 ≥3、8–28 字，单测审计 + 会话内去重）；名言漂浮层（QUOTES 18 条 ≤200 字合规，
+      50–85s 一淌）；切厅/开面板全清场防串厅
+- [x] **冥想深潜 v2（Edith Finch 级）**：五幕 dt 序列（潜入/意念浮词/deepcall 呼唤/
+      dreamFish 献念/回响上画布）；`kit.dreamFish` 英雄资产（车削鱼身/背腹顶点色/鳞纹
+      map+bump/新月尾/发光侧线/珠光眼/触须/摆尾活体动画），**从玩家视线方向现身**；
+      小鱼群 dreamFish lite 档同口径；下潜时房间暖灯沉暗（水下无怪异亮盘）；
+      回响：画架用色跟随抽中的念头（IDEA_TINTS）；新音色 deepcall/bubbles（零采样）
+- [x] **交互反馈**：悬停暖光按 mesh 克隆材质叠加呼吸（所有 Standard 材质生效、
+      不污染共享材质、离开即还原）
+- [x] 预算保持 240/240k/40 全绿（v1.6 实测峰值：lobby 233 mesh / twinpeaks 162.5k tris /
+      archive 27 灯；studio 增鱼群后 221 mesh 仍达标）；单测 187→**201**
+
+**验证方式**：`npm test`（201）+ `xvfb-run npx electron . --smoke`（SV_EGG_SHOT=1
+七厅普通+彩蛋 14 张截屏逐张目视复核：惊吓贴脸有眼 / 松林干冠一体无彩纸 /
+深潜大鱼贴近有光 / 讲解卡在场）。
+
+### 34. Release 1.6.0（v1.6 新增）
+- [x] `npm test`（201）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.6.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（README/CHANGELOG/TESTING/本文件/WORKLOG）同步 1.6.0
+
+### 35. v1.7 拐角惊吓修死 + 原作感长发眼睛 + 近景资产（v1.7 新增）
+- [x] **拐角即触发**：触发圈压在剧场东南角拐角口（x9.6/z−26.4/r2.6），
+      eggs.test.js 断言圈心 z<−25.5 且「圈上最远入圈点离拐角(8.2,−26.7) ≤4.2m」——
+      巷中段提前引爆的错位触发从门禁层面封死
+- [x] **从拐角处挪出来（永不穿墙）**：`kit.cornerRevealPath` 二次贝塞尔绕角路径
+      （藏身点后墙背面 z<−27.6 / 枢轴拐角外皮 x>8.2,z<−26.9 / 站位玩家前 ≤1.9m）；
+      eggs.test.js 用六种玩家位形 ×81 采样数值断言全曲线不进后墙/东墙薄板；
+      旧现身缓动 u=0.82 处的回跳瞬移一并修掉
+- [x] **lookAt 仰倒 bug 修复**：黑影 lookAt 目标点改形体原点高度（纯水平转身）——
+      v1.6 黑影一直向后仰倒 35–50°、脸仰天底光错位的「不吓人」根因
+- [x] **原作感长发**：贴颅乱壳 + 脑后 14 长绺（最长 0.95m 垂胸，kit.test.js 断言 ≥0.9）+
+      两鬓各 3 绺框脸 + 颅顶碎发 ×6；绺形锥体带过颅弧/缠结波浪/尾端横漂；
+      油腻低粗糙反光；两鬓随歪头反相摆、扑时整头后掀（hairBack.rotation.x 断言）
+- [x] **眼睛可读**：眼球加大 + 熏黑眼圈 torus + 眉棱骨脊 + 发光强度重调
+      （0.55+k·1.7——读成眼睛不是车灯）；无声尖叫嘴缝 k² 撑开
+- [x] **打光语法**：底光固定「下巴前 0.34m」+ distance3/decay2（脸亮袍黑）；
+      背后红边光勾长发肩线轮廓；扑脸 0.22s 俯冲 0.6m 到玩家眼高
+- [x] **逐帧验证**：`scripts/scare-verify.cjs` —— 圈外不触发 → 入圈自然触发（非 force）→
+      state 探针逐帧轨迹（藏身点(6.3,−27.95)→枢轴(8.55,−26.84)→站定→扑至 0.5m→黑幕→
+      错位醒来(9.7,9.5)）→ 特写连拍核验脸/眼/长发；退出码 0 为通过
+- [x] **松树近景**：冠底盖片自遮蔽压暗（法线朝下顶点色 ×0.3）——树下抬头无亮板；
+      干冠一体保持（单几何实例化，v1.6 门禁 33 断言仍在）
+- [x] 预算保持 240/240k/40 全绿（mulholland 231 mesh / 100k tris / 21 灯）；
+      单测 201→**204**
+
+**验证方式**：`npm test`（204）+ `xvfb-run npx electron scripts/scare-verify.cjs`
+（状态轨迹 + 逐帧截屏）+ 全量 `--smoke` 三连。
+
+### 36. Release 1.7.0（v1.7 新增）
+- [x] `npm test`（204）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.7.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD）同步 1.7.0
+
+### 37. Blender 权威细模管线 + 彩蛋/讲解扩容（v1.8 新增）
+- [x] **Blender 4.1.1 headless 工具链入仓可复现**：`assets/blender/scripts/`
+      （svlib 共享库 + gen_pine / gen_figure / gen_ladder + build_blendmeshes）；
+      每个脚本 `blender -b -P` 一跑到底：HI 细模 → GAME 游戏档 → 三机位 CLI 渲染自检 →
+      `.blend` 入仓（`assets/blender/blends/`）→ 量化 JSON 导出
+- [x] **零外部媒体合规保持**：GAME 档量化（pos uint16 / normal int8 / color uint8 /
+      index uint16/32）base64 打进 `src/data/blendmeshes.js`——仓库零媒体文件
+      （compliance 扫描全绿）；`.blend` 为权威源、`.js` 为发行格式
+- [x] **运行时解码器入单测**：`kit.blendGeo` + `cylUV`/`planarUV`；全部烘焙件
+      解码断言（AABB/三角预算 hero≤1000·far≤450/法线归一化/未知名抛错）
+- [x] **三件重做资产接线**：双峰黑松双 LOD 实例化 72+215（夜色分级像素校准 vs v1.7
+      基线）；穆赫兰道梦魇人物（雕刻颅骨+14 绺长发烘进网格，动画挂点/材质通道契约
+      全保持，scare-verify 逐帧通过）；档案廊图书梯（车削踏杆/黄铜箍/轮叉烘进顶点色）
+- [x] **管线确定性**：重跑三脚本 + 重建 blendmeshes.js 字节级一致（SHA256 相同）
+- [x] **彩蛋扩容**：七厅各 +1 可触发彩蛋/交互（audio-guide / year-ripple /
+      intercom-reply / monitor-howl / mill-whistle / marquee-stutter / 松节油罐），
+      全部 ≥2 通道反馈 + 连锁；triggerEggs 清单同步（每厅 ≥2，双峰 4、穆赫兰 3）
+- [x] **讲解扩容合规**：大厅语音导览三段馆长讲解 + 新交互物品旁白 + QUOTES 新增
+      公开访谈短语一条；narration 审计（长度/出处/禁词/元叙事）全绿
+- [x] 交互普查 124 → **131**；INTERACTIVE_MIN 七厅各 +1（13/24/17/16/18/20/16）；
+      预算保持 240/240k/40 全绿（峰值 lobby 240 mesh / twinpeaks 225.9k tris / archive 27 灯）；
+      单测 204 → **208**
+
+**验证方式**：`tools/blender-4.1.1-linux-x64/blender -b -P assets/blender/scripts/gen_*.py`
+三连 + `build_blendmeshes.py` 重建比对 SHA256 + `npm test`（208）+
+`xvfb-run npx electron . --smoke`（新阈值全绿）+ 渲染图目视复核。
+
+### 38. Release 1.8.0（v1.8 新增）
+- [x] `npm test`（208）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.8.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.8.0
+
+### 39. Blender 细模第二批 + 连锁彩蛋 + 深夜电台 + 七厅风格巡检（v1.9 新增）
+- [x] **细模第二批入仓可复现**：`gen_cabinet.py` 档案柜塔（顶檐/底座线脚 + 120 抽屉脸
+      倒角磨损顶点色 + 黄铜拉手标签框 + **61 号抽屉微开可拉开、内有空白索引卡**）+
+      `gen_radio.py` 大教堂收音机（拱顶木壳/竖条黄铜格栅/车削旋钮/表盘框）——
+      各自 `blender -b -P` HI→GAME→三机位渲染自检→`.blend` 入仓→量化烘焙
+      （`blends/cabinet.blend` / `blends/radio.blend`）
+- [x] **既有资产深化**：GAME 松树补针叶收顶锥（旧游戏档顶部平截）；远景档减段
+      压回预算 **hero 989 / far 442 tris**（门禁 1000/450 内）
+- [x] **接线换装**：`archive.js` 柜塔（旧盒子拼柜退场 + 抽屉全周期交互）、
+      `props.js` radioCabinet（动画/材质通道契约保持）；烘焙黄铜显式 `anisotropy=0`
+      （软渲染下 UV 导数退化 NaN 经 bloom 毒黑整帧——探针逐项取证修复）
+- [x] **连锁彩蛋 ×2（多触发条件）**：蓝丝绒 `stage-seance`（点唱机 × 蓝场 × 翻歌单
+      三条件 → 聚光冷呼吸/桌灯退场/贝斯自应/咏叹）；双峰 `night-frequency`
+      （收音机三连调台 → 全镇灯两拍收暗/电话亭应铃/远鸮）——triggerEggs 冒烟可强制引爆
+- [x] **讲解/访谈扩容合规**：QUOTES +4 公开访谈短引语（库 23 条，单条 ≤200 字符审计）；
+      diner 收音机深夜访谈轮播（字幕通道会话内轮换）；新交互物品旁白 ×2（8–28 字审计内）
+- [x] **七厅林奇风格巡检**：diner 奶白过曝根因修复（六盏点光叠灌越 bloom 阈值——
+      删遗留补光对 + pendant 2.1/5 + 窗光 4.5）+ 雾毯 diner 体积排除
+      （初掷重采样 + 世界坐标守卫）；其余六厅逐张复核无简陋/喧宾夺主处
+- [x] 交互普查 131 → **133**；INTERACTIVE_MIN bluevelvet 16→17 / twinpeaks 20→21；
+      预算保持 240/240k/40 全绿（twinpeaks lights 15→13）；单测 208 → **220**
+
+**验证方式**：`tools/blender-4.1.1-linux-x64/blender -b -P assets/blender/scripts/gen_*.py`
+五连 + `build_blendmeshes.py` 重建 + `npm test`（220）+
+`xvfb-run npx electron . --smoke`（新阈值全绿）+ 渲染图/截屏目视复核。
+
+### 40. Release 1.9.0（v1.9 新增）
+- [x] `npm test`（220）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.9.0
 
 ---
 

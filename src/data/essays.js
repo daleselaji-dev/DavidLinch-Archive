@@ -88,12 +88,129 @@ export const QUOTES = [
     en: 'Intuition is the key to everything.',
     zh: '直觉是一切的钥匙。',
     source: '公开访谈'
+  },
+  {
+    id: 'cinema',
+    en: 'Cinema is a language. It can say big, abstract things.',
+    zh: '电影是一种语言。它能说出巨大而抽象的事。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'idea',
+    en: 'The idea is the whole thing. If you stay true to the idea, it tells you everything you need to know.',
+    zh: '点子就是一切。忠于那个点子，它会告诉你全部。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'absurd',
+    en: 'I look at the world and I see absurdity all around me.',
+    zh: '我看这个世界，满眼都是荒诞。',
+    source: '公开访谈'
+  },
+  {
+    id: 'different',
+    en: 'Every viewer is going to get a different thing.',
+    zh: '每个观众带走的东西都不一样。',
+    source: '公开访谈'
+  },
+  {
+    id: 'complicated',
+    en: 'Life is very, very complicated, and so films should be allowed to be, too.',
+    zh: '生活复杂得很，所以也请允许电影复杂。',
+    source: '公开访谈'
+  },
+  {
+    id: 'texture',
+    en: 'I like things that go into hidden, mysterious places.',
+    zh: '我喜欢那些通往隐秘之处的东西。',
+    source: '公开访谈'
+  },
+  {
+    id: 'negativity',
+    en: 'Negativity is the enemy of creativity.',
+    zh: '负面情绪是创造力的敌人。',
+    source: '公开访谈（多次提及）'
+  },
+  // v1.9 深夜电台档（双峰 diner 柜台收音机轮播的访谈短引语）
+  {
+    id: 'mystery',
+    en: 'The more unknowable the mystery, the more beautiful it is.',
+    zh: '谜越是不可知，就越美。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'worlds',
+    en: 'All my movies are about strange worlds that you can\u2019t go into unless you build them.',
+    zh: '我的电影都关于奇怪的世界——不亲手造出来，你就进不去。',
+    source: '公开访谈'
+  },
+  {
+    id: 'detectives',
+    en: 'We\u2019re all like detectives in life. There\u2019s something at the end of the trail that we\u2019re all looking for.',
+    zh: '我们都像生活里的侦探：小径尽头有个东西，人人都在找。',
+    source: '公开访谈'
+  },
+  {
+    id: 'outofdark',
+    en: 'I love seeing people come out of darkness.',
+    zh: '我爱看人从黑暗里走出来。',
+    source: '公开访谈'
   }
 ];
 
 export function quoteById(id) {
   return QUOTES.find((q) => q.id === id) || null;
 }
+
+// ---------- 博物馆讲解层（v1.6 新增） ----------
+// (b) 进厅讲解卡：每厅两行「博物馆之声」——只讲公开背景事实与空间导引，
+//     不复述剧情、不用说教腔（单测扫描禁词）；每行 ≤ 26 字。
+// (c) 物品旁白：各厅 hotspot 调 ui.docentNote()（单测扫描 ≤ 46 字）。
+// (d) 名言/想法漂浮：QUOTES 库随时间在厅内轻轻淌过（main.js 调度）。
+export const DOCENT = {
+  lobby: {
+    title: '天鹅绒大厅 · THE FOYER',
+    lines: ['大卫·林奇（1946–2025），画家出身的电影人。', '六扇门，五十年：影像、绘画、音乐与天气。']
+  },
+  archive: {
+    title: '档案长廊 · THE ARCHIVE',
+    lines: ['从 1966 年的动画实验到 2017 年的归来。', '灯牌只写年份与名字，其余交给放映机。']
+  },
+  eraserhead: {
+    title: '橡皮头 · ERASERHEAD (1977)',
+    lines: ['第一部长片，断续拍了五年才完成。', '费城的工业噪声从此住进他所有作品。']
+  },
+  bluevelvet: {
+    title: '蓝丝绒 · BLUE VELVET (1986)',
+    lines: ['片名来自 1963 年的一首同名老歌。', '小镇草坪之下，藏着另一个世界。']
+  },
+  twinpeaks: {
+    title: '双峰 · TWIN PEAKS (1990–2017)',
+    lines: ['一部改变电视的剧集：小镇、咖啡与冷杉。', '归来季与首播相隔二十五年。']
+  },
+  mulholland: {
+    title: '穆赫兰道 · MULHOLLAND DR. (2001)',
+    lines: ['被退回的剧集试播集，两年后重生为电影。', '2001 年获戛纳电影节最佳导演奖。']
+  },
+  studio: {
+    title: '他的房间 · HIS ROOM',
+    lines: ['画架、咖啡、香烟与冥想：他每天的功课。', '他练习超觉冥想逾五十年，从未间断。']
+  }
+};
+
+// ---------- 冥想深潜的「意念」碎片（v1.6） ----------
+// 潜到深处时一粒一粒亮起的原创意象短句（≤ 12 字，抽象母题，
+// 不指涉任何具体剧情），最后一粒会被带回画架。
+export const MEDITATION_IDEAS = [
+  '一间红色的房间。',
+  '雨里的霓虹灯。',
+  '楼梯上方的风扇。',
+  '深夜电台的杂音。',
+  '一条只有车灯的路。',
+  '半张脸的月亮。',
+  '烧了一半的火柴。',
+  '窗帘后面的风。'
+];
 
 // ---------- 旁白（v1.3：v1.0 克制量级。每厅一句 ≤16 字，
 // 风格化空间提示，首访一次，迟到而安静） ----------
@@ -105,7 +222,7 @@ export const NARRATIONS = {
   bluevelvet: { lang: 'zh-CN', text: '灯只照亮歌者的一半。' },
   twinpeaks: { lang: 'zh-CN', text: '风穿过冷杉。咖啡还热。' },
   mulholland: { lang: 'zh-CN', text: '这条路只在夜里成立。' },
-  studio: { lang: 'zh-CN', text: '他的房间。东西可以碰。' }
+  studio: { lang: 'zh-CN', text: '他的房间。咖啡还温着。' }
 };
 
 // 版权与合规声明（应用内页 + README 同步；只保留必要事实陈述）

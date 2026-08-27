@@ -10,7 +10,8 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng,
+  blendGeo, planarUV
 } from './kit.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
@@ -168,6 +169,7 @@ export function build(ctx) {
 
   // 作品灯牌 —— 按年代沿两壁排布（事实性档案）
   const films = filmsSorted();
+  const plaqueLamps = []; // v1.8 年份巡礼：灯牌自发光 + 壁点光按年代波动
   films.forEach((film, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     const z = -L / 2 + 7 + Math.floor(i / 2) * 5.6;
@@ -182,6 +184,76 @@ export function build(ctx) {
     const spot = new THREE.PointLight(0xfff0dd, 2.2, 4.5, 2);
     spot.position.set(side * (W / 2 - 1.1), 3.3, z);
     group.add(spot);
+    plaqueLamps.push({ mat: plaque.material, spot, order: i, z });
+  });
+
+  // ============================================================
+  // v1.8 彩蛋：年份巡礼——入口墙上一支黄铜拨杆。E → 灯牌从
+  // 2017 逐块亮起回溯到 1966（光波倒着时间跑完整条长廊），
+  // 尽头一声铜磬。冒烟名 year-ripple。
+  // ============================================================
+  const rippleBox = new THREE.Group();
+  rippleBox.add(roundedBoxMesh(0.22, 0.34, 0.05, 0.015,
+    new THREE.MeshStandardMaterial({ color: 0x241610, roughness: 0.5 })));
+  const rippleLever = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.02, 0.16, 8), M.brass);
+  rippleLever.position.set(0, 0.02, 0.05);
+  rippleLever.rotation.x = 0.5;
+  rippleBox.add(rippleLever);
+  const rippleTag = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.16, 0.05),
+    new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#141008';
+        g.fillRect(0, 0, s, s);
+        g.fillStyle = '#c9a35c';
+        g.font = '600 34px Georgia, serif';
+        g.textAlign = 'center';
+        g.fillText('1966–2017', s / 2, s / 2 + 12);
+      }), roughness: 0.6
+    }));
+  rippleTag.position.set(0, -0.11, 0.028);
+  rippleBox.add(rippleTag);
+  rippleBox.position.set(W / 2 - 0.26, 1.42, L / 2 - 3.4);
+  rippleBox.rotation.y = -Math.PI / 2;
+  group.add(rippleBox);
+  // 巡礼次序：从最新一块（近入口）倒回最老一块（尽头）
+  const rippleOrder = [...plaqueLamps].sort((a, b) => b.z - a.z);
+  const ripple = { t: -1, STEP: 0.16, HOLD: 0.5 };
+  const startRipple = () => {
+    if (ripple.t >= 0) return;
+    ripple.t = 0;
+    audio.sfxAt('switch', W / 2 - 0.3, L / 2 - 3.4, 0.7, 3);
+    ui.caption('倒回去，一年一年。', 3200);
+    ui.docentNote('年表从动画短片排到最后一季。');
+    const total = rippleOrder.length * ripple.STEP + ripple.HOLD;
+    setTimeout(() => audio.sfxAt('chime', 0, -L / 2 + 4, 0.5, 20), total * 1000);
+  };
+  updaters.push((dt) => {
+    if (ripple.t < 0) return;
+    ripple.t += dt;
+    let alive = false;
+    rippleOrder.forEach((L2, k) => {
+      const ph = ripple.t - k * ripple.STEP;
+      // 光波钟形包络：每块灯牌被点亮 ~0.7s，拖一条余晖尾
+      const boost = ph > 0 ? Math.exp(-((ph - 0.3) ** 2) / 0.09) : 0;
+      if (ph < 1.4) alive = true;
+      L2.mat.emissiveIntensity = 0.5 + boost * 1.7;
+      L2.spot.intensity = 2.2 + boost * 7;
+    });
+    rippleLever.rotation.x = ripple.t < 0.3 ? -0.5 : 0.5;
+    if (!alive && ripple.t > rippleOrder.length * ripple.STEP + 2) {
+      ripple.t = -1;
+      rippleLever.rotation.x = 0.5;
+      for (const L2 of plaqueLamps) {
+        L2.mat.emissiveIntensity = 0.5;
+        L2.spot.intensity = 2.2;
+      }
+    }
+  });
+  hotspots.add(rippleBox.children[0], {
+    hint: 'E — 年份巡礼拨杆',
+    onActivate: startRipple
   });
 
   // 卡片目录柜 ×2（黄铜拉手 + 标签框；各有一只可拉的抽屉）
@@ -312,6 +384,7 @@ export function build(ctx) {
       if (clockState.t < 0) clockState.t = 0;
       audio.sfxAt('ratchet', -W / 2, 8.6, 0.45, 3);
       ui.caption('它不是坏了。它只是不同意。', 3600);
+      ui.docentNote('他每天冥想两次，四十多年不曾间断。');
     }
   });
 
@@ -687,7 +760,10 @@ export function build(ctx) {
     onActivate: () => {
       projState.on = !projState.on;
       audio.sfxAt(projState.on ? 'projector' : 'switch', -2.0, 8.2, 0.7);
-      if (projState.on) ui.caption('每秒二十四格的空白。', 3600);
+      if (projState.on) {
+        ui.caption('每秒二十四格的空白。', 3600);
+        ui.docentNote('2006 年起他改用数字摄影机，并说不会再回头。');
+      }
     }
   });
 
@@ -700,29 +776,21 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2)
   ], M.brass));
   const ladder = new THREE.Group();
-  const ladderWood = woodMat({ base: [34, 22, 13], planks: 1, size: 256, seed: 44, gloss: 0.45 });
-  const stringerGeo = roundedBoxGeo(0.035, 4.55, 0.09, 0.012, 2);
-  const ladderGeos = [
-    xform(stringerGeo, -0.26, 2.275, 0),
-    xform(stringerGeo, 0.26, 2.275, 0)
-  ];
-  for (let i = 0; i < 11; i++) {
-    ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
-  }
-  ladder.add(mergedMesh(ladderGeos, ladderWood));
-  // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉
-  ladder.add(mergedMesh([
-    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
-    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045)
-  ], M.brass));
+  // v1.8：图书梯换 Blender 权威细模档（gen_ladder.py 烘焙）——
+  // 成型剖面弦木（旧木微弯）+ 11 根车削踏杆（端肩收颈/中腹鼓/
+  // 顶面踩磨平 + 磨损顶点色）+ 黄铜端销 ×22/加固横带 ×2/
+  // 3/4 圆挂钩（钩尾球）/轮叉板与轴螺栓；胶轮独立几何各自转动
+  const ladderWood = woodMat({ base: [52, 33, 17], planks: 1, size: 256, seed: 44, gloss: 0.28 });
+  ladderWood.vertexColors = true; // Blender 烘焙的踩磨/色温变化
+  ladder.add(new THREE.Mesh(planarUV(blendGeo('ladder/wood'), 0.8), ladderWood));
+  const ladderBrass = M.brass.clone();
+  ladderBrass.vertexColors = true;
+  ladder.add(new THREE.Mesh(planarUV(blendGeo('ladder/brass'), 2), ladderBrass));
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
-  const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);
-  wheelL.rotation.z = Math.PI / 2;
+  const wheelL = new THREE.Mesh(blendGeo('ladder/wheel'), wheelMat);
   wheelL.position.set(-0.26, 0.05, 0.06);
-  const wheelR = wheelL.clone();
-  wheelR.position.x = 0.26;
+  const wheelR = new THREE.Mesh(blendGeo('ladder/wheel'), wheelMat);
+  wheelR.position.set(0.26, 0.05, 0.06);
   ladder.add(wheelL, wheelR);
   ladder.position.set(W / 2 - 1.12, 0, 2.4);
   ladder.rotation.z = -0.21;
@@ -742,8 +810,56 @@ export function build(ctx) {
       audio.sfxAt('ladderroll', W / 2 - 1, ladderState.z, 0.8, 4);
       setTimeout(() => audio.sfxAt('thud', W / 2 - 1, ladderState.target, 0.28, 3), 950);
       ui.caption('最上面一格，谁也够不着。', 3200);
+      ui.docentNote('他的画作与手稿多次在美术馆整馆回顾展出。');
     }
   });
+
+  // ---------- 通高档案柜塔（v1.9 Blender 权威细模档：gen_cabinet.py 烘焙） ----------
+  // 盒子拼柜退场：柜体三边合围成型线脚 + 119 只倒角屉面（手工进出
+  // 微差/指痕磨损顶点色/标签卡）+ 黄铜弓形杯拉手与四梃标签框。
+  // row7/col5 是一只真抽屉（独立烘焙件）——E 拉开：一屉立插索引卡
+  // 高出屉沿，中间一张翘着没插回去。
+  {
+    const TZ = 2.4;              // 柜塔中心（梯轨行程中段）
+    const tower = new THREE.Group();
+    const towerWood = woodMat({ base: [40, 26, 14], planks: 2, vertical: true, size: 256, seed: 61, gloss: 0.3 });
+    towerWood.vertexColors = true; // Blender 烘焙的木纹色温/指痕磨损/米色标签卡
+    const towerBrass = M.brass.clone();
+    towerBrass.vertexColors = true;
+    // 各向异性必须关：软渲染下拉丝切线在烘焙几何上出 NaN，
+    // bloom 会把 NaN 摊成整帧黑（v1.9 现场取证：探针逐项切换定位）
+    towerBrass.anisotropy = 0;
+    tower.add(new THREE.Mesh(planarUV(blendGeo('cabinet/wood'), 0.6), towerWood));
+    tower.add(new THREE.Mesh(planarUV(blendGeo('cabinet/brass'), 2), towerBrass));
+    const liveDrawer = new THREE.Group();
+    const drawerMesh = new THREE.Mesh(planarUV(blendGeo('cabinet/drawer'), 1.2), towerWood);
+    liveDrawer.add(drawerMesh);
+    // 注意：接 brassMat（各向异性物理材质）的烘焙件必须补 UV，
+    // 否则切线由 uv 导数出 NaN，会毒黑整帧（v1.9 现场教训）
+    liveDrawer.add(new THREE.Mesh(planarUV(blendGeo('cabinet/drawerBrass'), 2), towerBrass));
+    liveDrawer.position.set(0.595, 2.035, 0.158); // LIVE 槽位：微开一线（能拉）
+    tower.add(liveDrawer);
+    tower.position.set(W / 2 - 0.11, 0, TZ);
+    tower.rotation.y = -Math.PI / 2; // 正面朝 -X（进厅方向）
+    group.add(tower);
+    const drawerState = { out: 0.02, target: 0.02 };
+    updaters.push((dt) => {
+      drawerState.out += (drawerState.target - drawerState.out) * Math.min(1, dt * 5);
+      liveDrawer.position.z = 0.138 + drawerState.out;
+    });
+    hotspots.add(drawerMesh, {
+      hint: 'E — 第 61 号抽屉',
+      onActivate: () => {
+        const opening = drawerState.target < 0.15;
+        drawerState.target = opening ? 0.3 : 0.02;
+        audio.sfxAt('creak', W / 2 - 0.4, TZ + 0.6, 0.5, 3);
+        if (opening) {
+          setTimeout(() => audio.sfxAt('page', W / 2 - 0.5, TZ + 0.6, 0.55, 2.5), 420);
+          ui.caption('每张卡都写着同一个日期。', 3400);
+        }
+      }
+    });
+  }
 
   // ---------- 气送管站（v1.4 五遍）：黄铜立管进天花 + 铁站体 + 翻盖口 + 铜舱 ----------
   // E → 舱滑进站口、盖合上、whoosh 吸走 → 远处闷响 → 几秒后叮一声，
@@ -1081,6 +1197,6 @@ export function build(ctx) {
     spawn: { x: 0, z: L / 2 - 4, yaw: 0 },
     bounds: multiRectBounds([HALL, NICHE]),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'ghost-plaque': ghostTrig }
+    eggs: { 'ghost-plaque': ghostTrig, 'year-ripple': { force: startRipple } }
   };
 }
