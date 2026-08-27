@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test        # vitest 单元测试（208 用例）
+npm test        # vitest 单元测试（220 用例）
 npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 ```
 
@@ -18,8 +18,10 @@ npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron
 | `tests/narration.test.js` | 旁白四档模式体系、**留白预算**（每厅一句 ≤24 字/总字数 ≤160/禁说教词）、引语库（数量/中英/出处/长度审计）、二手标签与理论名词清零断言、ESSAYS 移除断言、**展签预算源码级审计**（每厅 quotePlaque ≤2、standPlaque 清零、字幕字面量 ≤26 字） |
 | `tests/compliance.test.js` | 合规声明关键词、仓库零媒体素材文件、旁白原创中文短句、引语出处标注、README 免责声明 |
 | `tests/kit.test.js`（v1.8 组） | `blendGeo` 解码器：全部 Blender 烘焙件解码（位置/法线/顶点色/索引）、未知名抛错、法线归一化、`cylUV`/`planarUV` 计数、松树/人物/梯子三角与包围盒预算 |
+| `tests/kit.test.js`（v1.9 组） | 细模第二批：柜塔（`cabinet/wood·brass·drawer*`）与收音机（`radio/body·brass`）全部烘焙件解码、包围盒尺寸、`archive.js`/`props.js` 接线与烘焙黄铜 `anisotropy=0` 源码审计 |
+| `tests/eggs.test.js`（v1.9 组） | `stage-seance` 三条件与视听通道、`night-frequency` 三连调台与全镇联动源码断言 |
 
-## Blender 权威细模管线（v1.8，可复现验证）
+## Blender 权威细模管线（v1.8 起，v1.9 扩至五套，可复现验证）
 
 ```bash
 B=tools/blender-4.1.1-linux-x64/blender   # 官方 Linux 包，BUILD.md 有下载说明
@@ -27,13 +29,16 @@ $B --version                              # 应输出 Blender 4.1.1
 $B -b -P assets/blender/scripts/gen_pine.py      # 黑松：HI 细模 + GAME 档 + 三机位渲染 + 存 blend
 $B -b -P assets/blender/scripts/gen_figure.py    # 梦魇人物：同上
 $B -b -P assets/blender/scripts/gen_ladder.py    # 图书梯：同上
+$B -b -P assets/blender/scripts/gen_cabinet.py   # 档案柜塔（v1.9）：同上 + 61 号抽屉拉开机位
+$B -b -P assets/blender/scripts/gen_radio.py     # 大教堂收音机（v1.9）：同上
 $B -b -P assets/blender/scripts/build_blendmeshes.py  # 量化烘焙 → src/data/blendmeshes.js
 sha256sum src/data/blendmeshes.js         # 与仓库版本字节级一致（管线确定性）
 ```
 
 渲染自检图输出到 `assets/blender/renders/`（gitignore，不入仓）：逐张目视复核
-松树层积剪影、人物长发/雕刻眼窝、梯子车削踏杆与铜箍。`.blend` 文件在
-`assets/blender/blends/`（入仓，权威源）。
+松树层积剪影、人物长发/雕刻眼窝、梯子车削踏杆与铜箍、柜塔抽屉脸阵列与拉开的
+61 号抽屉（索引卡露头）、收音机拱顶与格栅。`.blend` 文件在
+`assets/blender/blends/`（入仓，权威源，v1.9 起共五件）。
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -95,6 +100,19 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
       跑马灯整组结巴换色再复原，**只有一个字母慢半拍**
 - [ ] **画室「松节油罐」**：画架脚边锡罐 E → 盖子啪嗒掀开又落回、罐身晃两下、
       托板抹布跟着动 + 字幕/物品旁白
+
+### v1.9 新增彩蛋/交互复现步骤
+- [ ] **蓝丝绒「降神」（stage-seance，三条件连锁）**：① 点唱机开着（乐队醒着）
+      ② 脚灯拨盘拨到**蓝场** ③ 走上舞台对**谱架**按 E 翻开歌单 → 聚光转冷开始呼吸、
+      各桌台灯集体退场、低音提琴四弦自己应了一声、没有人的咏叹浮起 + 字幕——
+      歌单最后一行是空的（复原后可重复；任一条件不满足时翻歌单只有翻页声与短句）
+- [ ] **双峰「夜频」（night-frequency，三连调台触发）**：进 DINER，柜台**大教堂收音机**
+      按 E 调台 → 每停一个频率播一段**深夜访谈短引语**（字幕通道轮换）；
+      **连调三次台** → 收进不该有的频率：全镇灯**两拍收暗再回**、路口电话亭自己
+      应了一声铃、远处一记鸮鸣 + 字幕（冷却后可再触发）
+- [ ] **档案「61 号抽屉」**：柜塔（Blender 细模档，替换旧卡片柜塔）中段微开的
+      61 号抽屉 E → 滑轨拉开 → 一沓索引卡露头（全部空着）+ 木滑轨声 + 短句；
+      再按 E 推回
 
 ### 林奇的房间（第 6 扇门）
 - [ ] 台灯可开关；墙上开关控制顶灯；只开台灯时氛围明显变化
@@ -169,7 +187,7 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] 房间放唱片：爵士层起 + 间歇黑胶尘埃嘶声/爆点定位在唱机方向
 
 ### UI 与社交
-- [ ] T 年表：13 条目按年代排序 + 「他自己的话」原话摘录墙（12 条中英对照短引语）可读
+- [ ] T 年表：13 条目按年代排序 + 「他自己的话」原话摘录墙（23 条中英对照短引语，v1.9 扩容）可读
 - [ ] G 留言墙：发帖（空内容拒绝）、点赞切换、回复；重启后数据保留（localStorage）
 - [ ] 输入 `<script>alert(1)</script>` 作为留言 → 仅显示为纯文本，不执行
 - [ ] C 合规页完整显示（含短引语合理使用条目）；M 静音立即生效；Q 切画质；F 显示 FPS ≥ 30
@@ -178,5 +196,5 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.8.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe` 双击直接运行（免安装）
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常

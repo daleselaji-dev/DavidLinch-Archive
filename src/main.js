@@ -357,5 +357,5 @@ window.__SV__ = {
     const egg = current && current.built.eggs && current.built.eggs[name];
     return egg && egg.state ? egg.state() : null;
   },
-  version: '1.8.0'
+  version: '1.9.0'
 };

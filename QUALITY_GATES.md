@@ -11,6 +11,7 @@
 > **v1.6.0 新增门禁 33–34（惊吓 v3 拐角即出+细节眼睛 / 黑松一体化 / 博物馆讲解零元叙事 /
 > 冥想深潜 v2 / 悬停材质克隆 / 1.6.0 重新打包）。未全绿不得交付。**
 > **v1.8.0 新增门禁 37–38（Blender 4.1.1 权威细模管线 / 彩蛋+讲解扩容 / 1.8.0 重新打包）。**
+> **v1.9.0 新增门禁 39–40（细模第二批+连锁彩蛋+深夜电台+diner 光害治理 / 1.9.0 重新打包）。**
 
 ## 门禁清单
 
@@ -507,6 +508,39 @@ corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
 - [x] `release/SmokeVelvet-LynchArchive-Portable-1.8.0.exe`（Windows x64 便携版双击即运行）
 - [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
 - [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.8.0
+
+### 39. Blender 细模第二批 + 连锁彩蛋 + 深夜电台 + 七厅风格巡检（v1.9 新增）
+- [x] **细模第二批入仓可复现**：`gen_cabinet.py` 档案柜塔（顶檐/底座线脚 + 120 抽屉脸
+      倒角磨损顶点色 + 黄铜拉手标签框 + **61 号抽屉微开可拉开、内有空白索引卡**）+
+      `gen_radio.py` 大教堂收音机（拱顶木壳/竖条黄铜格栅/车削旋钮/表盘框）——
+      各自 `blender -b -P` HI→GAME→三机位渲染自检→`.blend` 入仓→量化烘焙
+      （`blends/cabinet.blend` / `blends/radio.blend`）
+- [x] **既有资产深化**：GAME 松树补针叶收顶锥（旧游戏档顶部平截）；远景档减段
+      压回预算 **hero 989 / far 442 tris**（门禁 1000/450 内）
+- [x] **接线换装**：`archive.js` 柜塔（旧盒子拼柜退场 + 抽屉全周期交互）、
+      `props.js` radioCabinet（动画/材质通道契约保持）；烘焙黄铜显式 `anisotropy=0`
+      （软渲染下 UV 导数退化 NaN 经 bloom 毒黑整帧——探针逐项取证修复）
+- [x] **连锁彩蛋 ×2（多触发条件）**：蓝丝绒 `stage-seance`（点唱机 × 蓝场 × 翻歌单
+      三条件 → 聚光冷呼吸/桌灯退场/贝斯自应/咏叹）；双峰 `night-frequency`
+      （收音机三连调台 → 全镇灯两拍收暗/电话亭应铃/远鸮）——triggerEggs 冒烟可强制引爆
+- [x] **讲解/访谈扩容合规**：QUOTES +4 公开访谈短引语（库 23 条，单条 ≤200 字符审计）；
+      diner 收音机深夜访谈轮播（字幕通道会话内轮换）；新交互物品旁白 ×2（8–28 字审计内）
+- [x] **七厅林奇风格巡检**：diner 奶白过曝根因修复（六盏点光叠灌越 bloom 阈值——
+      删遗留补光对 + pendant 2.1/5 + 窗光 4.5）+ 雾毯 diner 体积排除
+      （初掷重采样 + 世界坐标守卫）；其余六厅逐张复核无简陋/喧宾夺主处
+- [x] 交互普查 131 → **133**；INTERACTIVE_MIN bluevelvet 16→17 / twinpeaks 20→21；
+      预算保持 240/240k/40 全绿（twinpeaks lights 15→13）；单测 208 → **220**
+
+**验证方式**：`tools/blender-4.1.1-linux-x64/blender -b -P assets/blender/scripts/gen_*.py`
+五连 + `build_blendmeshes.py` 重建 + `npm test`（220）+
+`xvfb-run npx electron . --smoke`（新阈值全绿）+ 渲染图/截屏目视复核。
+
+### 40. Release 1.9.0（v1.9 新增）
+- [x] `npm test`（220）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.9.0
 
 ---
 
