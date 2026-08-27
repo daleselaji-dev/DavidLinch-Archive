@@ -300,3 +300,48 @@ describe('v1.3 空间混响（程序化 IR 预设 + 逐厅映射）', () => {
     }
   });
 });
+
+// v1.10 P26 混音纪律审计——250 个发声点的音量分布普查转门禁：
+// ①天花板纪律：任何调用不得超过 1.0（满格是天花板不是起点，想更响
+// 只能靠音色包络自己挣）；②远声必位置化：far 族音色若用全景 sfx 播放
+// 「远」就塌了（到处都是的远＝没有方位的近）；③满格白名单有界：满音量
+// 保留给惊吓与钟鸣，缺省音量的裸调用不许悄悄膨胀。
+describe('v1.10 P26 混音纪律审计', () => {
+  const FAR_FAMILY = ['doorfar', 'pipeknock', 'sirenfar', 'drawerfar', 'liftbell'];
+  const calls = [];
+  for (const h of HALLS.concat(['../main'])) {
+    const src = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+    for (const line of src.split('\n')) {
+      for (const m of line.matchAll(/sfx\('([a-z]+)'(?:,\s*([\d.]+))?/g)) {
+        calls.push({ h, name: m[1], vol: m[2] ? +m[2] : 1, positional: false });
+      }
+      for (const m of line.matchAll(/sfxAt\('([a-z]+)',\s*[^,]+,\s*[^,]+,\s*([\d.]+)(?:,\s*([\d.]+))?/g)) {
+        calls.push({ h, name: m[1], vol: +m[2], ref: m[3] ? +m[3] : 3, positional: true });
+      }
+    }
+  }
+
+  it('提取器在工作（全馆发声点 ≥240）', () => {
+    expect(calls.length).toBeGreaterThanOrEqual(240);
+  });
+
+  it('音量天花板 1.0——零越界（不靠调用端推子救音色）', () => {
+    for (const c of calls) {
+      expect(c.vol, `${c.h}:${c.name} vol=${c.vol} 越过天花板`).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it('far 族音色全部位置化播放（远必须有方位）且 ref ≥2', () => {
+    for (const c of calls.filter((c) => FAR_FAMILY.includes(c.name))) {
+      expect(c.positional, `${c.h}:${c.name} 用了全景 sfx`).toBe(true);
+      expect(c.ref, `${c.h}:${c.name} ref=${c.ref} 过近`).toBeGreaterThanOrEqual(2);
+    }
+    expect(calls.some((c) => FAR_FAMILY.includes(c.name)), 'far 族提取器失效').toBe(true);
+  });
+
+  it('满格裸调用（全景 sfx 且 vol=1）有界 ≤24——满音量是保留字', () => {
+    const bare = calls.filter((c) => !c.positional && c.vol === 1);
+    expect(bare.length).toBeLessThanOrEqual(24);
+    expect(bare.length).toBeGreaterThanOrEqual(10); // 惊吓/钟鸣本就该满格——低于此说明提取器坏了
+  });
+});
