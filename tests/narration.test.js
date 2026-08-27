@@ -123,6 +123,24 @@ describe('展签预算：源码级审计（v1.3 收紧）', () => {
       }
     }
   });
+
+  it('物品旁白（ui.docentNote）：每厅 ≥3 条、每条 ≤28 字、只讲创作事实（v1.6）', () => {
+    for (const f of hallFiles.filter((n) => n !== 'props.js')) {
+      const src = readFileSync(join(hallsDir, f), 'utf-8');
+      let count = 0;
+      for (const line of src.split('\n')) {
+        if (!line.includes('ui.docentNote(')) continue;
+        count += 1;
+        const literals = line.match(/'([^']*)'/g) || [];
+        for (const lit of literals) {
+          const text = lit.slice(1, -1);
+          expect(text.length, `${f} 物品旁白过长: ${text}`).toBeLessThanOrEqual(28);
+          expect(text.length, `${f} 物品旁白过短: ${text}`).toBeGreaterThanOrEqual(8);
+        }
+      }
+      expect(count, `${f} 物品旁白不足（需 ≥3）`).toBeGreaterThanOrEqual(3);
+    }
+  });
 });
 
 describe('零原作叙事剧透（v1.3 门禁 19）', () => {

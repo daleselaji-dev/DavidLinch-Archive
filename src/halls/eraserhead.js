@@ -488,6 +488,7 @@ export function build(ctx) {
       audio.sfx('clank');
       setTimeout(() => audio.sfx('steam'), 260);
       lever.rotation.z = lever.rotation.z < 0 ? 0.4 : -0.4;
+      ui.docentNote('片中的工业声景，是他和音效师斯普莱特逐层做出来的。');
     }
   });
 
@@ -622,6 +623,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('lullaby', 0.5);
       ui.caption('光的后面还有一层光。', 3600);
+      ui.docentNote('他称这是自己最有精神性的电影，谜底从未公布。');
     }
   });
 
@@ -1239,6 +1241,7 @@ export function build(ctx) {
       audio.sfxAt('stamp', S / 2 - 0.3, -3.05, 0.8, 3.5);
       setTimeout(() => audio.sfxAt('ratchet', S / 2 - 0.3, -3.05, 0.3, 3), 340);
       ui.caption('卡上打的都是同一分钟。', 4200);
+      ui.docentNote('《橡皮头》断续拍了五年，布景搭在废弃的马厩里。');
     }
   });
 

@@ -271,6 +271,7 @@ export function build(ctx) {
     onActivate: () => {
       bassState.t = 0;
       audio.sfxAt('pluck', -3.35, -D / 2 + 0.9, 0.65, 6);
+      ui.docentNote('夜总会那首慢歌由他亲自写词，巴达拉门蒂谱曲。');
       // 连锁：聚光跟着低音吸一口气（缓亮缓落，不打断呼吸更新器基线）
       const s0 = spot.intensity;
       let k = 0;
@@ -336,6 +337,7 @@ export function build(ctx) {
       curtainShudder.t = 0;
       curtainShudder.e = 1;
       audio.sfx('curtain', 0.9);
+      ui.docentNote('1986 年，这部电影为他带来第二次奥斯卡导演提名。');
     }
   });
 
@@ -1066,6 +1068,7 @@ export function build(ctx) {
         ui.caption('隔壁房间的乐队醒了。', 3600);
         curtainShudder.t = 0;
         curtainShudder.e = Math.max(curtainShudder.e, 0.4); // 后幕轻轻应一下
+        ui.docentNote('他偏爱五十年代的老歌：温柔的曲子配不安的画面。');
       }
     }
   });

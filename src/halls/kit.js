@@ -712,68 +712,469 @@ export function darkFigure(height = 2.1) {
 }
 
 /**
- * 潜行黑影 v2（v1.5 穆赫兰道拐角惊吓专用变体）——比 darkFigure 更「不对劲」：
- * 佝偻拉长的躯干 + 垂得过长的双臂 + 剧烈顶点噪声 + 会自己继续歪下去的头。
- * 依旧无面目、无肖像特征，纯抽象煤黑形体（不复刻任何受版权保护的形象）。
- * userData.update(dt, t, k) 驱动微痉挛与歪头蠕变（k = 不安强度 0–1）。
+ * 梦魇形体 v3（v1.6 穆赫兰道拐角惊吓专用重做）——不再是粗黑剪影：
+ * 烟垢斑驳的惨白面孔、一双会亮起来的眼睛、纠结垂落的长发、
+ * 指节过长的苍白双手、破布般的黑袍。全部程序化绘制/建模的原创
+ * 恐怖形体：只保留「藏在拐角后的那种东西」的抽象概念，
+ * 不复刻任何受版权保护的角色妆造。
+ * userData: { update(dt,t,k), eyeMat, faceMat, head }（k = 不安强度 0–1，
+ * 驱动痉挛/呼吸/眼睛亮度）。
  */
-export function lurkerFigure(height = 2.5) {
+export function nightmareFigure(height = 2.4) {
   const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x050303, roughness: 0.98, metalness: 0,
-    emissive: 0x180204, emissiveIntensity: 0.3
+  // ---- 破布黑袍质感（近黑但有织物撕痕细节，红光/惨白光扫过时可读） ----
+  const ragTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#0a0706';
+    g.fillRect(0, 0, s, s);
+    const rr = rng(83);
+    for (let i = 0; i < 90; i++) { // 竖向撕条与油渍
+      g.fillStyle = `rgba(${18 + rr() * 22 | 0},${12 + rr() * 14 | 0},${10 + rr() * 12 | 0},${0.25 + rr() * 0.4})`;
+      const x = rr() * s;
+      g.fillRect(x, rr() * s * 0.5, 2 + rr() * 5, s * (0.2 + rr() * 0.7));
+    }
+    grime(g, s, { stains: 20, scratches: 26, alpha: 0.14 });
+  }, 2, 2);
+  const ragMat = new THREE.MeshStandardMaterial({
+    // 近黑煤垢袍（v1.7 调深：底光再亮袍身也不能洗成灰白，
+    // 「黑袍黑发惨白脸」的对比就是恐怖感的来源）
+    map: ragTex, color: 0x17110e, roughness: 0.98, metalness: 0,
+    bumpMap: ragTex, bumpScale: 0.5, emissive: 0x0a0404, emissiveIntensity: 0.3
   });
-  // 躯干：瘦长圆柱 + 双频噪声位移（衣褶一样的错误起伏）
-  const bodyGeo = new THREE.CylinderGeometry(0.19, 0.36, height * 0.8, 10, 12);
-  const bp = bodyGeo.attributes.position;
-  for (let i = 0; i < bp.count; i++) {
-    const y = bp.getY(i);
-    const n = Math.sin(y * 8.1 + bp.getX(i) * 13) * 0.08 +
-      Math.sin(y * 21 + bp.getZ(i) * 7) * 0.04 + (Math.random() - 0.5) * 0.06;
-    bp.setX(i, bp.getX(i) * (1 + n));
-    bp.setZ(i, bp.getZ(i) * (1 + n));
+  // ---- 烟垢皮肤（脸与手共用）：惨白底 + 大块煤烟斑 + 皴裂 ----
+  const skinTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#96897a';
+    g.fillRect(0, 0, s, s);
+    const rr = rng(89);
+    for (let i = 0; i < 34; i++) { // 煤烟斑块（边缘发虚）
+      const rad = 10 + rr() * 46;
+      const grad = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+      grad.addColorStop(0, `rgba(16,12,10,${0.5 + rr() * 0.4})`);
+      grad.addColorStop(1, 'rgba(16,12,10,0)');
+      g.save();
+      g.translate(rr() * s, rr() * s);
+      g.fillStyle = grad;
+      g.fillRect(-rad, -rad, rad * 2, rad * 2);
+      g.restore();
+    }
+    g.strokeStyle = 'rgba(30,22,18,0.5)';
+    for (let i = 0; i < 26; i++) { // 皴裂细纹
+      g.lineWidth = 0.6 + rr();
+      g.beginPath();
+      let x = rr() * s;
+      let y = rr() * s;
+      g.moveTo(x, y);
+      for (let k = 0; k < 4; k++) {
+        x += (rr() - 0.5) * 26;
+        y += rr() * 18;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  });
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: skinTex, color: 0xb0a494, roughness: 0.88, metalness: 0,
+    bumpMap: skinTex, bumpScale: 0.35,
+    emissive: 0x4a3d31, emissiveIntensity: 0.5 // 尸白微亮——黑暗里也读得出「有一张脸」
+  });
+  // ---- 躯干：佝偻前倾的破袍 + 底摆裙脚（落地的质量感） ----
+  const bodyGeo = new THREE.CylinderGeometry(0.2, 0.42, height * 0.74, 12, 10);
+  {
+    const p = bodyGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      const a = Math.atan2(p.getZ(i), p.getX(i));
+      const v = (y / (height * 0.74)) + 0.5;
+      const n = 1 + Math.sin(a * 6 + y * 7) * 0.07 + Math.sin(a * 13 + y * 19) * 0.05;
+      p.setX(i, p.getX(i) * n);
+      p.setZ(i, p.getZ(i) * n + v * v * 0.16); // 上身前倾（朝 +Z 扑向你的方向）
+    }
+    bodyGeo.computeVertexNormals();
   }
-  bodyGeo.computeVertexNormals();
-  const body = new THREE.Mesh(bodyGeo, mat);
-  body.position.y = height * 0.4;
-  // 双臂：垂得过长（指尖过膝）的细形体，肘位反向微屈
+  const body = new THREE.Mesh(bodyGeo, ragMat);
+  body.position.y = height * 0.44;
+  const hemGeo = new THREE.ConeGeometry(0.5, 0.5, 12, 2, true);
+  {
+    const p = hemGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const a = Math.atan2(p.getZ(i), p.getX(i));
+      const jag = 1 + Math.sin(a * 7 + 1) * 0.14 + Math.sin(a * 15) * 0.07;
+      p.setX(i, p.getX(i) * jag);
+      p.setZ(i, p.getZ(i) * jag);
+    }
+    hemGeo.computeVertexNormals();
+  }
+  const hemMat = ragMat.clone();
+  hemMat.side = THREE.DoubleSide;
+  const hem = new THREE.Mesh(hemGeo, hemMat);
+  hem.position.y = 0.25;
+  // ---- 头：削瘦拉长的脸壳（面向 +Z），下颌过长 ----
+  const headGeo = new THREE.SphereGeometry(0.165, 14, 12);
+  {
+    const p = headGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i) * 0.82;               // 两颊内收（削瘦）
+      let y = p.getY(i);
+      const z = p.getZ(i);
+      if (y < 0) y *= 1.34;                   // 下颌拉长
+      y *= 1.16;
+      const n = 1 + Math.sin(x * 31 + y * 17) * 0.05; // 颅面不对称起伏
+      x *= n;
+      p.setXYZ(i, x, y, z * n);
+    }
+    headGeo.computeVertexNormals();
+  }
+  const head = new THREE.Group();
+  const skull = new THREE.Mesh(headGeo, faceMat);
+  head.add(skull);
+  // ---- 眼睛：深陷眼窝 + 熏黑眼圈 + 会亮的眼球 + 不对称瞳孔 ----
+  // （这双眼睛就是惊吓的核心——v1.7 加大眼球与眼圈，2m 外也读得出
+  // 「它在看你」；眉棱压出眼窝阴影，底光扫上来时整圈发黑。）
+  const socketMat = new THREE.MeshStandardMaterial({ color: 0x080404, roughness: 1 });
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0xd8d2c2, roughness: 0.25, metalness: 0,
+    emissive: 0xfff3da, emissiveIntensity: 0.9
+  });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x050302, roughness: 0.4 });
+  const mkEye = (side, dy, sc) => {
+    const socket = new THREE.Mesh(new THREE.SphereGeometry(0.048 * sc, 10, 8), socketMat);
+    socket.position.set(side * 0.062, 0.035 + dy, 0.116);
+    socket.scale.z = 0.5;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.041 * sc, 0.013, 6, 16), socketMat);
+    ring.position.set(side * 0.062, 0.035 + dy, 0.122);
+    ring.scale.z = 0.45; // 熏黑眼圈——把眼窝在惨白脸上圈出来
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.031 * sc, 10, 8), eyeMat);
+    ball.position.set(side * 0.062, 0.035 + dy, 0.136);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.0125 * sc, 8, 6), pupilMat);
+    pupil.position.set(side * 0.06, 0.033 + dy, 0.163);
+    head.add(socket, ring, ball, pupil);
+  };
+  mkEye(-1, 0.006, 1.0);   // 左眼略高
+  mkEye(1, -0.004, 1.18);  // 右眼略大——不对称是最不对劲的细节
+  // 眉棱：一道压在双眼上方的骨脊，让眼窝陷进阴影里
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.026, 0.05), faceMat);
+  brow.position.set(0, 0.088, 0.112);
+  brow.rotation.x = 0.55;
+  head.add(brow);
+  // 微张的嘴：一条无声的黑缝（update 里随不安撑成无声尖叫）
+  const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), socketMat);
+  mouth.scale.set(1.35, 0.5, 0.5);
+  mouth.position.set(0, -0.108, 0.128);
+  head.add(mouth);
+  // ---- 原作感长发（v1.7 重做）：不再是短须——贴颅乱壳 + 三组「长绺」
+  // （左鬓/右鬓/脑后）从颅顶披下来，最长垂到胸口；每绺顶粗尾细、
+  // 带过颅外披弧与缠结波浪，两鬓绺垂在脸颊两侧把那张脸框出来
+  // （眼睛留在发帘缝隙里）。左右绺独立成 mesh，update 里跟着
+  // 歪头蠕变各自摆，扑时整头长发向后掀。 ----
+  const hairMat = new THREE.MeshStandardMaterial({
+    // 低粗糙度=油腻板结的反光：黑发在夜里靠底光/红边光的高光读出绺
+    color: 0x0b0806, roughness: 0.45, metalness: 0,
+    bumpMap: noiseCanvasTexture(64, 100, 60, 5), bumpScale: 0.3
+  });
+  const hairGeo = new THREE.SphereGeometry(0.178, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.66);
+  {
+    const p = hairGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const a = Math.atan2(p.getZ(i), p.getX(i));
+      const n = 1 + Math.sin(a * 9 + p.getY(i) * 23) * 0.1;
+      p.setXYZ(i, p.getX(i) * n, p.getY(i) * 1.12, p.getZ(i) * n * 0.96);
+    }
+    hairGeo.computeVertexNormals();
+  }
+  const hairCap = new THREE.Mesh(hairGeo, hairMat);
+  hairCap.position.y = 0.02;
+  head.add(hairCap);
+  // 单绺：锥形长发绺，root 挂在颅面上沿，v=0 发根 → v=1 发梢
+  const strand = (a, len, rTop, hr) => {
+    const seg = Math.max(5, Math.round(len * 10));
+    const sg = new THREE.CylinderGeometry(0.0045, rTop, len, 5, seg);
+    sg.translate(0, -len / 2, 0);
+    const p = sg.attributes.position;
+    const ux = Math.cos(a);
+    const uz = Math.sin(a);
+    const kinkF = 4 + hr() * 5;        // 缠结波频（缕缕不同）
+    const ph = hr() * 7;
+    const bowAmt = 0.05 + hr() * 0.05; // 过颅外披弧度
+    const drift = (hr() - 0.5) * 0.12; // 尾端横漂——绺与绺不平行才像乱发
+    for (let i = 0; i < p.count; i++) {
+      const v = -p.getY(i) / len;
+      const bow = Math.sin(Math.min(1, v * 2.2) * Math.PI) * bowAmt;
+      const kink = Math.sin(v * Math.PI * kinkF + ph) * 0.013 * v;
+      const sway = drift * v * v;
+      p.setX(i, p.getX(i) + ux * (bow + sway) + kink * uz);
+      p.setZ(i, p.getZ(i) + uz * (bow + sway) - kink * ux);
+    }
+    sg.computeVertexNormals();
+    return xform(sg, ux * 0.125, 0.115, uz * 0.125);
+  };
+  const F = Math.PI / 2; // 脸朝 +Z
+  const mkClumps = (angles, lenMin, lenMax, seed) => {
+    const hr = rng(seed);
+    return mergedMesh(
+      angles.map((a) => strand(a, lenMin + hr() * (lenMax - lenMin), 0.013 + hr() * 0.008, hr)),
+      hairMat
+    );
+  };
+  // 脑后披发：14 长绺盖满后颅与两侧（留出 ±0.85 rad 的脸窗），垂到胸口
+  const backAngles = [];
+  for (let i = 0; i < 14; i++) backAngles.push(F + 0.85 + (i / 13) * (Math.PI * 2 - 1.7));
+  const hairBack = mkClumps(backAngles, 0.58, 0.95, 97);
+  // 两鬓框脸绺：贴着脸窗边缘垂在颊侧与肩前（发帘只留一线，露出眼睛）
+  const hairL = mkClumps([F + 0.52, F + 0.66, F + 0.8], 0.5, 0.72, 98);
+  const hairR = mkClumps([F - 0.52, F - 0.66, F - 0.8], 0.48, 0.7, 99);
+  // 颅顶炸开的碎发（干枯短翘）
+  const wispHr = rng(101);
+  const wisps = [];
+  for (let i = 0; i < 6; i++) {
+    const a = wispHr() * Math.PI * 2;
+    const len = 0.1 + wispHr() * 0.12;
+    const wg = new THREE.CylinderGeometry(0.002, 0.006, len, 4);
+    wg.translate(0, len / 2, 0);
+    wg.rotateZ((wispHr() - 0.5) * 1.6);
+    wisps.push(xform(wg, Math.cos(a) * 0.09, 0.16, Math.sin(a) * 0.09));
+  }
+  head.add(hairBack, hairL, hairR, mergedMesh(wisps, hairMat));
+  head.position.set(0, height * 0.86, 0.1); // 头探在身前（佝偻）
+  head.rotation.z = 0.16;
+  // ---- 双臂 + 苍白长手（指节过长，微微抬着，像要递给你什么） ----
   const mkArm = (side) => {
-    const armGeo = new THREE.CylinderGeometry(0.045, 0.07, height * 0.56, 7, 6);
-    const ap = armGeo.attributes.position;
-    for (let i = 0; i < ap.count; i++) {
-      const k = 1 + (Math.random() - 0.5) * 0.22;
-      ap.setX(i, ap.getX(i) * k);
-      ap.setZ(i, ap.getZ(i) * k + Math.sin(ap.getY(i) * 6) * 0.02);
+    const armGrp = new THREE.Group();
+    const armGeo = new THREE.CylinderGeometry(0.042, 0.07, height * 0.5, 7, 6);
+    const p = armGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const n = 1 + Math.sin(p.getY(i) * 9 + side * 2) * 0.12;
+      p.setX(i, p.getX(i) * n);
+      p.setZ(i, p.getZ(i) * n);
     }
     armGeo.computeVertexNormals();
-    const arm = new THREE.Mesh(armGeo, mat);
-    arm.position.set(side * 0.26, height * 0.5, 0.02);
-    arm.rotation.z = side * -0.08;
-    return arm;
+    const arm = new THREE.Mesh(armGeo, ragMat);
+    arm.position.y = -height * 0.25;
+    armGrp.add(arm);
+    // 手：掌 + 五指（过长、微曲）
+    const hand = new THREE.Group();
+    hand.add(new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.085, 0.024), faceMat));
+    for (let f = 0; f < 4; f++) {
+      const fl = 0.1 + (f === 1 || f === 2 ? 0.035 : 0);
+      const fg = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.009, fl, 5), faceMat);
+      fg.position.set(-0.024 + f * 0.016, -0.055 - fl / 2 + 0.02, 0.004 + f * 0.002);
+      fg.rotation.x = 0.32 + f * 0.05; // 指尖朝你的方向微曲
+      hand.add(fg);
+    }
+    const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.0095, 0.07, 5), faceMat);
+    thumb.position.set(side * 0.04, -0.02, 0.012);
+    thumb.rotation.z = side * 0.7;
+    hand.add(thumb);
+    hand.position.y = -height * 0.5 - 0.02;
+    armGrp.add(hand);
+    armGrp.position.set(side * 0.27, height * 0.62, 0.06);
+    armGrp.rotation.set(0.34, 0, side * -0.12); // 双臂微抬向前
+    return armGrp;
   };
   const armL = mkArm(-1);
   const armR = mkArm(1);
-  // 头：拉长的错误球体，歪着——并且会自己继续歪下去
-  const headGeo = new THREE.SphereGeometry(0.17, 10, 8);
-  const hp = headGeo.attributes.position;
-  for (let i = 0; i < hp.count; i++) {
-    const s = 1 + (Math.random() - 0.5) * 0.3;
-    hp.setXYZ(i, hp.getX(i) * s, hp.getY(i) * s * 1.42, hp.getZ(i) * s);
-  }
-  headGeo.computeVertexNormals();
-  const head = new THREE.Mesh(headGeo, mat);
-  head.position.y = height * 0.88;
-  head.rotation.z = 0.18;
-  group.add(body, armL, armR, head);
-  group.userData.mat = mat;
+  group.add(body, hem, head, armL, armR);
+  group.userData.eyeMat = eyeMat;
+  group.userData.faceMat = faceMat;
   group.userData.head = head;
   group.userData.update = (dt, t, k = 0.5) => {
-    // 歪头蠕变：慢相位继续歪 + 高频小痉挛（k 越大越剧烈）
-    head.rotation.z = 0.18 + Math.sin(t * 0.9) * 0.14 + Math.sin(t * 31) * 0.05 * k;
-    head.rotation.x = Math.sin(t * 17) * 0.04 * k;
-    armL.rotation.x = Math.sin(t * 1.3) * 0.06 + Math.sin(t * 26) * 0.03 * k;
-    armR.rotation.x = Math.sin(t * 1.1 + 2) * 0.06 + Math.cos(t * 23) * 0.03 * k;
-    mat.emissiveIntensity = 0.3 + k * 0.25 + Math.sin(t * 47) * 0.08 * k;
+    // 歪头蠕变 + 高频痉挛 + 呼吸起伏 + 眼睛随不安亮起
+    head.rotation.z = 0.16 + Math.sin(t * 0.9) * 0.12 + Math.sin(t * 33) * 0.06 * k;
+    head.rotation.x = 0.1 + Math.sin(t * 19) * 0.05 * k;
+    body.scale.y = 1 + Math.sin(t * 2.6) * 0.012 + Math.sin(t * 21) * 0.008 * k;
+    armL.rotation.x = 0.34 + Math.sin(t * 1.4) * 0.05 + Math.sin(t * 27) * 0.05 * k;
+    armR.rotation.x = 0.34 + Math.sin(t * 1.2 + 2) * 0.05 + Math.cos(t * 24) * 0.05 * k;
+    // 眼睛亮但不烧成光晕（v1.7 调参：让瞳孔与眼白读成「眼睛」而不是车灯）
+    eyeMat.emissiveIntensity = 0.55 + k * 1.7 + Math.sin(t * 43) * 0.3 * k;
+    faceMat.emissiveIntensity = 0.5 + k * 0.9;
+    // 长发跟着头动：两鬓绺反相轻摆，扑（k→1）时整头长发向后掀
+    const hs = Math.sin(t * 1.1) * 0.03 + Math.sin(t * 17) * 0.02 * k;
+    hairL.rotation.z = 0.02 + hs;
+    hairR.rotation.z = -0.02 - hs * 0.85;
+    hairBack.rotation.x = -0.02 - k * k * 0.18 + Math.sin(t * 1.7) * 0.02;
+    // 无声尖叫：不安越强，那条黑缝撑得越开
+    mouth.scale.y = 0.5 + k * k * 1.5;
+    mouth.scale.x = 1.35 - k * 0.35;
+  };
+  return group;
+}
+
+/**
+ * 梦鱼（v1.6 冥想深潜主角）——「想抓大鱼就得潜到更深的水里」。
+ * 一体车削鱼身（顶点色：墨蓝背脊 → 银白腹）+ 鳞纹贴图 + 新月尾 +
+ * 背鳍/胸鳍 + 发光侧线 ×2 + 珠光眼 + 触须两根。鱼头朝 +Z。
+ * userData.update(dt, t) 驱动尾摆/鳍颤/侧线呼吸；
+ * userData.setGlow(v) 献念时全身亮起。
+ */
+export function dreamFish(len = 3.4, { lite = false } = {}) {
+  // lite：小鱼群档——省瞳孔/触须（该尺寸下不可辨）与车削段数，控网格预算
+  const group = new THREE.Group();
+
+  // ---- 鱼身：LatheGeometry 绕轴车削（轴向 +Z），一体成型 ----
+  const prof = [];
+  const R = len * 0.135; // 最大体半径
+  const stations = [
+    [0.0, 0.012], [0.04, 0.32], [0.12, 0.62], [0.24, 0.88], [0.4, 1.0],
+    [0.56, 0.94], [0.7, 0.72], [0.82, 0.42], [0.92, 0.2], [1.0, 0.085]
+  ];
+  for (const [u, k] of stations) prof.push(new THREE.Vector2(Math.max(0.001, R * k), u * len));
+  const bodyGeo = new THREE.LatheGeometry(prof, lite ? 16 : 28);
+  bodyGeo.rotateX(Math.PI / 2);          // 轴向 → +Z（0 = 鼻尖…等等：lathe y=0 是第一站）
+  bodyGeo.translate(0, 0, -len * 0.45);  // 鼻尖在 +Z 前方，重心近原点
+  bodyGeo.computeVertexNormals();
+  // 顶点色：背脊墨蓝黑 → 腹部银白（按法线俯仰混合），加一点脊线冷辉
+  {
+    const pos = bodyGeo.attributes.position;
+    const nrm = bodyGeo.attributes.normal;
+    const col = new Float32Array(pos.count * 3);
+    const back = new THREE.Color(0x0a141f);
+    const belly = new THREE.Color(0x8ea6b4);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const ny = nrm.getY(i);
+      const k = Math.pow(Math.min(1, Math.max(0, 0.5 - ny * 0.62)), 1.35);
+      c.copy(back).lerp(belly, k);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    bodyGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  }
+  // 鳞纹（低对比叠瓦弧排 + 细噪）：map + bump 双通道
+  const scaleTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#9aa4ac';
+    g.fillRect(0, 0, s, s);
+    for (let row = 0; row < 16; row++) {
+      for (let i = 0; i < 16; i++) {
+        const x = i * 16 + (row % 2) * 8;
+        const y = row * 16;
+        g.strokeStyle = `rgba(30,40,52,${0.22 + Math.random() * 0.18})`;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.arc(x, y, 9, 0.15 * Math.PI, 0.85 * Math.PI);
+        g.stroke();
+        g.fillStyle = `rgba(215,228,236,${0.05 + Math.random() * 0.05})`;
+        g.fillRect(x - 5, y + 3, 10, 2);
+      }
+    }
+  }, 6, 2);
+  const bodyMat = new THREE.MeshStandardMaterial({
+    map: scaleTex, vertexColors: true, roughness: 0.32, metalness: 0.42,
+    bumpMap: scaleTex, bumpScale: 0.35, envMapIntensity: 1.1,
+    emissive: 0x27455c, emissiveIntensity: 0.12
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  group.add(body);
+
+  // ---- 鳍：薄片 Shape（半透明、边缘微光）----
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0x16222e, roughness: 0.55, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.82, emissive: 0x3e6a86, emissiveIntensity: 0.28
+  });
+  const finShape = (pts) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+    return new THREE.ShapeGeometry(sh);
+  };
+  // 背鳍：长低帆形（贴在背脊上）
+  const dorsal = new THREE.Mesh(
+    finShape([[0, 0], [len * 0.34, 0], [len * 0.30, R * 0.85], [len * 0.16, R * 1.12], [len * 0.04, R * 0.5]]),
+    finMat
+  );
+  dorsal.rotation.y = -Math.PI / 2;
+  dorsal.position.set(0, R * 0.86, len * 0.2);
+  group.add(dorsal);
+  // 胸鳍一对（会随游动划水）
+  const mkPect = (side) => {
+    const p = new THREE.Mesh(
+      finShape([[0, 0], [len * 0.16, -R * 0.34], [len * 0.2, -R * 0.16], [len * 0.07, R * 0.06]]),
+      finMat
+    );
+    p.position.set(side * R * 0.88, -R * 0.22, len * 0.24);
+    p.rotation.z = side * 0.5;
+    p.rotation.y = side * 0.55;
+    return p;
+  };
+  const pectL = mkPect(-1);
+  const pectR = mkPect(1);
+  group.add(pectL, pectR);
+
+  // ---- 尾：新月双叶（挂在尾柄枢轴上摆动）----
+  const tail = new THREE.Group();
+  const tailFin = new THREE.Mesh(
+    finShape([
+      [0, 0], [-len * 0.2, R * 1.3], [-len * 0.128, R * 0.4], [-len * 0.11, 0],
+      [-len * 0.128, -R * 0.4], [-len * 0.2, -R * 1.3]
+    ]),
+    finMat
+  );
+  tailFin.rotation.y = Math.PI / 2;
+  tail.add(tailFin);
+  tail.position.set(0, 0, -len * 0.44);
+  group.add(tail);
+
+  // ---- 发光侧线（左右各一条沿体侧的细管）----
+  const lineMat = new THREE.MeshStandardMaterial({
+    color: 0x0c1218, emissive: 0x6fd4ff, emissiveIntensity: 1.3,
+    roughness: 0.4, transparent: true, opacity: 0.95
+  });
+  const mkLateral = (side) => {
+    const pts = [];
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10;
+      const z = -len * 0.42 + u * len * 0.92;
+      const st = 1 - Math.abs(u - 0.44) * 1.6;
+      const r = R * Math.max(0.12, Math.min(1, st)) * 1.005;
+      pts.push(new THREE.Vector3(side * r, R * 0.06 + Math.sin(u * 5) * 0.01, z));
+    }
+    return new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.014, 6),
+      lineMat
+    );
+  };
+  group.add(mkLateral(1), mkLateral(-1));
+
+  // ---- 眼：珠光大眼一对（虹膜发光 + 黑瞳）----
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0c10, emissive: 0xbfe4ff, emissiveIntensity: 1.6, roughness: 0.2
+  });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x02040a, roughness: 0.1 });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(R * 0.2, 12, 10), eyeMat);
+    eye.position.set(side * R * 0.62, R * 0.18, len * 0.42);
+    group.add(eye);
+    if (!lite) {
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(R * 0.09, 8, 8), pupilMat);
+      pupil.position.set(side * R * 0.76, R * 0.18, len * 0.46);
+      group.add(pupil);
+    }
+  }
+
+  // ---- 触须两根（深水的老家伙）----
+  const barbels = [];
+  const barbMat = new THREE.MeshStandardMaterial({ color: 0x1c2830, roughness: 0.7 });
+  if (!lite) {
+    for (const side of [-1, 1]) {
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(side * R * 0.3, -R * 0.4, len * 0.5),
+        new THREE.Vector3(side * R * 0.7, -R * 1.1, len * 0.42),
+        new THREE.Vector3(side * R * 1.0, -R * 1.9, len * 0.28)
+      );
+      const b = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.012, 5), barbMat);
+      barbels.push(b);
+      group.add(b);
+    }
+  }
+
+  let glow = 0;
+  group.userData.setGlow = (v) => { glow = v; };
+  group.userData.update = (dt, t) => {
+    tail.rotation.y = Math.sin(t * 2.7) * 0.42;
+    body.rotation.z = Math.sin(t * 1.15) * 0.05;
+    pectL.rotation.z = -0.5 - (Math.sin(t * 2.1) * 0.28 + 0.28);
+    pectR.rotation.z = 0.5 + Math.sin(t * 2.1 + 0.9) * 0.28 + 0.28;
+    dorsal.rotation.x = Math.sin(t * 1.7) * 0.06;
+    for (const [i, b] of barbels.entries()) b.rotation.x = Math.sin(t * 1.9 + i * 2.2) * 0.1;
+    lineMat.emissiveIntensity = 1.1 + Math.sin(t * 1.6) * 0.5 + glow * 3.2;
+    eyeMat.emissiveIntensity = 1.4 + Math.sin(t * 2.3) * 0.4 + glow * 2.4;
+    bodyMat.emissiveIntensity = 0.12 + glow * 0.5;
   };
   return group;
 }
@@ -809,6 +1210,40 @@ export function zoneTrigger({ x, z, r }, onEnter, { cooldown = 20, once = false 
     }
   };
   return trig;
+}
+
+/**
+ * 绕拐角现身路径（v1.7 拐角惊吓专用，纯几何、可单测）。
+ * from = 藏身点（墙后，触发前绝对不可见）；pivot = 拐角外皮上的绕角枢轴。
+ * aim(px, pz, standOff) 依玩家位置算出站位（枢轴朝玩家方向 standOff 米处；
+ * 玩家贴得比 standOff 还近时收在枢轴本身，永不穿模）。
+ * at(u, out) 取二次贝塞尔 from→pivot→to 上的点：三个控制点都在墙外侧时，
+ * 凸包性质保证整条曲线永远不进墙——黑影是「贴着拐角挪出来」的，不是穿墙。
+ */
+export function cornerRevealPath(from, pivot) {
+  const to = new THREE.Vector3();
+  return {
+    from, pivot, to,
+    aim(px, pz, standOff = 1.9) {
+      const dx = px - pivot.x;
+      const dz = pz - pivot.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const k = Math.max(0, 1 - standOff / d);
+      to.set(pivot.x + dx * k, 0, pivot.z + dz * k);
+      return to;
+    },
+    at(u, out) {
+      const s = 1 - u;
+      const a = s * s;
+      const b = 2 * u * s;
+      const c = u * u;
+      out.set(
+        a * from.x + b * pivot.x + c * to.x, 0,
+        a * from.z + b * pivot.z + c * to.z
+      );
+      return out;
+    }
+  };
 }
 
 /** 立式话筒 v2（v1.4 P3：车削底座 + 药丸头 + 铬鳍片网罩 + 后倾支耳） */
@@ -893,17 +1328,125 @@ export function ridgeRing(radius, {
 }
 
 /** 松树（分层锥体，比单锥更像真树） */
-export function pineGeometryMaterial() {
-  const layers = [
-    xform(new THREE.ConeGeometry(1.05, 1.7, 8), 0, -0.7, 0),
-    xform(new THREE.ConeGeometry(0.82, 1.5, 8), 0, 0.25, 0),
-    xform(new THREE.ConeGeometry(0.55, 1.3, 8), 0, 1.15, 0)
-  ];
-  const geo = mergeGeometries(layers, false);
-  for (const l of layers) l.dispose();
+/**
+ * 一体化黑松（v1.6 资产重做）——树干、根盘、层叠针叶冠合并为
+ * 单一几何体（顶点色区分树皮与针叶），实例化时整树等比缩放，
+ * 树干与树体永不分离；根盘外扩、树裙下垂、层缘参差都由确定性
+ * 位移生成（同一 seed 同一棵树）。
+ * detail=1 近景英雄树 / detail=0 远景简化树。
+ * 返回 { geo, mat }：几何底部落在 y=0，总高约 4.8（等比缩放用）。
+ */
+export function pineTree({ seed = 41, detail = 1 } = {}) {
+  const r = rng(seed);
+  const H = 4.8;
+  const radial = detail ? 11 : 7;
+  const parts = [];
+  const paint = (geo, fn) => {
+    const pos = geo.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      fn(c, pos.getX(i), pos.getY(i), pos.getZ(i));
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  };
+  // ---- 树干：贯穿整冠（从任何缝隙看进去都有干），根盘外扩 + 皮棱 ----
+  const trunkH = H * 0.96;
+  const trunk = new THREE.CylinderGeometry(0.045, 0.17, trunkH, radial - 2, detail ? 6 : 3);
+  trunk.translate(0, trunkH / 2, 0);
+  {
+    const p = trunk.attributes.position;
+    const ph = r() * 7;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      const a = Math.atan2(p.getZ(i), p.getX(i));
+      // 根盘：低处向外张开成裙脚，扎进地里
+      const flare = y < 0.6 ? (0.6 - y) * (1.0 + Math.sin(a * 3 + ph) * 0.5) : 0;
+      // 树皮竖棱（确定性，接缝两侧位移一致）
+      const bark = 1 + Math.sin(a * 7 + y * 2.1 + ph) * 0.07 + Math.sin(a * 17 + ph * 2) * 0.03;
+      p.setX(i, p.getX(i) * (bark + flare));
+      p.setZ(i, p.getZ(i) * (bark + flare));
+    }
+    trunk.computeVertexNormals();
+    paint(trunk, (c, x, y) => {
+      const v = 0.8 + Math.sin(y * 9.1 + x * 21) * 0.14;
+      c.setRGB(0.11 * v, 0.078 * v, 0.05 * v);
+    });
+  }
+  parts.push(trunk);
+  // ---- 短枝残桩（英雄树独有）：冠下露出的几根枯枝，把干与冠「织」在一起 ----
+  if (detail) {
+    for (let b = 0; b < 4; b++) {
+      const a = r() * Math.PI * 2;
+      const y = H * (0.24 + r() * 0.16);
+      const len = 0.32 + r() * 0.3;
+      const stub = new THREE.CylinderGeometry(0.012, 0.03, len, 5);
+      stub.translate(0, len / 2, 0);
+      stub.rotateZ(Math.PI / 2 - 0.5 - r() * 0.3);
+      stub.rotateY(a);
+      stub.translate(Math.cos(a) * 0.08, y, -Math.sin(a) * 0.08);
+      paint(stub, (c) => c.setRGB(0.08, 0.058, 0.038));
+      parts.push(stub);
+    }
+  }
+  // ---- 层叠针叶冠：裙缘参差 + 下垂枝梢，底层从 0.26H 起（下方露干与根盘） ----
+  const nT = detail ? 6 : 4;
+  for (let ti = 0; ti < nT; ti++) {
+    const u = ti / (nT - 1);
+    const tierR = (1.42 - u * 1.1) * (1 + (r() - 0.5) * 0.12);
+    const tierH = 1.55 - u * 0.55;
+    const yBase = H * (0.24 + u * 0.6);
+    const cone = new THREE.ConeGeometry(tierR, tierH, radial, detail ? 3 : 2);
+    const ph1 = r() * 7;
+    const ph2 = r() * 7;
+    const p = cone.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      const a = Math.atan2(p.getZ(i), p.getX(i));
+      const v = (y + tierH / 2) / tierH; // 0 = 裙缘, 1 = 该层顶
+      // 裙缘参差（双频角向噪声，越靠缘越明显）
+      const jag = 1 + (Math.sin(a * 5 + ph1) * 0.11 + Math.sin(a * 12 + ph2) * 0.06) * (1 - v);
+      p.setX(i, p.getX(i) * jag);
+      p.setZ(i, p.getZ(i) * jag);
+      // 枝梢下垂：外缘往下坠出「压着雪」的弧度
+      if (v < 0.25) {
+        p.setY(i, y - (0.25 - v) * (0.55 + Math.sin(a * 7 + ph2) * 0.3) * tierH * 0.5);
+      }
+    }
+    cone.translate(0, yBase + tierH / 2, 0);
+    cone.computeVertexNormals();
+    const rMax = tierR * 1.2;
+    const tierShade = 0.72 + u * 0.28; // 低层枝在冠影里更暗
+    paint(cone, (c, x, y, z) => {
+      const d = Math.min(1, Math.hypot(x, z) / rMax);
+      // 冠芯近黑 → 缘梢一点冷月光绿（黑松要黑，别读成圣诞树）
+      c.setRGB(
+        (0.016 + d * 0.03) * tierShade,
+        (0.038 + d * 0.062) * tierShade,
+        (0.026 + d * 0.046) * tierShade
+      );
+    });
+    // 冠底盖片自遮蔽压暗（v1.7）：从树下抬头看，层底不该是一片亮板——
+    // 法线朝正下的盖片顶点整体压到三成，近景钻到树冠下也不穿帮
+    {
+      const nrm = cone.attributes.normal;
+      const col = cone.attributes.color;
+      for (let i = 0; i < nrm.count; i++) {
+        if (nrm.getY(i) < -0.75) {
+          col.setXYZ(i, col.getX(i) * 0.3, col.getY(i) * 0.3, col.getZ(i) * 0.3);
+        }
+      }
+    }
+    parts.push(cone);
+  }
+  const geo = mergeGeometries(parts, false);
+  for (const g of parts) g.dispose();
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x0a1a10, roughness: 0.95,
-    bumpMap: noiseCanvasTexture(64, 128, 60, 3), bumpScale: 0.4
+    vertexColors: true, roughness: 0.96, metalness: 0,
+    bumpMap: noiseCanvasTexture(64, 128, 74, 3), bumpScale: 0.38
   });
   return { geo, mat };
 }
