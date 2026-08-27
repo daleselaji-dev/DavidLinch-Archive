@@ -934,7 +934,9 @@ export function nightmareFigure(height = 2.4) {
     armR.rotation.x = 0.34 + Math.sin(t * 1.2 + 2) * 0.05 + Math.cos(t * 24) * 0.05 * k;
     // 眼睛亮但不烧成光晕（v1.7 调参：让瞳孔与眼白读成「眼睛」而不是车灯）
     eyeMat.emissiveIntensity = 0.55 + k * 1.7 + Math.sin(t * 43) * 0.3 * k;
-    faceMat.emissiveIntensity = 0.5 + k * 0.9;
+    // v1.8 压回：Blender 颅骨壳的雕刻阴影（眼窝/眉棱/颊窝）要靠
+    // 底光的方向性读出来，自发光垫太高整脸变成一块白斑
+    faceMat.emissiveIntensity = 0.35 + k * 0.6;
     // 长发跟着头动：两鬓绺反相轻摆，扑（k→1）时整头长发向后掀
     const hs = Math.sin(t * 1.1) * 0.03 + Math.sin(t * 17) * 0.02 * k;
     hairL.rotation.z = 0.02 + hs;

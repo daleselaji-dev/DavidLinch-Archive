@@ -1186,7 +1186,9 @@ export function build(ctx) {
         const u = Math.min(1, scare.t / BEATS.emerge);
         const k = 1 - (1 - u) ** 1.6;
         reveal.at(k, figure.position);
-        scareFace.intensity = u * 1.7;
+        // v1.8：Blender 颅骨壳受光面积比旧方盒头大，底光相应下调——
+        // 过亮会把雕出来的眼窝/眉棱阴影整片洗白
+        scareFace.intensity = u * 1.15;
         scareLight.intensity = u * 2.6;
         figure.userData.update(dt, t, 0.55);
       } else {
@@ -1198,7 +1200,7 @@ export function build(ctx) {
           scare.mid.z + d3.z * u * 0.35
         );
         figure.userData.update(dt, t, 0.6 + u * 0.4);
-        scareFace.intensity = 1.7 + u * 0.6 + Math.sin(t * 37) * 0.18;
+        scareFace.intensity = 1.15 + u * 0.42 + Math.sin(t * 37) * 0.14;
         scareLight.intensity = 2.6 + u * 1.8;
       }
       faceAt();
@@ -1209,7 +1211,7 @@ export function build(ctx) {
       figure.position.y = -0.1 - 0.5 * k * k;
       figure.userData.update(dt, t, 1);
       figure.rotation.z += Math.sin(scare.t * 74) * 0.1; // 高频痉挛
-      scareFace.intensity = 2.4;
+      scareFace.intensity = 1.9;
       scareLight.intensity = 6;
       faceAt();
     }
