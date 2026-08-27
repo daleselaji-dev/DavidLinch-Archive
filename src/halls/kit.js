@@ -1053,24 +1053,29 @@ export function cornerWraith(height = 2.35) {
   const headPivot = new THREE.Group();
   headPivot.position.set(0, H * 0.84, 0);
   pivot.add(headPivot);
-  // 发丝材质：比体表更暗、冷暗高光（头发的光），闪帧里读出绺条体积
+  // 发丝材质：比体表更暗、冷暗高光（头发的光），闪帧里读出绺条体积；
+  // 极暗冷 emissive 兜底——纯黑发在纯黑巷里也得留一口剪影
   const hairMat = new THREE.MeshPhysicalMaterial({
-    color: 0x030204, roughness: 0.62, metalness: 0,
-    sheen: 0.9, sheenColor: 0x11121e, sheenRoughness: 0.42,
+    color: 0x040306, roughness: 0.55, metalness: 0,
+    sheen: 1.0, sheenColor: 0x181a28, sheenRoughness: 0.38,
+    emissive: 0x040309, emissiveIntensity: 0.5,
     side: THREE.DoubleSide
   });
-  // 发帘：局部车削（前脸留 ~70° 开口——洞里是眼窝）
-  const OPEN_HALF = Math.PI * 0.195; // 开口半角 ~35°
+  // 发帘：局部车削（前脸留 ~76° 开口——洞里是面部空洞与眼窝）。
+  // 第二拍 INSPECT 修正：首版太贴头、下摆与肩线齐平——「长发团块」
+  // 剪影读不出来。现在加宽（颌位 0.19）加长（垂到 -0.3H，盖过驼峰
+  // 一半）+ 绺条起伏加深一倍：远看是一坨披垂的发，不是第二层兜帽。
+  const OPEN_HALF = Math.PI * 0.21; // 开口半角 ~38°
   const hairProf = [
-    [0.03, 0.165], [0.10, 0.12], [0.135, 0.06], [0.15, 0.0],
-    [0.165, -0.07], [0.19, -0.15], [0.21, -0.225]
+    [0.035, 0.17], [0.115, 0.125], [0.16, 0.06], [0.19, -0.01],
+    [0.205, -0.09], [0.225, -0.19], [0.24, -0.3]
   ].map(([r, y]) => new THREE.Vector2(r * H * 0.5, y * H));
   const hairGeo = new THREE.LatheGeometry(
     hairProf, 40, OPEN_HALF, Math.PI * 2 - OPEN_HALF * 2);
   const hp = hairGeo.attributes.position;
   const hr = rng(211);
   const hemTear = [];
-  for (let i = 0; i <= 40; i++) hemTear.push(hr() * 0.05 + (i % 4 === 0 ? hr() * 0.045 : 0));
+  for (let i = 0; i <= 40; i++) hemTear.push(hr() * 0.08 + (i % 4 === 0 ? hr() * 0.07 : 0));
   for (let i = 0; i < hp.count; i++) {
     const x = hp.getX(i);
     const y = hp.getY(i);
@@ -1079,52 +1084,61 @@ export function cornerWraith(height = 2.35) {
     if (r < 1e-4) continue;
     const a = Math.atan2(x, z); // phi=0 → +z（前脸开口中线）
     // 绺条起伏：双谐波沿角度 + 随高度微扭（发是垂下来的，不是罩上去的）
-    const tw = a + (y / H) * 0.35;
-    const clump = 1 + 0.055 * Math.sin(tw * 9 + 1.3) + 0.028 * Math.sin(tw * 17 + 4.1);
+    const tw = a + (y / H) * 0.4;
+    const clump = 1 + 0.1 * Math.sin(tw * 9 + 1.3) + 0.05 * Math.sin(tw * 17 + 4.1);
     hp.setX(i, x * clump);
     hp.setZ(i, z * clump);
-    if (y < -H * 0.12) { // 下摆参差发梢（seeded 长短）
+    if (y < -H * 0.1) { // 下摆参差发梢（seeded 长短）
       const idx = Math.min(40, Math.floor(((a + Math.PI) / (Math.PI * 2)) * 40));
       hp.setY(i, y + hemTear[idx] * H);
     }
   }
   hairGeo.computeVertexNormals();
-  // 成绺长发 ×9：宽头收尖、长短错落（前侧两绺垂过胸口），避开前脸开口
+  // 成绺长发 ×13：宽头收尖、长短错落（前侧两绺垂过胸口、框住面部
+  // 开口），避开前脸开口；粗细上探到 0.03H——绺与绺叠出团块感
   const strandGeos = [hairGeo];
   const strandR = rng(223);
-  const strandAngles = [0.82, 1.35, 1.9, 2.5, 3.14, 3.8, 4.4, 4.95, 5.46];
+  const strandAngles = [
+    0.78, 1.16, 1.55, 1.95, 2.38, 2.8, 3.22, 3.66, 4.1, 4.52, 4.92, 5.28, 5.5
+  ];
   for (const [si, sa0] of strandAngles.entries()) {
-    const sa = sa0 + (strandR() - 0.5) * 0.22;
+    const sa = sa0 + (strandR() - 0.5) * 0.18;
     const long = si === 0 || si === strandAngles.length - 1; // 前侧两绺垂过胸口
-    const sl = (long ? 0.46 : 0.24) * H + strandR() * 0.1 * H;
-    const sw = (0.016 + strandR() * 0.012) * H;
+    const sl = (long ? 0.52 : 0.3) * H + strandR() * 0.12 * H;
+    const sw = (0.02 + strandR() * 0.011) * H;
     const sg = new THREE.ConeGeometry(sw, sl, 5);
     sg.rotateX(Math.PI); // 宽头在上、发梢收尖朝下
     sg.translate(0, -sl / 2, 0);
-    const rr = H * (0.072 + strandR() * 0.012);
+    const rr = H * (0.078 + strandR() * 0.014);
     strandGeos.push(xform(sg,
       Math.sin(sa) * rr, H * (0.1 + strandR() * 0.04), Math.cos(sa) * rr,
-      Math.sin(sa) * 0.1 + (strandR() - 0.5) * 0.12, 0,
-      -Math.cos(sa) * 0.1 + (strandR() - 0.5) * 0.12));
+      Math.sin(sa) * 0.12 + (strandR() - 0.5) * 0.1, 0,
+      -Math.cos(sa) * 0.12 + (strandR() - 0.5) * 0.1));
   }
   const hair = mergedMesh(strandGeos, hairMat);
   headPivot.add(hair);
+  // 面部空洞：发帘开口内一块凹陷的纯黑无光弧面——开口里没有脸，
+  // 只有一个洞（任何灯照不进去）；两粒眼窝环是洞里仅有的东西
+  const voidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const faceVoid = new THREE.Mesh(new THREE.SphereGeometry(0.052 * H, 14, 12), voidMat);
+  faceVoid.scale.set(0.95, 1.3, 0.55);
+  faceVoid.position.set(0, 0.045 * H, 0.052 * H);
+  headPivot.add(faceVoid);
   // 眼窝空洞 ×2：外环极暗红 emissive（呼吸/烧亮由 eyeMat 控）+ 内芯
-  // 纯黑无光——深陷的洞，不是眼球（无瞳、无脸皮，非写实人脸）
+  // 纯黑——深陷进面部空洞的两个洞口，不是眼球（无瞳、无脸皮）
   const eyeMat = new THREE.MeshStandardMaterial({
     color: 0x0a0304, roughness: 0.8, metalness: 0,
-    emissive: 0x2a0409, emissiveIntensity: 0.5
+    emissive: 0x3a060c, emissiveIntensity: 0.5
   });
-  const voidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
   const mkRing = (sx) => {
-    const t = new THREE.TorusGeometry(0.0135 * H, 0.0042 * H, 6, 14);
-    t.scale(1, 1.28, 1); // 眼窝竖长——空洞更「陷」
-    return xform(t, sx * 0.024 * H, 0.036 * H, 0.079 * H, -0.12, 0, sx * 0.1);
+    const t = new THREE.TorusGeometry(0.016 * H, 0.005 * H, 6, 14);
+    t.scale(1, 1.3, 1); // 眼窝竖长——空洞更「陷」
+    return xform(t, sx * 0.027 * H, 0.042 * H, 0.088 * H, -0.1, 0, sx * 0.12);
   };
   const mkVoid = (sx) => {
-    const s = new THREE.SphereGeometry(0.0128 * H, 10, 8);
-    s.scale(1, 1.3, 0.5);
-    return xform(s, sx * 0.024 * H, 0.036 * H, 0.077 * H, -0.12, 0, sx * 0.1);
+    const s = new THREE.SphereGeometry(0.015 * H, 10, 8);
+    s.scale(1, 1.32, 0.5);
+    return xform(s, sx * 0.027 * H, 0.042 * H, 0.086 * H, -0.1, 0, sx * 0.12);
   };
   const eyeGeo = mergeGeometries([mkRing(-1), mkRing(1), mkVoid(-1), mkVoid(1)], true);
   const eyes = new THREE.Mesh(eyeGeo, [eyeMat, eyeMat, voidMat, voidMat]);
