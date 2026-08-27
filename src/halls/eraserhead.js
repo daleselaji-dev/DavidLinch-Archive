@@ -1907,6 +1907,22 @@ export function build(ctx) {
       xform(new THREE.BoxGeometry(0.022, 0.09, 0.03), -LK_W + 0.17, 1.06, LK_D / 2 + 0.012),
       xform(new THREE.BoxGeometry(0.022, 0.09, 0.03), LK_W + 0.17, 1.06, LK_D / 2 + 0.012)
     ], new THREE.MeshStandardMaterial({ color: 0x8a8c90, roughness: 0.35, metalness: 0.85 })));
+    // v1.10 抛光 P3：05 号柜把手上挂一把黄铜挂锁——锁梁没扣进锁孔，
+    // 只是勾着晃。锁着的柜子是空的，空的那只反倒虚掩（枢轴设在锁梁
+    // 勾点，整排嗡震时它跟着一起打摆）。
+    const padlock = new THREE.Group();
+    const padBrass = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x8a6c38, roughness: 0.4, metalness: 0.9, envMapIntensity: 1.1
+    });
+    padlock.add(mergedMesh([
+      // 锁体（圆角）+ 锁孔压片；锁梁 U 形（部分圆环），勾点即组原点
+      xform(roundedBoxGeo(0.052, 0.062, 0.024, 0.008, 2), 0, -0.085, 0),
+      xform(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 8), 0, -0.098, 0.013, Math.PI / 2, 0, 0),
+      xform(new THREE.TorusGeometry(0.024, 0.0058, 6, 14, Math.PI * 1.55), 0, -0.032, 0, 0, 0, Math.PI * 0.72)
+    ], padBrass));
+    padlock.position.set(LK_W + 0.17, 1.012, LK_D / 2 + 0.02);
+    padlock.rotation.z = 0.1;
+    lockerGrp.add(padlock);
     // 中柜内腔的黑 + 一只空铁丝衣架挂在横杆上
     const cavity = new THREE.Mesh(
       new THREE.PlaneGeometry(LK_W - 0.06, LK_H - 0.08),
@@ -1979,6 +1995,11 @@ export function build(ctx) {
         const k = Math.exp(-lockerState.rattle * 7);
         if (k < 0.03) { lockerState.rattle = -1; lockerGrp.position.x = S / 2 - 0.28; }
         else lockerGrp.position.x = S / 2 - 0.28 + Math.sin(lockerState.rattle * 60) * 0.004 * k;
+        // 挂锁勾着摆：比柜体的嗡震慢半拍、衰得也慢（挂着的东西才这样）
+        const pk = Math.exp(-lockerState.rattle * 2.2);
+        padlock.rotation.z = 0.1 + Math.sin(lockerState.rattle * 13) * 0.3 * pk;
+      } else if (Math.abs(padlock.rotation.z - 0.1) > 0.001) {
+        padlock.rotation.z += (0.1 - padlock.rotation.z) * Math.min(1, dt * 3);
       }
     });
     hotspots.add(ajarDoor, {
@@ -2071,6 +2092,45 @@ export function build(ctx) {
     drop.scale.set(0.7, 1.8, 0.7);
     drop.visible = false;
     pailGrp.add(drop);
+    // v1.10 抛光 P3：桶沿搭一块拧干的抹布——对折搭在卷唇上，
+    // 外垂长内垂短、布面带静态皱（谁在等这桶接满，好来拧一把）。
+    const ragMat = new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#5c5a50';
+        g.fillRect(0, 0, s, s);
+        const rr2 = rng(61);
+        for (let i = 0; i < 30; i++) {
+          g.fillStyle = `rgba(${64 + rr2() * 30},${62 + rr2() * 26},${52 + rr2() * 22},${0.16 + rr2() * 0.22})`;
+          g.fillRect(rr2() * s, rr2() * s, 4 + rr2() * 26, 2 + rr2() * 8);
+        }
+        // 洗不掉的两道油渍
+        g.fillStyle = 'rgba(30,28,22,0.4)';
+        g.fillRect(s * 0.2, s * 0.3, s * 0.5, 5);
+        g.fillRect(s * 0.35, s * 0.62, s * 0.4, 4);
+      }), roughness: 0.95, side: THREE.DoubleSide
+    });
+    const mkRagPiece = (h, zOff, tilt) => {
+      const geo = new THREE.PlaneGeometry(0.15, h, 6, 5);
+      const rp = geo.attributes.position;
+      for (let i = 0; i < rp.count; i++) {
+        rp.setZ(i, Math.sin(rp.getX(i) * 26 + rp.getY(i) * 5) * 0.011);
+      }
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, ragMat);
+      m.position.set(0, -h / 2 + 0.005, zOff);
+      m.rotation.x = tilt;
+      return m;
+    };
+    const rag = new THREE.Group();
+    rag.add(mkRagPiece(0.24, 0.017, 0.1), mkRagPiece(0.13, -0.02, -0.12));
+    const ragCap = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.05), ragMat);
+    ragCap.rotation.x = -Math.PI / 2;
+    ragCap.position.y = 0.012;
+    rag.add(ragCap);
+    // 组 +z 指向径向外（rim 切线对齐），外幅垂桶外、内幅垂桶内
+    rag.position.set(-0.05, 0.375, 0.2);
+    rag.rotation.y = -0.24;
+    pailGrp.add(rag);
     const PAIL_X = 6.1;
     const PAIL_Z = -4.3;
     pailGrp.position.set(PAIL_X, 0, PAIL_Z);

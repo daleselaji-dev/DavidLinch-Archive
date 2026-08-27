@@ -1524,6 +1524,43 @@ export function build(ctx) {
     const mfGlow = new THREE.PointLight(0xdfe8e4, 0, 1.6, 2.2);
     mfGlow.position.set(0, 1.15, 0.4);
     mfGrp.add(mfGlow);
+    // v1.10 抛光 P3：立柜脚边一摞胶片盒——三只方纸盒错角叠着，
+    // 顶盒盖半开、一只空盘探出一角；盒侧手写批次栏是空的。
+    // 有人一卷一卷查过，都空着，盒子就再没归回架上。
+    const boxCard = new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#5e5746';
+        g.fillRect(0, 0, s, s);
+        const br2 = rng(41);
+        for (let i = 0; i < 26; i++) {
+          g.fillStyle = `rgba(${64 + br2() * 34},${58 + br2() * 30},${44 + br2() * 24},${0.12 + br2() * 0.18})`;
+          g.fillRect(br2() * s, br2() * s, 5 + br2() * 22, 3 + br2() * 10);
+        }
+        // 侧面批次贴签：框线在，栏是空的
+        g.fillStyle = '#b0a88e';
+        g.fillRect(s * 0.3, s * 0.36, s * 0.4, s * 0.28);
+        g.strokeStyle = 'rgba(90,82,60,0.8)';
+        g.lineWidth = 2;
+        g.strokeRect(s * 0.3, s * 0.36, s * 0.4, s * 0.28);
+        g.beginPath();
+        g.moveTo(s * 0.34, s * 0.5);
+        g.lineTo(s * 0.66, s * 0.5);
+        g.stroke();
+      }), roughness: 0.85
+    });
+    const boxGeoA = roundedBoxGeo(0.19, 0.052, 0.19, 0.008, 2);
+    mfGrp.add(mergedMesh([
+      xform(boxGeoA.clone(), 0.44, 0.026, 0.12, 0, 0.14, 0),
+      xform(boxGeoA.clone(), 0.44, 0.08, 0.12, 0, -0.1, 0),
+      xform(boxGeoA.clone(), 0.445, 0.134, 0.115, 0, 0.28, 0),
+      // 顶盒盖：半开着搭在盒沿（后缘抬起）
+      xform(new THREE.BoxGeometry(0.192, 0.012, 0.192), 0.4, 0.185, 0.075, 0.34, 0.28, 0)
+    ], boxCard));
+    // 探出一角的空盘
+    mfGrp.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.028, 0.028, 0.026, 8), 0.47, 0.175, 0.2),
+      xform(new THREE.TorusGeometry(0.062, 0.006, 6, 18), 0.47, 0.175, 0.2, Math.PI / 2, 0, 0)
+    ], reelMat));
     // 阅览桌尾：读者从长廊一侧凑上去看
     mfGrp.position.set(-3.55, 0, -12.15);
     mfGrp.rotation.y = 0.9;
@@ -1642,6 +1679,46 @@ export function build(ctx) {
     let flickAt = litCells.indexOf(3); // 1977 起家（镇流器坏在工厂那年）
     let flickIdx = 3;
     cellPos(flickIdx);
+    // v1.10 抛光 P3：灯箱的来处——箱底一根电线管带两只管卡直落进
+    // 护墙板后的黑（接住 mulholland 呼叫铃的管线语言）；箱侧墙上
+    // 斜贴一张发黄的索引卡，框线俱全，栏里一个字也没有。
+    const boxSteel = new THREE.MeshStandardMaterial({
+      color: 0x2e3034, roughness: 0.45, metalness: 0.7, envMapIntensity: 0.9
+    });
+    boxGrp.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.011, 0.011, 1.32, 8), 0.18, -1.03, -0.024),
+      xform(new THREE.BoxGeometry(0.04, 0.018, 0.032), 0.18, -0.52, -0.036),
+      xform(new THREE.BoxGeometry(0.04, 0.018, 0.032), 0.18, -1.28, -0.036)
+    ], boxSteel));
+    const idxCard = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.15, 0.1),
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(128, (g, s) => {
+          g.fillStyle = '#cfc4a4';
+          g.fillRect(0, 0, s, s);
+          g.strokeStyle = 'rgba(140,60,52,0.75)';
+          g.lineWidth = 2.5;
+          g.beginPath();
+          g.moveTo(0, s * 0.24);
+          g.lineTo(s, s * 0.24);
+          g.stroke();
+          g.strokeStyle = 'rgba(96,110,140,0.5)';
+          g.lineWidth = 1.6;
+          for (let yy = 0.42; yy < 1; yy += 0.16) {
+            g.beginPath();
+            g.moveTo(s * 0.06, s * yy);
+            g.lineTo(s * 0.94, s * yy);
+            g.stroke();
+          }
+          // 一小截胶带压角
+          g.fillStyle = 'rgba(210,200,168,0.85)';
+          g.fillRect(s * 0.36, -4, s * 0.28, 14);
+        }), roughness: 0.9
+      })
+    );
+    idxCard.position.set(0.75, 0.12, -0.062);
+    idxCard.rotation.z = -0.08;
+    boxGrp.add(idxCard);
     boxGrp.position.set(-W / 2 + 0.07, 2.05, -14.2);
     boxGrp.rotation.y = Math.PI / 2;
     group.add(boxGrp);
