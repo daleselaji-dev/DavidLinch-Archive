@@ -992,8 +992,11 @@ export function build(ctx) {
   newsBox.add(newsDoor);
   // v1.6：报箱挪到巷口铁皮墙根（原位在新便道正中会被穿模）——
   // 顺便当了往暗巷去的第一枚路标
+  // v1.12 D-5（INSPECT 病灶）：v1.6 搬家时展示窗朝了 0.4m 外的铁皮
+  // 墙——玩家从便道走来只见黑背板。转 180°：空头版窗、弹簧门、
+  // 投币器面向来向（「第一枚路标」终于把脸转回来）
   newsBox.position.set(10.62, 0, 6.1);
-  newsBox.rotation.y = Math.PI / 2 + 0.05;
+  newsBox.rotation.y = -Math.PI / 2 + 0.05;
   group.add(newsBox);
   const newsState = { t: -1 };
   updaters.push((dt) => {
