@@ -825,6 +825,91 @@ export function build(ctx) {
   brassRail.rotation.x = Math.PI / 2;
   brassRail.position.set(-W / 2 + 2.25, 0.22, 0.8);
   bar.add(barTop, barBody, brassRail);
+  // v1.12 D-11：吧台正立面软包——玩家正对着的最大近景面此前是一块
+  // 素绒平板（织纹在 1–2m 距离读不出）。这个厅的语言就是绒面：
+  // 菱形绗缝 + 扣钉画进贴图与凹凸（零新增网格），几何只加三件结构
+  // 分割——绗缝前板 / 顶缘臂枕卷 / 黄铜踢脚板（与脚踏杆同金呼应）
+  const quiltPaint = (g, s, albedo) => {
+    const cell = s / 2; // 菱形格：每 tile 2×2 格（45° 双向缝线族）
+    if (albedo) {
+      g.fillStyle = '#131028';
+      g.fillRect(0, 0, s, s);
+    } else {
+      g.fillStyle = '#808080';
+      g.fillRect(0, 0, s, s);
+    }
+    // 每格鼓包：中心亮、缝线处暗（绒面吃光的方式）
+    for (let p = 0; p <= 4; p++) {
+      for (let q = -1; q <= 5; q++) {
+        if (((p + q) & 1) === 0) continue;
+        const cx = (p * s) / 4;
+        const cy = (q * s) / 4;
+        const rad = g.createRadialGradient(cx, cy, 0, cx, cy, s * 0.21);
+        rad.addColorStop(0, albedo ? 'rgba(122,132,205,0.20)' : 'rgba(230,230,230,0.85)');
+        rad.addColorStop(1, albedo ? 'rgba(122,132,205,0)' : 'rgba(128,128,128,0)');
+        g.fillStyle = rad;
+        g.fillRect(cx - s * 0.22, cy - s * 0.22, s * 0.44, s * 0.44);
+      }
+    }
+    // 双向缝线（45°双族，显式端点覆盖平铺边界）：暗沟 + 一侧提亮
+    // （针脚在光下的那条棱）
+    const seam = (x0, y0, x1, y1, style, w) => {
+      g.strokeStyle = style;
+      g.lineWidth = w;
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(x1, y1);
+      g.stroke();
+    };
+    for (let k = -2; k <= 4; k++) {
+      const c = k * cell;
+      // “/”族：x + y = c
+      seam(c + s, -s, c - s, s, albedo ? 'rgba(4,3,14,0.62)' : 'rgba(36,36,36,0.95)', s / 46);
+      seam(c + s + s / 90, -s, c - s + s / 90, s, albedo ? 'rgba(150,160,230,0.16)' : 'rgba(210,210,210,0.5)', s / 110);
+      // “\”族：x − y = c
+      seam(c - s, -s, c + s, s, albedo ? 'rgba(4,3,14,0.62)' : 'rgba(36,36,36,0.95)', s / 46);
+      seam(c - s - s / 90, -s, c + s - s / 90, s, albedo ? 'rgba(150,160,230,0.16)' : 'rgba(210,210,210,0.5)', s / 110);
+    }
+    // 扣钉：缝线交点上一粒包布扣（暗窝 + 上缘一点冷高光）
+    for (let p = 0; p <= 4; p++) {
+      for (let q = -1; q <= 5; q++) {
+        if (((p + q) & 1) !== 0) continue;
+        const cx = (p * s) / 4;
+        const cy = (q * s) / 4;
+        g.fillStyle = albedo ? 'rgba(2,2,10,0.85)' : 'rgba(30,30,30,0.95)';
+        g.beginPath();
+        g.arc(cx, cy, s / 40, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = albedo ? 'rgba(170,180,240,0.5)' : 'rgba(215,215,215,0.9)';
+        g.beginPath();
+        g.arc(cx - s / 130, cy - s / 110, s / 105, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  };
+  const quiltMap = canvasTexture(256, (g, s) => quiltPaint(g, s, true), 10, 1);
+  const quiltBump = canvasTexture(256, (g, s) => quiltPaint(g, s, false), 10, 1);
+  const quiltMat = new THREE.MeshPhysicalMaterial({
+    map: quiltMap, bumpMap: quiltBump, bumpScale: 0.6,
+    color: 0xffffff, roughness: 0.96, metalness: 0,
+    sheen: 0.8, sheenColor: new THREE.Color(0x5a6ac8).multiplyScalar(0.7),
+    sheenRoughness: 0.5, envMapIntensity: 0.55
+  });
+  const quiltPanel = roundedBoxMesh(0.035, 0.8, 6.2, 0.014, quiltMat);
+  quiltPanel.position.set(-W / 2 + 1.7 + 0.39, 0.55, 0.8);
+  // 顶缘臂枕卷：绗缝板收口在台面唇下的一根软卷（圆柱 + 双球端帽）
+  const bolsterMat = fabricMat('#100d22', '#181430', { seed: 26, repX: 8, repY: 1, color: 0x7a84c8, sheenColor: 0x5060b8 });
+  const bolsterR = 0.05;
+  const bolster = mergedMesh([
+    xform(new THREE.CylinderGeometry(bolsterR, bolsterR, 6.14, 12), 0, 0, 0, Math.PI / 2),
+    xform(new THREE.SphereGeometry(bolsterR, 12, 8), 0, 0, 3.07),
+    xform(new THREE.SphereGeometry(bolsterR, 12, 8), 0, 0, -3.07)
+  ], bolsterMat);
+  bolster.position.set(-W / 2 + 1.7 + 0.44, 1.0, 0.8);
+  // 黄铜踢脚板：底缘一条 14cm 金属收边（擦鞋高度，和脚踏杆同一种金）
+  const kickPlate = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 6.26), brassMat);
+  kickPlate.position.set(-W / 2 + 1.7 + 0.4, 0.1, 0.8);
+  bar.add(quiltPanel, bolster, kickPlate);
   // v1.4 P2 独有印迹：台面酒渍杯印贴花层——窄长画布贴合台面比例（杯印保持正圆），
   // 干涸残渍比蜡面更光滑，在吊灯下泛出一圈圈旧夜的痕迹；一枚正压在那杯酒底下
   const ringCv = document.createElement('canvas');

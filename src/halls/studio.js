@@ -1047,9 +1047,11 @@ export function build(ctx) {
   lamp.rotation.y = Math.PI / 2 + 0.6;
   group.add(lamp);
   updaters.push((dt, t) => {
+    // v1.12 D-11 克制化：5/3 → 3.4/2——桌角一汪暖光，不再把纸页
+    // 烧成发光板（光/声克制审视项）
     const f = (1 + Math.sin(t * 7.2) * 0.05) * lampState.on;
-    lamp.userData.light.intensity = 5 * f;
-    lamp.userData.bulbMat.emissiveIntensity = 3 * Math.max(0.03, f);
+    lamp.userData.light.intensity = 3.4 * f;
+    lamp.userData.bulbMat.emissiveIntensity = 1.4 * Math.max(0.03, f);
   });
   hotspots.add(lamp.userData.shade, {
     hint: 'E — 台灯（他的绿罩台灯）',

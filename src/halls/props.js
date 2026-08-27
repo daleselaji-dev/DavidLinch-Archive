@@ -908,10 +908,12 @@ export function angleLamp({ shadeColor = 0x1c4232, mats } = {}) {
   const shade = new THREE.Mesh(shadeGeo, enamel);
   shade.position.set(-0.12, 0.82, 0);
   shade.rotation.z = 0.7;
-  const bulbMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a0, emissiveIntensity: 3 });
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
-  bulb.position.set(-0.19, 0.74, 0);
-  const light = new THREE.PointLight(0xffd9a0, 5, 8, 1.8);
+  // v1.12 D-11 克制化：灯泡缩小并塞进罩腔（侧看只见罩下辉光、不见裸球），
+  // 发光与点光强度回落、照射半径收拢——光池留在桌面，不吃掉半个房间
+  const bulbMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a0, emissiveIntensity: 2 });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), bulbMat);
+  bulb.position.set(-0.172, 0.758, 0);
+  const light = new THREE.PointLight(0xffd9a0, 3.4, 5.5, 1.8);
   light.position.set(-0.24, 0.72, 0);
   g.add(shade, bulb, light);
   g.userData.light = light;
@@ -1068,11 +1070,15 @@ export function typewriter({ mats } = {}) {
     pp.setZ(i, Math.pow(Math.max(0, pp.getY(i)), 2) * -0.6);
   }
   paperGeo.computeVertexNormals();
+  // v1.12 D-11：纸页压一档 + 打满行——台灯直射下过亮的空白纸会被
+  // bloom 读成发光板；行密了之后即便偏亮也读得出「一页打了一半的字」
   const paperTex = canvasTexture(128, (g2, s) => {
-    g2.fillStyle = '#e4dcc8';
+    g2.fillStyle = '#d8cfb8';
     g2.fillRect(0, 0, s, s);
-    g2.fillStyle = 'rgba(30,26,22,0.75)';
-    for (let i = 0; i < 6; i++) g2.fillRect(18, 22 + i * 14, 30 + (i * 37) % 60, 3);
+    g2.fillStyle = 'rgba(30,26,22,0.72)';
+    for (let i = 0; i < 11; i++) g2.fillRect(18, 16 + i * 9, 26 + (i * 37) % 68, 2.5);
+    // 半行停在中途——像被打断的那一句
+    g2.fillRect(18, 16 + 11 * 9, 14, 2.5);
   });
   const paper = new THREE.Mesh(paperGeo, new THREE.MeshStandardMaterial({
     map: paperTex, roughness: 0.9, side: THREE.DoubleSide
