@@ -92,9 +92,10 @@ function createWindow() {
         // 后才放行去下一厅。v1.9 阶段 2 七厅两件后重锁普查-1：
         // 普查 16/26/19/17/20/19/20 = 137（长明灯/束带/落地灯拉链/柴堆/
         // 歪瓷碗/衣帽间/蒸汽立管/擦痕/铅笔刀/表盘/阀牌/放大镜/检修牌…）
+        // v1.10 阶段 3 重锁：普查 18/29/23/19/21/21/25 = 156，阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 15, archive: 26, eraserhead: 20, bluevelvet: 16,
-          twinpeaks: 18, mulholland: 19, studio: 22
+          lobby: 17, archive: 28, eraserhead: 22, bluevelvet: 18,
+          twinpeaks: 20, mulholland: 20, studio: 24
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
