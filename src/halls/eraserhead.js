@@ -2325,6 +2325,18 @@ export function build(ctx) {
     dust.material.opacity = 0.3 * (1 + engine.breath * 0.3);
     haze.material.opacity = 0.06 * (1 + engine.breath * 0.22);
   });
+  // v1.10 抛光 P13「远处的声」：楼那头有人敲管道——三下，一下比
+  // 一下轻，每 70–120s（seeded）从西墙外很远的地方传来。管道通到
+  // 哪儿没人知道；对暖气说话的也许不是人。
+  const knockRng = rng(73);
+  const knockState = { next: 38 + knockRng() * 40 };
+  updaters.push((dt) => {
+    knockState.next -= dt;
+    if (knockState.next > 0) return;
+    knockState.next = 70 + knockRng() * 50;
+    audio.sfxAt('pipeknock', -13, -15, 1.0, 9);
+  });
+
   group.add(new THREE.AmbientLight(0x18181c, 0.55));
 
   return {

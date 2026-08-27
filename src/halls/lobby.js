@@ -1284,6 +1284,19 @@ export function build(ctx) {
     }
   });
 
+  // v1.10 抛光 P13「远处的声」：墙外极远处电梯到站的一声叮——
+  // 每 90–160s（seeded）。这栋楼没有电梯。有人一直在到达。
+  // 开幕点灯完成前不响（黑场里只留火苗和尘埃醒来）。
+  const liftRng = rng(67);
+  const liftState = { next: 60 + liftRng() * 50 };
+  updaters.push((dt) => {
+    if (openGate.chand < 1) return;
+    liftState.next -= dt;
+    if (liftState.next > 0) return;
+    liftState.next = 90 + liftRng() * 70;
+    audio.sfxAt('liftbell', -16, -9, 0.9, 9);
+  });
+
   return {
     group,
     spawn: { x: 0, z: 8.6, yaw: 0 },

@@ -1802,6 +1802,18 @@ export function build(ctx) {
     dust.material.opacity = 0.32 * (1 + engine.breath * 0.24);
     smoke.material.opacity = 0.03 * (1 + engine.breath * 0.16);
   });
+  // v1.10 抛光 P13「远处的声」：西墙隔壁的房间里一只木抽屉滑轨
+  // 到底闷闷关上——每 75–130s（seeded）一声。这面墙后没有房间；
+  // 归档的动作在没有房间的地方继续进行。
+  const drawerRng = rng(61);
+  const drawerState = { next: 44 + drawerRng() * 40 };
+  updaters.push((dt) => {
+    drawerState.next -= dt;
+    if (drawerState.next > 0) return;
+    drawerState.next = 75 + drawerRng() * 55;
+    audio.sfxAt('drawerfar', -8, 4 + drawerRng() * 10, 0.9, 5);
+  });
+
   group.add(new THREE.AmbientLight(0x1c2026, 1.1));
 
   return {

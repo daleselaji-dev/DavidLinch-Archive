@@ -720,6 +720,38 @@ export class AudioEngine {
         noise('brown', 0.12, 'lowpass', 300, 1, 0.04, 0.2);
         break;
       }
+      // ---------- v1.10 P13「远处的声」：四种极远氛围事件（全部闷声化——
+      // 高频先被距离吃掉，只剩腔体和低频；音量都压在暗处，像是听错了。
+      // twinpeaks 的远声复用既有 owl，挂在环飞剪影的实时方位上） ----------
+      case 'pipeknock': { // eraserhead 远处管道被敲三下（谁在楼那头对暖气说话）
+        for (const [d, v] of [[0, 1], [0.44, 0.85], [0.94, 0.6]]) {
+          tone('sine', 187, 165, 0.5 * v + 0.2, 0.05 * v, d);
+          tone('sine', 476, 460, 0.22, 0.02 * v, d);
+          noise('brown', 0.1, 'lowpass', 260, 1, 0.05 * v, d);
+        }
+        break;
+      }
+      case 'sirenfar': { // mulholland 极远的警笛掠过：两轮上下滑 + 城市底噪一口
+        for (const d of [0, 1.9]) {
+          tone('sine', 620, 940, 0.95, 0.016, d);
+          tone('sine', 940, 590, 0.95, 0.014, d + 0.95);
+        }
+        noise('brown', 3.8, 'lowpass', 180, 0.8, 0.02, 0, 1.2);
+        break;
+      }
+      case 'drawerfar': { // archive 隔壁房间一只木抽屉滑轨到底闷闷关上（隔壁没有人）
+        noise('pink', 0.5, 'lowpass', 340, 1, 0.028, 0, 0.3);
+        noise('brown', 0.16, 'lowpass', 200, 1, 0.07, 0.5);
+        tone('sine', 74, 52, 0.3, 0.05, 0.5);
+        tone('sine', 400, 380, 0.06, 0.012, 0.54);
+        break;
+      }
+      case 'liftbell': { // lobby 电梯到站的一声叮——这栋楼没有电梯
+        tone('sine', 932, 926, 1.4, 0.028);
+        tone('sine', 1397, 1388, 0.9, 0.014, 0.01);
+        noise('brown', 0.5, 'lowpass', 150, 1, 0.02, 0.15, 0.2);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;

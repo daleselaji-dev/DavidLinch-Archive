@@ -2511,6 +2511,18 @@ export function build(ctx) {
   updaters.push(back.userData.update);
   hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
 
+  // v1.10 抛光 P13「远处的声」：极远的警笛掠过——两轮上下滑被距离
+  // 磨钝，每 100–160s（seeded）从城市光晕深处来一阵就没了。这座城
+  // 总有别人的事正在发生；从来不在这条街。
+  const sirenRng = rng(89);
+  const sirenState = { next: 52 + sirenRng() * 50 };
+  updaters.push((dt) => {
+    sirenState.next -= dt;
+    if (sirenState.next > 0) return;
+    sirenState.next = 100 + sirenRng() * 60;
+    audio.sfxAt('sirenfar', 46 + sirenRng() * 24, 52, 1.0, 20);
+  });
+
   group.add(new THREE.AmbientLight(0x141228, 1.15));
 
   return {

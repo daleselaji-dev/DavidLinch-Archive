@@ -180,6 +180,49 @@ describe('v1.10 阶段 2 新音色（配套七厅两件新交互；源码审计�
   });
 });
 
+describe('v1.10 P13「远处的声」（稀疏远声事件；源码审计）', () => {
+  const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+  const HALLS = Object.fromEntries(
+    ['mulholland', 'archive', 'twinpeaks', 'lobby', 'eraserhead']
+      .map((h) => [h, readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8')])
+  );
+  const FAR = [
+    ['pipeknock', 'eraserhead'],
+    ['sirenfar', 'mulholland'],
+    ['drawerfar', 'archive'],
+    ['liftbell', 'lobby']
+  ];
+
+  it.each(FAR)('远声 %s 已实现且在 %s 接线（位置化 + seeded 间隔）', (name, hall) => {
+    expect(src).toContain(`case '${name}'`);
+    expect(HALLS[hall]).toContain(`sfxAt('${name}'`);
+  });
+
+  it('四处远声调度全部 seeded（各自独立 rng，不吃 Math.random）', () => {
+    expect(HALLS.eraserhead).toMatch(/knockState\.next = 70 \+ knockRng\(\) \* 50/);
+    expect(HALLS.mulholland).toMatch(/sirenState\.next = 100 \+ sirenRng\(\) \* 60/);
+    expect(HALLS.archive).toMatch(/drawerState\.next = 75 \+ drawerRng\(\) \* 55/);
+    expect(HALLS.lobby).toMatch(/liftState\.next = 90 \+ liftRng\(\) \* 70/);
+  });
+
+  it('twinpeaks 复用 owl 且声源挂在环飞剪影实时方位（视觉与声对上）', () => {
+    expect(HALLS.twinpeaks).toMatch(/sfxAt\('owl', o\.owl\.position\.x, o\.owl\.position\.z/);
+  });
+
+  it('lobby 电梯叮受开幕点灯闸门守卫（黑场不响）', () => {
+    expect(HALLS.lobby).toMatch(/openGate\.chand < 1\) return;[\s\S]{0,220}liftbell/);
+  });
+
+  it('pipeknock 三下递轻（幅度序列递减）', () => {
+    const m = src.match(/case 'pipeknock'[\s\S]*?for \(const \[d, v\] of \[(.*?)\]\)/);
+    expect(m).toBeTruthy();
+    const hits = JSON.parse(`[${m[1]}]`);
+    expect(hits.length).toBe(3);
+    expect(hits[0][1]).toBeGreaterThan(hits[1][1]);
+    expect(hits[1][1]).toBeGreaterThan(hits[2][1]);
+  });
+});
+
 describe('v1.8 拐角惊吓音色（源码审计）', () => {
   const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
 

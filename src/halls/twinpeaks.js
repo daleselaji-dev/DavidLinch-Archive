@@ -2229,13 +2229,24 @@ export function build(ctx) {
     group.add(owl);
     owls.push({ owl, wingL, wingR, phase: i * 3.1, r: 26 + i * 9, h: 17 + i * 6, speed: 0.09 + i * 0.03 });
   }
+  // v1.10 抛光 P13「远处的声」：环飞的剪影偶尔叫两声——声源挂在
+  // 它此刻的方位上（视觉与声第一次对上）。每 70–120s（seeded），
+  // 两只错开各自的钟。The owls are not what they seem.
+  const owlRng = rng(97);
+  const owlCall = owls.map((_, i) => ({ next: 34 + owlRng() * 40 + i * 26 }));
   updaters.push((dt, t) => {
-    for (const o of owls) {
+    for (let i = 0; i < owls.length; i++) {
+      const o = owls[i];
       const a = t * o.speed + o.phase;
       o.owl.position.set(Math.cos(a) * o.r, o.h + Math.sin(t * 0.5 + o.phase) * 1.6, Math.sin(a) * o.r);
       o.owl.rotation.y = -a - Math.PI / 2;
       o.wingL.rotation.z = Math.sin(t * 5 + o.phase) * 0.5;
       o.wingR.rotation.z = -Math.sin(t * 5 + o.phase) * 0.5;
+      owlCall[i].next -= dt;
+      if (owlCall[i].next <= 0) {
+        owlCall[i].next = 70 + owlRng() * 50;
+        audio.sfxAt('owl', o.owl.position.x, o.owl.position.z, 1.0, 12);
+      }
     }
   });
 
