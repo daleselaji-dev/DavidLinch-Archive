@@ -404,11 +404,17 @@ describe('源码级门禁：主触发是拐角、多幕素材全接线、字幕�
     expect(lurchBody).toMatch(/headPivot\.rotation\.x = -\(0\.06 \+ s \*/);
     // v1.12：眼窝环呼吸（与红光错相位）
     expect(lurchBody).toMatch(/eyeMat\.emissiveIntensity = [^;]*Math\.sin\(t/);
-    // rush 拍眼窝烧起来 + 发帘后甩（锚在 cornerWraith 段内——veiledFigure 也有 setRush）
+    // v1.12 抛光：身体冻住时发帘还在极缓地摆（t 基慢摆，频率与身体拍
+    // 无关——惯性没停，它不是雕像）
+    expect(lurchBody).toMatch(/hair\.rotation\.z = Math\.sin\(t \* 1\.7\)/);
+    expect(lurchBody).toMatch(/hair\.rotation\.x = Math\.sin\(t \* 1\.15/);
+    // rush 拍眼窝烧起来 + 发帘后甩叠高频扑动（锚在 cornerWraith 段内——
+    // veiledFigure 也有 setRush）
     const wraithSrc = kit.slice(kit.indexOf('export function cornerWraith'));
     const rushBody = /setRush = \(k, t = 0\) => \{[^]*?\};/.exec(wraithSrc)?.[0] ?? '';
     expect(rushBody).toMatch(/eyeMat\.emissiveIntensity = 1\.2 \+ k \*/);
     expect(rushBody).toMatch(/hair\.rotation\.x = -0\.14 \* k/);
+    expect(rushBody).toMatch(/hair\.rotation\.z = Math\.sin\(t \* 13\)/);
   });
 
   it('v1.12 冒烟路径同步：routeA 停在新北缘外、进区步落在贴角圆心', () => {

@@ -1232,7 +1232,9 @@ export function cornerWraith(height = 2.35) {
    *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档）；身体
    *  冻住时暗红内衬随呼吸搏动（红光在呼吸——唯一还在动的东西）。
    *  v1.12：**头一档一档抬起**（headPivot 随 s 后仰——每停一次抬头
-   *  多一点，发帘里的眼窝越停越正对你）；眼窝环与红光错半拍呼吸。 */
+   *  多一点，发帘里的眼窝越停越正对你）；眼窝环与红光错半拍呼吸；
+   *  **身体冻住时发帘还在极缓地摆**（t 基慢摆钟频率与身体拍无关——
+   *  惯性没停，它不是雕像）。 */
   group.userData.setLurch = (s, t = 0) => {
     const beat = Math.sin(s * Math.PI * 6);
     pivot.rotation.x = 0.12 + s * 0.14;
@@ -1240,6 +1242,8 @@ export function cornerWraith(height = 2.35) {
     pivot.position.y = Math.abs(beat) * 0.035;
     headPivot.rotation.x = -(0.06 + s * 0.34);
     headPivot.rotation.z = -0.06 * s + beat * 0.03;
+    hair.rotation.z = Math.sin(t * 1.7) * 0.045 - beat * 0.03;
+    hair.rotation.x = Math.sin(t * 1.15 + 0.8) * 0.028;
     armL.rotation.x = -0.08 + beat * 0.1;
     armR.rotation.x = -0.08 - beat * 0.1;
     armL.rotation.z = 0.05 * beat;
@@ -1249,7 +1253,8 @@ export function cornerWraith(height = 2.35) {
   };
   /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆；
    *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。
-   *  v1.12：头死死昂着盯你 + 发帘迎风后甩 + 眼窝烧起来（1.2→2.8）。 */
+   *  v1.12：头死死昂着盯你 + 发帘迎风后甩（叠高频扑动）+ 眼窝烧起来
+   *  （1.2→2.8）。 */
   group.userData.setRush = (k, t = 0) => {
     pivot.rotation.x = 0.26 + 0.3 * k;
     pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
@@ -1257,6 +1262,7 @@ export function cornerWraith(height = 2.35) {
     headPivot.rotation.x = -0.4 - 0.22 * k;
     headPivot.rotation.z = 0;
     hair.rotation.x = -0.14 * k;
+    hair.rotation.z = Math.sin(t * 13) * 0.05 * k;
     armL.rotation.x = -0.08 - 0.55 * k;
     armR.rotation.x = -0.08 - 0.55 * k;
     body.scale.set(1 + k * 0.1, 1, 1 + k * 0.1);
