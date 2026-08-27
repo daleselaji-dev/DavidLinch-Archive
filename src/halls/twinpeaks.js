@@ -966,7 +966,11 @@ export function build(ctx) {
     cupPivot.add(cup);
     // 世界坐标（redRoom → world）：sfxAt 用
     const fcWorld = new THREE.Vector3();
-    const fcState = { t: -1 };
+    // v1.11 P18：每次立回，杯**放不回原来的朝向**——方位角悄悄多转
+    // 3–7°（seeded，正负交替带偏置），杯柄慢慢指向别处；上限 ±20°
+    // 不夸张。红房间的东西没有一件在你以为的原位上。零预算纯标量。
+    const fcRng = rng(113);
+    const fcState = { t: -1, yaw: 0 };
     updaters.push((dt) => {
       if (fcState.t < 0) return;
       fcState.t += dt;
@@ -975,7 +979,13 @@ export function build(ctx) {
       if (u < 0.9) a = (1 - Math.cos(Math.min(1, u / 0.9) * Math.PI)) / 2; // 缓起
       else if (u < 2.4) a = 1 + Math.sin((u - 0.9) * 11) * 0.012 * Math.exp(-(u - 0.9) * 2); // 定住微颤
       else if (u < 3.8) a = (1 + Math.cos(Math.min(1, (u - 2.4) / 1.4) * Math.PI)) / 2; // 缓缓立回
-      else { a = 0; fcState.t = -1; }
+      else {
+        a = 0;
+        fcState.t = -1;
+        const drift = (0.05 + fcRng() * 0.07) * (fcRng() < 0.42 ? -1 : 1);
+        fcState.yaw = Math.max(-0.35, Math.min(0.35, fcState.yaw + drift));
+        cupPivot.rotation.y = fcState.yaw;
+      }
       cupPivot.rotation.z = -0.52 * a; // 30°——液面是杯的一部分，跟着走
     });
     hotspots.add(cup, {

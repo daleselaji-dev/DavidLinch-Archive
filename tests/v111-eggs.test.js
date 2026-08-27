@@ -152,6 +152,12 @@ describe('v1.11 门禁 57：几何与连锁守卫', () => {
     expect(SRC.twinpeaks).toContain('cupPivot.add(cup)');
     expect(SRC.twinpeaks).toContain('fcGrp.add(saucer)');
   });
+
+  it('twinpeaks 咖啡 P18：每次立回杯放不回原朝向（方位漂移累积，钉界 ±0.35）', () => {
+    expect(SRC.twinpeaks).toContain('fcState.yaw + drift');
+    expect(SRC.twinpeaks).toContain('Math.max(-0.35, Math.min(0.35,');
+    expect(SRC.twinpeaks).toContain('cupPivot.rotation.y = fcState.yaw');
+  });
 });
 
 describe('v1.11 门禁 57：新音色 ≥3 在引擎且被接线', () => {
