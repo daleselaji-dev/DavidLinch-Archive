@@ -135,6 +135,11 @@ describe('工作室冥想深潜 v2（v1.6：Edith Finch 级五幕序列）', () 
     expect(st).toContain("bigFish.userData.setGlow(1)");
   });
 
+  it('小鱼群与大鱼同口径（dreamFish lite 档），大鱼从玩家视线方向现身', () => {
+    expect(st).toContain("dreamFish(0.5 + Math.random() * 0.5, { lite: true })");
+    expect(st).toContain('engine.camera.getWorldDirection');
+  });
+
   it('回响改变世界：带回的念头驱动画架自动作画并改变用色（IDEA_TINTS）', () => {
     expect(st).toContain('IDEA_TINTS');
     expect(st).toContain('paintState.tint = tint');
@@ -155,8 +160,8 @@ describe('工作室冥想深潜 v2（v1.6：Edith Finch 级五幕序列）', () 
     expect(st).toContain("audio.sfx('bubbles'");
   });
 
-  it('冒烟入口：deep-dive 彩蛋注册且 force 快进到大鱼幕', () => {
+  it('冒烟入口：deep-dive 彩蛋注册且 force 快进到大鱼贴近的一拍', () => {
     expect(st).toContain("'deep-dive': diveTrig");
-    expect(st).toContain('meditation.t = Math.max(meditation.t, MEDB.fish + 2.5)');
+    expect(st).toContain('meditation.t = Math.max(meditation.t, MEDB.gift - 0.8)');
   });
 });

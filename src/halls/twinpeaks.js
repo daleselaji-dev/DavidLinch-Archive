@@ -76,10 +76,13 @@ export function build(ctx) {
   const groundTex = canvasTexture(512, (g, s) => {
     g.fillStyle = '#0a0f08';
     g.fillRect(0, 0, s, s);
+    // v1.6：苔斑改单色相亮度抖动——旧版三通道独立随机会在月光下
+    // 显出偏红/偏蓝的彩色圆斑（同穆赫兰砖墙彩虹问题），林地读成碎彩纸
     for (let i = 0; i < 620; i++) {
-      g.fillStyle = `rgba(${8 + Math.random() * 24},${14 + Math.random() * 26},${8 + Math.random() * 16},0.5)`;
+      const v = 0.55 + Math.random() * 0.85;
+      g.fillStyle = `rgba(${Math.round(11 * v)},${Math.round(21 * v)},${Math.round(12 * v)},0.4)`;
       g.beginPath();
-      g.arc(Math.random() * s, Math.random() * s, Math.random() * 12, 0, 7);
+      g.arc(Math.random() * s, Math.random() * s, 1.5 + Math.random() * 9, 0, 7);
       g.fill();
     }
     // 针叶落层

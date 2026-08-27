@@ -593,6 +593,14 @@ export function build(ctx) {
     group.add(art);
   }
 
+  // 冥想下潜时房间暖灯整体沉暗（深水里不该有亮着的顶灯泡——
+  // 高发光球在水下调色里会读成怪异蓝盘），浮出后缓缓回来
+  const diveDim = { v: 1 };
+  updaters.push((dt) => {
+    const target = meditation.active && meditation.t < MEDB.surface ? 0.04 : 1;
+    diveDim.v += (target - diveDim.v) * Math.min(1, dt * 2.2);
+  });
+
   // 工作台灯 v2（重底座 + 弹簧臂 + 绿铝罩；可开关 — 交互①）
   const lampState = { on: 1 };
   const lamp = angleLamp({ shadeColor: 0x1c4232, mats: M });
@@ -600,7 +608,7 @@ export function build(ctx) {
   lamp.rotation.y = Math.PI / 2 + 0.6;
   group.add(lamp);
   updaters.push((dt, t) => {
-    const f = (1 + Math.sin(t * 7.2) * 0.05) * lampState.on;
+    const f = (1 + Math.sin(t * 7.2) * 0.05) * lampState.on * diveDim.v;
     lamp.userData.light.intensity = 5 * f;
     lamp.userData.bulbMat.emissiveIntensity = 3 * Math.max(0.03, f);
   });
@@ -629,8 +637,8 @@ export function build(ctx) {
   }
   updaters.push(() => {
     for (const { bulb, light } of ceilBulbs) {
-      light.intensity = 7 * ceilState.on;
-      bulb.material.emissiveIntensity = 2.6 * Math.max(0.03, ceilState.on);
+      light.intensity = 7 * ceilState.on * diveDim.v;
+      bulb.material.emissiveIntensity = 2.6 * Math.max(0.03, ceilState.on) * diveDim.v;
     }
   });
   const wallSwitch = new THREE.Mesh(
@@ -1307,20 +1315,25 @@ export function build(ctx) {
   //  28.4s  没入：柔白一闪，大鱼折身沉回黑暗
   //  30.0s  浮出 → 31.8s 回响：画架自己开始画，颜色跟着念头
   // ============================================================
-  // 小鱼群（意念的碎片）
+  // 小鱼群（意念的碎片）——v1.6 二遍：从发光胶囊换成 dreamFish 缩小版，
+  // 贴脸游过也是完整的鱼（车削鱼身/顶点色背腹/摆尾），资产口径与大鱼一致
   const fishGroup = new THREE.Group();
   fishGroup.visible = false;
   const fishes = [];
-  for (let i = 0; i < 7; i++) {
-    const geo = new THREE.CapsuleGeometry(0.07 + Math.random() * 0.1, 0.6 + Math.random() * 1.3, 4, 8);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x0a1a2c, roughness: 0.3, metalness: 0.4,
-      emissive: 0x3ec5ff, emissiveIntensity: 0.7, transparent: true, opacity: 0.85
+  for (let i = 0; i < 6; i++) {
+    const fish = dreamFish(0.5 + Math.random() * 0.5, { lite: true });
+    const mats = [];
+    fish.traverse((o) => {
+      if (o.isMesh) {
+        o.material.transparent = true;
+        mats.push({ m: o.material, base: o.material.opacity ?? 1 });
+      }
     });
-    const fish = new THREE.Mesh(geo, mat);
-    fish.rotation.z = Math.PI / 2;
     fishGroup.add(fish);
-    fishes.push({ fish, r: 2.5 + Math.random() * 3.5, h: 1.2 + Math.random() * 2.6, speed: 0.14 + Math.random() * 0.3, phase: Math.random() * 7, scatter: 0 });
+    fishes.push({
+      fish, mats, r: 3.0 + Math.random() * 3.2, h: 1.2 + Math.random() * 2.6,
+      speed: 0.14 + Math.random() * 0.3, phase: Math.random() * 7, scatter: 0
+    });
   }
   group.add(fishGroup);
   // 气泡场（上升回绕）
@@ -1416,9 +1429,13 @@ export function build(ctx) {
       f.scatter += ((meditation.cue.call ? 1 : 0) - f.scatter) * Math.min(1, dt * 0.7);
       const a = t * f.speed + f.phase;
       const r = f.r + f.scatter * 6;
-      f.fish.position.set(Math.cos(a) * r, f.h + Math.sin(t * 0.6 + f.phase) * 0.4, Math.sin(a) * r);
-      f.fish.rotation.y = -a;
-      f.fish.material.opacity = 0.85 * fade;
+      const y = f.h + Math.sin(t * 0.6 + f.phase) * 0.4;
+      f.fish.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+      // 鼻尖顺着圆周切线（世界坐标：fishGroup 挂在 cx,cz）
+      const a2 = a + 0.16;
+      f.fish.lookAt(meditation.cx + Math.cos(a2) * r, y, meditation.cz + Math.sin(a2) * r);
+      f.fish.userData.update(dt, t + f.phase);
+      for (const e of f.mats) e.m.opacity = e.base * fade;
     }
     // 气泡上升 + 天光柱呼吸
     const bp = bubbleGeo.attributes.position;
@@ -1463,7 +1480,18 @@ export function build(ctx) {
     });
     medCue('fish', () => {
       bigFish.visible = true;
-      meditation.fishA = Math.PI * 0.3;
+      // 大鱼从你正望向的那片黑暗里现身——先是远处一个影，再盘旋逼近
+      const dir = new THREE.Vector3();
+      engine.camera.getWorldDirection(dir);
+      meditation.fishA = Math.atan2(dir.z, dir.x);
+      // 快进/低帧下 gift 可能与 fish 同帧触发：先把鱼摆上路径起点，
+      // 免得 gift 从未初始化的 (0,0,0) 取 orbFrom
+      const u0 = Math.min(1, (meditation.t - MEDB.fish) / (MEDB.gift - MEDB.fish));
+      bigFish.position.set(
+        meditation.cx + Math.cos(meditation.fishA) * (8.5 - u0 * 6.3),
+        2.8 - u0 * 1.3,
+        meditation.cz + Math.sin(meditation.fishA) * (8.5 - u0 * 6.3)
+      );
       audio.sfx('swell', 0.8);
     });
     medCue('gift', () => {
@@ -1564,6 +1592,7 @@ export function build(ctx) {
     audio.sfx('om');
     audio.sfx('bubbles', 0.7);
     audio.duck(0.35, 0.2, 3.0);
+    diveDim.v = Math.min(diveDim.v, 0.25); // 入水一瞬房间的暖光先被吞掉大半
     engine.setLook({ saturation: 0.5, tint: 0x9ecfff, fogColor: 0x020610, fogDensity: 0.1, bg: 0x010409, exposure: 0.78, bloom: 1.35 });
     fishGroup.visible = true;
     fishGroup.position.set(meditation.cx, 0, meditation.cz);
@@ -1577,11 +1606,11 @@ export function build(ctx) {
     hint: 'E — 坐下，闭眼（潜入深水）',
     onActivate: startDive
   });
-  // 冒烟核验入口：直接快进到大鱼幕
+  // 冒烟核验入口：快进到大鱼贴到最近的一拍（献念前一霎）
   const diveTrig = {
     force: () => {
       startDive();
-      meditation.t = Math.max(meditation.t, MEDB.fish + 2.5);
+      meditation.t = Math.max(meditation.t, MEDB.gift - 0.8);
     }
   };
 

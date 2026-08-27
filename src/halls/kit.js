@@ -936,7 +936,8 @@ export function nightmareFigure(height = 2.4) {
  * userData.update(dt, t) 驱动尾摆/鳍颤/侧线呼吸；
  * userData.setGlow(v) 献念时全身亮起。
  */
-export function dreamFish(len = 3.4) {
+export function dreamFish(len = 3.4, { lite = false } = {}) {
+  // lite：小鱼群档——省瞳孔/触须（该尺寸下不可辨）与车削段数，控网格预算
   const group = new THREE.Group();
 
   // ---- 鱼身：LatheGeometry 绕轴车削（轴向 +Z），一体成型 ----
@@ -947,7 +948,7 @@ export function dreamFish(len = 3.4) {
     [0.56, 0.94], [0.7, 0.72], [0.82, 0.42], [0.92, 0.2], [1.0, 0.085]
   ];
   for (const [u, k] of stations) prof.push(new THREE.Vector2(Math.max(0.001, R * k), u * len));
-  const bodyGeo = new THREE.LatheGeometry(prof, 28);
+  const bodyGeo = new THREE.LatheGeometry(prof, lite ? 16 : 28);
   bodyGeo.rotateX(Math.PI / 2);          // 轴向 → +Z（0 = 鼻尖…等等：lathe y=0 是第一站）
   bodyGeo.translate(0, 0, -len * 0.45);  // 鼻尖在 +Z 前方，重心近原点
   bodyGeo.computeVertexNormals();
@@ -1070,23 +1071,28 @@ export function dreamFish(len = 3.4) {
   for (const side of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(R * 0.2, 12, 10), eyeMat);
     eye.position.set(side * R * 0.62, R * 0.18, len * 0.42);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(R * 0.09, 8, 8), pupilMat);
-    pupil.position.set(side * R * 0.76, R * 0.18, len * 0.46);
-    group.add(eye, pupil);
+    group.add(eye);
+    if (!lite) {
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(R * 0.09, 8, 8), pupilMat);
+      pupil.position.set(side * R * 0.76, R * 0.18, len * 0.46);
+      group.add(pupil);
+    }
   }
 
   // ---- 触须两根（深水的老家伙）----
   const barbels = [];
   const barbMat = new THREE.MeshStandardMaterial({ color: 0x1c2830, roughness: 0.7 });
-  for (const side of [-1, 1]) {
-    const curve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(side * R * 0.3, -R * 0.4, len * 0.5),
-      new THREE.Vector3(side * R * 0.7, -R * 1.1, len * 0.42),
-      new THREE.Vector3(side * R * 1.0, -R * 1.9, len * 0.28)
-    );
-    const b = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.012, 5), barbMat);
-    barbels.push(b);
-    group.add(b);
+  if (!lite) {
+    for (const side of [-1, 1]) {
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(side * R * 0.3, -R * 0.4, len * 0.5),
+        new THREE.Vector3(side * R * 0.7, -R * 1.1, len * 0.42),
+        new THREE.Vector3(side * R * 1.0, -R * 1.9, len * 0.28)
+      );
+      const b = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.012, 5), barbMat);
+      barbels.push(b);
+      group.add(b);
+    }
   }
 
   let glow = 0;

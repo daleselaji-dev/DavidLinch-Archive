@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 
 const MAX_DIST = 4.6;
+const HOVER_TINT = new THREE.Color(0xffc98a); // 暖光呼吸基准色（蜡烛琥珀）
 
 export class Hotspots {
   constructor(camera, ui, audio) {

@@ -175,7 +175,7 @@ function createWindow() {
         const shotDir = process.env.SV_SHOT_DIR;
         // 首厅截屏额外加等：开场淡入 + 空闲预取 6 个分包在软渲染下会占满
         // 合成器数秒，3.5s 默认延迟会拍到全黑首帧（后续厅无预取压力不受影响）
-        const firstShotExtra = shotCount === 0 ? 5500 : 0;
+        const firstShotExtra = shotCount === 0 ? 9000 : 0;
         shotCount += 1;
         interactiveCheck.then(() => {
           if (shotDir) {
