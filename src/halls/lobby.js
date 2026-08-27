@@ -432,6 +432,11 @@ export function build(ctx) {
     blackout.v = 1;
     audio.duck(1.4, 0.03, 2.2);
     audio.sfx('whisper', 0.9);
+    // v1.11 连锁：过影刚走过（12s 内）就来触发——那个还没走远，
+    // 耳语更近一档（贴耳补一口气，无新字幕）
+    if (passLink.now - passLink.lastEnd < 12) {
+      eggTimers.push(setTimeout(() => audio.sfx('breath', 0.55), 380));
+    }
     eggTimers.push(setTimeout(() => {
       eggLight.intensity = 26;
       audio.sfx('thud', 0.8);
@@ -447,6 +452,63 @@ export function build(ctx) {
   };
   const whisperTrig = zoneTrigger({ x: 0, z: -10.6, r: 2.4 }, whisperEgg, { cooldown: 40 });
   updaters.push((dt) => whisperTrig.update(player, dt));
+
+  // ---------- v1.11 门禁 57：帷幕后的过影 ----------
+  // 每 90–150s（seeded），帷幕内侧一道**人形暗带**沿幕面走过一段弧：
+  // 移动的暗斑 + 走到中段帷头轻颤一口 + 极轻的绒面脚步跟着方位挪。
+  // 幕从来不开，也没有字幕——大多数人只会用余光撞见一次。
+  // 它刚走过时去帷幕深处触发窃语 → 耳语更近一档（连锁在上面）。
+  const passerMat = new THREE.MeshBasicMaterial({
+    color: 0x000000, transparent: true, opacity: 0, depthWrite: false
+  });
+  const passer = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 14), passerMat);
+  passer.scale.set(0.5, 1.16, 0.22);
+  passer.visible = false;
+  group.add(passer);
+  const passRng = rng(31);
+  const passLink = { now: 0, lastEnd: -999 };
+  const passState = { timer: 48 + passRng() * 42, t: -1, phi: 0, dir: 1, step: 0 };
+  const PASS_DUR = 7.0;
+  const PASS_R = R - 0.5;
+  updaters.push((dt, t) => {
+    passLink.now = t;
+    if (opening.t >= 0) return; // 开幕点灯没走完，幕后不来人
+    if (passState.t < 0) {
+      passState.timer -= dt;
+      if (passState.timer > 0) return;
+      passState.timer = 90 + passRng() * 60;
+      passState.t = 0;
+      passState.dir = passRng() < 0.5 ? -1 : 1;
+      passState.phi = passRng() * Math.PI * 2;
+      passState.step = 0.2;
+      passer.visible = true;
+    }
+    passState.t += dt;
+    const u = passState.t / PASS_DUR;
+    if (u >= 1) {
+      passState.t = -1;
+      passer.visible = false;
+      passerMat.opacity = 0;
+      passLink.lastEnd = t;
+      return;
+    }
+    const phi = passState.phi + passState.dir * u * 1.15;
+    passer.position.set(
+      Math.cos(phi) * PASS_R,
+      1.32 + Math.sin(passState.t * 3.4) * 0.05, // 走姿的身体起伏
+      Math.sin(phi) * PASS_R
+    );
+    passer.rotation.y = Math.PI / 2 - phi; // 薄轴贴幕面（暗带平行于幕）
+    passerMat.opacity = Math.sin(Math.min(1, u) * Math.PI) * 0.5;
+    // 走到中段，帷头跟着轻颤一口（借触摸波纹通道的弱尾巴）
+    if (u > 0.48 && u < 0.52 && curtainRipple.t < 0) curtainRipple.t = 1.5;
+    // 极轻的绒面脚步跟着方位挪
+    passState.step -= dt;
+    if (passState.step <= 0) {
+      passState.step = 0.66;
+      audio.sfxAt('step-carpet', passer.position.x, passer.position.z, 0.16, 2.6);
+    }
+  });
 
   // ---------- 彩蛋：走上纪念台 ----------
   // 第一次踏上中央台面：光锥应声涌亮、光缝同拍呼吸——

@@ -255,6 +255,8 @@ export function build(ctx) {
   }
 
   // 作品灯牌 —— 按年代沿两壁排布（事实性档案）
+  // v1.11 门禁 57：材质引用集中收档——心跳灯牌接骨时整排齐搏要用
+  const plaqueMats = [];
   const films = filmsSorted();
   films.forEach((film, i) => {
     const side = i % 2 === 0 ? -1 : 1;
@@ -262,6 +264,7 @@ export function build(ctx) {
     const plaque = archivePlaque(film);
     plaque.position.set(side * (W / 2 - 0.28), 2.05, z);
     plaque.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    plaqueMats.push(plaque.material);
     group.add(plaque);
     hotspots.add(plaque, {
       hint: `E — ${film.titleZh}（${film.year}）`,
@@ -1404,7 +1407,8 @@ export function build(ctx) {
       map: ghostTex, roughness: 0.55,
       emissive: 0xffffff, emissiveMap: ghostTex, emissiveIntensity: 0.7
     }));
-  ghostPlaque.position.set(-(W / 2 - 0.28), 2.05, 8.2);
+  const GHOST_Y = 2.05;
+  ghostPlaque.position.set(-(W / 2 - 0.28), -60, 8.2); // 藏时挪出射线（隐形网格仍会被 raycast）
   ghostPlaque.rotation.y = Math.PI / 2;
   ghostPlaque.visible = false;
   group.add(ghostPlaque);
@@ -1425,6 +1429,7 @@ export function build(ctx) {
     });
     ghostTimers.push(setTimeout(() => {
       ghostPlaque.visible = true;
+      ghostPlaque.position.y = GHOST_Y;
       audio.sfx('whisper', 0.8);
       ui.caption('身后的墙上，多了一块灯牌。', 4600);
     }, 1500));
@@ -1437,12 +1442,45 @@ export function build(ctx) {
   const vanishTrig = zoneTrigger({ x: -(W / 2 - 1.6), z: 8.2, r: 2.2 }, () => {
     if (!ghostPlaque.visible) return;
     ghostPlaque.visible = false;
+    ghostPlaque.position.y = -60;
     ghostState.active = false;
     audio.sfx('fluor', 0.9);
     audio.sfx('thud', 0.5);
     ui.caption('灯牌熄灭了。年表恢复了整齐。', 4600);
   }, { cooldown: 8 });
   updaters.push((dt) => vanishTrig.update(player, dt));
+
+  // ---------- v1.11 门禁 57：心跳灯牌接骨（灯牌显形期间可 E） ----------
+  // E → 一记心跳（位置化在灯牌上），同一拍里**整排年份灯箱齐搏**
+  // 一次（lub-dub 双峰包络，与 heartbeat 音色 0s/0.42s 双响对时）——
+  // 整条年表替那块不在年表上的灯牌搏动。字幕不加：看见即懂。
+  const hbPulse = { t: -1 };
+  const hbBump = (u, at, w) => {
+    const k = (u - at) / w;
+    return k >= 0 && k <= 1 ? Math.sin(k * Math.PI) : 0;
+  };
+  updaters.push((dt) => {
+    if (hbPulse.t < 0) return;
+    hbPulse.t += dt;
+    const u = hbPulse.t;
+    if (u > 1.05) {
+      hbPulse.t = -1;
+      for (const m of plaqueMats) m.emissiveIntensity = 0.5;
+      ghostPlaque.material.emissiveIntensity = 0.7;
+      return;
+    }
+    const k = hbBump(u, 0, 0.3) + hbBump(u, 0.42, 0.34) * 0.8;
+    for (const m of plaqueMats) m.emissiveIntensity = 0.5 * (1 + k * 1.15);
+    ghostPlaque.material.emissiveIntensity = 0.7 * (1 + k * 1.7);
+  });
+  hotspots.add(ghostPlaque, {
+    hint: 'E — 这块灯牌',
+    onActivate: () => {
+      if (!ghostPlaque.visible || hbPulse.t >= 0) return;
+      hbPulse.t = 0;
+      audio.sfxAt('heartbeat', -(W / 2 - 0.28), 8.2, 0.75, 3);
+    }
+  });
 
   // ============================================================
   // v1.10 阶段 2g·archive 件 1：缩微胶片阅读器——阅览桌尾自成

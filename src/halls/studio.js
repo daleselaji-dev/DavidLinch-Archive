@@ -1702,6 +1702,138 @@ export function build(ctx) {
     candleLight.intensity = 2.1 + Math.sin(t * 8.1) * 0.5;
   });
 
+  // ---------- v1.11 门禁 57：帘后的小门（画家的门语言） ----------
+  // 冥想角墙脚一扇半米高的**上锁小门**。这堵墙后面不该有任何地方。
+  // 每次进厅它在三处预置位之一——上次在的那面墙，这次可能空着。
+  // E → 门把手轻轻转半圈，停住；门后很深的地方回一声水滴（deepdrip）。
+  // 之后把手趁没人看极缓地转回去。零字幕，零解释。
+  {
+    const SPOTS = [
+      { x: 3.02, z: -9.27, ry: 0 },
+      { x: 2.73, z: -8.55, ry: Math.PI / 2 },
+      { x: 5.75, z: -9.27, ry: 0 }
+    ];
+    const spot = SPOTS[Math.floor(Math.random() * SPOTS.length)];
+    const doorGrp = new THREE.Group();
+    doorGrp.position.set(spot.x, 0, spot.z);
+    doorGrp.rotation.y = spot.ry;
+    group.add(doorGrp);
+    // 老漆门板：暗沉漆面 + 竖向木纹透底 + 剥落斑 + 内嵌门芯板画影
+    const doorTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#232c26';
+      g.fillRect(0, 0, s, s);
+      const dr = rng(41);
+      for (let i = 0; i < 46; i++) { // 竖纹
+        g.strokeStyle = `rgba(10,14,12,${0.12 + dr() * 0.2})`;
+        g.lineWidth = 1 + dr() * 1.4;
+        const x = dr() * s;
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + (dr() - 0.5) * 6, s);
+        g.stroke();
+      }
+      for (let i = 0; i < 14; i++) { // 漆面剥落斑（透出底木暖色）
+        g.fillStyle = `rgba(96,78,52,${0.18 + dr() * 0.25})`;
+        const px = dr() * s;
+        const py = dr() * s;
+        g.beginPath();
+        g.ellipse(px, py, 2 + dr() * 5, 1.5 + dr() * 3, dr() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+      // 内嵌门芯板：一圈压暗 + 上下缘一线挑亮（倒角高光）
+      g.strokeStyle = 'rgba(6,9,8,0.85)';
+      g.lineWidth = 5;
+      g.strokeRect(s * 0.2, s * 0.14, s * 0.6, s * 0.72);
+      g.strokeStyle = 'rgba(150,160,148,0.22)';
+      g.lineWidth = 2;
+      g.strokeRect(s * 0.24, s * 0.18, s * 0.52, s * 0.64);
+      // 门脚一带踢痕
+      g.fillStyle = 'rgba(8,10,9,0.5)';
+      g.fillRect(0, s * 0.9, s, s * 0.1);
+    });
+    const doorWood = new THREE.MeshStandardMaterial({
+      map: doorTex, roughness: 0.82, bumpMap: doorTex, bumpScale: 0.05
+    });
+    const frameWood = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [26, 20, 14], planks: 1, size: 128, seed: 43 }), roughness: 0.85
+    });
+    // 门框（双立梃 + 门楣 + 门槛）——单独一 mesh，让门板在框里退后一线
+    const jambGeo = new THREE.BoxGeometry(0.055, 0.53, 0.06);
+    doorGrp.add(mergedMesh([
+      xform(jambGeo, -0.2, 0.265, 0.012),
+      xform(jambGeo, 0.2, 0.265, 0.012),
+      xform(new THREE.BoxGeometry(0.455, 0.055, 0.06), 0, 0.5575, 0.012),
+      xform(new THREE.BoxGeometry(0.455, 0.03, 0.075), 0, 0.015, 0.012)
+    ], frameWood));
+    // 门板
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.475, 0.028), doorWood);
+    panel.position.set(0, 0.2675, 0.008);
+    doorGrp.add(panel);
+    // 黄铜件（静态）：锁眼面盘 + 锁眼 + 搭扣 + 挂锁——「上锁」一眼读出
+    const brassMat = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x6b5232, roughness: 0.42, metalness: 0.85
+    });
+    doorGrp.add(mergedMesh([
+      // 锁眼面盘（把手正下方）
+      xform(new THREE.CylinderGeometry(0.02, 0.02, 0.006, 12), 0.115, 0.185, 0.024, Math.PI / 2, 0, 0),
+      // 搭扣座 + 挂锁体 + 锁梁（门缝左侧，锁着框与板）
+      xform(new THREE.BoxGeometry(0.05, 0.022, 0.01), -0.165, 0.3, 0.026),
+      xform(new THREE.BoxGeometry(0.036, 0.046, 0.016), -0.165, 0.245, 0.03),
+      xform(new THREE.TorusGeometry(0.017, 0.005, 6, 10, Math.PI), -0.165, 0.272, 0.03)
+    ], brassMat));
+    // 锁眼本体（一粒黑：圆 + 下坠槽）
+    doorGrp.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.006, 0.006, 0.004, 8), 0.115, 0.189, 0.0265, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.005, 0.014, 0.004), 0.115, 0.179, 0.0265)
+    ], new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.6 })));
+    // 把手：小黄铜下压杆（会转的那一件）
+    const lever = new THREE.Group();
+    lever.position.set(0.115, 0.24, 0.028);
+    lever.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.011, 0.013, 0.018, 10), 0, 0, 0.006, Math.PI / 2, 0, 0),
+      xform(new THREE.CapsuleGeometry(0.0075, 0.052, 4, 8), -0.032, 0, 0.016, 0, 0, Math.PI / 2)
+    ], brassMat));
+    doorGrp.add(lever);
+    // 门底一线暗缝（门后有空间的唯一证词）
+    const gap = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.32, 0.012),
+      new THREE.MeshBasicMaterial({ color: 0x000000 })
+    );
+    gap.position.set(0, 0.036, 0.023);
+    doorGrp.add(gap);
+    // 把手状态机：E → 1.3s 轻转半圈 → 停 0.8s → 12s 极缓爬回
+    const knobState = { t: -1 };
+    updaters.push((dt) => {
+      if (knobState.t < 0) return;
+      knobState.t += dt;
+      const u = knobState.t;
+      let a;
+      if (u < 1.3) a = (1 - Math.cos((u / 1.3) * Math.PI)) / 2;
+      else if (u < 2.1) a = 1;
+      else if (u < 14) a = 1 - (u - 2.1) / 11.9;
+      else { a = 0; knobState.t = -1; }
+      lever.rotation.z = Math.PI * a;
+    });
+    // 怠速：门后偶尔自己滴一声（每 80–140s，seeded；没人按它也在滴）
+    const dripRng = rng(97);
+    const dripState = { timer: 46 + dripRng() * 50 };
+    updaters.push((dt) => {
+      dripState.timer -= dt;
+      if (dripState.timer > 0) return;
+      dripState.timer = 80 + dripRng() * 60;
+      audio.sfxAt('deepdrip', spot.x, spot.z, 0.22, 2.2);
+    });
+    hotspots.add(panel, {
+      hint: 'E — 墙脚的小门',
+      onActivate: () => {
+        if (knobState.t >= 0 && knobState.t < 2.1) return;
+        knobState.t = 0;
+        audio.sfxAt('switch', spot.x, spot.z, 0.25, 2);
+        setTimeout(() => audio.sfxAt('deepdrip', spot.x, spot.z, 0.6, 2.2), 950);
+      }
+    });
+  }
+
   // 深水序列：大鱼群（冥想时才可见）
   const fishGroup = new THREE.Group();
   fishGroup.visible = false;

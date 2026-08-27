@@ -7,6 +7,7 @@
 // 分区之间由林间小径连接。全部原创程序化，无镜头复刻。
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quoteStand, quoteStandUpdater, velvetMaterial,
@@ -928,6 +929,66 @@ export function build(ctx) {
       ui.caption('不知道是谁的。还热。', 3600);
     }
   });
+  // ---------- v1.11 门禁 57：椅臂上的另一杯（不认重力的咖啡） ----------
+  // 扶手椅臂上还搁着一杯——桌上那杯还热，这杯从来不冒气。
+  // E → 杯身缓缓倾斜 30°，而**液面纹丝不动地跟着杯壁走**（它凝住了），
+  // 停一拍，再自己缓缓立回来 + 一声逆放式音（reversecup）。
+  // 杯体两材质合一 mesh（groups：瓷 + 咖啡面），碟静杯动。
+  {
+    const ARM_A = Math.PI - 1.06; // chairB 卷臂中段（迎小径入口的那只臂）
+    const armX = Math.sin(ARM_A) * 0.395;
+    const armZ = Math.cos(ARM_A) * 0.395;
+    const fcGrp = new THREE.Group();
+    fcGrp.position.set(armX, 0.598, armZ);
+    chairB.add(fcGrp);
+    const porcelain = new THREE.MeshStandardMaterial({
+      color: 0xe8e2d5, roughness: 0.28, side: THREE.DoubleSide
+    });
+    const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.075, 0.011, 14), porcelain);
+    saucer.position.y = 0.0055;
+    fcGrp.add(saucer);
+    // 杯枢轴设在杯底缘（倾斜时像沿杯沿一点起翘，而非绕杯心打转）
+    const cupPivot = new THREE.Group();
+    cupPivot.position.set(0.03, 0.011, 0);
+    fcGrp.add(cupPivot);
+    const cupParts = mergeGeometries([
+      xform(new THREE.CylinderGeometry(0.044, 0.036, 0.068, 14, 1, true), -0.03, 0.034, 0),
+      xform(new THREE.CircleGeometry(0.0365, 14), -0.03, 0.004, 0, -Math.PI / 2, 0, 0),
+      xform(new THREE.TorusGeometry(0.026, 0.0075, 6, 12), -0.082, 0.036, 0)
+    ], false);
+    // 凝固的咖啡面：亚光深棕圆片，贴在杯口下一点（跟杯走是全部戏眼）
+    const solidCoffee = xform(new THREE.CircleGeometry(0.0405, 14), -0.03, 0.052, 0, -Math.PI / 2, 0, 0);
+    const cupGeo = mergeGeometries([cupParts, solidCoffee], true);
+    const cup = new THREE.Mesh(cupGeo, [
+      porcelain,
+      new THREE.MeshStandardMaterial({ color: 0x140b06, roughness: 0.55 })
+    ]);
+    cupPivot.add(cup);
+    // 世界坐标（redRoom → world）：sfxAt 用
+    const fcWorld = new THREE.Vector3();
+    const fcState = { t: -1 };
+    updaters.push((dt) => {
+      if (fcState.t < 0) return;
+      fcState.t += dt;
+      const u = fcState.t;
+      let a;
+      if (u < 0.9) a = (1 - Math.cos(Math.min(1, u / 0.9) * Math.PI)) / 2; // 缓起
+      else if (u < 2.4) a = 1 + Math.sin((u - 0.9) * 11) * 0.012 * Math.exp(-(u - 0.9) * 2); // 定住微颤
+      else if (u < 3.8) a = (1 + Math.cos(Math.min(1, (u - 2.4) / 1.4) * Math.PI)) / 2; // 缓缓立回
+      else { a = 0; fcState.t = -1; }
+      cupPivot.rotation.z = -0.52 * a; // 30°——液面是杯的一部分，跟着走
+    });
+    hotspots.add(cup, {
+      hint: 'E — 椅臂上的咖啡',
+      onActivate: () => {
+        if (fcState.t >= 0) return;
+        fcState.t = 0;
+        fcGrp.getWorldPosition(fcWorld);
+        audio.sfxAt('reversecup', fcWorld.x, fcWorld.z, 0.55, 2.5);
+        ui.caption('这一杯不会洒。', 3600);
+      }
+    });
+  }
   // v1.9 抛光第 9 遍·幕后的怪谈：人在红房间里待着，每 55–100s
   // 有什么东西贴着帷幕外侧走过一段——布被从外面顶出一道人形的鼓，
   // 慢慢挪过去又平回去（同料绒布椭球从褶皱里长出来，抽象无面目）。
