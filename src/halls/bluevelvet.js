@@ -1790,6 +1790,13 @@ export function build(ctx) {
       xform(stoolLegGeo, JB_X + 0.09, 0.23, JB_Z - 0.07, 0, 0, -0.1),
       xform(stoolLegGeo, JB_X, 0.23, JB_Z + 0.1, -0.1, 0, 0)
     ], stoolWood));
+    // v1.11 P20 镜角布光：矮凳正上方一盏极暗的暖顶光（intensity 0.9、
+    // 半径 2.2m 只罩住凳与盒）——这个角落读得出「被布置过」：盒盖上
+    // 一线漆光、衬垫里那只耳形凹痕在暗蓝绒上有了读出来的机会。
+    // 光不指向镜子（暗玻仍旧是暗玻）。
+    const jbKey = new THREE.PointLight(0xffd9b0, 0.9, 2.2, 2);
+    jbKey.position.set(JB_X + 0.12, 1.7, JB_Z - 0.1);
+    group.add(jbKey);
     const jbGrp = new THREE.Group();
     const lacquer = new THREE.MeshPhysicalMaterial({
       map: woodTexture({ base: [16, 9, 8], planks: 1, size: 128, seed: 73 }),

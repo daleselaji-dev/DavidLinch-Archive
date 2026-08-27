@@ -48,6 +48,13 @@ describe('v1.11 门禁 57：七件彩蛋核心机制在源', () => {
     expect(SRC.bluevelvet).toContain("'latchsnap'");
   });
 
+  it('bluevelvet P20 镜角布光：暖顶光克制钉界（强度 ≤1、半径 ≤2.5m 只罩凳盒）', () => {
+    const m = /const jbKey = new THREE\.PointLight\(0xffd9b0, ([\d.]+), ([\d.]+), 2\)/.exec(SRC.bluevelvet);
+    expect(m).toBeTruthy();
+    expect(Number(m[1])).toBeLessThanOrEqual(1);
+    expect(Number(m[2])).toBeLessThanOrEqual(2.5);
+  });
+
   it('twinpeaks 椅臂凝固咖啡：双材质单 mesh（groups）+ 30° 倾斜 + reversecup', () => {
     expect(SRC.twinpeaks).toContain('mergeGeometries([cupParts, solidCoffee], true)');
     expect(SRC.twinpeaks).toContain('-0.52 * a');
