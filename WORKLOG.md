@@ -113,3 +113,17 @@
 | 2026-08-26 08:03 | 2026-08-26 08:11 | 阶段 8 | **Release 1.4.0**：版本 bump（package.json + src/main.js `__SV__.version`）；CHANGELOG v1.4.0 段（材质五通道/六遍抛光清单/122 交互/11 音色/预算 240）；README 特性与 PS5-tier 段换新、BUILD/TESTING 产物名 1.4.0；VM 无 wine → 按 BUILD.md 重装 wine64+wine32:i386（tmux 后台并行）；版本 bump 后三连复跑全绿（166 单测/静态冒烟/运行时冒烟）；`npm run dist:win` 双目标成功——Portable 100.0MB + Setup(NSIS) 100.2MB，`file` PE32 校验通过；SHA256SUMS.txt 重写（8a709a81…/dae05302…）；门禁 31 六项全勾 | commit `ca11f2e`（08:11:27Z） |
 
 **v1.4 时长合计：2026-08-26 00:08Z 开工 → 08:11Z 发布 commit ≈ 8 小时 03 分连续工作**（上表 30 段起止与 git commit 时钟逐条互证；发布后时间戳校对尾巴 commit 不计入）。
+---
+
+# WORKLOG — v1.6.0 制作时间记录（UTC）
+
+> 云端精修轮（基于最新 main = v1.5.0 干净基线）。四大目标：惊吓 v3 拐角即出+细节眼睛 /
+> 资产一体化（黑松/图书梯）/ 博物馆讲解零元叙事 / 冥想深潜 v2（Edith Finch 级）。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-27 07:2x | 2026-08-27 08:46 | 第一批 | 通读 QUALITY_GATES/WORKFLOW/相关厅源码，基线 187 单测+冒烟全绿后开分支；**穆赫兰道惊吓 v3**：五幕改 dt 节拍机（BEATS+scare.t，零 setTimeout 主链）、`nightmareFigure` 细节资产（不对称凸出反光眼/垂开暗口/凝视微颤）、脸下冷底光；**双峰黑松一体化**：`kit.pineTree` 干冠单几何+顶点色+双 LOD 实例化 346 棵 seeded 散布；**博物馆讲解系统**：DOCENT 进厅卡×7、`ui.docentNote` 物品旁白×21、名言漂浮层（QUOTES 扩 18）、studio 元叙事删除；narration/kit/eggs 单测组扩写 | commit `0584fe9`；单测+冒烟全绿 |
+| 2026-08-27 08:46 | 2026-08-27 09:34 | 第二批 | **冥想深潜 v2**：五幕 dt 序列（潜入/意念浮词/deepcall/dreamFish 献念/回响上画布），新英雄资产 `kit.dreamFish`（车削鱼身/背腹顶点色/鳞纹 map+bump/新月尾/发光侧线/珠光眼/触须/摆尾活体动画）、`MEDITATION_IDEAS`×8 随机抽三、IDEA_TINTS 回响变色、新合成音 deepcall/bubbles；惊吓砖墙「彩虹砖」修复（单色相亮度抖动）+ 红幕透缝修复（DoubleSide）；冒烟管线 `SV_EGG_SHOT=1` 彩蛋补拍 + capturePage 前 JS 往返防陈旧帧 | commit `06094e9`；彩蛋截屏核验 |
+| 2026-08-27 09:34 | 2026-08-27 09:46 | 第三批 | **悬停暖光材质克隆**（所有 Standard 材质生效、不污染共享材质）；**档案柜塔**新资产（4m 通高 120 屉黄铜拉手、三屉微开）+ 图书梯精修；旁白 UI closeAll 清场防串厅 | commit `6ed7a15`；200 单测全绿 |
+| 2026-08-27 09:46 | 2026-08-27 10:36 | 第四批 | 全厅 14 张截屏逐张目视复核揪出四处回归：① HOVER_TINT 常量缺失（twinpeaks 运行时错误）→ 补定义；② 双峰林地苔斑三通道随机在月光下读成「碎彩纸」→ 单色相亮度抖动（放大取证定位）；③ 深潜小鱼胶囊贴脸太糙 → dreamFish lite 档（省瞳孔/触须控预算，studio 网格 258→221 回到 240 内）+ 大鱼改从玩家视线方向现身 + fish/gift 同帧快进保护；④ 水下顶灯泡读成怪异蓝盘 → 下潜时房间暖灯沉暗（入水瞬间 0.25 + 缓动到 0.04）；冒烟首厅缓冲 5.5s→9s（本 VM 软渲染取证：10s 仍陈旧帧、17.5s 正常）；201 单测 | commit `eef8e3a` `ecf9a39`；三轮全厅冒烟全绿 |
+| 2026-08-27 10:36 | 2026-08-27 1x:xx | 发布 | 版本 bump 1.6.0（package.json 已先行 src/main.js）；CHANGELOG v1.6.0 段 / QUALITY_GATES 门禁 33–34 / TESTING v1.6 清单 / 本表；三连复跑；`npm run dist:win:portable` 便携版 exe + SHA256SUMS；PR | 本条 commit |

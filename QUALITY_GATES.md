@@ -7,7 +7,9 @@
 > **v1.3.0 新增门禁 19–24（讲解 v1.0 克制+零叙事剧透 / 交互密度 / PS4-tier 材质模型清单 /
 > 性能预算保持 / 音景抛光 / 1.3.0 重新打包）。**
 > **v1.4.0 新增门禁 25–31（讲解配额保持 / PS5-tier 画质 P1–P10 / 分厅重做清单 /
-> 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。未全绿不得交付。**
+> 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。**
+> **v1.6.0 新增门禁 33–34（惊吓 v3 拐角即出+细节眼睛 / 黑松一体化 / 博物馆讲解零元叙事 /
+> 冥想深潜 v2 / 悬停材质克隆 / 1.6.0 重新打包）。未全绿不得交付。**
 
 ## 门禁清单
 
@@ -400,6 +402,41 @@
 
 **验证方式**：`npm test` + `xvfb-run npx electron . --smoke`（triggerEggs 引爆
 corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
+
+### 33. v1.6 精修四项：惊吓 v3 / 一体黑松 / 博物馆讲解 / 深潜 v2（v1.6 新增）
+- [x] **穆赫兰道惊吓 v3**：五幕改 dt 驱动节拍机（`BEATS` + `scare.t`，主链零 setTimeout——
+      eggs.test.js 源码断言），拐角 zoneTrigger 即触发即现身；`nightmareFigure` 细节资产
+      （布纹蒙皮/佝偻脊线/垂膝双臂/**不对称凸出反光眼**+发光虹点/垂开暗口/凝视微颤）+
+      脸下冷底光仰照；彩蛋截屏核验（`SV_EGG_SHOT=1` 补拍：黑影贴脸、双眼可见）；
+      顺修剧场砖墙「彩虹砖」（单色相亮度抖动）与红幕透缝（DoubleSide+转向）
+- [x] **黑松一体化**：`kit.pineTree` 干+根盘+皮棱+枝桩+六层针叶冠合并单几何
+      （顶点色近黑冠芯→冷月光绿缘梢），英雄/远景双 LOD 实例化 346 棵、seeded 确定性散布、
+      逐棵 instanceColor 微差——**干冠不可分离**（kit.test.js 断言单 geometry）；
+      林地苔斑同修单色相（月光下无碎彩纸）
+- [x] **博物馆讲解（零元叙事）**：元叙事表述清零（narration.test.js 禁词扫描含「可以碰」）；
+      进厅讲解卡 `DOCENT` ×7（两行博物馆式背景，首访 12s）；物品旁白 `ui.docentNote` ×21
+      （每厅 ≥3、8–28 字，单测审计 + 会话内去重）；名言漂浮层（QUOTES 18 条 ≤200 字合规，
+      50–85s 一淌）；切厅/开面板全清场防串厅
+- [x] **冥想深潜 v2（Edith Finch 级）**：五幕 dt 序列（潜入/意念浮词/deepcall 呼唤/
+      dreamFish 献念/回响上画布）；`kit.dreamFish` 英雄资产（车削鱼身/背腹顶点色/鳞纹
+      map+bump/新月尾/发光侧线/珠光眼/触须/摆尾活体动画），**从玩家视线方向现身**；
+      小鱼群 dreamFish lite 档同口径；下潜时房间暖灯沉暗（水下无怪异亮盘）；
+      回响：画架用色跟随抽中的念头（IDEA_TINTS）；新音色 deepcall/bubbles（零采样）
+- [x] **交互反馈**：悬停暖光按 mesh 克隆材质叠加呼吸（所有 Standard 材质生效、
+      不污染共享材质、离开即还原）
+- [x] 预算保持 240/240k/40 全绿（v1.6 实测峰值：lobby 233 mesh / twinpeaks 162.5k tris /
+      archive 27 灯；studio 增鱼群后 221 mesh 仍达标）；单测 187→**201**
+
+**验证方式**：`npm test`（201）+ `xvfb-run npx electron . --smoke`（SV_EGG_SHOT=1
+七厅普通+彩蛋 14 张截屏逐张目视复核：惊吓贴脸有眼 / 松林干冠一体无彩纸 /
+深潜大鱼贴近有光 / 讲解卡在场）。
+
+### 34. Release 1.6.0（v1.6 新增）
+- [x] `npm test`（201）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.6.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（README/CHANGELOG/TESTING/本文件/WORKLOG）同步 1.6.0
 
 ---
 
