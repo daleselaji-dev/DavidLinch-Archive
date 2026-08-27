@@ -280,8 +280,17 @@ function createWindow() {
         // SV_SHOT_DIR: 可选，装载后为每厅截屏（视觉自检用）
         // SV_SHOT_DELAY: 截屏前等待毫秒数（软件渲染合成器有延迟时调大）
         // SV_SHOT_POS: 可选 "x,z,yaw" —— 截屏前瞬移（复核厅内分区）
+        // SV_SHOT_LOW: 可选 "1" —— 截屏前切低画质档（低档退化视觉点验）
         // 顺序：交互密度检查 → （瞬移 + 截屏）→ 全量激活 + 彩蛋 → 下一厅
         const shotDir = process.env.SV_SHOT_DIR;
+        if (shotDir && process.env.SV_SHOT_LOW === '1') {
+          win.webContents.executeJavaScript(
+            "window.__SV__.engine.setQuality('low')", true
+          ).then(
+            () => console.log(`[smoke] 低画质档已切换 ${hall}`),
+            () => {}
+          );
+        }
         // 首厅截屏额外加等：开场淡入 + 空闲预取 6 个分包在软渲染下会占满
         // 合成器数秒，3.5s 默认延迟会拍到全黑首帧（后续厅无预取压力不受影响）
         const firstShotExtra = shotCount === 0 ? 5500 : 0;

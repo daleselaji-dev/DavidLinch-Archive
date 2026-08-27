@@ -27,8 +27,10 @@ export const meta = {
     saturation: 1.02, tint: 0xffeeda, fogColor: 0x0d0806, fogDensity: 0.042,
     bg: 0x070403, exposure: 1.05, bloom: 0.75,
     // v1.4 P4/P5：琥珀暗部 + 暖木高光（一个人深夜工作的房间）
+    // v1.10 C5 复核：lift 减半、红 gamma 归 1——黑位抬得太暖把木作对比
+    // 压平成奶面（默认机位截屏对比后定档），暖意留给 gain/tint 承担
     halation: 0.14,
-    grade: { lift: [0.014, 0.008, 0.002], gamma: [1.02, 1.0, 0.97], gain: [1.06, 1.01, 0.94] },
+    grade: { lift: [0.007, 0.004, 0.001], gamma: [1.0, 1.0, 0.97], gain: [1.06, 1.01, 0.94] },
     // v1.9 B1：房间的呼吸最浅最慢（44s，±7%——一个人夜里的呼吸）
     fogPulse: { period: 44, depth: 0.07 }
   }
