@@ -13,7 +13,7 @@ import {
   zoneTrigger, zonesBounds, pineGeometryMaterial,
   roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
-  chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
+  chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing, contactShadows
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
@@ -176,6 +176,60 @@ export function build(ctx) {
   const moonLight = new THREE.DirectionalLight(0x8ea6c9, 0.55);
   moonLight.position.set(-30, 50, -60);
   group.add(moonLight);
+
+  // v1.10 抛光 P10「远处的光」：偶尔一道流星——每 60–110s（seeded）
+  // 在随机方位斜划 0.9s 就没了。抬头的人才看得见；没人抬头它也划。
+  const meteorTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const grad = g.createLinearGradient(0, 0, s, 0);
+    grad.addColorStop(0, 'rgba(220,232,255,0)');
+    grad.addColorStop(0.72, 'rgba(220,232,255,0.7)');
+    grad.addColorStop(1, 'rgba(255,255,255,1)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const meteor = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.6, 0.1),
+    new THREE.MeshBasicMaterial({
+      map: meteorTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      depthWrite: false, fog: false, toneMapped: false, side: THREE.DoubleSide
+    })
+  );
+  meteor.visible = false;
+  group.add(meteor);
+  const metRng = rng(83);
+  const metState = { t: -1, next: 42, from: new THREE.Vector3(), dir: new THREE.Vector3() };
+  updaters.push((dt) => {
+    if (metState.t < 0) {
+      metState.next -= dt;
+      if (metState.next > 0) return;
+      const az = metRng() * Math.PI * 2;
+      const el = 0.55 + metRng() * 0.35;
+      metState.from.set(Math.cos(az) * Math.cos(el) * 120, Math.sin(el) * 120, Math.sin(az) * Math.cos(el) * 120);
+      const sgn = metRng() < 0.5 ? 1 : -1;
+      metState.dir.set(-Math.sin(az) * sgn * 16, -7 - metRng() * 5, Math.cos(az) * sgn * 16);
+      // 长轴沿运动方向、板面朝观察区（基向量一次算好）
+      const xA = metState.dir.clone().normalize();
+      const nA = metState.from.clone().normalize();
+      const yA = new THREE.Vector3().crossVectors(nA, xA).normalize();
+      const zA = new THREE.Vector3().crossVectors(xA, yA);
+      meteor.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA));
+      meteor.visible = true;
+      metState.t = 0;
+      return;
+    }
+    metState.t += dt;
+    const u = metState.t / 0.9;
+    if (u >= 1) {
+      metState.t = -1;
+      metState.next = 60 + metRng() * 50;
+      meteor.visible = false;
+      meteor.material.opacity = 0;
+      return;
+    }
+    meteor.position.copy(metState.from).addScaledVector(metState.dir, u);
+    meteor.material.opacity = Math.sin(u * Math.PI) * 0.5;
+  });
 
   // ---------- 远景三层（v1.4 P8）：松林(中景) → 山脊剪影两环 → 双峰主峰 ----------
   const ridgeFar = ridgeRing(122, { baseH: 9, amp: 26, segs: 72, color: 0x020409, seed: 71 });
@@ -1014,6 +1068,156 @@ export function build(ctx) {
   booth2.position.set(26.5, 0, 1.1);
   booth2.rotation.y = -Math.PI / 2;
   town.add(booth2);
+
+  // ============================================================
+  // v1.10 二级细节·twinpeaks 件 2：路边信箱排——夜街西口三只
+  // 乡邮信箱（拱顶铁皮箱 + 木桩，高矮歪斜各不同）：中间那只
+  // 门敞着、里面探出一封信；右边那只小旗立着。E（中箱）→ 门啪
+  // 一声合上又自己弹开（永远关不上），半拍后邻箱小旗自己放平。
+  // ============================================================
+  {
+    const mbRng = rng(67);
+    const postMat = new THREE.MeshStandardMaterial({
+      map: woodTexture({ base: [30, 20, 12], planks: 1, vertical: true, size: 128 }), roughness: 0.85
+    });
+    const galv = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 118, 40), color: 0x9aa0a4, roughness: 0.5, metalness: 0.75
+    });
+    const galvGreen = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 100, 36), color: 0x39544a, roughness: 0.62, metalness: 0.5
+    });
+    const galvRust = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 96, 44), color: 0x6e4a34, roughness: 0.78, metalness: 0.42
+    });
+    const mkBoxGeos = (mat) => [
+      // 箱身下半 + 拱顶（整圆柱下半埋进箱身）+ 后封板
+      new THREE.BoxGeometry(0.17, 0.13, 0.46),
+      xform(new THREE.CylinderGeometry(0.085, 0.085, 0.46, 12), 0, 0.065, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.16, 0.2, 0.015), 0, 0.02, -0.225)
+    ];
+    const row = new THREE.Group();
+    const boxes = [];
+    const specs = [
+      { x: 0, h: 1.06, tilt: 0.03, mat: galvGreen, open: false, flag: false },
+      { x: 0.5, h: 1.12, tilt: -0.05, mat: galv, open: true, flag: false },
+      { x: 1.0, h: 1.0, tilt: 0.07, mat: galvRust, open: false, flag: true }
+    ];
+    for (const sp of specs) {
+      const g = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, sp.h, 0.09), postMat);
+      post.position.y = sp.h / 2;
+      g.add(post);
+      const body = new THREE.Group();
+      body.add(mergedMesh(mkBoxGeos(), sp.mat));
+      body.position.y = sp.h + 0.075;
+      g.add(body);
+      // 门（拱形前板，枢轴在下缘）
+      const doorPivot = new THREE.Group();
+      doorPivot.position.set(0, sp.h + 0.01, 0.23);
+      doorPivot.add(mergedMesh([
+        xform(new THREE.BoxGeometry(0.155, 0.125, 0.014), 0, 0.065, 0),
+        xform(new THREE.CylinderGeometry(0.078, 0.078, 0.014, 12), 0, 0.13, 0, Math.PI / 2, 0, 0),
+        // 门鼻小舌
+        xform(new THREE.BoxGeometry(0.03, 0.03, 0.02), 0, 0.19, 0.004)
+      ], sp.mat));
+      doorPivot.rotation.x = sp.open ? 1.65 : 0.04;
+      g.add(doorPivot);
+      // 小旗（枢轴在箱侧）
+      const flagPivot = new THREE.Group();
+      flagPivot.position.set(0.095, sp.h + 0.1, 0.12);
+      flagPivot.add(mergedMesh([
+        xform(new THREE.BoxGeometry(0.012, 0.14, 0.02), 0, 0.07, 0),
+        xform(new THREE.BoxGeometry(0.012, 0.06, 0.09), 0, 0.16, -0.03)
+      ], new THREE.MeshStandardMaterial({ color: 0x8f0e1e, roughness: 0.6 })));
+      flagPivot.rotation.x = sp.flag ? 0 : Math.PI / 2 - 0.12;
+      g.add(flagPivot);
+      // 敞着的那只：里面探出一封信（白纸微斜）
+      if (sp.open) {
+        const letter = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.09),
+          new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.7, side: THREE.DoubleSide }));
+        letter.position.set(0.01, sp.h + 0.08, 0.19);
+        letter.rotation.set(-0.5 + 0.18, 0.06, 0.05);
+        g.add(letter);
+        // v1.10 抛光 P9 微动：信角随夜风极缓翕动（0.5Hz 主拍 +
+        // 1.7Hz 碎颤——信在等风，风在等人）
+        updaters.push((dt, t) => {
+          letter.rotation.z = 0.05 + Math.sin(t * 0.5) * 0.05 + Math.sin(t * 1.7 + 1.2) * 0.018;
+        });
+      }
+      g.position.set(17.4 + (mbRng() - 0.5) * 0.06, 0, -0.6 - sp.x);
+      g.rotation.y = Math.PI / 2 + sp.tilt; // 门朝街（+x）
+      row.add(g);
+      boxes.push({ g, doorPivot, flagPivot, sp });
+    }
+    town.add(row);
+    // v1.10 抛光 P6：三根木桩脚下各一小摊接触阴影（月光下的草皮
+    // 太平，桩子像插进图里——给它们各自压一摊影子）
+    town.add(contactShadows([
+      { x: 17.4, z: -0.6, r: 0.16 },
+      { x: 17.4, z: -1.1, r: 0.16 },
+      { x: 17.4, z: -1.6, r: 0.16 }
+    ], 0.36));
+    // v1.10 抛光 P4：桩脚草里两封没人捡的信——一封压着另一封的角，
+    // 邮票格空着、地址栏只有横线（寄出它们的那年没有名字）。
+    const envMat = new THREE.MeshStandardMaterial({
+      map: canvasTexture(64, (g, s) => {
+        g.fillStyle = '#d8d1bd';
+        g.fillRect(0, 0, s, s);
+        g.strokeStyle = 'rgba(120,110,88,0.8)';
+        g.lineWidth = 1.5;
+        g.strokeRect(s * 0.68, s * 0.08, s * 0.24, s * 0.28);
+        for (const yy of [0.55, 0.7, 0.85]) {
+          g.beginPath();
+          g.moveTo(s * 0.14, s * yy);
+          g.lineTo(s * 0.62, s * yy);
+          g.stroke();
+        }
+      }), roughness: 0.85
+    });
+    for (const [ex, ez, spin, lift] of [[17.66, -0.82, 0.5, 0.008], [17.58, -0.9, -0.85, 0.014]]) {
+      const env = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.1), envMat);
+      env.rotation.set(-Math.PI / 2, 0, spin);
+      env.position.set(ex, lift, ez);
+      town.add(env);
+    }
+    // 中箱门永远关不上：E → 啪合 → 弹开两跳回到敞开；邻箱旗半拍后放平（连锁）
+    const mbState = { t: -1, once: false, flagDropped: false };
+    const midBox = boxes[1];
+    const flagBox = boxes[2];
+    updaters.push((dt) => {
+      if (mbState.t < 0) return;
+      mbState.t += dt;
+      const u = mbState.t;
+      if (u > 2.4) { mbState.t = -1; midBox.doorPivot.rotation.x = 1.65; return; }
+      let ang;
+      if (u < 0.18) ang = 1.65 - (u / 0.18) * 1.61;          // 啪一声合上
+      else if (u < 0.5) ang = 0.04;                           // 停一拍（像是关住了）
+      else if (u < 0.9) ang = 0.04 + ((u - 0.5) / 0.4) * 1.61; // 自己弹开
+      else ang = 1.65 + Math.sin((u - 0.9) * 9) * 0.14 * Math.exp(-(u - 0.9) * 3); // 尾端两跳
+      midBox.doorPivot.rotation.x = ang;
+      // 邻箱小旗：0.7s 后自己放平（只放一次）
+      if (u >= 0.7 && !mbState.flagDropped) {
+        mbState.flagDropped = true;
+        audio.sfxAt('creak', 17.4, -1.6, 0.3);
+      }
+      if (mbState.flagDropped) {
+        const target = Math.PI / 2 - 0.12;
+        flagBox.flagPivot.rotation.x += (target - flagBox.flagPivot.rotation.x) * Math.min(1, dt * 6);
+      }
+    });
+    hotspots.add(midBox.doorPivot.children[0], {
+      hint: 'E — 敞着的信箱',
+      onActivate: () => {
+        if (mbState.t >= 0) return;
+        mbState.t = 0;
+        audio.sfxAt('springdoor', 17.4, -1.1, 0.7);
+        if (!mbState.once) {
+          mbState.once = true;
+          ui.caption('门关不上。信也没人取。', 3600);
+        }
+      }
+    });
+  }
   const ringState = { now: 0, nextRing: 24, ringUntil: -1, lift: -1 };
   updaters.push((dt, t) => {
     ringState.now = t;
@@ -1360,10 +1564,32 @@ export function build(ctx) {
     new THREE.MeshPhysicalMaterial({ color: 0x2a1408, transparent: true, opacity: 0.7, roughness: 0.1, envMapIntensity: 1.4 }));
   pot.position.set(30.7, 1.16, -6.4);
   dinerInner.add(potBase, pot);
+  // v1.10 抛光 P19「咖啡永远是热的」：壶口常年一缕蒸汽（几乎看不见），
+  // 每 40–70s（seeded）保温座回滴一声 drip、蒸汽旺一口再落回去。
+  // 没人续杯它也一直热着——这家店在等谁下夜班。
+  const potSteam = smokeLayer(3, { x: 0.05, z: 0.05 }, {
+    opacity: 0.11, size: 0.15, yBase: 0, ySpread: 0.36, color: 0xd8d0c4
+  });
+  potSteam.position.set(30.7, 1.28, -6.4);
+  dinerInner.add(potSteam);
+  updaters.push(potSteam.userData.update);
+  const potRng = rng(89);
+  const potState = { next: 26 + potRng() * 30, puff: 0 };
+  updaters.push((dt) => {
+    potState.next -= dt;
+    if (potState.next <= 0) {
+      potState.next = 40 + potRng() * 30;
+      potState.puff = 1;
+      audio.sfxAt('drip', 30.7, -6.4, 0.3, 4);
+    }
+    if (potState.puff > 0) potState.puff = Math.max(0, potState.puff - dt * 0.45);
+    potSteam.material.opacity = 0.11 * (1 + potState.puff * 0.9);
+  });
   hotspots.add(pot, {
     hint: 'E — 咖啡壶（续杯不要钱）',
     onActivate: () => {
       audio.sfx('sip');
+      potState.puff = 1; // 连锁：倒过咖啡，蒸汽旺一口
       ui.caption('续了一杯。', 2600);
     }
   });
@@ -1548,6 +1774,121 @@ export function build(ctx) {
       ui.caption('靠窗的位置一直空着。', 3200);
     }
   });
+
+  // ============================================================
+  // v1.10 二级细节·twinpeaks 件 1：卡座壁挂点唱盒——窗边墙上的
+  // 铬壳翻牌选曲机（拱顶琥珀光带 + 曲目牌窗 + 翻页钮 + 投币口）。
+  // E → 投币 + 曲目牌翻过去一页 + 光带亮一口——选中的那首不存在。
+  // ============================================================
+  {
+    const wb = new THREE.Group();
+    // 铬壳：主体圆角 + 拱顶
+    wb.add(roundedBoxMesh(0.34, 0.26, 0.11, 0.02, M.chrome));
+    // 拱顶：整圆柱（轴向进深），下半埋进壳体——省掉半圆片的朝向陷阱
+    const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.1, 18), M.chrome);
+    dome.rotation.x = Math.PI / 2;
+    dome.position.y = 0.13;
+    wb.add(dome);
+    // 拱顶琥珀光带（自发光，不加真光源）
+    const amberArc = new THREE.Mesh(
+      new THREE.TorusGeometry(0.145, 0.018, 8, 14, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x201408, emissive: 0xffb25e, emissiveIntensity: 1.6 })
+    );
+    amberArc.position.set(0, 0.13, 0.045);
+    wb.add(amberArc);
+    // 曲目牌窗：格线卡片（canvas），中缝一页可翻
+    const cardTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#efe8d8';
+      g.fillRect(0, 0, s, s);
+      g.strokeStyle = '#8a8272';
+      g.lineWidth = 2;
+      for (let i = 1; i < 6; i++) {
+        g.beginPath();
+        g.moveTo(10, i * (s / 6));
+        g.lineTo(s - 10, i * (s / 6));
+        g.stroke();
+      }
+      // 每行一段「曲名」示意横杠（不写真曲名——原创零版权）
+      g.fillStyle = '#4a4438';
+      const sr = rng(58);
+      for (let i = 0; i < 6; i++) {
+        g.fillRect(16, i * (s / 6) + 8, 30 + sr() * 55, 4);
+        g.fillRect(s - 34, i * (s / 6) + 8, 18, 4);
+      }
+    });
+    const cardWin = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.15),
+      new THREE.MeshStandardMaterial({ map: cardTex, roughness: 0.6 }));
+    cardWin.position.set(0, 0.015, 0.057);
+    wb.add(cardWin);
+    // 可翻的那页（枢轴在顶缘）
+    const flipPivot = new THREE.Group();
+    flipPivot.position.set(0, 0.09, 0.06);
+    const flipPage = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.13),
+      new THREE.MeshStandardMaterial({ map: cardTex, roughness: 0.6, side: THREE.DoubleSide }));
+    flipPage.position.y = -0.065;
+    flipPivot.add(flipPage);
+    wb.add(flipPivot);
+    // 双铬钮 + 投币口板
+    wb.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.02, 0.024, 0.03, 10), -0.11, -0.09, 0.06, Math.PI / 2, 0, 0),
+      xform(new THREE.CylinderGeometry(0.02, 0.024, 0.03, 10), 0.11, -0.09, 0.06, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.06, 0.035, 0.012), 0, -0.09, 0.058),
+      xform(new THREE.BoxGeometry(0.008, 0.022, 0.014), 0, -0.09, 0.062)
+    ], M.brass));
+    // v1.10 抛光 P4：找零口——壳底一只小找零杯（底板+前唇+双侧板，
+    // 后壁借壳体），里面立着一枚没人拿的镍币（面朝外、往后靠着）。
+    // 找零一直在，投币的人没再回来。
+    wb.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.085, 0.012, 0.042), 0, -0.148, 0.044),
+      xform(new THREE.BoxGeometry(0.085, 0.03, 0.008), 0, -0.132, 0.062),
+      xform(new THREE.BoxGeometry(0.008, 0.03, 0.038), -0.0435, -0.132, 0.044),
+      xform(new THREE.BoxGeometry(0.008, 0.03, 0.038), 0.0435, -0.132, 0.044)
+    ], M.chrome));
+    const nickel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.016, 0.016, 0.0035, 14),
+      new THREE.MeshStandardMaterial({
+        map: brushedMetalTexture(64, 40, 18), color: 0xb9bcc0, roughness: 0.35, metalness: 0.9
+      })
+    );
+    nickel.rotation.x = Math.PI / 2 - 0.18;
+    nickel.position.set(0.014, -0.128, 0.05);
+    wb.add(nickel);
+    // 挂在窗右侧的墙面（高背旁、坐着伸手够得到的高度）
+    wb.position.set(29.7, 1.35, -3.47);
+    wb.rotation.y = Math.PI;
+    dinerInner.add(wb);
+    const wbState = { t: -1, once: false };
+    updaters.push((dt) => {
+      if (wbState.t < 0) return;
+      wbState.t += dt;
+      const u = wbState.t;
+      if (u > 2.6) {
+        wbState.t = -1;
+        flipPivot.rotation.x = 0;
+        amberArc.material.emissiveIntensity = 1.6;
+        return;
+      }
+      // 翻页：0.5s 蓄力慢抬 → 摔过去 → 尾端两跳
+      const flip = u < 0.5 ? (u / 0.5) * 0.5
+        : u < 0.75 ? 0.5 + ((u - 0.5) / 0.25) * (Math.PI - 0.5)
+        : Math.PI + Math.sin((u - 0.75) * 16) * 0.12 * Math.exp(-(u - 0.75) * 4);
+      flipPivot.rotation.x = -flip;
+      amberArc.material.emissiveIntensity = 1.6 + Math.sin(Math.min(u / 2.6, 1) * Math.PI) * 2.2;
+    });
+    hotspots.add(cardWin, {
+      hint: 'E — 点唱盒',
+      onActivate: () => {
+        if (wbState.t >= 0) return;
+        wbState.t = 0;
+        audio.sfxAt('coin', 29.7, -3.47, 0.5);
+        setTimeout(() => audio.sfxAt('wallbox', 29.7, -3.47, 0.8), 200);
+        if (!wbState.once) {
+          wbState.once = true;
+          ui.caption('B7。歌单上没有这首歌。', 3600);
+        }
+      }
+    });
+  }
 
   // 吊灯 ×2
   for (const z of [-9.5, -6.1]) {
@@ -1910,13 +2251,24 @@ export function build(ctx) {
     group.add(owl);
     owls.push({ owl, wingL, wingR, phase: i * 3.1, r: 26 + i * 9, h: 17 + i * 6, speed: 0.09 + i * 0.03 });
   }
+  // v1.10 抛光 P13「远处的声」：环飞的剪影偶尔叫两声——声源挂在
+  // 它此刻的方位上（视觉与声第一次对上）。每 70–120s（seeded），
+  // 两只错开各自的钟。The owls are not what they seem.
+  const owlRng = rng(97);
+  const owlCall = owls.map((_, i) => ({ next: 34 + owlRng() * 40 + i * 26 }));
   updaters.push((dt, t) => {
-    for (const o of owls) {
+    for (let i = 0; i < owls.length; i++) {
+      const o = owls[i];
       const a = t * o.speed + o.phase;
       o.owl.position.set(Math.cos(a) * o.r, o.h + Math.sin(t * 0.5 + o.phase) * 1.6, Math.sin(a) * o.r);
       o.owl.rotation.y = -a - Math.PI / 2;
       o.wingL.rotation.z = Math.sin(t * 5 + o.phase) * 0.5;
       o.wingR.rotation.z = -Math.sin(t * 5 + o.phase) * 0.5;
+      owlCall[i].next -= dt;
+      if (owlCall[i].next <= 0) {
+        owlCall[i].next = 70 + owlRng() * 50;
+        audio.sfxAt('owl', o.owl.position.x, o.owl.position.z, 1.0, 12);
+      }
     }
   });
 

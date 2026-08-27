@@ -698,6 +698,71 @@ DOCENT 配套）。✅ 全绿。
 
 ---
 
+### 51. 画质 v1.10 —— 第 0 拍 / 尘埃流 / 呼吸全馆化 / 湿反射（v1.10 新增）
+- [x] **C1 开幕点灯序列 v2「第 0 拍」**：黑场里碑前长明灯先独亮（一粒火
+      先醒），0.9s 后吊灯错拍跟上；收口「尘埃醒来」（光尘层透明度 0→常值
+      缓升）——模块级只演一次、openGate 乘法闸与颤动/blackout 互不干扰保持
+      ▸ 阶段 1 落地（commit `1ba29db`）；P24 SV_OPEN_SHOT 连拍取证推进有据
+- [x] **C2 体积光锥尘埃流**：lightCone 系加程序化竖向尘埃条纹纹理滚动
+      （缓慢下沉 + 随 breath 微呼吸），三处英雄光锥（大厅纪念台/蓝丝绒舞台/
+      穆赫兰道剧场聚光）；低档自动退素色锥 ▸ kit.test 尘埃流审计入测
+- [x] **C3 尘埃呼吸全馆化**：archive/eraserhead/bluevelvet/studio 四厅粒子层
+      接 `engine.breath`（只改 opacity 零带宽），与 v1.9 三厅同一相位体系
+      ▸ 七厅光尘/雾/烟全部随呼吸起伏（阶段 1 ③）
+- [x] **C4 湿润反射**：mulholland 巷口积水洼（暗玻湿面 + ILLUSIÓN 霓虹倒影
+      微漾，顶点级动画）——拐角惊吓区氛围加厚，触发逻辑零改动
+      ▸ 三轮调参截屏定稿；P8 在册说明纯场景件不设热点
+- [x] **C5 电影分级复核**：逐厅默认机位截屏对比微调，发现回归先修再继续
+      ▸ P12/P22 两轮七厅终审 + studio「奶感」分级修正（lift/gamma 回拉）
+- [x] **C6 低档回退**：以上新效果低档保留或自动降强度，零新增每像素带宽；
+      自动降档（5s@<32fps）与 Q 锁定保持 ▸ P1/P11/P21 三轮低档点验入册
+
+**验证方式**：截屏对比 + 源码审读 + `--smoke` 全绿。
+
+### 52. 逐厅英雄资产再增件 + 交互 ≥146（v1.10 新增）
+- [x] PRODUCTION_PLAN §2 清单每厅 ≥2 件新增/重做（绞盘/白花、点唱盒/信箱排、
+      歌单/蒙布镜、积水洼/呼叫铃、转椅/行李箱、更衣柜/接水桶、
+      阅读器/索引灯箱——终版 14 件入册）▸ P27 逐件近景终审七图成画
+- [x] 全馆非导航交互 ≥146（**普查 156**，v1.9 143 → +13）；新交互 13 件全部
+      ≥2 通道反馈（P8 v110-interactions.test 45 用例逐件断言）、字幕 ≤22 字
+      零剧透（P16 全量扫描门禁）；本轮新连锁 5 条入册
+- [x] INTERACTIVE_MIN 重锁终版普查 -1（17/28/22/18/20/20/24）；activateAll
+      七厅 156 全量激活无异常
+- [x] 既有彩蛋/通路/两重惊吓不回退（P7 四连 + P20 三连专项：拐角惊吓自然
+      触发 7/7；cornerscare/turnscare/mulholland-path 单测不放宽）
+- [x] 性能预算保持 240/240k/40 硬断言全绿；逐厅终版实测入 PRODUCTION_PLAN
+      §5.1（峰值 237/102.3k/29，预算未上调）
+
+**验证方式**：`xvfb-run npx electron . --smoke` 逐厅统计全绿 + 截屏复核 + 普查表。
+
+### 53. 音景 v1.10 —— 新合成音色 ≥3 + 零采样（v1.10 新增）
+- [x] 新合成音色 ≥3 种（**终版 10 种**：winch/wallbox/lockerclang/waterlap/
+      callbell/latchsnap 六种交互音色 + pipeknock/sirenfar/drawerfar/liftbell
+      四种远声）——全部与新交互/稀疏事件配套接线、sfxAt 位置化；
+      callbell 两短一长包络与铃锤动画同拍入测
+- [x] audio.test.js 音色审计扩展（v1.10 组 +8、P13 远声组 +8、P26 混音纪律
+      组 +4：音量天花板 1.0 零越界/far 族必位置化/满格裸调用钉界）
+- [x] 零采样扫描保持全绿（compliance：src/ 与 electron/ 零图像/音频/视频文件）
+
+**验证方式**：`npm test` audio 组 + 冒烟 activateAll 不抛错。
+
+### 54. Release 1.10.0（v1.10 新增）
+- [x] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
+      三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）
+      ▸ 348 单测 / 构建冒烟 5/5 / 运行时冒烟 EXIT=0（与 exe 同源 dist）；
+      本轮惊吓自然触发累计 13/13
+- [x] WORKLOG v1.10 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）
+      ▸ 22:57–06:2x 逐段入册，合计 ≥8h（P1–P33 共 33 遍抛光）
+- [x] 版本 bump 1.10.0（package.json + `__SV__.version` 一致，dist 产物内核对）；
+      CHANGELOG v1.10.0（说明取 1.10 而非 2.0 的理由）▸ 三处 1.10.0 grep 核对
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` + Setup NSIS 双目标
+      （wine 交叉打包；`file` PE32 校验双过）+ `SHA256SUMS.txt` 重写
+      （87787ee5… / 0080fae8…）；旧版 1.9.0 exe 从本分支移除防混淆
+- [x] `DOWNLOAD.md` 提供 raw 下载直链并醒目标注「请下本轮 Portable-1.10.0」
+- [x] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.10.0
+
+---
+
 ## 补充说明：关于「PS5 级别」
 v1.2 曾以门禁 17 落地第一版清单；v1.3 以门禁 21 升级为 PS4-tier（三通道 PBR/
 Sobel 法线/各向异性）；**v1.4 以门禁 26 的 P1–P10 定义 PS5-tier**（五通道 PBR/

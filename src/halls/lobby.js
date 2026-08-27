@@ -17,7 +17,7 @@ import {
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quoteStand, quoteStandUpdater, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat, marbleMat, rng, canvasTexture
+  chevronMat, woodMat, marbleMat, rng, canvasTexture, noiseCanvasTexture, contactShadows
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -53,9 +53,10 @@ export function build(ctx) {
   const group = new THREE.Group();
   const updaters = [];
   // 开幕点灯门（各灯组的乘法闸）：首次进馆从黑里逐组升起
+  // v1.10 C1：+flame（第 0 拍长明灯闸）+dust（收口「尘埃醒来」闸）
   const openGate = openingPlayed
-    ? { bulb: [1, 1, 1, 1, 1, 1], chand: 1, amb: 1 }
-    : { bulb: [0, 0, 0, 0, 0, 0], chand: 0, amb: 0.22 };
+    ? { bulb: [1, 1, 1, 1, 1, 1], chand: 1, amb: 1, flame: 1, dust: 1 }
+    : { bulb: [0, 0, 0, 0, 0, 0], chand: 0, amb: 0.22, flame: 0, dust: 0 };
   const opening = { t: openingPlayed ? -1 : 0 };
   openingPlayed = true;
 
@@ -218,10 +219,12 @@ export function build(ctx) {
   daisTrim.position.y = 0.24;
   group.add(daisTrim);
 
-  // 双层体积光锥（v1.4 P7：内芯亮 + 外晕柔，跟随调光档）
-  const cone = lightCone2(0.7, 3.1, 7.6, 0xf2e9dc, 0.05);
+  // 双层体积光锥（v1.4 P7：内芯亮 + 外晕柔，跟随调光档；
+  // v1.10 C2：加尘埃流——灰在光柱里落，随呼吸微涨落，低档退素色）
+  const cone = lightCone2(0.7, 3.1, 7.6, 0xf2e9dc, 0.05, { dust: true });
   cone.position.y = 4.2;
   group.add(cone);
+  updaters.push((dt, t) => cone.userData.updateDust(dt, t, engine.breath, engine.quality === 'high'));
 
   // 中央纪念碑 v3「一道光缝」（v1.7）：全高独石 + 侧棱光缝 +
   // 正面铭文/背面烟纹；关于林奇 热点
@@ -250,6 +253,43 @@ export function build(ctx) {
     }
     stele.userData.setSeam(breathe + flare);
   });
+  // v1.10 抛光 P2·件 1：碑顶的一缕烟——光缝从冠沿漏出去的那一点，
+  // 在碑顶上方立着一缕几乎看不见的烟（馆名的那个字）。双十字面片、
+  // 纹理上卷 + 极缓摆动；透明度跟光缝同呼吸，触碑光缝涌亮时它也旺一口。
+  const wispTex = canvasTexture(128, (g2, s) => {
+    g2.clearRect(0, 0, s, s);
+    g2.lineCap = 'round';
+    for (const [x0, w2, a] of [[0.5, 5, 0.5], [0.42, 3, 0.3], [0.6, 2.5, 0.24]]) {
+      g2.strokeStyle = `rgba(242,233,220,${a})`;
+      g2.lineWidth = w2;
+      g2.beginPath();
+      g2.moveTo(s * x0, s);
+      g2.bezierCurveTo(s * (x0 - 0.14), s * 0.72, s * (x0 + 0.16), s * 0.5, s * x0, s * 0.32);
+      g2.bezierCurveTo(s * (x0 - 0.12), s * 0.2, s * (x0 + 0.08), s * 0.1, s * (x0 + 0.02), 0);
+      g2.stroke();
+    }
+  });
+  wispTex.wrapS = wispTex.wrapT = THREE.RepeatWrapping;
+  const wispMat = new THREE.MeshBasicMaterial({
+    map: wispTex, transparent: true, opacity: 0.14,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const wisp = new THREE.Group();
+  for (const ry of [0, Math.PI / 2]) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 1.15), wispMat);
+    p.rotation.y = ry;
+    wisp.add(p);
+  }
+  // 光缝在 +x 侧棱顶端漏出去（碑组 y=0.24，碑身顶 ≈3.25）
+  wisp.position.set(0.5, 3.85, 0);
+  group.add(wisp);
+  updaters.push((dt, t) => {
+    wispTex.offset.y -= dt * 0.11;
+    wisp.rotation.z = Math.sin(t * 0.5) * 0.06;
+    const flare2 = seamPulse.t >= 0 ? Math.sin(Math.min(1, seamPulse.t / 2.6) * Math.PI) : 0;
+    wispMat.opacity = (0.1 + Math.sin(t * 0.9) * 0.035 + flare2 * 0.22) * openGate.chand;
+  });
+
   const seamTouched = { once: false };
   hotspots.add(stele.children[0], {
     hint: 'E — 独石与光缝',
@@ -308,6 +348,18 @@ export function build(ctx) {
     { id: 'mulholland', label: 'MULHOLLAND DR.', labelZh: '穆 赫 兰 道 · 2001', color: '#3ec5ff', angle: -Math.PI / 2 + (Math.PI * 10) / 6 }
   ];
   const doorPortals = [];
+  // v1.10 抛光 P2·件 2：门里的光落在门外——每扇门的虚空色在踏步前
+  // 洒一摊淡色光池（另一段片场漏出来的光），与门内微光同拍呼吸、
+  // 相位随门错开；开幕点灯前不亮。共享径向渐变贴图，六材质各自着色。
+  const poolTex = canvasTexture(128, (g2, s) => {
+    const rad = g2.createRadialGradient(s / 2, s / 2, 4, s / 2, s / 2, s / 2);
+    rad.addColorStop(0, 'rgba(255,255,255,0.5)');
+    rad.addColorStop(0.55, 'rgba(255,255,255,0.16)');
+    rad.addColorStop(1, 'rgba(255,255,255,0)');
+    g2.fillStyle = rad;
+    g2.fillRect(0, 0, s, s);
+  });
+  const doorPools = [];
   for (const d of doors) {
     const door = doorway({ label: d.label, labelZh: d.labelZh, color: d.color });
     const x = Math.cos(d.angle) * (R - 2.1);
@@ -322,7 +374,24 @@ export function build(ctx) {
       hint: `E — 进入 ${d.labelZh.replace(/\s/g, '')}`,
       onActivate: () => goTo(d.id)
     });
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.7, 1.9),
+      new THREE.MeshBasicMaterial({
+        map: poolTex, color: new THREE.Color(d.color), transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    pool.rotation.x = -Math.PI / 2;
+    // 踏步前 1.45m，贴地一丝抬起防深度打架
+    pool.position.set(Math.cos(d.angle) * (R - 3.55), 0.012, Math.sin(d.angle) * (R - 3.55));
+    group.add(pool);
+    doorPools.push({ mesh: pool, phase: d.angle * 2.3 });
   }
+  updaters.push((dt, t) => {
+    for (const p of doorPools) {
+      p.mesh.material.opacity = (0.16 + Math.sin(t * 1.7 + p.phase) * 0.07) * openGate.chand;
+    }
+  });
 
   // 吊灯环 + 电灯颤动
   const bulbs = [];
@@ -648,6 +717,70 @@ export function build(ctx) {
   });
 
   // ============================================================
+  // v1.10 抛光 P14「开门第一眼」第四看：入口到碑座的丝绒长毯——
+  // 开门那一帧的最后一笔：一条深酒红的路把目光押到碑前，金双边
+  // 线接住吊灯的光，中线被走浅了一道（走的人只有一条路）。两端
+  // 织进流苏；献花落在毯端的弧上正好成画。纯场景件（与 C4 积水
+  // 洼同口径不设热点）；静态单 mesh 零带宽，低档无需回退。
+  // ============================================================
+  const runnerTex = canvasTexture(256, (g2, s) => {
+    // 绒底：纵向绒毛条纹（沿走向的明度微差）
+    for (let x = 0; x < s; x += 2) {
+      const v = 0.82 + Math.sin(x * 1.7) * 0.09 + Math.sin(x * 0.31) * 0.06;
+      g2.fillStyle = `rgb(${Math.round(74 * v)},${Math.round(16 * v)},${Math.round(24 * v)})`;
+      g2.fillRect(x, 0, 2, s);
+    }
+    // 中线磨浅的一道（软边长条——被脚底压平的绒）
+    const wear = g2.createRadialGradient(s / 2, s / 2, s * 0.02, s / 2, s / 2, s * 0.5);
+    wear.addColorStop(0, 'rgba(148,96,88,0.30)');
+    wear.addColorStop(0.45, 'rgba(148,96,88,0.16)');
+    wear.addColorStop(1, 'rgba(148,96,88,0)');
+    g2.save();
+    g2.translate(s / 2, s / 2);
+    g2.scale(0.34, 1.05);
+    g2.translate(-s / 2, -s / 2);
+    g2.fillStyle = wear;
+    g2.fillRect(0, 0, s, s);
+    g2.restore();
+    // 金双边线（左右各两道，内细外粗）
+    g2.fillStyle = 'rgba(196,158,88,0.92)';
+    for (const x of [0.055, 0.925]) g2.fillRect(s * x, s * 0.03, s * 0.02, s * 0.94);
+    g2.fillStyle = 'rgba(196,158,88,0.6)';
+    for (const x of [0.095, 0.895]) g2.fillRect(s * x, s * 0.03, s * 0.01, s * 0.94);
+    // 两端横档 + 流苏（短须错落，须根略深）
+    g2.fillStyle = 'rgba(196,158,88,0.8)';
+    for (const y of [0.028, 0.962]) g2.fillRect(s * 0.055, s * y, s * 0.89, s * 0.01);
+    for (let i = 0; i < 46; i++) {
+      const x = s * (0.06 + (i / 46) * 0.88);
+      const len = s * (0.014 + ((i * 7) % 5) * 0.0022);
+      g2.fillStyle = `rgba(172,132,70,${0.55 + ((i * 3) % 4) * 0.08})`;
+      g2.fillRect(x, 0, 1.6, len);
+      g2.fillRect(x, s - len, 1.6, len);
+    }
+    // 织物微斑（久踩的暗点）
+    for (let i = 0; i < 130; i++) {
+      const rx = (i * 97) % s, rz = (i * 61) % s;
+      g2.fillStyle = `rgba(20,8,10,${0.05 + (i % 3) * 0.03})`;
+      g2.fillRect(rx, rz, 1.4, 1.4);
+    }
+  });
+  const runnerRough = noiseCanvasTexture(128, 200, 42, 3);
+  const runner = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.6, 5.3),
+    new THREE.MeshPhysicalMaterial({
+      map: runnerTex, roughness: 0.9, metalness: 0,
+      roughnessMap: runnerRough, bumpMap: runnerRough, bumpScale: 0.4,
+      sheen: 1.0, sheenRoughness: 0.55,
+      sheenColor: new THREE.Color(0x8a3040).lerp(new THREE.Color(0xfff0e0), 0.35),
+      envMapIntensity: 0.35,
+      polygonOffset: true, polygonOffsetFactor: -2
+    })
+  );
+  runner.rotation.x = -Math.PI / 2;
+  runner.position.set(0, 0.01, 5.4);
+  group.add(runner);
+
+  // ============================================================
   // v1.9 二级细节·lobby 件 1：碑前长明灯——与献花铜瓶左右对称，
   // 记忆的长明火。黄铜盏座（束腰车削+滴油环）+ 玻璃罩（收腰烟囱形）
   // + 双层火苗（外橙内白，独立颤动）+ 暖光。E → 火苗躬身又缓缓立起。
@@ -705,6 +838,7 @@ export function build(ctx) {
   flameLamp.position.set(-2.9, 0, 2.9);
   group.add(flameLamp);
   // 火苗常态颤动 + 交互「躬身再立起」时间线
+  // v1.10 C1：乘上第 0 拍闸——开幕黑场里这粒火最先醒（从火星长成火苗）
   const flameBow = { t: -1 };
   updaters.push((dt, t) => {
     let k = 1;
@@ -716,11 +850,12 @@ export function build(ctx) {
       else k = u < 0.5 ? 1 - (u / 0.5) * 0.65
         : 0.35 + Math.min(1, (u - 0.5) / 1.6) * 0.75 + Math.sin(Math.min(1, (u - 0.5) / 1.6) * Math.PI) * 0.18;
     }
+    const gk = 0.04 + 0.96 * openGate.flame;
     const jitter = 1 + Math.sin(t * 11.3) * 0.06 + Math.sin(t * 27.7) * 0.05;
-    flamePivot.scale.set(1, k * jitter, 1);
+    flamePivot.scale.set(gk, k * jitter * gk, gk);
     flamePivot.rotation.z = Math.sin(t * 7.1) * 0.05 + Math.sin(t * 17.3) * 0.03;
-    flameGlow.intensity = 2.2 * k * jitter;
-    flameOuter.material.opacity = 0.85 * (0.7 + 0.3 * k);
+    flameGlow.intensity = 2.2 * k * jitter * gk;
+    flameOuter.material.opacity = 0.85 * (0.7 + 0.3 * k) * Math.min(1, openGate.flame * 3);
   });
   hotspots.add(chimney, {
     hint: 'E — 长明灯',
@@ -784,6 +919,155 @@ export function build(ctx) {
         if (tp.sway > 0) tp.sway = Math.max(0, tp.sway - dt * 0.34);
         tp.pv.rotation.z = Math.sin(t * 4.6) * 0.02 + Math.sin(t * 4.1 + tp.x) * 0.34 * tp.sway;
         tp.pv.rotation.x = Math.sin(t * 3.4 + tp.z) * 0.2 * tp.sway;
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 二级细节·lobby 件 1：吊灯绞盘——东柱内侧的黄铜绞盘站，
+  // 钢缆上顶经滑轮吊住中央吊灯（剧场吊挂语言：这盏灯是能放下来
+  // 擦的）。E → 摇柄转、吊灯一顿一顿降半米又升回、轻微晃。
+  // ============================================================
+  {
+    const winch = new THREE.Group();
+    // 背板（贴柱）+ 鼓 + 缠好的缆 + 棘轮爪
+    winch.add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x241318, roughness: 0.55, metalness: 0.3 })));
+    // 鼓用独立材质克隆——热点高亮脉冲不许把整馆黄铜一起点亮
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 14), M.brass.clone());
+    drum.rotation.x = Math.PI / 2;
+    drum.position.z = 0.13;
+    winch.add(drum);
+    const wound = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.16, 12),
+      new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5, metalness: 0.75 }));
+    wound.rotation.x = Math.PI / 2;
+    wound.position.z = 0.13;
+    winch.add(wound);
+    winch.add(mergedMesh([
+      // 棘轮齿盘 + 制动爪
+      xform(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 18), 0, 0, 0.245, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.03, 0.1, 0.02), 0.1, 0.11, 0.245, 0, 0, 0.5)
+    ], M.brass));
+    // 摇柄（枢轴在鼓轴上）：曲臂 + 木握
+    const crankPivot = new THREE.Group();
+    crankPivot.position.z = 0.26;
+    crankPivot.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.018, 0.018, 0.06, 8), 0, 0, 0.03, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.03, 0.17, 0.025), 0, -0.07, 0.06),
+      xform(new THREE.CylinderGeometry(0.016, 0.016, 0.09, 8), 0, -0.14, 0.1, Math.PI / 2, 0, 0)
+    ], M.brass));
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.07, 10),
+      woodMat({ base: [30, 18, 12], planks: 1, size: 128, seed: 91 }));
+    grip.rotation.x = Math.PI / 2;
+    grip.position.set(0, -0.14, 0.12);
+    crankPivot.add(grip);
+    winch.add(crankPivot);
+    // 装在西柱（k=4，圆心角 π）内侧面，把手朝厅心——与东侧留声机
+    // 对望的机务角；东柱留给流苏束带，不同柱说不同的话
+    winch.position.set(-(R - 1.24), 1.15, 0);
+    winch.rotation.y = Math.PI / 2;
+    group.add(winch);
+    // 立缆：绞盘顶 → 柱上滑轮；横缆：滑轮 → 吊灯毂（微垂悬链）
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.45, metalness: 0.8 });
+    const pulleyY = 7.9;
+    group.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.008, 0.008, pulleyY - 1.35, 6), -(R - 1.27), (pulleyY + 1.15) / 2 - 0.1, 0),
+      xform(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), -(R - 1.27), pulleyY, 0, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.04, 0.12, 0.1), -(R - 1.2), pulleyY + 0.02, 0)
+    ], cableMat));
+    const spanCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(-(R - 1.27), pulleyY + 0.04, 0),
+      new THREE.Vector3(-(R - 1.27) / 2, 7.0, 0),
+      new THREE.Vector3(-0.3, 7.22, 0)
+    );
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(spanCurve, 20, 0.008, 6), cableMat));
+    // 绞盘时间线：一顿一顿降半米（棘轮感）→ 悬半拍 → 匀速升回 + 轻晃
+    const winchState = { t: -1 };
+    updaters.push((dt) => {
+      if (winchState.t < 0) return;
+      winchState.t += dt;
+      const u = winchState.t;
+      if (u > 5.2) {
+        winchState.t = -1;
+        lustre.position.y = 6.55;
+        lustre.rotation.x = 0;
+        return;
+      }
+      let drop;
+      if (u < 1.8) {
+        // 下行分 6 格，每格只在前 40% 走（棘轮顿挪）
+        const k = u / 1.8;
+        const step = Math.floor(k * 6);
+        const inStep = Math.min(1, (k * 6 - step) / 0.4);
+        drop = (step + inStep) / 6;
+      } else if (u < 2.6) drop = 1;
+      else drop = Math.max(0, 1 - (u - 2.6) / 2.4);
+      lustre.position.y = 6.55 - drop * 0.45;
+      lustre.rotation.x = Math.sin(u * 3.1) * 0.012 * drop;
+      crankPivot.rotation.z = u < 1.8 ? -u * 7 : (u < 2.6 ? -1.8 * 7 : -1.8 * 7 + (u - 2.6) * 5.25);
+    });
+    hotspots.add(drum, {
+      hint: 'E — 吊灯绞盘',
+      onActivate: () => {
+        if (winchState.t >= 0) return;
+        winchState.t = 0;
+        audio.sfxAt('winch', -(R - 1.24), 0, 0.8);
+        setTimeout(() => audio.sfx('creak', 0.25), 900);
+        ui.caption('绞盘还记得灯的重量。', 3400);
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 二级细节·lobby 件 2：碑阶上的白花——一支马蹄莲平放在
+  // 台阶前缘，没有花瓶，没有名字。E → 花身轻颤，一枚白瓣离开它。
+  // ============================================================
+  {
+    const strayLily = callaLily(lilyShared);
+    strayLily.position.set(0.85, 0.31, 2.05);
+    strayLily.rotation.set(-Math.PI / 2 + 0.12, 0.5, 0.6);
+    group.add(strayLily);
+    // 命中代理（花太细，射线难打）
+    const lilyHit = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.3),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+    lilyHit.position.set(0.85, 0.34, 2.05);
+    group.add(lilyHit);
+    // v1.10 抛光 P6：花身下一小摊接触阴影（抛光大理石上尤其读得出
+    // 「放着」而非「浮着」；台面 y=0.24）
+    group.add(contactShadows([{ x: 0.86, z: 2.06, r: 0.3, rz: 0.14, ry: -0.55, y: 0.247 }], 0.38));
+    const strayPetal = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.055),
+      new THREE.MeshStandardMaterial({
+        color: 0xe9e2d2, roughness: 0.6, transparent: true, opacity: 0, side: THREE.DoubleSide
+      }));
+    strayPetal.visible = false;
+    group.add(strayPetal);
+    const lilyState = { t: -1, once: false };
+    updaters.push((dt) => {
+      if (lilyState.t < 0) return;
+      lilyState.t += dt;
+      const u = lilyState.t;
+      if (u > 2.2) {
+        lilyState.t = -1;
+        strayPetal.visible = false;
+        strayLily.rotation.z = 0.6;
+        return;
+      }
+      strayLily.rotation.z = 0.6 + Math.sin(u * 6.5) * 0.05 * Math.max(0, 1 - u * 0.8);
+      strayPetal.visible = true;
+      const fall = u * u * 0.1;
+      strayPetal.position.set(0.95 + u * 0.07, Math.max(0.26, 0.42 - fall), 2.12 + Math.sin(u * 2.8) * 0.03);
+      strayPetal.rotation.set(u * 1.8, u * 1.2, Math.sin(u * 3.5) * 0.7);
+      strayPetal.material.opacity = u < 0.15 ? u / 0.15 : Math.max(0, 1 - Math.max(0, u - 1.4) / 0.7);
+    });
+    hotspots.add(lilyHit, {
+      hint: 'E — 台阶上的白花',
+      onActivate: () => {
+        if (lilyState.t < 0) lilyState.t = 0;
+        audio.sfxAt('tassel', 0.85, 2.05, 0.3);
+        if (!lilyState.once) {
+          lilyState.once = true;
+          ui.caption('一支白花。不在名册上。', 3600);
+        }
       }
     });
   }
@@ -946,12 +1230,16 @@ export function build(ctx) {
     petals.push({ mesh: p, t: -1, delay: i * 0.55, x0: -0.12 + i * 0.26 });
   }
   const wreathState = { t: -1 };
-  updaters.push((dt) => {
+  updaters.push((dt, t) => {
     if (wreathState.t >= 0) {
       wreathState.t += dt;
       const decay = Math.max(0, 1 - wreathState.t * 0.5);
       if (decay <= 0) { wreathState.t = -1; wreathPivot.rotation.z = 0; }
       else wreathPivot.rotation.z = Math.sin(wreathState.t * 4.6) * 0.07 * decay;
+    } else {
+      // v1.10 抛光 P18 微动：画架上的花圈从来没有真正静止过
+      // （±0.006，13s 一个来回——像有人刚扶正过它）
+      wreathPivot.rotation.z = Math.sin(t * 0.48) * 0.006;
     }
     for (const pt of petals) {
       if (pt.t < 0) continue;
@@ -990,7 +1278,8 @@ export function build(ctx) {
   group.add(dust);
   updaters.push(dust.userData.update);
   updaters.push(() => {
-    dust.material.opacity = 0.4 * (1 + engine.breath * 0.3);
+    // v1.10 C1「尘埃醒来」：开幕收口时光尘才从 0 缓升到常值
+    dust.material.opacity = 0.4 * (1 + engine.breath * 0.3) * openGate.dust;
     smoke.material.opacity = 0.045 * (1 + engine.breath * 0.2);
   });
 
@@ -1010,46 +1299,70 @@ export function build(ctx) {
     kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
   });
 
-  // ---------- v1.9 B3：开幕点灯序列（只演一次的开场白） ----------
-  // 黑起 → 六盏吊灯错拍点亮（各配一声很轻的 lampon）→ 主灯组与
-  // 光锥升起（swell 一口气）→ 霓虹标题最后醒来（chime）。全程 ≈7.2s；
-  // 本次会话内重复进厅直接满灯。
-  const openingSfx = { swell: false, neon: false, sub: false };
+  // ---------- v1.9 B3 → v1.10 C1：开幕点灯序列 v2（只演一次） ----------
+  // 第 0 拍：黑场里碑前长明灯先独亮（一粒火先醒，配一声很轻的 flamegut）
+  // → 0.9s 拍空 → 六盏吊灯错拍点亮（各配 lampon）→ 主灯组与光锥升起
+  // （swell）→ 霓虹标题醒来（chime）→ 收口「尘埃醒来」（光尘 0→常值）。
+  // 全程 ≈8.0s；本次会话内重复进厅直接满灯。
+  const openingSfx = { flame: false, swell: false, neon: false, sub: false };
   updaters.push((dt) => {
     if (opening.t < 0) return;
     opening.t += dt;
     const T = opening.t;
+    // 第 0 拍：火先醒（0–0.55s 从火星长成火苗）
+    if (!openingSfx.flame && T >= 0.05) {
+      openingSfx.flame = true;
+      audio.sfxAt('flamegut', -2.9, 2.9, 0.22);
+    }
+    openGate.flame = Math.max(openGate.flame, Math.min(1, T / 0.55));
     for (let i = 0; i < 6; i++) {
-      const k = Math.min(1, Math.max(0, (T - (0.9 + i * 0.5)) / 0.35));
+      const k = Math.min(1, Math.max(0, (T - (1.3 + i * 0.5)) / 0.35));
       if (k > 0 && openGate.bulb[i] === 0) {
         audio.sfxAt('lampon', bulbs[i].position.x, bulbs[i].position.z, 0.3);
       }
       openGate.bulb[i] = Math.max(openGate.bulb[i], k);
     }
-    const kc = Math.min(1, Math.max(0, (T - 3.6) / 2.4));
+    const kc = Math.min(1, Math.max(0, (T - 4.0) / 2.4));
     openGate.chand = kc * kc * (3 - 2 * kc);
     openGate.amb = 0.22 + 0.78 * openGate.chand;
     amb.intensity = 1.4 * (0.3 + 0.7 * openGate.amb);
     rim.intensity = 22 * openGate.amb;
     steleWash.intensity = 3.4 * (0.15 + 0.85 * openGate.amb);
     steleWashB.intensity = 2.6 * (0.15 + 0.85 * openGate.amb);
-    if (T >= 3.7 && !openingSfx.swell) { openingSfx.swell = true; audio.sfx('swell', 0.4); }
-    if (T >= 6.1 && !openingSfx.neon) {
+    // 尘埃醒来：主灯升起后，光尘才在光里显形
+    openGate.dust = Math.max(openGate.dust, Math.min(1, Math.max(0, (T - 5.6) / 2.2)));
+    if (T >= 4.1 && !openingSfx.swell) { openingSfx.swell = true; audio.sfx('swell', 0.4); }
+    if (T >= 6.5 && !openingSfx.neon) {
       openingSfx.neon = true;
       title.visible = true;
       audio.sfx('chime', 0.45);
     }
-    if (T >= 6.6 && !openingSfx.sub) { openingSfx.sub = true; sub.visible = true; }
-    if (T >= 7.2) {
+    if (T >= 7.0 && !openingSfx.sub) { openingSfx.sub = true; sub.visible = true; }
+    if (T >= 8.0) {
       opening.t = -1;
       openGate.bulb = [1, 1, 1, 1, 1, 1];
       openGate.chand = 1;
       openGate.amb = 1;
+      openGate.flame = 1;
+      openGate.dust = 1;
       amb.intensity = 1.4;
       rim.intensity = 22;
       steleWash.intensity = 3.4;
       steleWashB.intensity = 2.6;
     }
+  });
+
+  // v1.10 抛光 P13「远处的声」：墙外极远处电梯到站的一声叮——
+  // 每 90–160s（seeded）。这栋楼没有电梯。有人一直在到达。
+  // 开幕点灯完成前不响（黑场里只留火苗和尘埃醒来）。
+  const liftRng = rng(67);
+  const liftState = { next: 60 + liftRng() * 50 };
+  updaters.push((dt) => {
+    if (openGate.chand < 1) return;
+    liftState.next -= dt;
+    if (liftState.next > 0) return;
+    liftState.next = 90 + liftRng() * 70;
+    audio.sfxAt('liftbell', -16, -9, 0.9, 9);
   });
 
   return {

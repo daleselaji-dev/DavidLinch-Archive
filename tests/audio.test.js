@@ -152,6 +152,77 @@ describe('v1.9 阶段 2 新音色（配套七厅两件新交互；源码审计�
   });
 });
 
+describe('v1.10 阶段 2 新音色（配套七厅两件新交互；源码审计）', () => {
+  const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+  const NEW_V110 = ['winch', 'wallbox', 'lockerclang', 'waterlap', 'callbell', 'latchsnap'];
+  it.each(NEW_V110)('音色 %s 已实现', (name) => {
+    expect(src).toContain(`case '${name}'`);
+  });
+
+  it('新音色已在展厅接线（每种至少一处调用）', () => {
+    const halls = ['mulholland', 'archive', 'twinpeaks', 'bluevelvet', 'lobby', 'studio', 'eraserhead']
+      .map((h) => readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8'))
+      .join('\n');
+    for (const name of NEW_V110) {
+      expect(halls).toContain(`'${name}'`);
+    }
+  });
+
+  it('callbell 两短一长包络（三段起始时刻递增且末段最长）', () => {
+    const m = src.match(/case 'callbell'[\s\S]*?for \(const \[d, len\] of \[(.*?)\]\)/);
+    expect(m).toBeTruthy();
+    const triples = JSON.parse(`[${m[1]}]`);
+    expect(triples.length).toBe(3);
+    expect(triples[0][0]).toBeLessThan(triples[1][0]);
+    expect(triples[1][0]).toBeLessThan(triples[2][0]);
+    expect(triples[2][1]).toBeGreaterThan(triples[0][1]);
+    expect(triples[2][1]).toBeGreaterThan(triples[1][1]);
+  });
+});
+
+describe('v1.10 P13「远处的声」（稀疏远声事件；源码审计）', () => {
+  const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+  const HALLS = Object.fromEntries(
+    ['mulholland', 'archive', 'twinpeaks', 'lobby', 'eraserhead']
+      .map((h) => [h, readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8')])
+  );
+  const FAR = [
+    ['pipeknock', 'eraserhead'],
+    ['sirenfar', 'mulholland'],
+    ['drawerfar', 'archive'],
+    ['liftbell', 'lobby']
+  ];
+
+  it.each(FAR)('远声 %s 已实现且在 %s 接线（位置化 + seeded 间隔）', (name, hall) => {
+    expect(src).toContain(`case '${name}'`);
+    expect(HALLS[hall]).toContain(`sfxAt('${name}'`);
+  });
+
+  it('四处远声调度全部 seeded（各自独立 rng，不吃 Math.random）', () => {
+    expect(HALLS.eraserhead).toMatch(/knockState\.next = 70 \+ knockRng\(\) \* 50/);
+    expect(HALLS.mulholland).toMatch(/sirenState\.next = 100 \+ sirenRng\(\) \* 60/);
+    expect(HALLS.archive).toMatch(/drawerState\.next = 75 \+ drawerRng\(\) \* 55/);
+    expect(HALLS.lobby).toMatch(/liftState\.next = 90 \+ liftRng\(\) \* 70/);
+  });
+
+  it('twinpeaks 复用 owl 且声源挂在环飞剪影实时方位（视觉与声对上）', () => {
+    expect(HALLS.twinpeaks).toMatch(/sfxAt\('owl', o\.owl\.position\.x, o\.owl\.position\.z/);
+  });
+
+  it('lobby 电梯叮受开幕点灯闸门守卫（黑场不响）', () => {
+    expect(HALLS.lobby).toMatch(/openGate\.chand < 1\) return;[\s\S]{0,220}liftbell/);
+  });
+
+  it('pipeknock 三下递轻（幅度序列递减）', () => {
+    const m = src.match(/case 'pipeknock'[\s\S]*?for \(const \[d, v\] of \[(.*?)\]\)/);
+    expect(m).toBeTruthy();
+    const hits = JSON.parse(`[${m[1]}]`);
+    expect(hits.length).toBe(3);
+    expect(hits[0][1]).toBeGreaterThan(hits[1][1]);
+    expect(hits[1][1]).toBeGreaterThan(hits[2][1]);
+  });
+});
+
 describe('v1.8 拐角惊吓音色（源码审计）', () => {
   const src = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
 
@@ -227,5 +298,50 @@ describe('v1.3 空间混响（程序化 IR 预设 + 逐厅映射）', () => {
       const hallSrc = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
       expect(hallSrc, `${h} 缺 spaceAt`).toContain('spaceAt:');
     }
+  });
+});
+
+// v1.10 P26 混音纪律审计——250 个发声点的音量分布普查转门禁：
+// ①天花板纪律：任何调用不得超过 1.0（满格是天花板不是起点，想更响
+// 只能靠音色包络自己挣）；②远声必位置化：far 族音色若用全景 sfx 播放
+// 「远」就塌了（到处都是的远＝没有方位的近）；③满格白名单有界：满音量
+// 保留给惊吓与钟鸣，缺省音量的裸调用不许悄悄膨胀。
+describe('v1.10 P26 混音纪律审计', () => {
+  const FAR_FAMILY = ['doorfar', 'pipeknock', 'sirenfar', 'drawerfar', 'liftbell'];
+  const calls = [];
+  for (const h of HALLS.concat(['../main'])) {
+    const src = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+    for (const line of src.split('\n')) {
+      for (const m of line.matchAll(/sfx\('([a-z]+)'(?:,\s*([\d.]+))?/g)) {
+        calls.push({ h, name: m[1], vol: m[2] ? +m[2] : 1, positional: false });
+      }
+      for (const m of line.matchAll(/sfxAt\('([a-z]+)',\s*[^,]+,\s*[^,]+,\s*([\d.]+)(?:,\s*([\d.]+))?/g)) {
+        calls.push({ h, name: m[1], vol: +m[2], ref: m[3] ? +m[3] : 3, positional: true });
+      }
+    }
+  }
+
+  it('提取器在工作（全馆发声点 ≥240）', () => {
+    expect(calls.length).toBeGreaterThanOrEqual(240);
+  });
+
+  it('音量天花板 1.0——零越界（不靠调用端推子救音色）', () => {
+    for (const c of calls) {
+      expect(c.vol, `${c.h}:${c.name} vol=${c.vol} 越过天花板`).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it('far 族音色全部位置化播放（远必须有方位）且 ref ≥2', () => {
+    for (const c of calls.filter((c) => FAR_FAMILY.includes(c.name))) {
+      expect(c.positional, `${c.h}:${c.name} 用了全景 sfx`).toBe(true);
+      expect(c.ref, `${c.h}:${c.name} ref=${c.ref} 过近`).toBeGreaterThanOrEqual(2);
+    }
+    expect(calls.some((c) => FAR_FAMILY.includes(c.name)), 'far 族提取器失效').toBe(true);
+  });
+
+  it('满格裸调用（全景 sfx 且 vol=1）有界 ≤24——满音量是保留字', () => {
+    const bare = calls.filter((c) => !c.positional && c.vol === 1);
+    expect(bare.length).toBeLessThanOrEqual(24);
+    expect(bare.length).toBeGreaterThanOrEqual(10); // 惊吓/钟鸣本就该满格——低于此说明提取器坏了
   });
 });

@@ -164,6 +164,60 @@ export function build(ctx) {
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   group.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xaebdff, size: 0.5, transparent: true, opacity: 0.7, fog: false })));
 
+  // v1.10 抛光 P10「远处的光」：山腰夜路上偶尔驶过一辆车——一对
+  // 头灯 + 灯下一道路面拖晕，沿远山腰缓移 8.5s，途中被山形挡几口，
+  // 拐弯就没了。每 75–120s（seeded）来一辆；灯永远到不了这条街。
+  const carGlowTex = canvasTexture(64, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const grad = g.createRadialGradient(s / 2, s / 2, 1, s / 2, s / 2, s / 2);
+    grad.addColorStop(0, 'rgba(255,243,214,1)');
+    grad.addColorStop(0.4, 'rgba(255,236,196,0.4)');
+    grad.addColorStop(1, 'rgba(255,236,196,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const carMat = new THREE.MeshBasicMaterial({
+    map: carGlowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    depthWrite: false, fog: false, toneMapped: false, side: THREE.DoubleSide
+  });
+  const farCar = mergedMesh([
+    xform(new THREE.PlaneGeometry(1.2, 1.2), -0.8, 0, 0),
+    xform(new THREE.PlaneGeometry(1.2, 1.2), 0.8, 0, 0),
+    xform(new THREE.PlaneGeometry(5.6, 0.8), 0, -0.34, -0.15)
+  ], carMat);
+  farCar.visible = false;
+  group.add(farCar);
+  const carRng = rng(47);
+  const carState = { t: -1, next: 34, a0: 0, a1: 0 };
+  updaters.push((dt) => {
+    if (carState.t < 0) {
+      carState.next -= dt;
+      if (carState.next > 0) return;
+      // 只走南北路轴两端的天空带（街道走廊的尽头才看得见远山），
+      // 高度压在屋脊环(≤8.5)之上、山线(≤13)之下——山腰上的那条路
+      const side = carRng() < 0.5 ? -Math.PI / 2 : Math.PI / 2;
+      carState.a0 = side - 0.42 + carRng() * 0.2;
+      carState.a1 = carState.a0 + 0.55 + carRng() * 0.3;
+      farCar.visible = true;
+      carState.t = 0;
+      return;
+    }
+    carState.t += dt;
+    const u = carState.t / 8.5;
+    if (u >= 1) {
+      carState.t = -1;
+      carState.next = 75 + carRng() * 45;
+      carMat.opacity = 0;
+      farCar.visible = false;
+      return;
+    }
+    const a = carState.a0 + (carState.a1 - carState.a0) * u;
+    farCar.position.set(Math.cos(a) * 74, 9.6 + Math.sin(u * 4.6) * 0.4, Math.sin(a) * 74);
+    farCar.lookAt(0, 2, 0);
+    // 出弯入弯淡入淡出 + 途中被山形/树影挡两口（乘一层慢闸）
+    carMat.opacity = Math.sin(u * Math.PI) * 0.42 * (0.55 + 0.45 * Math.abs(Math.sin(u * 8.6 + 1.1)));
+  });
+
   // v1.4 P8 远景中层：城市屋脊剪影环（比群山近一层）+ 洛城水塔
   // 层次：路面 → 护栏 → 屋脊环(r≈62–70) → 群山(r≈78) → 地平线光晕(r=120)
   const skyGeos = [];
@@ -531,6 +585,113 @@ export function build(ctx) {
     marquee.userData.flicker(t, 2.2);
     marquee2.userData.flicker(t, 9.1);
   });
+  // ---------- v1.10 C4：剧场前的积水洼——湿了一夜的路把霓虹接住 ----------
+  // 暗玻般的湿面（不规则洼形 alpha）+ ILLUSIÓN 倒影微漾；
+  // 倒影亮度跟招牌同一次闪烁——坏的是同一根管子。
+  {
+    const puddleShape = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const sr = rng(41);
+      g.fillStyle = '#ffffff';
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2;
+        const cx = s / 2 + Math.cos(a) * (10 + sr() * 16);
+        const cy = s / 2 + Math.sin(a) * (6 + sr() * 10);
+        g.beginPath();
+        g.ellipse(cx, cy, 18 + sr() * 16, 11 + sr() * 9, a, 0, Math.PI * 2);
+        g.fill();
+      }
+    });
+    const streetPuddle = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.4, 2.1),
+      new THREE.MeshPhysicalMaterial({
+        color: 0x05060c, roughness: 0.05, metalness: 0.12, envMapIntensity: 1.7,
+        clearcoat: 1, clearcoatRoughness: 0.06,
+        transparent: true, alphaMap: puddleShape, depthWrite: false
+      })
+    );
+    streetPuddle.rotation.x = -Math.PI / 2;
+    streetPuddle.position.set(-2.6, 0.008, -10.2);
+    group.add(streetPuddle);
+    // 倒影字：镜像躺在水里（顶端朝向观者——真实镜面几何），加法混合
+    const rc = document.createElement('canvas');
+    rc.width = 512;
+    rc.height = 128;
+    const rg = rc.getContext('2d');
+    rg.textAlign = 'center';
+    rg.textBaseline = 'middle';
+    rg.font = '400 88px Georgia, serif';
+    for (const [blur, alpha] of [[30, 0.5], [12, 0.7]]) {
+      rg.shadowColor = '#ff2e88';
+      rg.shadowBlur = blur;
+      rg.fillStyle = `rgba(255,255,255,${alpha})`;
+      rg.fillText('ILLUSIÓN', 256, 64);
+    }
+    const reflTex = new THREE.CanvasTexture(rc);
+    const refl = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.0, 1.15),
+      new THREE.MeshBasicMaterial({
+        map: reflTex, color: 0xff2e88, transparent: true, opacity: 0.66,
+        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+        side: THREE.DoubleSide, fog: false
+      })
+    );
+    refl.rotation.x = -Math.PI / 2;
+    refl.scale.y = -1;
+    refl.position.set(-2.6, 0.014, -10.35);
+    group.add(refl);
+    const marqueeMat = marquee.children[0].material;
+    updaters.push((dt, t) => {
+      // 与招牌同闪 + 水面微漾（横向极缓伸缩 + 贴图微偏移，像风掠过水皮）
+      refl.material.opacity = 0.66 * marqueeMat.opacity * (1 + Math.sin(t * 2.1) * 0.1);
+      refl.scale.x = 1 + Math.sin(t * 1.3) * 0.014;
+      reflTex.offset.x = Math.sin(t * 0.7) * 0.003;
+    });
+    // v1.10 抛光 P5：积水边一册被雨泡皱的场刊——PROGRAMA 刊头
+    // （接住西语系统），日期栏空着；下半浸在水色里、纸面泡起波楞。
+    const playbillGeo = new THREE.PlaneGeometry(0.21, 0.29, 8, 10);
+    const pb = playbillGeo.attributes.position;
+    for (let i = 0; i < pb.count; i++) {
+      const px2 = pb.getX(i);
+      const py2 = pb.getY(i);
+      pb.setZ(i, Math.sin(px2 * 34 + py2 * 12) * 0.008 + Math.sin(py2 * 46) * 0.006 * (0.5 - py2 / 0.29));
+    }
+    playbillGeo.computeVertexNormals();
+    const playbill = new THREE.Mesh(
+      playbillGeo,
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(128, (g, s) => {
+          g.fillStyle = '#b8b0a0';
+          g.fillRect(0, 0, s, s);
+          g.strokeStyle = 'rgba(60,52,44,0.85)';
+          g.lineWidth = 3;
+          g.strokeRect(10, 10, s - 20, s - 20);
+          g.textAlign = 'center';
+          g.save();
+          g.scale(1, 1.38); // 0.21×0.29 面板纵向预拉伸补偿
+          g.font = '700 17px Georgia, serif';
+          g.fillStyle = '#3c3228';
+          g.fillText('PROGRAMA', s / 2, 34 / 1.38);
+          g.restore();
+          g.strokeStyle = 'rgba(60,52,44,0.6)';
+          g.lineWidth = 1.6;
+          g.beginPath();
+          g.moveTo(s * 0.3, s * 0.42);
+          g.lineTo(s * 0.7, s * 0.42);
+          g.stroke();
+          // 水线以下：泡透的深渍从底往上洇
+          const soak = g.createLinearGradient(0, s, 0, s * 0.4);
+          soak.addColorStop(0, 'rgba(52,50,46,0.62)');
+          soak.addColorStop(1, 'rgba(52,50,46,0)');
+          g.fillStyle = soak;
+          g.fillRect(0, 0, s, s);
+        }), roughness: 0.92, side: THREE.DoubleSide
+      })
+    );
+    playbill.rotation.set(-Math.PI / 2, 0, 0.7);
+    playbill.position.set(-1.62, 0.012, -9.35);
+    group.add(playbill);
+  }
   // 招牌追逐灯泡链（合并单 mesh，整体呼吸闪烁）
   const chaseGeos = [];
   const chaseGeo = new THREE.SphereGeometry(0.05, 8, 6);
@@ -894,6 +1055,11 @@ export function build(ctx) {
   busPole.position.set(0.95, 0, 0.42);
   busPole.rotation.z = 0.05;
   busStop.add(busPole);
+  // v1.10 抛光 P18 微动：牌面在螺栓上打颤——远处道路的低频从来
+  // 没停过（8.2Hz 碎颤 ×0.9Hz 慢摆双叠，振幅肉眼将将可察）
+  updaters.push((dt, t) => {
+    busSign.rotation.x = Math.sin(t * 8.2) * 0.004 + Math.sin(t * 0.9) * 0.006;
+  });
   // 烟缕（凳子远端上方，平时隐形）
   const benchWisp = smokeLayer(3, { x: 0.08, z: 0.08 }, { opacity: 0, size: 0.3, yBase: 0, ySpread: 0.5, color: 0xc8ccd4 });
   benchWisp.position.set(-0.62, 0.95, 0);
@@ -1430,6 +1596,9 @@ export function build(ctx) {
       scare.to.set(pv.x - (dx / d) * 0.85, 0, pv.z - (dz / d) * 0.85);
       audio.sfx('scare');
       audio.sfx('breath', 0.85);
+      // v1.10 P7：它扑近的同一拍，雾也收拢一口（世界跟着收紧，
+      // 引擎瞬态 ~3s 自行退掉——横跨黑幕，醒来时雾还没完全松开）
+      engine.fogSurge(0.9);
     }, B.rush);
     later(() => { // 扑到脸前：闷击 + 后处理冲击 + 暗红闪帧
       audio.sfx('thud', 1.0);
@@ -1485,6 +1654,8 @@ export function build(ctx) {
     audio.duck(1.3, 0.02, 2.8);
     audio.sfx('scare');
     audio.sfx('breath', 0.85);
+    // v1.10 P7：回头看见的同一帧雾收拢一口（与拐角惊吓同语言）
+    engine.fogSurge(0.9);
     later(() => {
       // 扑到脸前的一拍：闷击 + 后处理冲击 + 暗红闪帧
       audio.sfx('thud', 1.0);
@@ -1788,9 +1959,11 @@ export function build(ctx) {
   stageSpot.target.position.set(-1.6, 0.7, -4.2);
   inner.add(stageSpot, stageSpot.target);
   // v1.4 P7：剧场聚光升级双层锥（内芯亮 + 外晕柔）
-  const stageCone = lightCone2(0.35, 1.5, 5.4, 0xffeedd, 0.06);
+  // v1.10 C2：聚光柱里加尘埃流——观众厅的灰在光里落
+  const stageCone = lightCone2(0.35, 1.5, 5.4, 0xffeedd, 0.06, { dust: true });
   stageCone.position.set(-1.6, 3.2, -4.2);
   inner.add(stageCone);
+  updaters.push((dt, t) => stageCone.userData.updateDust(dt, t, engine.breath, engine.quality === 'high'));
   // 台口拱架：条纹壁柱 ×2（基座/柱身/柱帽 + 竖棱）+ 双级楣梁 + 鎏金内沿
   const archWood = woodMat({ base: [30, 12, 16], planks: 1, size: 256, seed: 44, gloss: 0.6 });
   const archGeos = [];
@@ -1899,6 +2072,153 @@ export function build(ctx) {
       ui.caption('镜子先记住你，再放你走。', 4200);
     }
   });
+
+  // ============================================================
+  // v1.10 阶段 2d·mulholland：候场呼叫铃——右台口壁柱朝后台的
+  // 侧脸上，一只胶木按钮盒 + 黄铜铃盖 + 铃锤 + LLAMADA 珐琅小牌
+  // + 一根电线管钻进上面的黑。E → 两短一长（callbell 同拍铃锤
+  // 打颤、铃盖同震），2.1s 后**很远处一扇门应了一声**（连锁）——
+  // 应门的不在后台。
+  // ============================================================
+  {
+    const bellGrp = new THREE.Group();
+    // 胶木按钮盒（圆角）+ 黄铜按钮环 + 黑按芯
+    const bakelite = new THREE.MeshStandardMaterial({
+      color: 0x17120e, roughness: 0.42, metalness: 0.1, envMapIntensity: 0.8
+    });
+    const bellBox = roundedBoxMesh(0.13, 0.19, 0.042, 0.012, bakelite);
+    bellGrp.add(bellBox);
+    const bellBrassGeos = [
+      xform(new THREE.TorusGeometry(0.026, 0.007, 8, 16), 0, -0.03, 0.024),
+      // 珐琅小牌托边
+      xform(new THREE.BoxGeometry(0.104, 0.036, 0.006), 0, -0.128, 0.022),
+      // 电线管：盒顶起、直上钻进黑（两段 + 管卡）
+      xform(new THREE.CylinderGeometry(0.008, 0.008, 0.5, 8), 0, 0.345, -0.008),
+      xform(new THREE.CylinderGeometry(0.008, 0.008, 1.2, 8), 0, 1.2, -0.008),
+      xform(new THREE.BoxGeometry(0.03, 0.014, 0.02), 0, 0.5, -0.008),
+      xform(new THREE.BoxGeometry(0.03, 0.014, 0.02), 0, 1.32, -0.008)
+    ];
+    bellGrp.add(mergedMesh(bellBrassGeos, M.brass));
+    const bellBtn = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.017, 0.017, 0.02, 12),
+      new THREE.MeshStandardMaterial({ color: 0x090909, roughness: 0.3 })
+    );
+    bellBtn.rotation.x = Math.PI / 2;
+    bellBtn.position.set(0, -0.03, 0.026);
+    bellGrp.add(bellBtn);
+    // LLAMADA 珐琅小牌（接住 SALIDA/CERRADO 的西语系统）
+    const llamadaTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#dfd8c8';
+      g.fillRect(0, 0, s, s);
+      g.save();
+      g.scale(1, 3.1); // 补偿 0.096×0.03 面板压缩
+      g.font = '700 21px Georgia, serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#3a3226';
+      g.fillText('LLAMADA', s / 2, s / 2 / 3.1);
+      g.restore();
+      g.strokeStyle = 'rgba(90,78,58,0.7)';
+      g.lineWidth = 3;
+      g.strokeRect(2, 2, s - 4, s - 4);
+    });
+    const llamada = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.096, 0.03),
+      new THREE.MeshStandardMaterial({ map: llamadaTex, roughness: 0.5 })
+    );
+    llamada.position.set(0, -0.128, 0.0265);
+    bellGrp.add(llamada);
+    // 黄铜铃盖（盒上方半球扣墙）+ 铃锤（细杆 + 锤珠，常态贴着盖缘）
+    const bellDome = new THREE.Mesh(
+      new THREE.SphereGeometry(0.062, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({
+        map: brushedMetalTexture(), color: 0x9a7c46, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.4
+      })
+    );
+    bellDome.rotation.x = Math.PI / 2;
+    bellDome.position.set(0, 0.165, 0.008);
+    bellGrp.add(bellDome);
+    const hammer = new THREE.Group();
+    const hamArm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.075, 6), M.brass);
+    hamArm.position.y = 0.038;
+    const hamBall = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), M.brass);
+    hamBall.position.y = 0.078;
+    hammer.add(hamArm, hamBall);
+    hammer.position.set(0.028, 0.075, 0.03);
+    hammer.rotation.z = -0.5;
+    bellGrp.add(hammer);
+    // 装在右台口壁柱朝后台的侧脸（面对衣镜——候场的人看得见它）
+    bellGrp.position.set(5.0, 1.42, -2.9);
+    bellGrp.rotation.y = Math.PI / 2;
+    inner.add(bellGrp);
+    // v1.10 抛光 P5：铃下的粉笔正字——候场的人一场一道刻在壁柱上，
+    // 三组零两道，笔画深浅不一、越靠后越潦草。最后一组没刻完。
+    const tally = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.17, 0.1),
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(128, (g, s) => {
+          g.clearRect(0, 0, s, s);
+          const tr2 = rng(73);
+          let gx = 12;
+          for (let grp2 = 0; grp2 < 4; grp2++) {
+            const n = grp2 < 3 ? 5 : 2; // 最后一组只有两道
+            for (let k = 0; k < n; k++) {
+              g.strokeStyle = `rgba(224,218,204,${0.5 + tr2() * 0.35})`;
+              g.lineWidth = 2 + tr2() * 1.6;
+              g.beginPath();
+              if (k < 4) {
+                const x0 = gx + k * 7 + (tr2() - 0.5) * 2;
+                g.moveTo(x0, 46 + (tr2() - 0.5) * 5 + grp2 * 1.5);
+                g.lineTo(x0 + (tr2() - 0.5) * 4, 82 + (tr2() - 0.5) * 5);
+              } else {
+                g.moveTo(gx - 4, 76 + (tr2() - 0.5) * 4);
+                g.lineTo(gx + 25, 52 + (tr2() - 0.5) * 4);
+              }
+              g.stroke();
+            }
+            gx += 34;
+          }
+        }), transparent: true, roughness: 0.95, depthWrite: false
+      })
+    );
+    tally.position.set(4.985, 1.06, -2.9);
+    tally.rotation.y = Math.PI / 2;
+    inner.add(tally);
+    const bellState = { t: -1 };
+    updaters.push((dt) => {
+      if (bellState.t < 0) return;
+      bellState.t += dt;
+      const T = bellState.t;
+      if (T > 3.2) {
+        bellState.t = -1;
+        hammer.rotation.z = -0.5;
+        bellDome.position.z = 0.008;
+        bellBtn.position.z = 0.026;
+        return;
+      }
+      bellBtn.position.z = T < 0.25 ? 0.02 : 0.026;
+      // 与 callbell 包络同拍：0–0.14 / 0.26–0.40 / 0.52–1.02 三段锤击
+      const ringing = (T >= 0 && T < 0.14) || (T >= 0.26 && T < 0.4) || (T >= 0.52 && T < 1.02);
+      if (ringing) {
+        hammer.rotation.z = -0.5 + Math.sin(T * 260) * 0.22;
+        bellDome.position.z = 0.008 + Math.sin(T * 260 + 1) * 0.0022;
+      } else {
+        hammer.rotation.z += (-0.5 - hammer.rotation.z) * Math.min(1, dt * 18);
+        bellDome.position.z += (0.008 - bellDome.position.z) * Math.min(1, dt * 18);
+      }
+    });
+    hotspots.add(bellBox, {
+      hint: 'E — 候场呼叫铃',
+      onActivate: () => {
+        if (bellState.t >= 0) return;
+        bellState.t = 0;
+        audio.sfxAt('callbell', 5.0, -22.9, 0.65, 4);
+        // 连锁：2.1s 后很远处一扇门应一声——不在后台的方向
+        later(() => audio.sfxAt('doorfar', -7.0, -26.0, 0.5, 2.2), 2100);
+        ui.caption('应声的门离得太远了。', 3800);
+      }
+    });
+  }
 
   // 折座排椅 v2（铸铁端架 + 皮面翻座 + 排灯；一把翻起的椅子可以坐下）
   const seats = theaterSeats({ rows: 3, cols: 6, dx: 0.86, dz: 1.05, mats: M });
@@ -2195,6 +2515,18 @@ export function build(ctx) {
   group.add(back);
   updaters.push(back.userData.update);
   hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+
+  // v1.10 抛光 P13「远处的声」：极远的警笛掠过——两轮上下滑被距离
+  // 磨钝，每 100–160s（seeded）从城市光晕深处来一阵就没了。这座城
+  // 总有别人的事正在发生；从来不在这条街。
+  const sirenRng = rng(89);
+  const sirenState = { next: 52 + sirenRng() * 50 };
+  updaters.push((dt) => {
+    sirenState.next -= dt;
+    if (sirenState.next > 0) return;
+    sirenState.next = 100 + sirenRng() * 60;
+    audio.sfxAt('sirenfar', 46 + sirenRng() * 24, 52, 1.0, 20);
+  });
 
   group.add(new THREE.AmbientLight(0x141228, 1.15));
 

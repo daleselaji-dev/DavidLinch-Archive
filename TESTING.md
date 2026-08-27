@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test        # vitest 单元测试（251 用例）
+npm test        # vitest 单元测试（348 用例）
 npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 ```
 
@@ -21,6 +21,11 @@ npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron
 | `tests/turnscare.test.js` | **转身惊吓触发器纯逻辑仿真（v1.7，v1.8 保留为第二扳机）**：与运行时同一个 turnTrigger + 同一份武装区/阈值数据——甩头（180° 半秒内）必触发、慢扫视（180° 2s）与 90° 小甩不触发、进区未满上膛时间不触发、区外任甩不触发、低帧率（15fps）鲁棒、单帧 yaw 突变（spinYaw 冒烟钩子）触发、冷却期不复触发/冷却后可再触发、force() 可用、参数与展厅导出一致 |
 | `tests/cornerscare.test.js` | **拐角惊吓主触发纯逻辑仿真（v1.8）**：与运行时同一个 cornerTrigger + 同一份 CORNER_SCARE/SCARE_BEATS 数据——顺巷南行（垃圾箱·后门方向入锥）进区即触发、背向北归穿区不触发、面朝墙进区转回那个方向的瞬间才触发（触发点早于正对角——「即将看见」即引爆）、区外任何朝向不触发、冷却期不复触发/冷却后可重复、force() 可用、yaw 多圈卷绕与 15fps 鲁棒；触发区几何守卫（圆心/北缘在 walkable 内、文档路线必然穿区、错位落点在一切触发区外）；多幕节拍 SCARE_BEATS 次序/留白 ≥500ms/顿挪时长 ≥1.8s/全程 ≤8s；lurchEase 顿挪缓动（单调、三步各有平台段、每步前段在挪）；源码级门禁（cornerTrigger 接线、corner-scare 入 eggs、多幕素材全接线、字幕 ≤22 字、INTERACTIVE_MIN 不回退） |
 | `tests/compliance.test.js` | 合规声明关键词、仓库零媒体素材文件、旁白原创中文短句、引语出处标注、README 免责声明 |
+| `tests/post.test.js` | 后期链参数域（bloom/halation/颗粒/暗角/色差/分级 lift-gamma-gain）、低档回退口径 |
+| `tests/kit.test.js` | 厅装配套件：mergedMesh/canvas 纹理系/lightCone2 尘埃流选项、**接触阴影与墙脚 AO 助手**（导出/合并单 mesh/贴图缓存/防深度打架 + 逐厅接线普查） |
+| `tests/v110-interactions.test.js` | **v1.10 交互反馈普查（P8）**：13 件新热点逐件断言 声+字幕+动画状态机 三通道齐备、五条连锁逐条审计、长毯/积水洼纯场景件口径、微动两遍 8 处怠速在源、流星/远车 seeded 包络、无人剧场三拍与无字幕口径 |
+| `tests/captions.test.js` | **讲解克制全量审计（P16）**：全馆 133 条字幕字面量 ≤22 字 + 零重复、146 条 hint 统一「E — 」前缀；**帮助面板键位三入口同步（P25）**：keydown/底栏按钮/帮助行表防漂移 |
+| `tests/antiplastic.test.js` | **防塑料全源门禁（P23）**：roughness <0.16 裸材质全厅普查零容忍、水面/玻璃/自发光正当放行入册且钉上限 ≤6 |
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -135,6 +140,37 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] **新音色 9 种（零采样）**：flamegut/woodknock/porcelain/sharpen/tassel/
       glasswipe/chainrattle/tapewhirr/carpass 全部位置化接线
 
+### v1.10 新增抽查（第二轮 PS5-tier 冲刺：普查 143 → **156**）
+- [ ] **开幕第 0 拍（lobby，只演一次）**：黑场里碑前长明灯先独亮（0.55s
+      火星长成火苗 + flamegut 轻声），0.9s 拍空后六盏吊灯才错拍跟上；
+      收口「尘埃醒来」——主灯升起后光尘层 2.2s 缓升到常值
+- [ ] **入口长毯**：出生点脚下深酒红丝绒长毯直押到碑座（金双边线接吊灯光、
+      中线被走浅一道、两端流苏）——纯场景件不设热点
+- [ ] **新交互抽样（每厅 2 件，全部 ≥2 通道反馈）**：lobby 吊灯绞盘
+      （摇柄→主吊灯棘轮感六格顿降再升回）/ 碑阶白花；twinpeaks 壁挂点唱盒 /
+      路边信箱排（中箱门关不上 + 邻箱旗放平连锁）；bluevelvet 歌单立牌
+      （聚光咽一口气 + 话筒 breath 连锁）/ 半掩穿衣镜（首次掀布镜深处站着
+      压扁的东西，只此一次）；mulholland 候场呼叫铃（两短一长 + 2.1s 后
+      极远一扇门应一声连锁）；studio 书桌转椅（走远路绕大半圈停在背对灯）/
+      门后行李箱（锁扣弹开又自己扣回 + 行李牌晃连锁）；eraserhead 更衣柜
+      （门荡开到头哐当自己摔死又弹回虚掩）/ 顶棚滴水接水桶；archive
+      缩微阅读器（整卷空白胶片滚动 7s 自停）/ 索引灯箱（闪烁格熄了灯搬进
+      隔壁那年 + 整箱咽气连锁）
+- [ ] **远处的光与声（seeded 稀疏，零交互纯氛围）**：twinpeaks 流星斜划 +
+      环飞鸮的 owl 声跟着它此刻的方位；mulholland 山腰远车 + 极远警笛；
+      archive 西墙后一只抽屉关上（这面墙后没有房间）；eraserhead 楼那头
+      管道被敲三下一下比一下轻；lobby 电梯到站一声叮（这栋楼没有电梯）
+- [ ] **微动两遍（8 处怠速，越小越不对劲）**：信角翕动/挂锁怠速摆/行李牌
+      无风自摆/缩微机自己蠕带/花圈没真正静止/气送管翻盖悠/冰桶瓶自己碰壁
+      （iceclink）/公交站牌螺栓打颤；diner 咖啡壶常年一缕蒸汽 + 回滴
+- [ ] **无人剧场（bluevelvet，每 120–180s）**：空舞台聚光缓亮一口又退回、
+      幕布跟着极轻颤一口、话筒那头一声几不可闻的 breath——无字幕无热点
+- [ ] **新音色 10 种（零采样）**：winch/wallbox/lockerclang/waterlap/callbell/
+      latchsnap + pipeknock/sirenfar/drawerfar/liftbell 全部位置化接线；
+      callbell 两短一长包络与铃锤动画同拍
+- [ ] **墙脚 AO 与接触阴影**：studio/archive/eraserhead 墙地交线落座；
+      六厅 17 摊新件脚下软影（暗厅黑上加黑不可见属预期）
+
 ### 交互密度抽查（v1.8 普查共 123：+穆赫兰道 1「墙角刮痕」）
 - [ ] **大厅（12，v1.7 +2）**：碑文 / **独石光缝**（E→光缝涌亮+石钟低鸣）/ **摸帷幕**（波纹爬上绒面+帷头下坠回弹，两成概率带一声窃语）/
       留声机上发条（爵士起）/ 空白胶片 / 引语立牌（走近显影）/
@@ -187,6 +223,6 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe` 双击直接运行（免安装）
-- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.9.0.exe` 一键安装后可启动
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.10.0.exe` 一键安装后可启动
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常

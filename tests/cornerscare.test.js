@@ -251,6 +251,16 @@ describe('源码级门禁：主触发是拐角、多幕素材全接线、字幕�
     expect(src).toContain('teleport(WAKE_POINT.x, WAKE_POINT.z');
   });
 
+  it('v1.10 P7 雾涌：两重惊吓的 rush 拍都接了 fogSurge（世界跟着收紧）', () => {
+    // 拐角惊吓 + 转身惊吓各一处（同一恐惧语言）
+    expect(src.match(/engine\.fogSurge\(/g)?.length).toBeGreaterThanOrEqual(2);
+    // 引擎侧：乘法瞬态 + 主循环指数衰减 + 低档不豁免（纯标量零带宽）
+    const eng = readFileSync(new URL('../src/core/engine.js', import.meta.url), 'utf8');
+    expect(eng).toContain('fogSurge(amount');
+    expect(eng).toContain('this._fogSurge *= Math.exp(-dt');
+    expect(eng).toMatch(/fd \*= 1 \+ this\._fogSurge/);
+  });
+
   it('形体升级：拐角魅影 cornerWraith 上台（帷形人影留给转身扳机）+ 剪影光', () => {
     expect(src).toContain('cornerWraith(');
     expect(src).toContain('veiledFigure(');

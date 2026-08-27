@@ -188,6 +188,76 @@ export function softCircleTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(2
   });
 }
 
+// ---------- v1.10 P6 接触阴影 ----------
+let ctShadowTex = null;
+/**
+ * 接触阴影贴片组——道具落地处的一小摊软阴影（假 AO），防「摆上去的」
+ * 悬浮感。spots: [{ x, z, r, rz?, ry?, y? }]（rz 缺省为 r=圆摊；ry 为
+ * 摊的水平朝向；y 缺省 0.006 贴地）。多摊合并为**单 mesh**、共享一张
+ * 径向贴图（模块级缓存），polygonOffset 防与地面深度打架；黑色不受光，
+ * 低档无需回退（静态零带宽）。
+ */
+export function contactShadows(spots, opacity = 0.42) {
+  if (!ctShadowTex) {
+    ctShadowTex = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const rad = g.createRadialGradient(s / 2, s / 2, s * 0.05, s / 2, s / 2, s / 2);
+      rad.addColorStop(0, 'rgba(0,0,0,0.9)');
+      rad.addColorStop(0.55, 'rgba(0,0,0,0.42)');
+      rad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rad;
+      g.fillRect(0, 0, s, s);
+    });
+  }
+  const geos = spots.map(({ x, z, r, rz = r, ry = 0, y = 0.006 }) => {
+    const g = new THREE.PlaneGeometry(r * 2, rz * 2);
+    // 先在面内定朝向再放平：rotateZ(θ) → rotateX(-π/2) 等价于水平 yaw θ
+    g.rotateZ(ry);
+    g.rotateX(-Math.PI / 2);
+    g.translate(x, y, z);
+    return g;
+  });
+  return mergedMesh(geos, new THREE.MeshBasicMaterial({
+    map: ctShadowTex, color: 0x000000, transparent: true, opacity,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1
+  }));
+}
+
+// ---------- v1.10 P15 墙脚 AO 带 ----------
+let wallAOTex = null;
+/**
+ * 墙脚阴影带——墙与地交线处的一条软渐变（假环境光遮蔽），杀掉
+ * 「墙贴着地」的 CG 感。runs: [{ x, z, len, ry?, w?, y? }]——每条以
+ * (x,z) 为中点、沿本地 x 向铺 len 长；暗边初始朝世界 -z，ry 绕竖轴
+ * 转到贴墙一侧（0=北墙 / π=南墙 / π/2=西墙 / -π/2=东墙）。多条合并
+ * **单 mesh**、共享一张线性渐变贴图（模块级缓存），polygonOffset 防
+ * 与地面深度打架；黑色不受光，静态零带宽低档免回退（与接触阴影同口径）。
+ */
+export function wallAO(runs, opacity = 0.32) {
+  if (!wallAOTex) {
+    wallAOTex = canvasTexture(64, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const grad = g.createLinearGradient(0, 0, 0, s);
+      grad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(0.42, 'rgba(0,0,0,0.3)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, s, s);
+    });
+  }
+  const geos = runs.map(({ x, z, len, ry = 0, w = 0.55, y = 0.008 }) => {
+    const g = new THREE.PlaneGeometry(len, w);
+    g.rotateX(-Math.PI / 2); // 放平后贴图暗边（画布顶行）指向世界 -z
+    g.rotateY(ry);
+    g.translate(x, y, z);
+    return g;
+  });
+  return mergedMesh(geos, new THREE.MeshBasicMaterial({
+    map: wallAOTex, color: 0x000000, transparent: true, opacity,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1
+  }));
+}
+
 // ---------- 圆角几何 / 合并 ----------
 /** 圆角盒几何 */
 export function roundedBoxGeo(w, h, d, r, segments = 3) {
@@ -465,14 +535,55 @@ export function lightCone(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.0
  * 双层体积光锥（v1.4 P7）：内芯亮 + 外晕柔，
  * userData.setStrength(k) 供交互/闪烁调制两层同步。
  */
-export function lightCone2(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.055) {
+export function lightCone2(topR, bottomR, height, color = 0xf2e9dc, opacity = 0.055, { dust = false } = {}) {
   const g = new THREE.Group();
   const outer = lightCone(topR, bottomR, height, color, opacity);
   const inner = lightCone(topR * 0.42, bottomR * 0.52, height * 0.985, color, opacity * 2.2);
   g.add(outer, inner);
+  const state = { k: 1 };
+  // v1.10 C2：光柱里的尘埃流——竖向亮条纹 + 微粒缓慢下沉、随呼吸
+  // 微涨落（updateDust 第三参）；低档 updateDust(on=false) 退回素色锥
+  let dustMesh = null;
+  if (dust) {
+    const streakTex = canvasTexture(128, (gg, s) => {
+      gg.clearRect(0, 0, s, s);
+      const sr = rng(19);
+      for (let i = 0; i < 24; i++) {
+        const x = sr() * s;
+        const w = 0.8 + sr() * 2.2;
+        const grad = gg.createLinearGradient(0, 0, 0, s);
+        const a = 0.05 + sr() * 0.15;
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.5, `rgba(255,255,255,${a.toFixed(3)})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        gg.fillStyle = grad;
+        gg.fillRect(x, 0, w, s);
+      }
+      for (let i = 0; i < 80; i++) {
+        gg.fillStyle = `rgba(255,255,255,${(0.1 + sr() * 0.28).toFixed(3)})`;
+        gg.fillRect(sr() * s, sr() * s, 1.4, 1.4 + sr() * 2.2);
+      }
+    });
+    streakTex.wrapS = streakTex.wrapT = THREE.RepeatWrapping;
+    dustMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(topR * 0.8, bottomR * 0.86, height * 0.97, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color, map: streakTex, transparent: true, opacity: opacity * 1.5,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      })
+    );
+    g.add(dustMesh);
+  }
   g.userData.setStrength = (k) => {
+    state.k = k;
     outer.material.opacity = opacity * k;
     inner.material.opacity = opacity * 2.2 * k;
+  };
+  g.userData.updateDust = (dt, t, breath = 0, on = true) => {
+    if (!dustMesh) return;
+    dustMesh.material.map.offset.y -= dt * 0.016; // 灰在光里落
+    dustMesh.rotation.y = t * 0.03;
+    dustMesh.material.opacity = on ? opacity * 1.5 * state.k * (1 + breath * 0.25) : 0;
   };
   return g;
 }

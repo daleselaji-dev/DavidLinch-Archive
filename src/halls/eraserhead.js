@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
-  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat
+  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat, contactShadows, wallAO
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -37,7 +37,7 @@ const MAIN = { minX: -S / 2 + 1.1, maxX: S / 2 - 1.1, minZ: -S / 2 + 1.6, maxZ: 
 const ANNEX = { minX: -S / 2 - 6.2, maxX: -S / 2 + 1.2, minZ: -2.6, maxZ: 2.6 }; // 锅炉房
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -1804,6 +1804,408 @@ export function build(ctx) {
     onActivate: () => ui.showFilm('eraserhead')
   });
 
+  // ============================================================
+  // v1.10 阶段 2f·eraserhead 件 1：更衣柜排——东墙打卡钟与
+  // 汇流排之间的三只铁皮柜（漆面磨蚀 + 门上通风缝 + 钢印号牌
+  // 03/04/05），中间那只门虚掩着，里面只有一只空铁丝衣架。
+  // E → 门吱呀荡开到头，悬半拍，哐当一声自己摔死（lockerclang
+  // + 两只邻柜整排嗡震），过两秒又慢慢弹回虚掩——空柜子才关不严。
+  // ============================================================
+  {
+    const lockerGrp = new THREE.Group();
+    // 铁皮漆面：灰绿工业漆 + 磨蚀露底 + 竖向流锈
+    const lockerTex = canvasTexture(256, (g, s) => {
+      g.fillStyle = '#3f4440';
+      g.fillRect(0, 0, s, s);
+      const lr = rng(93);
+      for (let i = 0; i < 46; i++) {
+        g.fillStyle = `rgba(${26 + lr() * 20},${28 + lr() * 20},${26 + lr() * 16},${0.14 + lr() * 0.2})`;
+        g.beginPath();
+        g.ellipse(lr() * s, lr() * s, 5 + lr() * 22, 4 + lr() * 14, lr() * Math.PI, 0, Math.PI * 2);
+        g.fill();
+      }
+      // 磨蚀露底（下缘与把手高度最重）
+      for (let i = 0; i < 18; i++) {
+        g.fillStyle = `rgba(120,118,110,${0.1 + lr() * 0.2})`;
+        const yy = lr() < 0.5 ? s * (0.86 + lr() * 0.12) : s * (0.42 + lr() * 0.1);
+        g.beginPath();
+        g.ellipse(lr() * s, yy, 3 + lr() * 12, 2 + lr() * 5, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      // 竖向流锈两道
+      for (const xx of [s * 0.22, s * 0.71]) {
+        const rust = g.createLinearGradient(0, s * 0.1, 0, s);
+        rust.addColorStop(0, 'rgba(74,52,38,0.4)');
+        rust.addColorStop(1, 'rgba(74,52,38,0)');
+        g.fillStyle = rust;
+        g.fillRect(xx, s * 0.1, 2.5 + (xx % 3), s * 0.8);
+      }
+    });
+    const lockerMat = new THREE.MeshStandardMaterial({
+      map: lockerTex, roughness: 0.52, metalness: 0.35, envMapIntensity: 0.9
+    });
+    const LK_W = 0.52;
+    const LK_H = 1.92;
+    const LK_D = 0.5;
+    // 三只柜体 + 共用底槛（中间那只的前脸开着口）
+    const bodyGeos = [
+      xform(new THREE.BoxGeometry(LK_W * 3 + 0.06, 0.07, LK_D + 0.04), 0, 0.035, 0)
+    ];
+    for (let i = -1; i <= 1; i++) {
+      // 侧板/背板/顶板（箱体离散拼，正面留门洞）
+      bodyGeos.push(
+        xform(new THREE.BoxGeometry(0.02, LK_H, LK_D), i * LK_W - LK_W / 2 + 0.01, LK_H / 2 + 0.07, 0),
+        xform(new THREE.BoxGeometry(0.02, LK_H, LK_D), i * LK_W + LK_W / 2 - 0.01, LK_H / 2 + 0.07, 0),
+        xform(new THREE.BoxGeometry(LK_W, LK_H, 0.02), i * LK_W, LK_H / 2 + 0.07, -LK_D / 2 + 0.01),
+        xform(new THREE.BoxGeometry(LK_W, 0.02, LK_D), i * LK_W, LK_H + 0.06, 0)
+      );
+    }
+    lockerGrp.add(mergedMesh(bodyGeos, lockerMat));
+    // 门面贴图（通风缝上下两组 + 钢印号牌位置留白）
+    const mkDoorTex = (num) => canvasTexture(128, (g, s) => {
+      g.fillStyle = '#434844';
+      g.fillRect(0, 0, s, s);
+      const dr = rng(29 + num);
+      for (let i = 0; i < 22; i++) {
+        g.fillStyle = `rgba(${28 + dr() * 18},${30 + dr() * 18},${28 + dr() * 14},${0.15 + dr() * 0.2})`;
+        g.beginPath();
+        g.ellipse(dr() * s, dr() * s, 4 + dr() * 14, 3 + dr() * 9, dr() * Math.PI, 0, Math.PI * 2);
+        g.fill();
+      }
+      // 通风缝（上三下三）
+      g.fillStyle = 'rgba(8,9,10,0.9)';
+      for (const y0 of [0.1, 0.78]) {
+        for (let k = 0; k < 3; k++) {
+          g.fillRect(s * 0.3, s * (y0 + k * 0.035), s * 0.4, 2.6);
+        }
+      }
+      // 号牌
+      g.fillStyle = '#8a887e';
+      g.fillRect(s * 0.36, s * 0.3, s * 0.28, s * 0.1);
+      g.fillStyle = '#22211e';
+      g.font = `700 ${Math.round(s * 0.075)}px Georgia, serif`;
+      g.textAlign = 'center';
+      g.fillText(`0${num}`, s / 2, s * 0.375);
+      // 把手高度的手蹭
+      g.fillStyle = 'rgba(130,128,118,0.28)';
+      g.beginPath();
+      g.ellipse(s * 0.78, s * 0.52, s * 0.07, s * 0.045, 0.3, 0, Math.PI * 2);
+      g.fill();
+    });
+    // 两只关着的门（3/5 号，合并不动）+ 把手
+    for (const [i, num] of [[-1, 3], [1, 5]]) {
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(LK_W - 0.05, LK_H - 0.06, 0.024),
+        [lockerMat, lockerMat, lockerMat, lockerMat,
+          new THREE.MeshStandardMaterial({ map: mkDoorTex(num), roughness: 0.52, metalness: 0.35 }),
+          lockerMat]
+      );
+      door.position.set(i * LK_W, LK_H / 2 + 0.07, LK_D / 2 - 0.012);
+      lockerGrp.add(door);
+    }
+    lockerGrp.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.022, 0.09, 0.03), -LK_W + 0.17, 1.06, LK_D / 2 + 0.012),
+      xform(new THREE.BoxGeometry(0.022, 0.09, 0.03), LK_W + 0.17, 1.06, LK_D / 2 + 0.012)
+    ], new THREE.MeshStandardMaterial({ color: 0x8a8c90, roughness: 0.35, metalness: 0.85 })));
+    // v1.10 抛光 P3：05 号柜把手上挂一把黄铜挂锁——锁梁没扣进锁孔，
+    // 只是勾着晃。锁着的柜子是空的，空的那只反倒虚掩（枢轴设在锁梁
+    // 勾点，整排嗡震时它跟着一起打摆）。
+    const padlock = new THREE.Group();
+    const padBrass = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x8a6c38, roughness: 0.4, metalness: 0.9, envMapIntensity: 1.1
+    });
+    padlock.add(mergedMesh([
+      // 锁体（圆角）+ 锁孔压片；锁梁 U 形（部分圆环），勾点即组原点
+      xform(roundedBoxGeo(0.052, 0.062, 0.024, 0.008, 2), 0, -0.085, 0),
+      xform(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 8), 0, -0.098, 0.013, Math.PI / 2, 0, 0),
+      xform(new THREE.TorusGeometry(0.024, 0.0058, 6, 14, Math.PI * 1.55), 0, -0.032, 0, 0, 0, Math.PI * 0.72)
+    ], padBrass));
+    padlock.position.set(LK_W + 0.17, 1.012, LK_D / 2 + 0.02);
+    padlock.rotation.z = 0.1;
+    lockerGrp.add(padlock);
+    // 中柜内腔的黑 + 一只空铁丝衣架挂在横杆上
+    const cavity = new THREE.Mesh(
+      new THREE.PlaneGeometry(LK_W - 0.06, LK_H - 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x030304, roughness: 0.98 })
+    );
+    cavity.position.set(0, LK_H / 2 + 0.07, -LK_D / 2 + 0.02);
+    lockerGrp.add(cavity);
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0x6a6c70, roughness: 0.4, metalness: 0.9 });
+    const hanger = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.006, 0.006, 0.36, 6), 0, 1.62, 0, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.004, 0.004, 0.3, 5), -0.075, 1.44, 0, 0, 0, 0.55),
+      xform(new THREE.CylinderGeometry(0.004, 0.004, 0.3, 5), 0.075, 1.44, 0, 0, 0, -0.55),
+      xform(new THREE.CylinderGeometry(0.004, 0.004, 0.28, 5), 0, 1.3, 0, 0, 0, Math.PI / 2),
+      xform(new THREE.TorusGeometry(0.03, 0.004, 5, 10, Math.PI * 1.4), 0, 1.66, 0, 0, 0, Math.PI * 0.85)
+    ], wireMat);
+    hanger.position.z = -0.08;
+    lockerGrp.add(hanger);
+    // 虚掩的中门（枢轴在右缘铰链侧）
+    const ajarPivot = new THREE.Group();
+    ajarPivot.position.set(LK_W / 2 - 0.025, LK_H / 2 + 0.07, LK_D / 2 - 0.012);
+    const ajarDoor = new THREE.Mesh(
+      new THREE.BoxGeometry(LK_W - 0.05, LK_H - 0.06, 0.024),
+      [lockerMat, lockerMat, lockerMat, lockerMat,
+        new THREE.MeshStandardMaterial({ map: mkDoorTex(4), roughness: 0.52, metalness: 0.35 }),
+        lockerMat]
+    );
+    ajarDoor.position.x = -(LK_W - 0.05) / 2;
+    const ajarHandle = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.09, 0.03),
+      new THREE.MeshStandardMaterial({ color: 0x8a8c90, roughness: 0.35, metalness: 0.85 }));
+    ajarHandle.position.set(-(LK_W - 0.05) + 0.06, 0.03, 0.02);
+    ajarPivot.add(ajarDoor, ajarHandle);
+    lockerGrp.add(ajarPivot);
+    const AJAR = -0.42; // 常态虚掩角
+    ajarPivot.rotation.y = AJAR;
+    // v1.10 抛光 P6：柜排脚下一道软阴影（水泥地上铁柜的坐实感），
+    // 随组嗡震微移——挂着的锁摆、柜底的影跟着一起动才对
+    lockerGrp.add(contactShadows([{ x: 0, z: 0.06, r: 1.0, rz: 0.44 }], 0.46));
+    // 东墙：打卡钟（z-3.05）与汇流排（z1.7）之间，面朝室内（-x）
+    lockerGrp.position.set(S / 2 - 0.28, 0, -0.75);
+    lockerGrp.rotation.y = -Math.PI / 2;
+    group.add(lockerGrp);
+    const lockerState = { t: -1, rattle: -1 };
+    updaters.push((dt, t) => {
+      // 楼里的震动常年传到虚掩的门上（幅度极小）
+      if (lockerState.t < 0) {
+        ajarPivot.rotation.y = AJAR + Math.sin(t * 2.3) * 0.006 + Math.sin(t * 7.1) * 0.003;
+      } else {
+        lockerState.t += dt;
+        const T = lockerState.t;
+        if (T < 0.75) {
+          // 荡开到头（缓出）
+          const u = T / 0.75;
+          ajarPivot.rotation.y = AJAR + (1 - Math.pow(1 - u, 2.4)) * (-1.28 - AJAR);
+        } else if (T < 1.15) {
+          ajarPivot.rotation.y = -1.28;
+        } else if (T < 1.32) {
+          // 哐当摔死（快合 + 到位那一下过冲）
+          const u = (T - 1.15) / 0.17;
+          ajarPivot.rotation.y = -1.28 * (1 - u * u);
+        } else if (T < 3.3) {
+          ajarPivot.rotation.y = Math.sin((T - 1.32) * 26) * 0.02 * Math.exp(-(T - 1.32) * 6);
+        } else if (T < 5.1) {
+          // 又慢慢弹回虚掩
+          const u = (T - 3.3) / 1.8;
+          ajarPivot.rotation.y = AJAR * (u * u * (3 - 2 * u));
+        } else {
+          lockerState.t = -1;
+          ajarPivot.rotation.y = AJAR;
+        }
+      }
+      if (lockerState.rattle >= 0) {
+        lockerState.rattle += dt;
+        const k = Math.exp(-lockerState.rattle * 7);
+        if (k < 0.03) { lockerState.rattle = -1; lockerGrp.position.x = S / 2 - 0.28; }
+        else lockerGrp.position.x = S / 2 - 0.28 + Math.sin(lockerState.rattle * 60) * 0.004 * k;
+        // 挂锁勾着摆：比柜体的嗡震慢半拍、衰得也慢（挂着的东西才这样）
+        const pk = Math.exp(-lockerState.rattle * 2.2);
+        padlock.rotation.z = 0.1 + Math.sin(lockerState.rattle * 13) * 0.3 * pk;
+      } else {
+        // v1.10 抛光 P9 微动：厂房常年的低频震让它静不下来——
+        // 归位后仍有 ±0.006 的怠速摆（0.8Hz，肉眼将将可察）
+        const idle = 0.1 + Math.sin(t * 0.8 * Math.PI * 2) * 0.006;
+        padlock.rotation.z += (idle - padlock.rotation.z) * Math.min(1, dt * 3);
+      }
+    });
+    hotspots.add(ajarDoor, {
+      hint: 'E — 虚掩的更衣柜',
+      onActivate: () => {
+        if (lockerState.t >= 0) return;
+        lockerState.t = 0;
+        audio.sfxAt('creak', S / 2 - 0.28, -0.75, 0.5);
+        setTimeout(() => {
+          lockerState.rattle = 0;
+          audio.sfxAt('lockerclang', S / 2 - 0.28, -0.75, 0.8);
+        }, 1150);
+        ui.caption('空柜子才关不严。', 3600);
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 阶段 2f·eraserhead 件 2：顶棚滴水与接水桶——头顶
+  // 没有任何水管的那块天花，每隔几秒掉一滴；镀锌铁桶接着，
+  // 桶心一圈圈涟漪，桶外一圈洇湿。E → 桶被碰得晃起来，水在
+  // 铁皮里拍两拍（waterlap），涟漪乱成一片再平回去。
+  // ============================================================
+  {
+    const pailGrp = new THREE.Group();
+    const galv = new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(128, 128, 30), color: 0x9aa0a4,
+      roughness: 0.38, metalness: 0.85, envMapIntensity: 1.1
+    });
+    const pail = new THREE.Mesh(
+      new THREE.LatheGeometry([
+        new THREE.Vector2(0.135, 0), new THREE.Vector2(0.155, 0.02), new THREE.Vector2(0.185, 0.2),
+        new THREE.Vector2(0.205, 0.36), new THREE.Vector2(0.215, 0.37), new THREE.Vector2(0.208, 0.38),
+        new THREE.Vector2(0.2, 0.365)
+      ], 18),
+      galv
+    );
+    galv.side = THREE.DoubleSide;
+    pailGrp.add(pail);
+    // 铁丝提手（垂在桶侧）+ 双耳
+    pailGrp.add(mergedMesh([
+      xform(new THREE.TorusGeometry(0.2, 0.007, 6, 16, Math.PI * 0.9), 0.02, 0.3, 0, 0.35, 0.2, -1.35),
+      xform(new THREE.BoxGeometry(0.02, 0.035, 0.012), -0.208, 0.345, 0),
+      xform(new THREE.BoxGeometry(0.02, 0.035, 0.012), 0.208, 0.345, 0)
+    ], new THREE.MeshStandardMaterial({ color: 0x63666a, roughness: 0.45, metalness: 0.9 })));
+    // 桶里的水（近黑亮面）
+    const pailWater = new THREE.Mesh(
+      new THREE.CircleGeometry(0.183, 20),
+      new THREE.MeshStandardMaterial({
+        color: 0x0a0c0d, roughness: 0.06, metalness: 0.1, envMapIntensity: 1.6
+      })
+    );
+    pailWater.rotation.x = -Math.PI / 2;
+    pailWater.position.y = 0.3;
+    pailGrp.add(pailWater);
+    // 涟漪环 ×2（滴落后从桶心荡开；平时透明）
+    const ripples = [];
+    for (let i = 0; i < 2; i++) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.88, 1.0, 24),
+        new THREE.MeshBasicMaterial({
+          color: 0x9fb2c0, transparent: true, opacity: 0, depthWrite: false
+        })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.304;
+      ring.scale.setScalar(0.001);
+      pailGrp.add(ring);
+      ripples.push({ mesh: ring, t: -1 });
+    }
+    // 桶外一圈洇湿（复用地漏湿渍语言）
+    const pailWet = new THREE.Mesh(
+      new THREE.CircleGeometry(0.6, 22),
+      new THREE.MeshStandardMaterial({
+        map: wetTex, transparent: true, depthWrite: false,
+        roughness: 0.14, envMapIntensity: 1.2,
+        polygonOffset: true, polygonOffsetFactor: -1
+      })
+    );
+    pailWet.rotation.x = -Math.PI / 2;
+    pailWet.position.y = 0.006;
+    pailGrp.add(pailWet);
+    // 那一滴：拉长的小水珠从天花掉下来（头顶没有任何管子）
+    const drop = new THREE.Mesh(
+      new THREE.SphereGeometry(0.014, 8, 8),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xbfc8d0, roughness: 0.05, transparent: true, opacity: 0.75, envMapIntensity: 1.6
+      })
+    );
+    drop.scale.set(0.7, 1.8, 0.7);
+    drop.visible = false;
+    pailGrp.add(drop);
+    // v1.10 抛光 P3：桶沿搭一块拧干的抹布——对折搭在卷唇上，
+    // 外垂长内垂短、布面带静态皱（谁在等这桶接满，好来拧一把）。
+    const ragMat = new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, (g, s) => {
+        g.fillStyle = '#5c5a50';
+        g.fillRect(0, 0, s, s);
+        const rr2 = rng(61);
+        for (let i = 0; i < 30; i++) {
+          g.fillStyle = `rgba(${64 + rr2() * 30},${62 + rr2() * 26},${52 + rr2() * 22},${0.16 + rr2() * 0.22})`;
+          g.fillRect(rr2() * s, rr2() * s, 4 + rr2() * 26, 2 + rr2() * 8);
+        }
+        // 洗不掉的两道油渍
+        g.fillStyle = 'rgba(30,28,22,0.4)';
+        g.fillRect(s * 0.2, s * 0.3, s * 0.5, 5);
+        g.fillRect(s * 0.35, s * 0.62, s * 0.4, 4);
+      }), roughness: 0.95, side: THREE.DoubleSide
+    });
+    const mkRagPiece = (h, zOff, tilt) => {
+      const geo = new THREE.PlaneGeometry(0.15, h, 6, 5);
+      const rp = geo.attributes.position;
+      for (let i = 0; i < rp.count; i++) {
+        rp.setZ(i, Math.sin(rp.getX(i) * 26 + rp.getY(i) * 5) * 0.011);
+      }
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, ragMat);
+      m.position.set(0, -h / 2 + 0.005, zOff);
+      m.rotation.x = tilt;
+      return m;
+    };
+    const rag = new THREE.Group();
+    rag.add(mkRagPiece(0.24, 0.017, 0.1), mkRagPiece(0.13, -0.02, -0.12));
+    const ragCap = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.05), ragMat);
+    ragCap.rotation.x = -Math.PI / 2;
+    ragCap.position.y = 0.012;
+    rag.add(ragCap);
+    // 组 +z 指向径向外（rim 切线对齐），外幅垂桶外、内幅垂桶内
+    rag.position.set(-0.05, 0.375, 0.2);
+    rag.rotation.y = -0.24;
+    pailGrp.add(rag);
+    const PAIL_X = 6.1;
+    const PAIL_Z = -4.3;
+    pailGrp.position.set(PAIL_X, 0, PAIL_Z);
+    group.add(pailGrp);
+    const spawnRipple = (big = 0) => {
+      const r = ripples.find((x) => x.t < 0) || ripples[0];
+      r.t = 0;
+      r.big = big;
+    };
+    const dripState = { next: 1.6, y: -1, slosh: -1 };
+    updaters.push((dt, t) => {
+      // 滴落循环：H-0.1 → 水面 0.3，自由落体近似匀加速（视觉上取匀速+加速混合）
+      if (dripState.y < 0) {
+        dripState.next -= dt;
+        if (dripState.next <= 0) {
+          dripState.y = H - 0.15;
+          drop.visible = true;
+        }
+      } else {
+        dripState.y -= dt * (2.2 + (H - dripState.y) * 2.6);
+        if (dripState.y <= 0.31) {
+          dripState.y = -1;
+          drop.visible = false;
+          dripState.next = 2.6 + Math.random() * 2.2;
+          audio.sfxAt('drip', PAIL_X, PAIL_Z, 0.4);
+          spawnRipple();
+        } else {
+          drop.position.set(0, dripState.y, 0);
+        }
+      }
+      // 涟漪推进
+      for (const r of ripples) {
+        if (r.t < 0) continue;
+        r.t += dt;
+        const life = r.big ? 0.9 : 1.3;
+        if (r.t > life) { r.t = -1; r.mesh.material.opacity = 0; r.mesh.scale.setScalar(0.001); continue; }
+        const u = r.t / life;
+        r.mesh.scale.setScalar(0.04 + u * 0.14);
+        r.mesh.material.opacity = (r.big ? 0.5 : 0.34) * (1 - u);
+      }
+      // 桶被碰后的晃 + 水面斜荡
+      if (dripState.slosh >= 0) {
+        dripState.slosh += dt;
+        const k = Math.exp(-dripState.slosh * 1.8);
+        if (k < 0.02) {
+          dripState.slosh = -1;
+          pailGrp.rotation.set(0, 0, 0);
+          pailWater.rotation.set(-Math.PI / 2, 0, 0);
+        } else {
+          pailGrp.rotation.z = Math.sin(dripState.slosh * 9) * 0.045 * k;
+          pailGrp.rotation.x = Math.sin(dripState.slosh * 7.3 + 0.7) * 0.03 * k;
+          pailWater.rotation.x = -Math.PI / 2 + Math.sin(dripState.slosh * 11) * 0.1 * k;
+          pailWater.rotation.y = Math.sin(dripState.slosh * 8.4 + 0.4) * 0.08 * k;
+        }
+      }
+    });
+    hotspots.add(pail, {
+      hint: 'E — 接水的桶',
+      onActivate: () => {
+        if (dripState.slosh >= 0) return;
+        dripState.slosh = 0;
+        audio.sfxAt('waterlap', PAIL_X, PAIL_Z, 0.75);
+        spawnRipple(1);
+        setTimeout(() => spawnRipple(1), 300);
+        ui.caption('上面没有水管。', 3600);
+      }
+    });
+  }
+
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, S / 2 - 0.55);
@@ -1918,6 +2320,33 @@ export function build(ctx) {
   const dust = dustField(160, { x: S, y: H, z: S }, { opacity: 0.3, size: 0.045, color: 0xd8dce0 });
   group.add(dust);
   updaters.push(dust.userData.update);
+  // v1.10 C3：工业厅呼吸最急（26s 一息）——灰随楼的喘息明灭
+  updaters.push(() => {
+    dust.material.opacity = 0.3 * (1 + engine.breath * 0.3);
+    haze.material.opacity = 0.06 * (1 + engine.breath * 0.22);
+  });
+  // v1.10 抛光 P15：墙脚 AO 带——砖墙与水泥地坪的交线一圈软阴影
+  // （西墙沿门洞分两段），工业硬面之间的「贴图接缝感」靠这条线压住。
+  group.add(wallAO([
+    { x: 0, z: -S / 2 + 0.275, len: S, ry: 0 },
+    { x: 0, z: S / 2 - 0.275, len: S, ry: Math.PI },
+    { x: S / 2 - 0.275, z: 0, len: S, ry: -Math.PI / 2 },
+    { x: -S / 2 + 0.275, z: -5.05, len: 6.9, ry: Math.PI / 2 },
+    { x: -S / 2 + 0.275, z: 5.05, len: 6.9, ry: Math.PI / 2 }
+  ], 0.34));
+
+  // v1.10 抛光 P13「远处的声」：楼那头有人敲管道——三下，一下比
+  // 一下轻，每 70–120s（seeded）从西墙外很远的地方传来。管道通到
+  // 哪儿没人知道；对暖气说话的也许不是人。
+  const knockRng = rng(73);
+  const knockState = { next: 38 + knockRng() * 40 };
+  updaters.push((dt) => {
+    knockState.next -= dt;
+    if (knockState.next > 0) return;
+    knockState.next = 70 + knockRng() * 50;
+    audio.sfxAt('pipeknock', -13, -15, 1.0, 9);
+  });
+
   group.add(new THREE.AmbientLight(0x18181c, 0.55));
 
   return {

@@ -102,6 +102,59 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
     expect(typeof kit.lightCone2).toBe('function');
     expect(src).toContain('setStrength');
   });
+
+  it('v1.10 C2 光锥尘埃流：dust 选项 + updateDust（呼吸调制 + 低档退素色）', () => {
+    // 源码级审计：尘埃层存在、随呼吸调制、on=false 时归零（低档回退）
+    const seg = src.slice(src.indexOf('export function lightCone2'), src.indexOf('// ---------- 建筑构件'));
+    expect(seg).toContain('{ dust = false }');
+    expect(seg).toContain('updateDust');
+    expect(seg).toContain('breath');
+    expect(seg).toMatch(/on \? [^:]+ : 0/);
+    // 条纹贴图必须走 RepeatWrapping（滚动不撕边）
+    expect(seg).toContain('RepeatWrapping');
+  });
+
+  it('v1.10 P6 接触阴影 contactShadows：导出 + 单 mesh 合并 + 贴图缓存 + 防深度打架', () => {
+    expect(typeof kit.contactShadows).toBe('function');
+    const seg = src.slice(src.indexOf('export function contactShadows'), src.indexOf('// ---------- 圆角几何'));
+    // 多摊必须合并为单 mesh（预算：每厅只 +1）；贴图模块级缓存只画一次
+    expect(seg).toContain('mergedMesh');
+    expect(seg).toContain('ctShadowTex');
+    // 贴地贴片三件套：不写深度、polygonOffset、透明
+    expect(seg).toContain('depthWrite: false');
+    expect(seg).toContain('polygonOffset: true');
+    expect(seg).toContain('transparent: true');
+  });
+
+  it('v1.10 P6 接触阴影已在六厅接线（mulholland 新件为平面/壁挂件，刻意不加）', () => {
+    const halls = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'studio'];
+    for (const h of halls) {
+      const hs = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hs, `${h} 缺少 contactShadows 接线`).toContain('contactShadows([');
+    }
+    const mul = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
+    expect(mul).not.toContain('contactShadows([');
+  });
+
+  it('v1.10 P15 墙脚 AO 带 wallAO：导出 + 单 mesh 合并 + 贴图缓存 + 防深度打架', () => {
+    expect(typeof kit.wallAO).toBe('function');
+    const seg = src.slice(src.indexOf('export function wallAO'), src.indexOf('// ---------- 圆角几何'));
+    expect(seg).toContain('mergedMesh');
+    expect(seg).toContain('wallAOTex');
+    expect(seg).toContain('createLinearGradient');
+    expect(seg).toContain('depthWrite: false');
+    expect(seg).toContain('polygonOffset: true');
+    expect(seg).toContain('transparent: true');
+  });
+
+  it('v1.10 P15 墙脚 AO 带已在三个室内硬墙厅接线（studio/archive/eraserhead 各合并单 mesh）', () => {
+    for (const h of ['studio', 'archive', 'eraserhead']) {
+      const hs = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hs, `${h} 缺少 wallAO 接线`).toContain('wallAO([');
+      // 每厅只出现一次（合并单 mesh，预算 +1）
+      expect(hs.split('wallAO([').length - 1, `${h} wallAO 应只接一次`).toBe(1);
+    }
+  });
 });
 
 describe('v1.3 道具预制体库导出面', () => {

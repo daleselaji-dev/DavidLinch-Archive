@@ -664,6 +664,94 @@ export class AudioEngine {
         noise('white', 0.5, 'highpass', 2400, 1, 0.02, 2.1, 0.18);    // 水花碎响
         break;
       }
+      case 'winch': { // 吊灯绞盘（v1.10）：摇柄棘轮圈 + 钢缆绷紧上行呻吟 + 滑轮吱鸣 + 自重接管
+        for (let i = 0; i < 8; i++) {
+          tone('square', 118, 104, 0.035, 0.02, i * 0.16);
+          noise('pink', 0.045, 'bandpass', 900 + (i % 2) * 180, 4, 0.038, i * 0.16);
+        }
+        tone('sine', 74, 96, 1.1, 0.05, 0.1);
+        tone('sine', 1080, 1010, 0.5, 0.014, 0.5);
+        noise('brown', 0.4, 'lowpass', 240, 1, 0.05, 1.1, 0.1);
+        break;
+      }
+      case 'wallbox': { // 卡座点唱盒（v1.10）：投币簧 + 曲目牌翻页嗒嗒（密到疏）+ 机芯醒来的低哼
+        tone('square', 2600, 2400, 0.02, 0.02);
+        for (let i = 0; i < 5; i++) {
+          noise('white', 0.02, 'bandpass', 3000 - i * 240, 6, 0.03, 0.16 + i * 0.09);
+          tone('square', 180, 160, 0.02, 0.012, 0.16 + i * 0.09);
+        }
+        tone('sine', 96, 100, 0.8, 0.03, 0.7);
+        tone('sine', 192, 200, 0.7, 0.014, 0.75);
+        break;
+      }
+      case 'lockerclang': { // 铁皮更衣柜（v1.10）：门簧锐鸣 + 哐当闭合 + 空腔铁皮余振
+        tone('square', 1650, 1520, 0.06, 0.03);
+        noise('white', 0.04, 'highpass', 3400, 2, 0.04);
+        tone('sine', 96, 60, 0.3, 0.16, 0.42);
+        noise('brown', 0.16, 'lowpass', 400, 1, 0.1, 0.42);
+        tone('sine', 340, 328, 0.5, 0.03, 0.44);
+        tone('sine', 512, 490, 0.36, 0.02, 0.46);
+        break;
+      }
+      case 'waterlap': { // 接水桶被碰（v1.10）：桶沿一声 + 水在铁皮里晃两拍（第二拍更轻）+ 迟到的一滴
+        tone('sine', 520, 470, 0.14, 0.04);
+        noise('pink', 0.4, 'bandpass', 620, 2.4, 0.05, 0.06, 0.1);
+        tone('sine', 300, 380, 0.3, 0.026, 0.1);
+        noise('pink', 0.3, 'bandpass', 540, 2.6, 0.036, 0.5, 0.1);
+        tone('sine', 1900, 2300, 0.08, 0.02, 0.95);
+        break;
+      }
+      case 'callbell': { // 候场呼叫铃（v1.10）：两短一长电铃（铃锤连击近似）+ 继电器收拍
+        for (const [d, len] of [[0, 0.14], [0.26, 0.14], [0.52, 0.5]]) {
+          const hits = Math.floor(len / 0.024);
+          for (let i = 0; i < hits; i++) {
+            tone('square', 2350, 2280, 0.02, 0.016, d + i * 0.024);
+          }
+          tone('sine', 1180, 1160, len + 0.1, 0.02, d);
+        }
+        tone('square', 900, 860, 0.02, 0.02, 1.1);
+        break;
+      }
+      case 'latchsnap': { // 皮箱锁扣（v1.10）：簧压蓄力 + 双扣错拍弹开 + 皮革腔体微震
+        noise('pink', 0.05, 'bandpass', 1400, 3, 0.03);
+        tone('square', 2100, 1900, 0.025, 0.03, 0.07);
+        tone('square', 2350, 2100, 0.025, 0.028, 0.19);
+        tone('sine', 210, 170, 0.16, 0.05, 0.08);
+        noise('brown', 0.12, 'lowpass', 300, 1, 0.04, 0.2);
+        break;
+      }
+      // ---------- v1.10 P13「远处的声」：四种极远氛围事件（全部闷声化——
+      // 高频先被距离吃掉，只剩腔体和低频；音量都压在暗处，像是听错了。
+      // twinpeaks 的远声复用既有 owl，挂在环飞剪影的实时方位上） ----------
+      case 'pipeknock': { // eraserhead 远处管道被敲三下（谁在楼那头对暖气说话）
+        for (const [d, v] of [[0, 1], [0.44, 0.85], [0.94, 0.6]]) {
+          tone('sine', 187, 165, 0.5 * v + 0.2, 0.05 * v, d);
+          tone('sine', 476, 460, 0.22, 0.02 * v, d);
+          noise('brown', 0.1, 'lowpass', 260, 1, 0.05 * v, d);
+        }
+        break;
+      }
+      case 'sirenfar': { // mulholland 极远的警笛掠过：两轮上下滑 + 城市底噪一口
+        for (const d of [0, 1.9]) {
+          tone('sine', 620, 940, 0.95, 0.016, d);
+          tone('sine', 940, 590, 0.95, 0.014, d + 0.95);
+        }
+        noise('brown', 3.8, 'lowpass', 180, 0.8, 0.02, 0, 1.2);
+        break;
+      }
+      case 'drawerfar': { // archive 隔壁房间一只木抽屉滑轨到底闷闷关上（隔壁没有人）
+        noise('pink', 0.5, 'lowpass', 340, 1, 0.028, 0, 0.3);
+        noise('brown', 0.16, 'lowpass', 200, 1, 0.07, 0.5);
+        tone('sine', 74, 52, 0.3, 0.05, 0.5);
+        tone('sine', 400, 380, 0.06, 0.012, 0.54);
+        break;
+      }
+      case 'liftbell': { // lobby 电梯到站的一声叮——这栋楼没有电梯
+        tone('sine', 932, 926, 1.4, 0.028);
+        tone('sine', 1397, 1388, 0.9, 0.014, 0.01);
+        noise('brown', 0.5, 'lowpass', 150, 1, 0.02, 0.15, 0.2);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;
