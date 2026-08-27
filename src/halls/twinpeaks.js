@@ -788,7 +788,7 @@ export function build(ctx) {
     rrFringe.rotation.y = Math.sin(t * 1.1) * 0.01 + Math.sin(t * 8.4 - 0.5) * 0.02 * rrState.chain;
   });
   hotspots.add(rrShade, {
-    hint: 'E — 落地灯（这间房有两副面孔）',
+    hint: 'E — 落地灯',
     onActivate: () => {
       rrState.warm = rrState.warm ? 0 : 1;
       rrState.chain = 1;

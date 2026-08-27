@@ -1579,7 +1579,7 @@ export function build(ctx) {
     cloth.position.x = 4.5 - curtainState.v * 1.45;
   });
   hotspots.add(cloth, {
-    hint: 'E — 拉开这道帘（后面有个角落）',
+    hint: 'E — 拉开这道帘',
     onActivate: () => {
       curtainState.open = curtainState.open ? 0 : 1;
       audio.sfx('curtain');
@@ -1730,7 +1730,7 @@ export function build(ctx) {
     }
   });
   hotspots.add(cushion, {
-    hint: 'E — 坐下，闭眼（潜入深水）',
+    hint: 'E — 坐下，闭眼',
     onActivate: () => {
       if (meditation.active) return;
       meditation.active = true;

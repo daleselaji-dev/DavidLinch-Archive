@@ -711,7 +711,7 @@ export function build(ctx) {
   quad.rotation.z = Math.PI / 2 - 0.5;
   group.add(lever, leverBase, mergedMesh(boltGeos, pipeMat), quad);
   hotspots.add(lever, {
-    hint: 'E — 拉动阀门（这栋楼会回应）',
+    hint: 'E — 拉动阀门',
     onActivate: () => {
       steamBurst = 3.2;
       audio.sfx('clank');

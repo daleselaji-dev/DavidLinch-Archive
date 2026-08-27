@@ -656,7 +656,7 @@ export function build(ctx) {
   blueWash.position.set(0, 4.4, 0);
   group.add(blueWash);
   hotspots.add(switchLamp, {
-    hint: 'E — 熄灯 / 复灯（夜总会的两副面孔）',
+    hint: 'E — 熄灯 / 复灯',
     onActivate: () => {
       const toBlue = dimState.warm > 0.5;
       dimState.warm = toBlue ? 0.06 : 1;
@@ -1831,7 +1831,7 @@ export function build(ctx) {
     closetTimers.push(setTimeout(() => {
       for (const s of slats) s.material.emissiveIntensity = 1.4;
       audio.sfx('thud', 0.6);
-      ui.caption('有什么东西正在找你。别出声。', 4600);
+      ui.caption('柜缝那边，有东西在换脚站。', 4600);
     }, 1400));
     closetTimers.push(setTimeout(() => {
       for (const s of slats) s.material.emissiveIntensity = 0;
