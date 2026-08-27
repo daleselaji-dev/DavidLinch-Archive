@@ -1006,11 +1006,18 @@ export function build(ctx) {
 
   // ---------- 滚动图书梯（v1.4 P3 新件）：黄铜墙轨 + 双弦梯 + 挂钩 + 胶轮 ----------
   // E → 沿墙轨滚去另一端（轮子转、黄铜钩磨轨、木身吱呀）
+  // v1.11 B4 细节遍：墙轨支耳补铆钉（每耳两枚）——铁件是钉上去的，
+  // 不是长出来的
+  const railRivet = new THREE.CylinderGeometry(0.009, 0.009, 0.014, 6);
   group.add(mergedMesh([
     xform(new THREE.CylinderGeometry(0.022, 0.022, 4.2, 10), W / 2 - 0.16, 4.35, 2.4, Math.PI / 2, 0, 0),
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 0.6),
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 2.4),
-    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2)
+    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2),
+    ...[0.6, 2.4, 4.2].flatMap((z) => [
+      xform(railRivet, W / 2 - 0.065, 4.368, z - 0.014, 0, 0, Math.PI / 2),
+      xform(railRivet, W / 2 - 0.065, 4.332, z + 0.014, 0, 0, Math.PI / 2)
+    ])
   ], M.brass));
   const ladder = new THREE.Group();
   const ladderWood = woodMat({ base: [34, 22, 13], planks: 1, size: 256, seed: 44, gloss: 0.45 });
@@ -1023,12 +1030,40 @@ export function build(ctx) {
     ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
   }
   ladder.add(mergedMesh(ladderGeos, ladderWood));
+  // v1.11 B4 细节遍①：踏面磨浅——用得最多的中段五级，踏杆顶面一条
+  // 被鞋底磨浅的窄亮带（越靠中间越宽），单独浅色合并 mesh
+  const wearMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.55 });
+  const wearGeos = [];
+  for (let i = 3; i <= 7; i++) {
+    const w = 0.3 - Math.abs(i - 5) * 0.05;
+    wearGeos.push(xform(
+      new THREE.BoxGeometry(w, 0.004, 0.02),
+      (i % 2 ? 0.02 : -0.02), 0.35 + i * 0.39 + 0.0165, 0
+    ));
+  }
+  ladder.add(mergedMesh(wearGeos, wearMat));
+  // v1.11 B4 细节遍②：每级踏杆两道防滑刻槽（深色细环）
+  const grooveMat = new THREE.MeshStandardMaterial({ color: 0x140c06, roughness: 0.9 });
+  const grooveGeo = new THREE.TorusGeometry(0.0168, 0.0022, 4, 10);
+  const grooveGeos = [];
+  for (let i = 0; i < 11; i++) {
+    for (const gx of [-0.09, 0.09]) {
+      grooveGeos.push(xform(grooveGeo, gx, 0.35 + i * 0.39, 0, 0, Math.PI / 2, 0));
+    }
+  }
+  ladder.add(mergedMesh(grooveGeos, grooveMat));
   // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉
+  // v1.11 B4 细节遍③：弦木外侧黄铜螺钉头 ×8（结构件有了「装配过」的证据）
+  const screwGeo = new THREE.SphereGeometry(0.0075, 8, 6);
   ladder.add(mergedMesh([
     xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
     xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
     xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045)
+    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045),
+    ...[0.74, 1.91, 3.08, 4.25].flatMap((y) => [
+      xform(screwGeo, -0.279, y, 0),
+      xform(screwGeo, 0.279, y, 0)
+    ])
   ], M.brass));
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
   const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);

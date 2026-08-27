@@ -252,9 +252,10 @@ export function build(ctx) {
   ];
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
-  const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
-  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
+  // v1.11 B1：pineGeometryMaterial 重做为 v2（枝轮参差下垂 + 树皮沟壑杆
+  // + 断枝残桩）——杆几何 y∈[0,1] 归一，这里用 scale.y 接到冠底
+  // （老版固定 1.6m 杆在大树上会与冠脱节露一段空档）。
+  const { geo: pineGeo, mat: pineMat, trunkGeo, trunkMat } = pineGeometryMaterial();
   const COUNT = 340;
   const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
@@ -266,16 +267,18 @@ export function build(ctx) {
     const r = 6 + Math.pow(Math.random(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
-    if (insideWalkable(x, z) || inTreeExcl(x, z)) continue;
     const s = 0.8 + Math.random() * 2.4;
-    dummy.position.set(x, 2.1 * s + 0.9, z);
+    // v1.11 B1 修正：退让边距随树体量走（大树站得更靠后）——
+    // 老版一律 1.6m，贴路大树的冠垂到头部高度、走路一头扎进大面片里
+    if (insideWalkable(x, z, 1.6 + s * 0.6) || inTreeExcl(x, z)) continue;
+    dummy.position.set(x, 2.1 * s + 1.05, z);
     dummy.scale.setScalar(s);
     dummy.rotation.y = Math.random() * Math.PI;
     dummy.updateMatrix();
     pines.setMatrixAt(placed, dummy.matrix);
-    dummy.position.y = 0.8;
-    dummy.scale.set(s, 1, s);
-    dummy.rotation.y = 0;
+    // 杆：贴地立起，顶端探进冠底 0.45m（冠底世界高 ≈ 0.55s+1.05）
+    dummy.position.y = 0;
+    dummy.scale.set(s * 1.05, 0.55 * s + 1.5, s * 1.05);
     dummy.updateMatrix();
     trunks.setMatrixAt(placed, dummy.matrix);
     placed++;
@@ -354,9 +357,53 @@ export function build(ctx) {
   });
 
   // 树桩上的热咖啡
+  // v1.11 B3：树桩 v2——侧面树皮沟壑、顶面年轮端面（偏心圈层 + 径向
+  // 裂缝 + 边缘劈缺），CylinderGeometry 自带分组：侧/顶/底三材质单 mesh。
+  const stumpRingTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#6b4d28';
+    g.fillRect(0, 0, s, s);
+    const cx = s * 0.46;
+    const cy = s * 0.54; // 年轮偏心（树不是圆规画的）
+    const r = rng(37);
+    for (let i = 22; i >= 1; i--) {
+      const rr = (i / 22) * s * 0.5 * (1 + (i % 3) * 0.012);
+      g.fillStyle = i % 2
+        ? `rgb(${96 + r() * 14 | 0},${70 + r() * 10 | 0},${40 + r() * 8 | 0})`
+        : `rgb(${72 + r() * 10 | 0},${52 + r() * 8 | 0},${30 + r() * 6 | 0})`;
+      g.beginPath();
+      g.ellipse(cx, cy, rr, rr * 0.94, 0.15, 0, 7);
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(20,12,6,0.85)'; // 两道径向干裂
+    g.lineWidth = 2.5;
+    for (const a of [0.7, 3.6]) {
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(cx + Math.cos(a) * s * 0.52, cy + Math.sin(a) * s * 0.52);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(30,18,9,0.9)'; // 边缘一口劈缺
+    g.beginPath();
+    g.ellipse(s * 0.88, s * 0.3, 13, 8, 0.6, 0, 7);
+    g.fill();
+  });
+  const stumpBarkTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#241708';
+    g.fillRect(0, 0, s, s);
+    const r = rng(39);
+    for (let i = 0; i < 36; i++) {
+      const x = r() * s;
+      g.fillStyle = `rgba(${52 + r() * 22 | 0},${34 + r() * 14 | 0},${18 + r() * 9 | 0},${0.5 + r() * 0.4})`;
+      g.fillRect(x, 0, 2 + r() * 3, s);
+    }
+  }, 3, 1);
   const stump = new THREE.Mesh(
     new THREE.CylinderGeometry(0.5, 0.62, 0.7, 16),
-    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [44, 28, 14], planks: 1, size: 128 }), roughness: 0.95 })
+    [
+      new THREE.MeshStandardMaterial({ map: stumpBarkTex, roughness: 0.95, bumpMap: stumpBarkTex, bumpScale: 0.5 }),
+      new THREE.MeshStandardMaterial({ map: stumpRingTex, roughness: 0.85, bumpMap: stumpRingTex, bumpScale: 0.22 }),
+      new THREE.MeshStandardMaterial({ color: 0x1a1108, roughness: 1 })
+    ]
   );
   stump.position.set(3.8, 0.35, 3.2);
   const cup = new THREE.Mesh(
@@ -368,14 +415,61 @@ export function build(ctx) {
   // v1.4 阶段 4：空地边缘的枯树桩鸮 —— 黑暗里两粒微光的眼睛；
   // E → 眼睛亮起、头无声地转过来对准你，一声近似翅膀的耳语（它先看见你的）
   const snag = new THREE.Group();
-  const barkMat = new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [30, 22, 14], planks: 1, size: 128 }), roughness: 0.95
+  // v1.11 B2：枯树桩 v2——不再是三根光滑圆柱。树皮沟壑贴图（map/bump
+  // 同源，树洞暗斑直接画进贴图）；主干根部张开、顶端劈裂参差上刺
+  // （断梢），主枝→次枝两级分枝层级。
+  const snagBarkTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#181008';
+    g.fillRect(0, 0, s, s);
+    const r = rng(93);
+    for (let i = 0; i < 40; i++) { // 竖向沟壑
+      const x = r() * s;
+      g.fillStyle = `rgba(${32 + r() * 22 | 0},${22 + r() * 14 | 0},${13 + r() * 9 | 0},${0.5 + r() * 0.4})`;
+      g.fillRect(x, 0, 1 + r() * 3, s);
+    }
+    for (let i = 0; i < 40; i++) { // 横向皮鳞裂
+      g.fillStyle = 'rgba(5,3,2,0.6)';
+      g.fillRect(r() * s, r() * s, 2 + r() * 6, 1 + r() * 2);
+    }
+    // 树洞：一枚椭圆暗斑（洞缘略亮）
+    g.fillStyle = 'rgba(46,32,18,0.9)';
+    g.beginPath();
+    g.ellipse(s * 0.32, s * 0.56, 9, 13, 0.2, 0, 7);
+    g.fill();
+    g.fillStyle = '#020101';
+    g.beginPath();
+    g.ellipse(s * 0.32, s * 0.56, 6.5, 10, 0.2, 0, 7);
+    g.fill();
   });
-  snag.add(mergedMesh([
-    xform(new THREE.CylinderGeometry(0.09, 0.15, 3.4, 10), 0, 1.7, 0),
-    xform(new THREE.CylinderGeometry(0.028, 0.045, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
-    xform(new THREE.CylinderGeometry(0.02, 0.035, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05)
-  ], barkMat));
+  const barkMat = new THREE.MeshStandardMaterial({
+    map: snagBarkTex, roughness: 0.95, bumpMap: snagBarkTex, bumpScale: 0.5
+  });
+  const snagTrunk = new THREE.CylinderGeometry(0.075, 0.16, 3.4, 10, 4, true);
+  snagTrunk.translate(0, 1.7, 0);
+  const sp = snagTrunk.attributes.position;
+  for (let vi = 0; vi < sp.count; vi++) {
+    const vx = sp.getX(vi);
+    const vy = sp.getY(vi);
+    const vz = sp.getZ(vi);
+    const a = Math.atan2(vz, vx);
+    const flare = 1 + Math.pow(Math.max(0, (0.6 - vy) / 0.6), 1.8) *
+      (0.5 + 0.25 * Math.sin(a * 3 + 1.2) + 0.15 * Math.sin(a * 6 + 0.4));
+    sp.setX(vi, vx * flare + Math.sin(vy * 1.1) * 0.03);
+    sp.setZ(vi, vz * flare);
+    if (vy > 3.2) { // 断梢：顶环角度函数参差（劈裂尖）
+      sp.setY(vi, vy + 0.16 * Math.sin(a * 4 + 0.6) + 0.12 * Math.sin(a * 7 + 2.2));
+    }
+  }
+  snagTrunk.computeVertexNormals();
+  // 分枝层级：主枝两根（保持鸮的栖枝端点），各带一根次枝
+  const snagGeos = [
+    snagTrunk,
+    xform(new THREE.CylinderGeometry(0.026, 0.048, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
+    xform(new THREE.ConeGeometry(0.013, 0.3, 5), 0.44, 3.16, 0.1, 0.5, 0, -0.5),
+    xform(new THREE.CylinderGeometry(0.018, 0.036, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05),
+    xform(new THREE.ConeGeometry(0.011, 0.24, 5), -0.34, 2.62, -0.1, -0.4, 0, 0.9)
+  ];
+  snag.add(mergedMesh(snagGeos, barkMat));
   const owl = new THREE.Group();
   const owlBody = new THREE.Mesh(
     new THREE.LatheGeometry([

@@ -1369,20 +1369,122 @@ export function ridgeRing(radius, {
   return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide }));
 }
 
-/** 松树（分层锥体，比单锥更像真树） */
+/**
+ * 松树资产 v2（v1.11 门禁 56 B1——重做点名的「三层光滑锥」）。
+ * 冠：8 层枝轮开口锥 + 顶梢针尖——每层下缘（枝尖圈）沿角度连续函数
+ * 参差伸缩 + 下垂（长短错落的枝尖，不再是光滑圆锥裙），针叶双色
+ * 笔触纹理 + 凹凸；杆：9 段×3 环开口柱——根部张开（角度噪声喇叭）、
+ * 全杆 S 形微弯、三根下垂断枝残桩，树皮竖向沟壑 canvas（map+bump 同源）。
+ * 冠/杆各一份几何与材质，专为两只 InstancedMesh 设计（mesh 数不变）；
+ * 显式返回 trunkGeo 高度归一 y∈[0,1]，实例侧用 scale.y 接到冠底。
+ */
 export function pineGeometryMaterial() {
-  const layers = [
-    xform(new THREE.ConeGeometry(1.05, 1.7, 8), 0, -0.7, 0),
-    xform(new THREE.ConeGeometry(0.82, 1.5, 8), 0, 0.25, 0),
-    xform(new THREE.ConeGeometry(0.55, 1.3, 8), 0, 1.15, 0)
+  // ---- 冠 ----
+  const tr = rng(67);
+  const tiers = [
+    [1.16, 1.0, -1.32], [1.03, 0.95, -0.86], [0.9, 0.92, -0.4],
+    [0.78, 0.88, 0.05], [0.65, 0.84, 0.48], [0.51, 0.8, 0.9],
+    [0.37, 0.74, 1.3], [0.2, 0.66, 1.66]
   ];
-  const geo = mergeGeometries(layers, false);
-  for (const l of layers) l.dispose();
+  const geos = [];
+  for (const [rad, h, y] of tiers) {
+    const cone = new THREE.ConeGeometry(rad, h, 12, 1, true);
+    const p = cone.attributes.position;
+    const ph = tr() * Math.PI * 2;
+    const ph2 = tr() * Math.PI * 2;
+    for (let vi = 0; vi < p.count; vi++) {
+      const vx = p.getX(vi);
+      const vy = p.getY(vi);
+      const vz = p.getZ(vi);
+      const vr = Math.hypot(vx, vz);
+      if (vr < 1e-4) continue;
+      const a = Math.atan2(vz, vx);
+      if (vy < 0) { // 枝尖圈：连续角度函数（seam 安全）参差 + 下垂
+        const jag = 1 + 0.24 * Math.sin(a * 5 + ph) + 0.12 * Math.sin(a * 9 + ph2) +
+          0.07 * Math.sin(a * 13 + ph * 1.3);
+        p.setX(vi, vx * jag);
+        p.setZ(vi, vz * jag);
+        p.setY(vi, vy - 0.16 - 0.13 * (0.5 + 0.5 * Math.sin(a * 7 + ph2 * 1.7)));
+      }
+    }
+    geos.push(xform(cone, 0, y, 0));
+  }
+  geos.push(xform(new THREE.ConeGeometry(0.055, 0.5, 6), 0, 1.92, 0)); // 顶梢针尖
+  const geo = mergeGeometries(geos, false);
+  for (const g of geos) g.dispose();
+  geo.computeVertexNormals();
+  // 针叶纹理：暗底 + 两色短笔触（斜排针束）
+  const needleTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#0a150e';
+    g.fillRect(0, 0, s, s);
+    const r = rng(61);
+    for (let i = 0; i < 340; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const l = 3 + r() * 7;
+      const a = Math.PI / 2 + (r() - 0.5) * 1.1;
+      g.strokeStyle = `rgba(${10 + r() * 26 | 0},${34 + r() * 40 | 0},${18 + r() * 26 | 0},${0.35 + r() * 0.4})`;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+      g.stroke();
+    }
+  }, 3, 3);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x0a1a10, roughness: 0.95,
-    bumpMap: noiseCanvasTexture(64, 128, 60, 3), bumpScale: 0.4
+    map: needleTex, color: 0x93a38c, roughness: 0.95,
+    bumpMap: needleTex, bumpScale: 0.5, side: THREE.DoubleSide
   });
-  return { geo, mat };
+  // ---- 杆（y∈[0,1] 归一，实例侧 scale.y 接冠底） ----
+  const trunk = new THREE.CylinderGeometry(0.052, 0.115, 1, 9, 3, true);
+  trunk.translate(0, 0.5, 0);
+  const tp = trunk.attributes.position;
+  for (let vi = 0; vi < tp.count; vi++) {
+    const vx = tp.getX(vi);
+    const vy = tp.getY(vi);
+    const vz = tp.getZ(vi);
+    const a = Math.atan2(vz, vx);
+    // 根部张开（角度噪声喇叭，越贴地越宽）
+    const flare = 1 + Math.pow(Math.max(0, (0.16 - vy) / 0.16), 1.7) *
+      (0.55 + 0.2 * Math.sin(a * 3 + 0.7) + 0.14 * Math.sin(a * 7 + 2.1));
+    // 全杆 S 形微弯
+    tp.setX(vi, vx * flare + Math.sin(vy * Math.PI) * 0.03 + vy * 0.02);
+    tp.setZ(vi, vz * flare);
+  }
+  const trunkParts = [trunk];
+  const sr = rng(73);
+  for (let i = 0; i < 3; i++) { // 断枝残桩：下垂的秃枝
+    const stub = new THREE.ConeGeometry(0.02 + sr() * 0.012, 0.22 + sr() * 0.14, 4, 1, true);
+    stub.translate(0, -0.08, 0);
+    const sa = sr() * Math.PI * 2;
+    const sy = 0.42 + i * 0.16 + sr() * 0.06;
+    trunkParts.push(xform(stub,
+      Math.cos(sa) * 0.07, sy, Math.sin(sa) * 0.07,
+      Math.PI * 0.62, sa, 0));
+  }
+  const trunkGeo = mergeGeometries(trunkParts, false);
+  for (const g of trunkParts) g.dispose();
+  trunkGeo.computeVertexNormals();
+  // 树皮：竖向沟壑 + 横向皮鳞裂（map/bump 同源）
+  const barkTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#150e08';
+    g.fillRect(0, 0, s, s);
+    const r = rng(59);
+    for (let i = 0; i < 46; i++) {
+      const x = r() * s;
+      g.fillStyle = `rgba(${30 + r() * 26 | 0},${20 + r() * 16 | 0},${12 + r() * 10 | 0},${0.5 + r() * 0.4})`;
+      g.fillRect(x, 0, 1 + r() * 3, s);
+    }
+    for (let i = 0; i < 60; i++) {
+      g.fillStyle = 'rgba(6,4,2,0.55)';
+      g.fillRect(r() * s, r() * s, 2 + r() * 7, 1 + r() * 2);
+    }
+  }, 1, 2);
+  const trunkMat = new THREE.MeshStandardMaterial({
+    map: barkTex, roughness: 0.95, bumpMap: barkTex, bumpScale: 0.55,
+    side: THREE.DoubleSide
+  });
+  return { geo, mat, trunkGeo, trunkMat };
 }
 
 /** 悬挂灯泡（车削灯罩） */
