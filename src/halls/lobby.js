@@ -253,6 +253,43 @@ export function build(ctx) {
     }
     stele.userData.setSeam(breathe + flare);
   });
+  // v1.10 抛光 P2·件 1：碑顶的一缕烟——光缝从冠沿漏出去的那一点，
+  // 在碑顶上方立着一缕几乎看不见的烟（馆名的那个字）。双十字面片、
+  // 纹理上卷 + 极缓摆动；透明度跟光缝同呼吸，触碑光缝涌亮时它也旺一口。
+  const wispTex = canvasTexture(128, (g2, s) => {
+    g2.clearRect(0, 0, s, s);
+    g2.lineCap = 'round';
+    for (const [x0, w2, a] of [[0.5, 5, 0.5], [0.42, 3, 0.3], [0.6, 2.5, 0.24]]) {
+      g2.strokeStyle = `rgba(242,233,220,${a})`;
+      g2.lineWidth = w2;
+      g2.beginPath();
+      g2.moveTo(s * x0, s);
+      g2.bezierCurveTo(s * (x0 - 0.14), s * 0.72, s * (x0 + 0.16), s * 0.5, s * x0, s * 0.32);
+      g2.bezierCurveTo(s * (x0 - 0.12), s * 0.2, s * (x0 + 0.08), s * 0.1, s * (x0 + 0.02), 0);
+      g2.stroke();
+    }
+  });
+  wispTex.wrapS = wispTex.wrapT = THREE.RepeatWrapping;
+  const wispMat = new THREE.MeshBasicMaterial({
+    map: wispTex, transparent: true, opacity: 0.14,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const wisp = new THREE.Group();
+  for (const ry of [0, Math.PI / 2]) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 1.15), wispMat);
+    p.rotation.y = ry;
+    wisp.add(p);
+  }
+  // 光缝在 +x 侧棱顶端漏出去（碑组 y=0.24，碑身顶 ≈3.25）
+  wisp.position.set(0.5, 3.85, 0);
+  group.add(wisp);
+  updaters.push((dt, t) => {
+    wispTex.offset.y -= dt * 0.11;
+    wisp.rotation.z = Math.sin(t * 0.5) * 0.06;
+    const flare2 = seamPulse.t >= 0 ? Math.sin(Math.min(1, seamPulse.t / 2.6) * Math.PI) : 0;
+    wispMat.opacity = (0.1 + Math.sin(t * 0.9) * 0.035 + flare2 * 0.22) * openGate.chand;
+  });
+
   const seamTouched = { once: false };
   hotspots.add(stele.children[0], {
     hint: 'E — 独石与光缝',
@@ -311,6 +348,18 @@ export function build(ctx) {
     { id: 'mulholland', label: 'MULHOLLAND DR.', labelZh: '穆 赫 兰 道 · 2001', color: '#3ec5ff', angle: -Math.PI / 2 + (Math.PI * 10) / 6 }
   ];
   const doorPortals = [];
+  // v1.10 抛光 P2·件 2：门里的光落在门外——每扇门的虚空色在踏步前
+  // 洒一摊淡色光池（另一段片场漏出来的光），与门内微光同拍呼吸、
+  // 相位随门错开；开幕点灯前不亮。共享径向渐变贴图，六材质各自着色。
+  const poolTex = canvasTexture(128, (g2, s) => {
+    const rad = g2.createRadialGradient(s / 2, s / 2, 4, s / 2, s / 2, s / 2);
+    rad.addColorStop(0, 'rgba(255,255,255,0.5)');
+    rad.addColorStop(0.55, 'rgba(255,255,255,0.16)');
+    rad.addColorStop(1, 'rgba(255,255,255,0)');
+    g2.fillStyle = rad;
+    g2.fillRect(0, 0, s, s);
+  });
+  const doorPools = [];
   for (const d of doors) {
     const door = doorway({ label: d.label, labelZh: d.labelZh, color: d.color });
     const x = Math.cos(d.angle) * (R - 2.1);
@@ -325,7 +374,24 @@ export function build(ctx) {
       hint: `E — 进入 ${d.labelZh.replace(/\s/g, '')}`,
       onActivate: () => goTo(d.id)
     });
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.7, 1.9),
+      new THREE.MeshBasicMaterial({
+        map: poolTex, color: new THREE.Color(d.color), transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    pool.rotation.x = -Math.PI / 2;
+    // 踏步前 1.45m，贴地一丝抬起防深度打架
+    pool.position.set(Math.cos(d.angle) * (R - 3.55), 0.012, Math.sin(d.angle) * (R - 3.55));
+    group.add(pool);
+    doorPools.push({ mesh: pool, phase: d.angle * 2.3 });
   }
+  updaters.push((dt, t) => {
+    for (const p of doorPools) {
+      p.mesh.material.opacity = (0.16 + Math.sin(t * 1.7 + p.phase) * 0.07) * openGate.chand;
+    }
+  });
 
   // 吊灯环 + 电灯颤动
   const bulbs = [];
