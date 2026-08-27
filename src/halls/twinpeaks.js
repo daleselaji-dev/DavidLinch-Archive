@@ -386,6 +386,35 @@ export function build(ctx) {
   const fogLayer = smokeLayer(120, { x: 70, z: 70 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
+  // v1.9 巡检修正：地表雾不进 diner——雾毯 70×70 盖住全镇，落在
+  // diner 室内体积的雾片会把柜台罩成一片奶白（穿帮，柜台/吧凳全糊）。
+  // 初始位置重掷出室内；雾毯的慢自转还会把边缘雾片再送进来，
+  // 故呼吸更新器旁加一道世界坐标守卫（120 片/帧，代价可忽略）。
+  const FOG_EXCL = { minX: 26.6, maxX: 32.2, minZ: -12.8, maxZ: -2.8 };
+  const inFogExcl = (x, z) => x > FOG_EXCL.minX && x < FOG_EXCL.maxX && z > FOG_EXCL.minZ && z < FOG_EXCL.maxZ;
+  {
+    const p = fogLayer.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      while (inFogExcl(p.array[i * 3], p.array[i * 3 + 2])) {
+        p.array[i * 3] = (Math.random() - 0.5) * 70;
+        p.array[i * 3 + 2] = (Math.random() - 0.5) * 70;
+      }
+    }
+  }
+  updaters.push(() => {
+    const c = Math.cos(fogLayer.rotation.y);
+    const s = Math.sin(fogLayer.rotation.y);
+    const p = fogLayer.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const lx = p.array[i * 3];
+      const lz = p.array[i * 3 + 2];
+      if (inFogExcl(lx * c + lz * s, -lx * s + lz * c)) {
+        p.array[i * 3] = -lx;   // 镜像到雾毯对侧：远离视野，软雾片无感知
+        p.array[i * 3 + 2] = -lz;
+        p.needsUpdate = true;
+      }
+    }
+  });
   // v1.4 六遍：萤火虫 v2——从「发光的灰」升级成真萤火：每只有自己的闪烁相位
   // （sin^8 尖脉冲、几秒一亮）+ 低空慢游走（不再像灰尘那样往下落）
   const ffCount = 44;
@@ -967,7 +996,9 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.1, 0.06, 3.36), 27.22, 3.0, -10.6)
   ];
   facade.add(mergedMesh(trimGeos, new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.8 })));
-  const windowLight = new THREE.PointLight(0xffca7a, 6, 9, 1.8);
+  // v1.9 巡检修正：窗光只管街面暖溢（range 9 会隔墙灌进 diner 室内，
+  // 与柜台吊灯叠成奶白过曝——探针逐盏关灯定位）
+  const windowLight = new THREE.PointLight(0xffca7a, 6, 4.5, 1.8);
   windowLight.position.set(26.4, 2.0, -10.6);
   facade.add(windowLight);
   // 右半立面：拉了百叶的暗窗（打破整面空砖墙）
@@ -1065,17 +1096,19 @@ export function build(ctx) {
     color: 0x201408, emissive: 0xffd9a0, emissiveIntensity: 2.6
   });
   dinerInner.add(mergedMesh(bulbGeos, dinerBulbMat));
-  const pendantA = new THREE.PointLight(0xffce8e, 3.4, 6, 1.8);
+  // v1.9 巡检修正：吊灯压回暖光小池（3.4→2.1 / 射程 6→5）——层压板
+  // 台面奶油色反照率高，叠灯后整条柜台越过 bloom 阈值糊成奶白
+  const pendantA = new THREE.PointLight(0xffce8e, 2.1, 5, 1.8);
   pendantA.position.set(30.4, 2.3, -6.3);
-  const pendantB = new THREE.PointLight(0xffce8e, 3.4, 6, 1.8);
+  const pendantB = new THREE.PointLight(0xffce8e, 2.1, 5, 1.8);
   pendantB.position.set(30.4, 2.3, -9.3);
   dinerInner.add(pendantA, pendantB);
   updaters.push((dt, t) => {
     const w = 1 + Math.sin(t * 3.1) * 0.04 + Math.sin(t * 12.7) * 0.02;
     const dim = 1 - nightFreq.diner * 0.85; // 夜频事件：diner 先收暗
     dinerBulbMat.emissiveIntensity = 2.6 * w * dim;
-    pendantA.intensity = 3.4 * w * dim;
-    pendantB.intensity = 3.4 * w * dim;
+    pendantA.intensity = 2.1 * w * dim;
+    pendantB.intensity = 2.1 * w * dim;
   });
   // 东墙字排菜单板（黑底白字条：通用小食与价目，零商标）
   const menuBoardTex = canvasTexture(256, (g, s) => {
@@ -1489,12 +1522,10 @@ export function build(ctx) {
     }
   });
 
-  // 吊灯 ×2
-  for (const z of [-9.5, -6.1]) {
-    const dl = new THREE.PointLight(0xffca7a, 4.5, 6, 1.8);
-    dl.position.set(30.2, 3.2, z);
-    dinerInner.add(dl);
-  }
+  // v1.9 巡检修正：删遗留「吊灯 ×2」补光对（4.5×2，与 pendantA/B 重复
+  // 照明同一段柜台）——六盏点光叠在奶油色层压板上把整条柜台/白纹
+  // 地砖灌成奶白过曝，红皮吧凳顶面全被洗白。珐琅罩吊灯 pendantA/B
+  // 才是光的来处（有灯具、有颤动），补光对无灯具凭空发光，一并退场。
   town.add(dinerInner);
   group.add(town);
 
