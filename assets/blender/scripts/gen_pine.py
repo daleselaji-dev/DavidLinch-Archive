@@ -187,8 +187,9 @@ def branch_clump(tier, br, sub=1.0, a_off=0.0, l_off=0.0, seed=7):
     return verts, faces, cols
 
 
-def crown_spire(P, radial=12, rings=8, seed=77):
-    """HI 树梢：绕干轴的立锥针叶收顶（替代旁逸的假簇）。"""
+def crown_spire(P, radial=12, rings=8, seed=77, jag_amp=0.42):
+    """树梢：绕干轴的立锥针叶收顶（HI 高段数；GAME 低段数同族——
+    v1.9 起 GAME 档也收顶，游戏内近看树顶不再是一根秃杆）。"""
     rnd = random.Random(seed)
     verts = []
     faces = []
@@ -201,7 +202,7 @@ def crown_spire(P, radial=12, rings=8, seed=77):
         r = 0.30 * (1 - v) ** 1.15 + 0.012
         for s in range(radial):
             a = s / radial * TAU
-            jag = 1 + (rnd.random() - 0.5) * 0.42 + math.sin(a * 5 + v * 9) * 0.12
+            jag = 1 + (rnd.random() - 0.5) * jag_amp + math.sin(a * 5 + v * 9) * 0.12
             # 缘梢下披
             dy = -abs(math.sin(a * 3 + v * 7)) * 0.05 * (1 - v)
             verts.append((math.cos(a) * r * jag, y + dy, math.sin(a) * r * jag))
@@ -318,6 +319,9 @@ def build_game(P, radial=18, rims=3, with_stubs=True, with_caps=True):
             faces.append((lip0 + s, lip0 + (s + 1) % radial, base + (s + 1) % radial, base + s))
             faces.append((centre, base + (s + 1) % radial, base + s))
         items.append((verts, faces, cols))
+    # 树梢针叶收顶（低段数同族；远景档更省）
+    items.append(crown_spire(P, radial=8 if with_caps else 6, rings=3 if with_caps else 2,
+                             seed=77, jag_amp=0.3))
     return svlib.merge_pydata(items)
 
 

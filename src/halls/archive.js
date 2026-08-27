@@ -814,45 +814,51 @@ export function build(ctx) {
     }
   });
 
-  // ---------- 通高档案柜塔（v1.6）：图书梯有了存在的理由 ----------
-  // 墙轨下原是整面空墙（梯子无处可去）。补一座 4 米档案抽屉柜：
-  // 台座/顶檐 + 120 只小抽屉（黄铜拉手 + 标签框）+ 三只微开的屉。
+  // ---------- 通高档案柜塔（v1.9 Blender 权威细模档：gen_cabinet.py 烘焙） ----------
+  // 盒子拼柜退场：柜体三边合围成型线脚 + 119 只倒角屉面（手工进出
+  // 微差/指痕磨损顶点色/标签卡）+ 黄铜弓形杯拉手与四梃标签框。
+  // row7/col5 是一只真抽屉（独立烘焙件）——E 拉开：一屉立插索引卡
+  // 高出屉沿，中间一张翘着没插回去。
   {
-    const towerWood = woodMat({ base: [40, 26, 14], planks: 2, vertical: true, size: 256, seed: 61, gloss: 0.3 });
-    const drawerWood = woodMat({ base: [58, 38, 20], planks: 1, size: 128, seed: 62, gloss: 0.35 });
     const TZ = 2.4;              // 柜塔中心（梯轨行程中段）
-    const TW = 3.2;              // 宽（沿 z）
-    const carcass = [
-      xform(new THREE.BoxGeometry(0.22, 3.9, TW), W / 2 - 0.13, 2.0, TZ),          // 柜体
-      xform(new THREE.BoxGeometry(0.3, 0.14, TW + 0.12), W / 2 - 0.16, 0.07, TZ),  // 台座
-      xform(new THREE.BoxGeometry(0.3, 0.1, TW + 0.12), W / 2 - 0.16, 4.0, TZ),    // 顶檐
-      // 竖向分件柱 ×3（把 120 屉分成四列组，柜面不再是一张平板）
-      xform(new THREE.BoxGeometry(0.26, 3.76, 0.05), W / 2 - 0.14, 2.02, TZ - TW / 2 + 0.8),
-      xform(new THREE.BoxGeometry(0.26, 3.76, 0.05), W / 2 - 0.14, 2.02, TZ),
-      xform(new THREE.BoxGeometry(0.26, 3.76, 0.05), W / 2 - 0.14, 2.02, TZ + TW / 2 - 0.8)
-    ];
-    group.add(mergedMesh(carcass, towerWood));
-    const fronts = [];
-    const pulls = [];
-    const ajar = new Set([23, 61, 104]); // 三只微开的屉（seeded 手选）
-    const dr = rng(63);
-    let di = 0;
-    for (let row = 0; row < 15; row++) {
-      const y = 0.32 + row * 0.245;
-      for (let col = 0; col < 8; col++) {
-        const z = TZ - TW / 2 + 0.22 + col * 0.395;
-        const open = ajar.has(di) ? 0.07 : 0;
-        const jx = W / 2 - 0.265 - open - dr() * 0.004; // 面板进出微差：手工抽屉的呼吸
-        fronts.push(xform(new THREE.BoxGeometry(0.024, 0.215, 0.355), jx, y, z));
-        pulls.push(
-          xform(new THREE.BoxGeometry(0.016, 0.016, 0.07), jx - 0.014, y - 0.052, z),          // 拉手
-          xform(new THREE.BoxGeometry(0.008, 0.052, 0.092), jx - 0.008, y + 0.038, z)          // 标签框
-        );
-        di += 1;
+    const tower = new THREE.Group();
+    const towerWood = woodMat({ base: [40, 26, 14], planks: 2, vertical: true, size: 256, seed: 61, gloss: 0.3 });
+    towerWood.vertexColors = true; // Blender 烘焙的木纹色温/指痕磨损/米色标签卡
+    const towerBrass = M.brass.clone();
+    towerBrass.vertexColors = true;
+    // 各向异性必须关：软渲染下拉丝切线在烘焙几何上出 NaN，
+    // bloom 会把 NaN 摊成整帧黑（v1.9 现场取证：探针逐项切换定位）
+    towerBrass.anisotropy = 0;
+    tower.add(new THREE.Mesh(planarUV(blendGeo('cabinet/wood'), 0.6), towerWood));
+    tower.add(new THREE.Mesh(planarUV(blendGeo('cabinet/brass'), 2), towerBrass));
+    const liveDrawer = new THREE.Group();
+    const drawerMesh = new THREE.Mesh(planarUV(blendGeo('cabinet/drawer'), 1.2), towerWood);
+    liveDrawer.add(drawerMesh);
+    // 注意：接 brassMat（各向异性物理材质）的烘焙件必须补 UV，
+    // 否则切线由 uv 导数出 NaN，会毒黑整帧（v1.9 现场教训）
+    liveDrawer.add(new THREE.Mesh(planarUV(blendGeo('cabinet/drawerBrass'), 2), towerBrass));
+    liveDrawer.position.set(0.595, 2.035, 0.158); // LIVE 槽位：微开一线（能拉）
+    tower.add(liveDrawer);
+    tower.position.set(W / 2 - 0.11, 0, TZ);
+    tower.rotation.y = -Math.PI / 2; // 正面朝 -X（进厅方向）
+    group.add(tower);
+    const drawerState = { out: 0.02, target: 0.02 };
+    updaters.push((dt) => {
+      drawerState.out += (drawerState.target - drawerState.out) * Math.min(1, dt * 5);
+      liveDrawer.position.z = 0.138 + drawerState.out;
+    });
+    hotspots.add(drawerMesh, {
+      hint: 'E — 第 61 号抽屉',
+      onActivate: () => {
+        const opening = drawerState.target < 0.15;
+        drawerState.target = opening ? 0.3 : 0.02;
+        audio.sfxAt('creak', W / 2 - 0.4, TZ + 0.6, 0.5, 3);
+        if (opening) {
+          setTimeout(() => audio.sfxAt('page', W / 2 - 0.5, TZ + 0.6, 0.55, 2.5), 420);
+          ui.caption('每张卡都写着同一个日期。', 3400);
+        }
       }
-    }
-    group.add(mergedMesh(fronts, drawerWood));
-    group.add(mergedMesh(pulls, M.brass));
+    });
   }
 
   // ---------- 气送管站（v1.4 五遍）：黄铜立管进天花 + 铁站体 + 翻盖口 + 铜舱 ----------

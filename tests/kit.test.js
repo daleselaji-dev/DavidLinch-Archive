@@ -208,6 +208,74 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     });
   });
 
+  describe('v1.9 Blender 细模第二批（档案柜塔 / 大教堂收音机）', () => {
+    it('新烘焙件全部可解码：位置/法线/顶点色/索引齐全', () => {
+      for (const name of [
+        'cabinet/wood', 'cabinet/brass', 'cabinet/drawer', 'cabinet/drawerBrass',
+        'radio/body', 'radio/brass'
+      ]) {
+        const g = kit.blendGeo(name);
+        expect(g.attributes.position?.count, `${name} 缺位置`).toBeGreaterThan(0);
+        expect(g.attributes.normal?.count, `${name} 法线数不齐`).toBe(g.attributes.position.count);
+        expect(g.attributes.color?.count, `${name} 顶点色数不齐`).toBe(g.attributes.position.count);
+        expect(g.index?.count % 3, `${name} 索引非三角`).toBe(0);
+      }
+    });
+
+    it('柜塔尺寸与 v1.6 布局一致（宽≈3.2 / 高≈4.05 / 正面朝 +Z）', () => {
+      const g = kit.blendGeo('cabinet/wood');
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      expect(bb.max.x - bb.min.x).toBeGreaterThan(3.2);
+      expect(bb.max.x - bb.min.x).toBeLessThan(3.55);
+      expect(bb.max.y).toBeGreaterThan(3.95);
+      expect(bb.max.y).toBeLessThan(4.15);
+      expect(bb.min.y).toBeLessThan(0.02);
+      // 屉面/线脚都在 +Z 半侧（贴墙摆放时背板薄）
+      expect(bb.max.z).toBeGreaterThan(0.12);
+      expect(bb.max.z).toBeLessThan(0.30);
+    });
+
+    it('可动抽屉局部原点在关合位面板中心（屉体伸向 -Z，滑出动画零偏移补偿）', () => {
+      const g = kit.blendGeo('cabinet/drawer');
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      expect(Math.abs(bb.max.x + bb.min.x)).toBeLessThan(0.08); // x 居中
+      expect(bb.min.z).toBeLessThan(-0.2);                      // 屉体向柜内
+      expect(bb.max.z).toBeLessThan(0.05);                      // 面板贴原点
+      // 索引卡立插高出屉沿（bbox 上缘越过面板半高 0.1075）
+      expect(bb.max.y).toBeGreaterThan(0.1);
+    });
+
+    it('收音机壳档在货架足迹内（拱顶 ≈0.575 高、含底板 ≤0.7 宽）', () => {
+      const g = kit.blendGeo('radio/body');
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      expect(bb.max.y).toBeGreaterThan(0.5);
+      expect(bb.max.y).toBeLessThan(0.62);
+      expect(bb.max.x - bb.min.x).toBeLessThanOrEqual(0.7);
+      expect(bb.min.y).toBeLessThan(0.01); // 底面落在 y=0（直接坐上货架）
+    });
+
+    it('archive.js 已接线 Blender 柜塔 + 真抽屉热点（盒子拼柜退场）', () => {
+      const arc = readFileSync(new URL('../src/halls/archive.js', import.meta.url), 'utf8');
+      for (const k of ["blendGeo('cabinet/wood')", "blendGeo('cabinet/brass')",
+        "blendGeo('cabinet/drawer')", "blendGeo('cabinet/drawerBrass')", 'drawerState']) {
+        expect(arc, `archive 柜塔缺接线: ${k}`).toContain(k);
+      }
+    });
+
+    it('props.radioCabinet 已换 Blender 档且保留 dialMat/needle 动画契约', () => {
+      const pr = readFileSync(new URL('../src/halls/props.js', import.meta.url), 'utf8');
+      const seg = pr.slice(pr.indexOf('export function radioCabinet'));
+      expect(seg).toContain("blendGeo('radio/body')");
+      expect(seg).toContain("blendGeo('radio/brass')");
+      for (const k of ['userData.dialMat', 'userData.needle', 'userData.body']) {
+        expect(seg, `radioCabinet 契约缺挂点: ${k}`).toContain(k);
+      }
+    });
+  });
+
   it('dreamFish 梦鱼已导出：一体车削鱼身 + 顶点色 + 鳞纹 + 发光侧线 + 眼 + 尾摆驱动', () => {
     expect(typeof kit.dreamFish).toBe('function');
     const seg = src.slice(src.indexOf('export function dreamFish'));
