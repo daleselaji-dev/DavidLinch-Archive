@@ -9,12 +9,12 @@
 import * as THREE from 'three';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
-  quotePlaque, zoneTrigger,
+  quotePlaque, zoneTrigger, dreamFish, softCircleTexture,
   mergedMesh, xform, roundedBoxMesh, woodTexture, brushedMetalTexture,
   woodMat as woodPbr, fabricMat, rng
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
-import { quoteById } from '../data/essays.js';
+import { quoteById, MEDITATION_IDEAS } from '../data/essays.js';
 
 export const meta = {
   id: 'studio',
@@ -750,7 +750,7 @@ export function build(ctx) {
   ];
   easel.add(mergedMesh(brushGeos, new THREE.MeshStandardMaterial({ color: 0x8a5c30, roughness: 0.7 })));
 
-  const paintState = { painting: false, progress: 0 };
+  const paintState = { painting: false, progress: 0, tint: null };
   const paintCanvasEl = document.createElement('canvas');
   paintCanvasEl.width = paintCanvasEl.height = 256;
   const pg = paintCanvasEl.getContext('2d');
@@ -770,12 +770,15 @@ export function build(ctx) {
   updaters.push((dt) => {
     if (!paintState.painting) return;
     paintState.progress += dt;
-    // 黑底上长出浓稠的原创抽象形体（每帧几笔）
+    // 黑底上长出浓稠的原创抽象形体（每帧几笔；冥想带回的念头会改变用色）
     for (let i = 0; i < 3; i++) {
       const a = paintState.progress * 0.9 + i;
       const x = 128 + Math.cos(a * 2.3) * (30 + paintState.progress * 8);
       const y = 128 + Math.sin(a * 1.7) * (26 + paintState.progress * 7);
-      pg.fillStyle = `rgba(${180 + Math.random() * 60},${170 + Math.random() * 40},${150 + Math.random() * 30},0.05)`;
+      const tb = paintState.tint;
+      pg.fillStyle = tb
+        ? `rgba(${tb[0] + Math.random() * 36},${tb[1] + Math.random() * 28},${tb[2] + Math.random() * 26},0.05)`
+        : `rgba(${180 + Math.random() * 60},${170 + Math.random() * 40},${150 + Math.random() * 30},0.05)`;
       pg.beginPath();
       pg.arc(x % 256, y % 256, 5 + Math.random() * 14, 0, 7);
       pg.fill();
@@ -1294,12 +1297,22 @@ export function build(ctx) {
     candleLight.intensity = 2.1 + Math.sin(t * 8.1) * 0.5;
   });
 
-  // 深水序列：大鱼群（冥想时才可见）
+  // ============================================================
+  // 冥想深潜 v2（v1.6）—— 五幕 dt 序列，Edith Finch 级表现力：
+  //   0.0s  潜入：整间房沉进深水、气泡上升、三根天光柱
+  //   5.2s  意念：三句"念头"以水中文字浮现（每次下潜随机抽）
+  //  13.5s  呼唤：deepcall 次声、小鱼四散
+  //  15.5s  大鱼：dreamFish 从黑暗里盘旋逼近（发光侧线/珠光眼）
+  //  25.5s  献念：大鱼吐出一粒发亮的念头，飘向你
+  //  28.4s  没入：柔白一闪，大鱼折身沉回黑暗
+  //  30.0s  浮出 → 31.8s 回响：画架自己开始画，颜色跟着念头
+  // ============================================================
+  // 小鱼群（意念的碎片）
   const fishGroup = new THREE.Group();
   fishGroup.visible = false;
   const fishes = [];
   for (let i = 0; i < 7; i++) {
-    const geo = new THREE.CapsuleGeometry(0.09 + Math.random() * 0.12, 0.7 + Math.random() * 1.6, 4, 8);
+    const geo = new THREE.CapsuleGeometry(0.07 + Math.random() * 0.1, 0.6 + Math.random() * 1.3, 4, 8);
     const mat = new THREE.MeshStandardMaterial({
       color: 0x0a1a2c, roughness: 0.3, metalness: 0.4,
       emissive: 0x3ec5ff, emissiveIntensity: 0.7, transparent: true, opacity: 0.85
@@ -1307,41 +1320,270 @@ export function build(ctx) {
     const fish = new THREE.Mesh(geo, mat);
     fish.rotation.z = Math.PI / 2;
     fishGroup.add(fish);
-    fishes.push({ fish, r: 2.5 + Math.random() * 3.5, h: 1.2 + Math.random() * 2.6, speed: 0.12 + Math.random() * 0.3, phase: Math.random() * 7 });
+    fishes.push({ fish, r: 2.5 + Math.random() * 3.5, h: 1.2 + Math.random() * 2.6, speed: 0.14 + Math.random() * 0.3, phase: Math.random() * 7, scatter: 0 });
   }
   group.add(fishGroup);
-  const meditation = { active: false, t: 0 };
+  // 气泡场（上升回绕）
+  const BUBBLE_N = 110;
+  const bubblePos = new Float32Array(BUBBLE_N * 3);
+  const bubbleSpd = new Float32Array(BUBBLE_N);
+  for (let i = 0; i < BUBBLE_N; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 0.6 + Math.random() * 5.4;
+    bubblePos[i * 3] = Math.cos(a) * r;
+    bubblePos[i * 3 + 1] = Math.random() * 5.2;
+    bubblePos[i * 3 + 2] = Math.sin(a) * r;
+    bubbleSpd[i] = 0.22 + Math.random() * 0.5;
+  }
+  const bubbleGeo = new THREE.BufferGeometry();
+  bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
+  const bubbles = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({
+    color: 0x9fd4ff, size: 0.055, transparent: true, opacity: 0,
+    map: softCircleTexture('rgba(255,255,255,0.9)', 'rgba(160,210,255,0)'),
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+  }));
+  bubbles.visible = false;
+  group.add(bubbles);
+  // 天光柱三根（水面漏下来的光）
+  const shafts = new THREE.Group();
+  const shaftMat = new THREE.MeshBasicMaterial({
+    color: 0x35597a, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  for (let i = 0; i < 3; i++) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.1 + i * 0.5, 7.5, 12, 1, true), shaftMat);
+    cone.position.set(Math.cos(i * 2.1) * 1.6, 4.4, Math.sin(i * 2.1) * 1.6);
+    cone.rotation.z = 0.1 + i * 0.07;
+    shafts.add(cone);
+  }
+  shafts.visible = false;
+  group.add(shafts);
+  // 意念浮词（512×128 画布，加性混合，面向玩家）
+  const ideaWords = [];
+  const wordPlane = (text) => {
+    const cv = document.createElement('canvas');
+    cv.width = 512; cv.height = 128;
+    const g = cv.getContext('2d');
+    g.font = '54px Georgia, "Songti SC", "Noto Serif SC", serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowColor = 'rgba(150,215,255,0.9)';
+    g.shadowBlur = 22;
+    g.fillStyle = 'rgba(216,240,255,0.95)';
+    g.fillText(text, 256, 66);
+    const tex = new THREE.CanvasTexture(cv);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+    });
+    return new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.575), mat);
+  };
+  // 念头 → 带回画布的颜色（与 MEDITATION_IDEAS 一一对应）
+  const IDEA_TINTS = [
+    [190, 44, 56], [96, 148, 214], [156, 146, 124], [150, 128, 170],
+    [214, 184, 96], [204, 208, 218], [206, 116, 44], [128, 66, 88]
+  ];
+  // 大鱼 + 献出的念头
+  const bigFish = dreamFish(3.4);
+  bigFish.visible = false;
+  group.add(bigFish);
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 14, 12),
+    new THREE.MeshStandardMaterial({ color: 0x0c1826, emissive: 0xd6f2ff, emissiveIntensity: 4.5 })
+  );
+  const orbLight = new THREE.PointLight(0x9fd8ff, 0, 7, 1.7);
+  orb.visible = false;
+  group.add(orb, orbLight);
+
+  const MEDB = { dive: 0, idea: 5.2, call: 13.5, fish: 15.5, gift: 25.5, absorb: 28.4, surface: 30.0, done: 31.8 };
+  const meditation = {
+    active: false, t: 0, cue: {}, cx: 0, cz: 0,
+    ideas: [], spawned: 0, fishA: 0, orbFrom: new THREE.Vector3()
+  };
+  const medCue = (name, fn) => {
+    if (meditation.t >= MEDB[name] && !meditation.cue[name]) {
+      meditation.cue[name] = true;
+      fn();
+    }
+  };
   updaters.push((dt, t) => {
     if (!meditation.active) return;
     meditation.t += dt;
-    fishGroup.position.set(player.x, 0, player.z);
+    const mt = meditation.t;
+    const fade = mt < MEDB.surface ? 1 : Math.max(0, 1 - (mt - MEDB.surface) * 1.4);
+    // 小鱼群巡游；大鱼来时四散
     for (const f of fishes) {
+      f.scatter += ((meditation.cue.call ? 1 : 0) - f.scatter) * Math.min(1, dt * 0.7);
       const a = t * f.speed + f.phase;
-      f.fish.position.set(Math.cos(a) * f.r, f.h + Math.sin(t * 0.6 + f.phase) * 0.4, Math.sin(a) * f.r);
+      const r = f.r + f.scatter * 6;
+      f.fish.position.set(Math.cos(a) * r, f.h + Math.sin(t * 0.6 + f.phase) * 0.4, Math.sin(a) * r);
       f.fish.rotation.y = -a;
+      f.fish.material.opacity = 0.85 * fade;
+    }
+    // 气泡上升 + 天光柱呼吸
+    const bp = bubbleGeo.attributes.position;
+    for (let i = 0; i < BUBBLE_N; i++) {
+      let y = bp.getY(i) + bubbleSpd[i] * dt;
+      if (y > 5.2) y = 0;
+      bp.setY(i, y);
+    }
+    bp.needsUpdate = true;
+    bubbles.material.opacity = Math.min(0.5, mt * 0.25) * fade;
+    shaftMat.opacity = Math.min(0.07, mt * 0.028) * (0.8 + Math.sin(t * 0.7) * 0.2) * fade;
+    shafts.rotation.y = t * 0.05;
+    // 意念浮词轮播（idea 起，每 3.1s 一句）
+    if (mt >= MEDB.idea && meditation.spawned < 3 && mt >= MEDB.idea + meditation.spawned * 3.1) {
+      const idx = meditation.ideas[meditation.spawned];
+      const w = wordPlane(MEDITATION_IDEAS[idx]);
+      const a = Math.PI * 0.66 * meditation.spawned + 0.7;
+      w.position.set(meditation.cx + Math.cos(a) * 2.3, 1.5 + Math.random() * 0.7, meditation.cz + Math.sin(a) * 2.3);
+      group.add(w);
+      ideaWords.push({ mesh: w, t: 0, life: 5.2 });
+      audio.sfx('drip', 0.5);
+      meditation.spawned += 1;
+    }
+    for (let i = ideaWords.length - 1; i >= 0; i--) {
+      const iw = ideaWords[i];
+      iw.t += dt;
+      iw.mesh.position.y += dt * 0.09;
+      iw.mesh.lookAt(player.x, iw.mesh.position.y, player.z);
+      iw.mesh.material.opacity = Math.min(1, iw.t / 1.1) * Math.min(1, Math.max(0, (iw.life - iw.t) / 1.3)) * 0.95;
+      if (iw.t > iw.life) {
+        group.remove(iw.mesh);
+        iw.mesh.material.map.dispose();
+        iw.mesh.material.dispose();
+        iw.mesh.geometry.dispose();
+        ideaWords.splice(i, 1);
+      }
+    }
+    // 节拍
+    medCue('call', () => {
+      audio.sfx('deepcall');
+      ui.caption('水底下有什么在动。', 3200);
+    });
+    medCue('fish', () => {
+      bigFish.visible = true;
+      meditation.fishA = Math.PI * 0.3;
+      audio.sfx('swell', 0.8);
+    });
+    medCue('gift', () => {
+      audio.sfx('bubbles', 0.8);
+      bigFish.userData.setGlow(1);
+      meditation.orbFrom.copy(bigFish.position);
+      meditation.orbFrom.y -= 0.1;
+      orb.position.copy(meditation.orbFrom);
+      orb.visible = true;
+      orbLight.intensity = 3.5;
+    });
+    medCue('absorb', () => {
+      engine.shock(0.12, 0.5, 0x9fc8e8);
+      audio.sfx('chime', 0.7);
+      audio.sfx('om', 0.5);
+      orb.visible = false;
+      orbLight.intensity = 0;
+      bigFish.userData.setGlow(0);
+    });
+    medCue('surface', () => {
+      engine.setLook(meta.look);
+      audio.sfx('bubbles', 0.5);
+      ui.caption('你浮上来了。那个念头跟着你。', 3600);
+    });
+    medCue('done', () => {
+      meditation.active = false;
+      fishGroup.visible = false;
+      bubbles.visible = false;
+      shafts.visible = false;
+      bigFish.visible = false;
+      for (const iw of ideaWords) {
+        group.remove(iw.mesh);
+        iw.mesh.material.map.dispose();
+        iw.mesh.material.dispose();
+        iw.mesh.geometry.dispose();
+      }
+      ideaWords.length = 0;
+      // 回响：带回的念头上了画布（画自己开始生长，用色跟着念头）
+      const tint = IDEA_TINTS[meditation.ideas[0]] || null;
+      paintState.tint = tint;
+      if (!paintState.painting) {
+        paintState.painting = true;
+        paintState.progress = 0;
+      }
+      if (tint) {
+        freshState.t = 0;
+        freshState.idx += 1;
+        freshDaub.material.color.setRGB(tint[0] / 255, tint[1] / 255, tint[2] / 255);
+        freshDaub.scale.set(0.001, 0.0005, 0.001);
+      }
+      audio.sfx('curtain', 0.35);
+      ui.caption('带回来的东西上了画布。', 3600);
+    });
+    // 大鱼路径：盘旋逼近 → 悬停献念 → 折身沉回黑暗
+    if (bigFish.visible) {
+      bigFish.userData.update(dt, t);
+      const p = bigFish.position;
+      if (!meditation.cue.gift) {
+        const u = Math.min(1, (mt - MEDB.fish) / (MEDB.gift - MEDB.fish));
+        meditation.fishA += dt * (0.5 + u * 0.12);
+        const r = 8.5 - u * 6.3;
+        const h = 2.8 - u * 1.3;
+        const a = meditation.fishA;
+        p.set(meditation.cx + Math.cos(a) * r, h, meditation.cz + Math.sin(a) * r);
+        const a2 = a + 0.14;
+        bigFish.lookAt(meditation.cx + Math.cos(a2) * r, h, meditation.cz + Math.sin(a2) * r);
+      } else if (!meditation.cue.absorb) {
+        const a = meditation.fishA;
+        p.set(meditation.cx + Math.cos(a) * 2.2, 1.5 + Math.sin(t * 1.1) * 0.08, meditation.cz + Math.sin(a) * 2.2);
+        bigFish.lookAt(player.x, 1.45, player.z);
+        const gu = Math.min(1, (mt - MEDB.gift) / (MEDB.absorb - MEDB.gift - 0.2));
+        const ease = gu * gu * (3 - 2 * gu);
+        orb.position.lerpVectors(meditation.orbFrom, new THREE.Vector3(player.x, 1.5, player.z), ease);
+        orb.position.y += Math.sin(mt * 6) * 0.03 * (1 - ease);
+        orbLight.position.copy(orb.position);
+        orbLight.intensity = 3.5 + Math.sin(mt * 8) * 1.2;
+      } else {
+        meditation.fishA += dt * 0.9;
+        const eu = Math.min(1, (mt - MEDB.absorb) / 3);
+        const r = 2.2 + eu * 11;
+        const a = meditation.fishA;
+        p.set(meditation.cx + Math.cos(a) * r, 1.5 + eu * 1.6, meditation.cz + Math.sin(a) * r);
+        const a2 = a + 0.14;
+        bigFish.lookAt(meditation.cx + Math.cos(a2) * (r + 1), 1.5 + eu * 1.7, meditation.cz + Math.sin(a2) * (r + 1));
+      }
     }
   });
+  const startDive = () => {
+    if (meditation.active) return;
+    meditation.active = true;
+    meditation.t = 0;
+    meditation.cue = {};
+    meditation.spawned = 0;
+    meditation.cx = player.x;
+    meditation.cz = player.z;
+    // 每次下潜随机抽三个不重复的念头
+    meditation.ideas = MEDITATION_IDEAS.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3);
+    audio.sfx('om');
+    audio.sfx('bubbles', 0.7);
+    audio.duck(0.35, 0.2, 3.0);
+    engine.setLook({ saturation: 0.5, tint: 0x9ecfff, fogColor: 0x020610, fogDensity: 0.1, bg: 0x010409, exposure: 0.78, bloom: 1.35 });
+    fishGroup.visible = true;
+    fishGroup.position.set(meditation.cx, 0, meditation.cz);
+    bubbles.visible = true;
+    bubbles.position.set(meditation.cx, 0, meditation.cz);
+    shafts.visible = true;
+    shafts.position.set(meditation.cx, 0, meditation.cz);
+    ui.caption('「想抓大鱼，就得潜到更深的水里去。」', 4600);
+  };
   hotspots.add(cushion, {
     hint: 'E — 坐下，闭眼（潜入深水）',
-    onActivate: () => {
-      if (meditation.active) return;
-      meditation.active = true;
-      meditation.t = 0;
-      audio.sfx('om');
-      audio.duck(0.4, 0.2, 3.0);
-      engine.setLook({ saturation: 0.55, tint: 0x9ecfff, fogColor: 0x020610, fogDensity: 0.085, bg: 0x010409, exposure: 0.8, bloom: 1.2 });
-      fishGroup.visible = true;
-      ui.caption('「想抓大鱼，就得潜到更深的水里去。」', 4600);
-      later(() => audio.sfx('om', 0.7), 5200);
-      later(() => {
-        meditation.active = false;
-        fishGroup.visible = false;
-        engine.setLook(meta.look);
-        audio.sfx('chime', 0.5);
-        ui.caption('你浮上来了。', 3000);
-      }, 11500);
-    }
+    onActivate: startDive
   });
+  // 冒烟核验入口：直接快进到大鱼幕
+  const diveTrig = {
+    force: () => {
+      startDive();
+      meditation.t = Math.max(meditation.t, MEDB.fish + 2.5);
+    }
+  };
 
   // ---------- 软木留言板（交互⑨：留言墙强化） ----------
   const posts = (store ? store.list() : []).slice(0, 4);
@@ -1529,7 +1771,7 @@ export function build(ctx) {
     // 脚步材质分区：圆毯上=绒面；其余=木地板
     surfaceAt: (x, z) => (Math.hypot(x + 1.5, z + 0.5) <= 2.6 ? 'carpet' : 'wood'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'radio-wakes': radioTrig },
+    eggs: { 'radio-wakes': radioTrig, 'deep-dive': diveTrig },
     onLeave: () => {
       for (const id of timers) clearTimeout(id);
       for (const id of eggTimers) clearTimeout(id);

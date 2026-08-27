@@ -201,8 +201,16 @@ function createWindow() {
                 // SV_EGG_SHOT=1: 截屏后立即引爆彩蛋，延迟 SV_EGG_SHOT_DELAY 毫秒
                 // 再补拍一张（核验惊吓/幻象的实际画面，视觉自检用）
                 if (process.env.SV_EGG_SHOT === '1') {
-                  await win.webContents.executeJavaScript('window.__SV__.triggerEggs()', true).catch(() => {});
+                  const r1 = await win.webContents.executeJavaScript('window.__SV__.triggerEggs().join(",")', true)
+                    .catch((e) => 'ERR:' + (e && e.message));
+                  console.log(`[smoke] 彩蛋引爆 ${hall}: ${r1}`);
                   await new Promise((r) => setTimeout(r, Number(process.env.SV_EGG_SHOT_DELAY || 1200)));
+                  // 截屏前 JS 往返：把软渲染合成器的陈旧帧刷掉（同常规截屏），
+                  // 顺便读回机位（惊吓 wake 传送与否可从坐标判断）
+                  const at2 = await win.webContents.executeJavaScript(
+                    '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+                  ).catch(() => '?');
+                  console.log(`[smoke] 彩蛋机位 ${hall}: ${at2}`);
                   const img2 = await win.webContents.capturePage();
                   require('fs').writeFileSync(require('path').join(shotDir, `${hall}-egg.png`), img2.toPNG());
                   console.log(`[smoke] 彩蛋截屏: ${hall}-egg.png`);

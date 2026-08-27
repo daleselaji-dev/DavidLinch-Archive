@@ -738,6 +738,7 @@ export function build(ctx) {
   });
 
   // ---------- 剧场外壳（侧墙/后墙——暗巷贴着它走） ----------
+  // 砖块只做同色相亮度抖动（v1.6：三通道独立随机在强光下会泛成彩虹砖）
   const shellTex = canvasTexture(256, (g, s) => {
     g.fillStyle = '#191216';
     g.fillRect(0, 0, s, s);
@@ -745,7 +746,8 @@ export function build(ctx) {
     for (let r = 0; r < 12; r++) {
       for (let c = -1; c < 7; c++) {
         const off = r % 2 ? s / 12 : 0;
-        g.fillStyle = `rgb(${24 + Math.random() * 12},${18 + Math.random() * 8},${22 + Math.random() * 10})`;
+        const v = Math.random() * 9;
+        g.fillStyle = `rgb(${Math.round(25 + v)},${Math.round(19 + v * 0.75)},${Math.round(23 + v * 0.85)})`;
         g.fillRect(c * (s / 6) + off + 1, r * bh + 1, s / 6 - 2, bh - 2);
       }
     }
@@ -1091,8 +1093,9 @@ export function build(ctx) {
   };
   const faceAt = () => {
     figure.lookAt(player.x, 1.35, player.z);
+    // 下巴高度的仰打光：照亮脸与眼窝，而不是把地面打出一滩泛光
     scareFace.position.set(
-      figure.position.x + (player.x - figure.position.x) * 0.22, 0.5,
+      figure.position.x + (player.x - figure.position.x) * 0.22, 1.15,
       figure.position.z + (player.z - figure.position.z) * 0.22
     );
     scareLight.position.set(
@@ -1730,7 +1733,11 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'corner-scare': scareTrig, 'no-band': noBandTrig },
+    eggs: {
+      // 冒烟核验：force 直接快进到凝视拍（低帧率无头环境下时间轴确定可截）
+      'corner-scare': { force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); } },
+      'no-band': noBandTrig
+    },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);

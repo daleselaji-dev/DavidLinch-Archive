@@ -119,6 +119,18 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     }
   });
 
+  it('dreamFish 梦鱼已导出：一体车削鱼身 + 顶点色 + 鳞纹 + 发光侧线 + 眼 + 尾摆驱动', () => {
+    expect(typeof kit.dreamFish).toBe('function');
+    const seg = src.slice(src.indexOf('export function dreamFish'));
+    for (const k of [
+      'LatheGeometry', "setAttribute('color'", 'scaleTex', 'mkLateral',
+      'eyeMat', 'barbels', 'userData.setGlow', 'userData.update',
+      'tail.rotation.y', 'lineMat.emissiveIntensity'
+    ]) {
+      expect(seg.slice(0, 10000), `dreamFish 缺要素: ${k}`).toContain(k);
+    }
+  });
+
   it('walkieTalkie 对讲机预制体已导出，暴露 body/ptt/ledMat/antenna 交互挂点', () => {
     expect(typeof props.walkieTalkie).toBe('function');
     const propsSrc = readFileSync(new URL('../src/halls/props.js', import.meta.url), 'utf8');

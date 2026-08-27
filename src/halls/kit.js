@@ -930,6 +930,182 @@ export function nightmareFigure(height = 2.4) {
 }
 
 /**
+ * 梦鱼（v1.6 冥想深潜主角）——「想抓大鱼就得潜到更深的水里」。
+ * 一体车削鱼身（顶点色：墨蓝背脊 → 银白腹）+ 鳞纹贴图 + 新月尾 +
+ * 背鳍/胸鳍 + 发光侧线 ×2 + 珠光眼 + 触须两根。鱼头朝 +Z。
+ * userData.update(dt, t) 驱动尾摆/鳍颤/侧线呼吸；
+ * userData.setGlow(v) 献念时全身亮起。
+ */
+export function dreamFish(len = 3.4) {
+  const group = new THREE.Group();
+
+  // ---- 鱼身：LatheGeometry 绕轴车削（轴向 +Z），一体成型 ----
+  const prof = [];
+  const R = len * 0.135; // 最大体半径
+  const stations = [
+    [0.0, 0.012], [0.04, 0.32], [0.12, 0.62], [0.24, 0.88], [0.4, 1.0],
+    [0.56, 0.94], [0.7, 0.72], [0.82, 0.42], [0.92, 0.2], [1.0, 0.085]
+  ];
+  for (const [u, k] of stations) prof.push(new THREE.Vector2(Math.max(0.001, R * k), u * len));
+  const bodyGeo = new THREE.LatheGeometry(prof, 28);
+  bodyGeo.rotateX(Math.PI / 2);          // 轴向 → +Z（0 = 鼻尖…等等：lathe y=0 是第一站）
+  bodyGeo.translate(0, 0, -len * 0.45);  // 鼻尖在 +Z 前方，重心近原点
+  bodyGeo.computeVertexNormals();
+  // 顶点色：背脊墨蓝黑 → 腹部银白（按法线俯仰混合），加一点脊线冷辉
+  {
+    const pos = bodyGeo.attributes.position;
+    const nrm = bodyGeo.attributes.normal;
+    const col = new Float32Array(pos.count * 3);
+    const back = new THREE.Color(0x0a141f);
+    const belly = new THREE.Color(0x8ea6b4);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const ny = nrm.getY(i);
+      const k = Math.pow(Math.min(1, Math.max(0, 0.5 - ny * 0.62)), 1.35);
+      c.copy(back).lerp(belly, k);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    bodyGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  }
+  // 鳞纹（低对比叠瓦弧排 + 细噪）：map + bump 双通道
+  const scaleTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#9aa4ac';
+    g.fillRect(0, 0, s, s);
+    for (let row = 0; row < 16; row++) {
+      for (let i = 0; i < 16; i++) {
+        const x = i * 16 + (row % 2) * 8;
+        const y = row * 16;
+        g.strokeStyle = `rgba(30,40,52,${0.22 + Math.random() * 0.18})`;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.arc(x, y, 9, 0.15 * Math.PI, 0.85 * Math.PI);
+        g.stroke();
+        g.fillStyle = `rgba(215,228,236,${0.05 + Math.random() * 0.05})`;
+        g.fillRect(x - 5, y + 3, 10, 2);
+      }
+    }
+  }, 6, 2);
+  const bodyMat = new THREE.MeshStandardMaterial({
+    map: scaleTex, vertexColors: true, roughness: 0.32, metalness: 0.42,
+    bumpMap: scaleTex, bumpScale: 0.35, envMapIntensity: 1.1,
+    emissive: 0x27455c, emissiveIntensity: 0.12
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  group.add(body);
+
+  // ---- 鳍：薄片 Shape（半透明、边缘微光）----
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0x16222e, roughness: 0.55, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.82, emissive: 0x3e6a86, emissiveIntensity: 0.28
+  });
+  const finShape = (pts) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+    return new THREE.ShapeGeometry(sh);
+  };
+  // 背鳍：长低帆形（贴在背脊上）
+  const dorsal = new THREE.Mesh(
+    finShape([[0, 0], [len * 0.34, 0], [len * 0.30, R * 0.85], [len * 0.16, R * 1.12], [len * 0.04, R * 0.5]]),
+    finMat
+  );
+  dorsal.rotation.y = -Math.PI / 2;
+  dorsal.position.set(0, R * 0.86, len * 0.2);
+  group.add(dorsal);
+  // 胸鳍一对（会随游动划水）
+  const mkPect = (side) => {
+    const p = new THREE.Mesh(
+      finShape([[0, 0], [len * 0.16, -R * 0.34], [len * 0.2, -R * 0.16], [len * 0.07, R * 0.06]]),
+      finMat
+    );
+    p.position.set(side * R * 0.88, -R * 0.22, len * 0.24);
+    p.rotation.z = side * 0.5;
+    p.rotation.y = side * 0.55;
+    return p;
+  };
+  const pectL = mkPect(-1);
+  const pectR = mkPect(1);
+  group.add(pectL, pectR);
+
+  // ---- 尾：新月双叶（挂在尾柄枢轴上摆动）----
+  const tail = new THREE.Group();
+  const tailFin = new THREE.Mesh(
+    finShape([
+      [0, 0], [-len * 0.2, R * 1.3], [-len * 0.128, R * 0.4], [-len * 0.11, 0],
+      [-len * 0.128, -R * 0.4], [-len * 0.2, -R * 1.3]
+    ]),
+    finMat
+  );
+  tailFin.rotation.y = Math.PI / 2;
+  tail.add(tailFin);
+  tail.position.set(0, 0, -len * 0.44);
+  group.add(tail);
+
+  // ---- 发光侧线（左右各一条沿体侧的细管）----
+  const lineMat = new THREE.MeshStandardMaterial({
+    color: 0x0c1218, emissive: 0x6fd4ff, emissiveIntensity: 1.3,
+    roughness: 0.4, transparent: true, opacity: 0.95
+  });
+  const mkLateral = (side) => {
+    const pts = [];
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10;
+      const z = -len * 0.42 + u * len * 0.92;
+      const st = 1 - Math.abs(u - 0.44) * 1.6;
+      const r = R * Math.max(0.12, Math.min(1, st)) * 1.005;
+      pts.push(new THREE.Vector3(side * r, R * 0.06 + Math.sin(u * 5) * 0.01, z));
+    }
+    return new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.014, 6),
+      lineMat
+    );
+  };
+  group.add(mkLateral(1), mkLateral(-1));
+
+  // ---- 眼：珠光大眼一对（虹膜发光 + 黑瞳）----
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0c10, emissive: 0xbfe4ff, emissiveIntensity: 1.6, roughness: 0.2
+  });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x02040a, roughness: 0.1 });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(R * 0.2, 12, 10), eyeMat);
+    eye.position.set(side * R * 0.62, R * 0.18, len * 0.42);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(R * 0.09, 8, 8), pupilMat);
+    pupil.position.set(side * R * 0.76, R * 0.18, len * 0.46);
+    group.add(eye, pupil);
+  }
+
+  // ---- 触须两根（深水的老家伙）----
+  const barbels = [];
+  const barbMat = new THREE.MeshStandardMaterial({ color: 0x1c2830, roughness: 0.7 });
+  for (const side of [-1, 1]) {
+    const curve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(side * R * 0.3, -R * 0.4, len * 0.5),
+      new THREE.Vector3(side * R * 0.7, -R * 1.1, len * 0.42),
+      new THREE.Vector3(side * R * 1.0, -R * 1.9, len * 0.28)
+    );
+    const b = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.012, 5), barbMat);
+    barbels.push(b);
+    group.add(b);
+  }
+
+  let glow = 0;
+  group.userData.setGlow = (v) => { glow = v; };
+  group.userData.update = (dt, t) => {
+    tail.rotation.y = Math.sin(t * 2.7) * 0.42;
+    body.rotation.z = Math.sin(t * 1.15) * 0.05;
+    pectL.rotation.z = -0.5 - (Math.sin(t * 2.1) * 0.28 + 0.28);
+    pectR.rotation.z = 0.5 + Math.sin(t * 2.1 + 0.9) * 0.28 + 0.28;
+    dorsal.rotation.x = Math.sin(t * 1.7) * 0.06;
+    for (const [i, b] of barbels.entries()) b.rotation.x = Math.sin(t * 1.9 + i * 2.2) * 0.1;
+    lineMat.emissiveIntensity = 1.1 + Math.sin(t * 1.6) * 0.5 + glow * 3.2;
+    eyeMat.emissiveIntensity = 1.4 + Math.sin(t * 2.3) * 0.4 + glow * 2.4;
+    bodyMat.emissiveIntensity = 0.12 + glow * 0.5;
+  };
+  return group;
+}
+
+/**
  * 区域触发器 —— 玩家走进圆形区域时触发（彩蛋核心机制）。
  * 返回 update(playerPos) 供每帧调用。
  * opts: { cooldown 秒（默认可重复触发的冷却）, once 只触发一次 }

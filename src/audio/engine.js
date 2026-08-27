@@ -384,6 +384,21 @@ export class AudioEngine {
         tone('sine', 333, 332, 2.8, 0.025, 0.1);
         break;
       }
+      case 'deepcall': { // 深水里的一声呼唤：次声下滑 + 双泛音 + 高处一线微光
+        tone('sine', 52, 33, 4.4, 0.2);
+        tone('sine', 104, 66, 3.8, 0.06, 0.12);
+        tone('sine', 156, 99, 3.0, 0.028, 0.3);
+        noise('pink', 3.4, 'bandpass', 2400, 7, 0.018, 0.7, 1.5);
+        break;
+      }
+      case 'bubbles': { // 一串上升的水泡（下潜/献念）
+        for (let i = 0; i < 7; i++) {
+          const f0 = 280 + Math.random() * 420 + i * 95;
+          tone('sine', f0, f0 * 1.9, 0.1, 0.03, i * 0.13 + Math.random() * 0.05);
+        }
+        noise('brown', 1.5, 'lowpass', 220, 1, 0.05, 0, 0.55);
+        break;
+      }
       case 'lullaby': { // 暖气炉深处的小小摇篮曲（原创五音短句）
         const seq = [523.25, 466.16, 392.0, 349.23, 392.0];
         for (const [i, f] of seq.entries()) {

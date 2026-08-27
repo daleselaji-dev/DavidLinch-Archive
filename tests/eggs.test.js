@@ -55,9 +55,9 @@ describe('穆赫兰道「拐角那个东西」惊吓 v3', () => {
     }
   });
 
-  it('可重复触发且有冷却；彩蛋以 corner-scare 暴露给冒烟测试', () => {
+  it('可重复触发且有冷却；彩蛋以 corner-scare 暴露给冒烟测试（force 快进到凝视拍）', () => {
     expect(mul).toMatch(/doScare, \{ cooldown: \d+ \}/);
-    expect(mul).toContain("'corner-scare': scareTrig");
+    expect(mul).toContain("'corner-scare': { force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); } }");
   });
 });
 
@@ -109,5 +109,54 @@ describe('v1.5 氛围增强（雾呼吸 + 稀发远景事件）', () => {
   it('双峰：地表雾长波呼吸 + 远鸮/远门/闷雷调度器', () => {
     expect(tp).toContain('fogLayer.material.opacity = 0.045 * (1 + Math.sin');
     expect(tp).toMatch(/farEvt/);
+  });
+});
+
+describe('工作室冥想深潜 v2（v1.6：Edith Finch 级五幕序列）', () => {
+  const st = readFileSync(new URL('../src/halls/studio.js', import.meta.url), 'utf8');
+
+  it('五幕节拍表齐全：潜入/意念/呼唤/大鱼/献念/没入/浮出/回响', () => {
+    expect(st).toMatch(/MEDB = \{ dive: 0, idea: [\d.]+, call: [\d.]+, fish: [\d.]+, gift: [\d.]+, absorb: [\d.]+, surface: [\d.]+, done: [\d.]+ \}/);
+    for (const cue of ["medCue('call'", "medCue('fish'", "medCue('gift'", "medCue('absorb'", "medCue('surface'", "medCue('done'"]) {
+      expect(st, `冥想缺节拍: ${cue}`).toContain(cue);
+    }
+  });
+
+  it('dt 驱动（无 setTimeout 主链），意念词从 MEDITATION_IDEAS 随机抽三个不重复', () => {
+    const seg = st.slice(st.indexOf('const MEDB'), st.indexOf('hotspots.add(cushion'));
+    expect(seg).not.toContain('setTimeout');
+    expect(st).toContain('MEDITATION_IDEAS.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3)');
+  });
+
+  it('主角是 kit.dreamFish 大鱼：盘旋逼近 + lookAt 切线朝向 + 献出念头 orb', () => {
+    expect(st).toContain('dreamFish(3.4)');
+    expect(st).toContain('bigFish.lookAt');
+    expect(st).toContain('orb.position.lerpVectors(meditation.orbFrom');
+    expect(st).toContain("bigFish.userData.setGlow(1)");
+  });
+
+  it('回响改变世界：带回的念头驱动画架自动作画并改变用色（IDEA_TINTS）', () => {
+    expect(st).toContain('IDEA_TINTS');
+    expect(st).toContain('paintState.tint = tint');
+    expect(st).toMatch(/paintState\.painting = true;[\s\S]{0,120}paintState\.progress = 0;/);
+  });
+
+  it('深水氛围三件套：气泡场 / 天光柱 / 意念浮词（加性混合、会自清理）', () => {
+    for (const k of ['bubbleGeo', 'shaftMat', 'wordPlane', 'AdditiveBlending', 'ideaWords.splice']) {
+      expect(st, `冥想氛围缺件: ${k}`).toContain(k);
+    }
+  });
+
+  it('新音效 deepcall/bubbles 已入音频引擎并在冥想中使用', () => {
+    const au = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+    expect(au).toContain("case 'deepcall'");
+    expect(au).toContain("case 'bubbles'");
+    expect(st).toContain("audio.sfx('deepcall')");
+    expect(st).toContain("audio.sfx('bubbles'");
+  });
+
+  it('冒烟入口：deep-dive 彩蛋注册且 force 快进到大鱼幕', () => {
+    expect(st).toContain("'deep-dive': diveTrig");
+    expect(st).toContain('meditation.t = Math.max(meditation.t, MEDB.fish + 2.5)');
   });
 });
