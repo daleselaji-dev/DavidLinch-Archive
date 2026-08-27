@@ -1770,6 +1770,56 @@ export function build(ctx) {
   dragMark.rotation.z = 0.35;
   dragMark.position.set(7.2, 0.011, -27.6);
   group.add(dragMark);
+  // ③ v1.11 B5：拐角护角铁件——剧场东南砖角上一根从地钉到 2.6m 的
+  // L 形护条（老楼装卸通道的标配），锈蚀流挂，四对沉头螺栓；
+  // 1.2–1.8m 高一段被**刮亮**了几道斜痕——惊吓第一幕那声金属长刮擦，
+  // 从此有了实体锚点（它就是在这根铁上拖过去的）。
+  {
+    const ironTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#211f24';
+      g.fillRect(0, 0, s, s);
+      const ir = rng(53);
+      for (let i = 0; i < 26; i++) { // 锈斑
+        g.fillStyle = `rgba(${70 + ir() * 40 | 0},${38 + ir() * 22 | 0},${24 + ir() * 14 | 0},${0.16 + ir() * 0.22})`;
+        g.beginPath();
+        g.ellipse(ir() * s, ir() * s, 3 + ir() * 9, 2 + ir() * 6, ir() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+      for (let i = 0; i < 8; i++) { // 锈迹往下流挂
+        const x = ir() * s;
+        const y0 = ir() * s * 0.5;
+        g.fillStyle = 'rgba(64,36,22,0.24)';
+        g.fillRect(x, y0, 2 + ir() * 2, s * (0.2 + ir() * 0.5));
+      }
+      // 中段被刮亮的斜痕（贴巷面那条腿的戏眼）
+      g.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {
+        g.strokeStyle = `rgba(${150 + ir() * 50 | 0},${150 + ir() * 40 | 0},${146 + ir() * 40 | 0},${0.3 + ir() * 0.3})`;
+        g.lineWidth = 1.2 + ir() * 1.6;
+        g.beginPath();
+        g.moveTo(s * 0.2 + ir() * 20, s * 0.42 + i * 7);
+        g.lineTo(s * 0.86, s * 0.5 + i * 7 + ir() * 8);
+        g.stroke();
+      }
+    });
+    const ironMat = new THREE.MeshStandardMaterial({
+      map: ironTex, bumpMap: ironTex, bumpScale: 0.08,
+      metalness: 0.62, roughness: 0.55
+    });
+    const boltGeo = new THREE.CylinderGeometry(0.014, 0.017, 0.012, 8);
+    const guardGeos = [
+      // 贴巷面（东腿）+ 贴空地面（南腿）+ 角棱圆条
+      xform(new THREE.BoxGeometry(0.016, 2.6, 0.12), 8.15, 1.31, -26.638),
+      xform(new THREE.BoxGeometry(0.12, 2.6, 0.016), 8.098, 1.31, -26.69),
+      xform(new THREE.CylinderGeometry(0.014, 0.014, 2.6, 8), 8.152, 1.31, -26.692)
+    ];
+    for (const yy of [0.34, 1.04, 1.74, 2.44]) {
+      guardGeos.push(xform(boltGeo, 8.162, yy, -26.638, 0, 0, -Math.PI / 2)); // 东腿螺栓朝巷
+      guardGeos.push(xform(boltGeo, 8.098, yy, -26.702, Math.PI / 2, 0, 0)); // 南腿螺栓朝空地
+    }
+    boltGeo.dispose();
+    group.add(mergedMesh(guardGeos, ironMat));
+  }
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
   const chalkTex = canvasTexture(256, (g, s) => {
