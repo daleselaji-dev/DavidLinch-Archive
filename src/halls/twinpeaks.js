@@ -2228,17 +2228,20 @@ export function build(ctx) {
       g.fillRect(x, 0, 1.5 + rr() * 2.5, s * (0.55 + rr() * 0.45));
     }
   });
+  // v1.12 D-2（剪影级修正）：岩鼻近纯黑 0x07090d 在白瀑上远看读成
+  // 「两团漂浮黑块」——提为湿岩冷灰（水雾里的石头本来就带天光）+
+  // 回流白瀑加宽提亮，把岩鼻从视觉上「接回水里」
   const rejoinMat = new THREE.MeshBasicMaterial({
-    map: rejoinTex, transparent: true, opacity: 0.6, toneMapped: false,
+    map: rejoinTex, transparent: true, opacity: 0.74, toneMapped: false,
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   const rejoinGeos = [];
   for (const [nx, ny, ns] of [[10.1, 11.4, 1.05], [14.2, 12.3, 0.85]]) {
-    const nose = rockMesh(ns, 0x07090d);
+    const nose = rockMesh(ns, 0x1a222c);
     nose.scale.z = 0.55;
     nose.position.set(nx, ny, -41.35);
     overlook.add(nose);
-    rejoinGeos.push(xform(new THREE.PlaneGeometry(ns * 1.6, 2.3), nx, ny - ns * 0.7 - 1.05, -41.02));
+    rejoinGeos.push(xform(new THREE.PlaneGeometry(ns * 1.9, 2.6), nx, ny - ns * 0.7 - 1.15, -41.02));
   }
   overlook.add(mergedMesh(rejoinGeos, rejoinMat));
   // 上缘白沿（水离崖那一线）+ 底部翻涌泡沫带
