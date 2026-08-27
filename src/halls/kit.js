@@ -991,6 +991,11 @@ export function veiledFigure(height = 2.25) {
  * 一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 + 收尖
  * 手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
  * 极暗红内衬自发光：剪影光下只读出轮廓，闪光拍里读出体积。
+ * v1.11（门禁 55）三处升级：① 兜帽内 hoodVoid 纯黑无光空腔——闪光
+ * 拍里读出的不是「看不清脸」而是「没有脸」；② 第二层错相位破披
+ * （下摆 seeded 撕口）——剪影从光滑钟形变成叠着残布的人形；
+ * ③ 双手各三指过长收尖；setLurch 里身体冻住时**红光在呼吸**、
+ * 且越挪越前倾（每顿定格在更近的一档——每停一次都更「看着你」）。
  * userData: { pivot, mat, setLurch(s,t) 顿挪体态, setRush(k,t) 扑近形变 }
  */
 export function cornerWraith(height = 2.35) {
@@ -1036,6 +1041,49 @@ export function cornerWraith(height = 2.35) {
   geo.computeVertexNormals();
   const body = new THREE.Mesh(geo, mat);
   pivot.add(body);
+  // v1.11 ①：兜帽内的纯黑空腔——无光材质，任何灯/闪帧都照不进去。
+  // 半嵌进兜帽前脸，只露一个洞口的弧面：读出「没有脸」。
+  const hoodVoid = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 12, 10),
+    new THREE.MeshBasicMaterial({ color: 0x000000 })
+  );
+  hoodVoid.scale.set(0.9, 1.25, 0.6);
+  hoodVoid.position.set(0, H * 0.94, H * 0.088);
+  pivot.add(hoodVoid);
+  // v1.11 ②：第二层错相位破披——肩背披下的一层残布，褶相位与主身
+  // 错开，下摆一圈 seeded 参差撕口（双面材质，撕口翻看得到里子）。
+  const capeMat = new THREE.MeshPhysicalMaterial({
+    color: 0x060409, roughness: 0.95, metalness: 0,
+    sheen: 0.4, sheenColor: 0x160710, sheenRoughness: 0.65,
+    side: THREE.DoubleSide
+  });
+  const capeProf = [
+    [0.235, 0.55], [0.26, 0.62], [0.27, 0.68], [0.255, 0.74],
+    [0.21, 0.79], [0.13, 0.825], [0.09, 0.848]
+  ].map(([r, y]) => new THREE.Vector2(r * H * 0.5 * 1.1, y * H));
+  const capeGeo = new THREE.LatheGeometry(capeProf, 36);
+  const cpos = capeGeo.attributes.position;
+  const capeR = rng(157);
+  const tear = [];
+  for (let i = 0; i <= 36; i++) tear.push(capeR() * 0.12 + (i % 3 === 0 ? capeR() * 0.1 : 0));
+  for (let i = 0; i < cpos.count; i++) {
+    const x = cpos.getX(i);
+    const y = cpos.getY(i);
+    const z = cpos.getZ(i);
+    const rr = Math.hypot(x, z);
+    if (rr < 1e-4) continue;
+    const a = Math.atan2(z, x);
+    const fold = 1 + Math.sin(a * 5 + 0.9) * 0.06 + Math.sin(a * 11 + 2.6) * 0.022;
+    cpos.setX(i, x * fold);
+    cpos.setZ(i, z * fold);
+    if (y < H * 0.6) { // 只撕最下缘一圈
+      const idx = Math.min(36, Math.floor(((a + Math.PI) / (Math.PI * 2)) * 36));
+      cpos.setY(i, y + tear[idx] * H);
+    }
+  }
+  capeGeo.computeVertexNormals();
+  const cape = new THREE.Mesh(capeGeo, capeMat);
+  pivot.add(cape);
   // 裙裾破布条：一圈 seeded 长短错落的收尖布条（合并单 mesh）
   const wr = rng(83);
   const fringeGeos = [];
@@ -1060,12 +1108,20 @@ export function cornerWraith(height = 2.35) {
     up.translate(0, -upLen / 2, 0);
     const lo = new THREE.CylinderGeometry(0.022, 0.03, loLen, 8);
     lo.translate(0, -loLen / 2, 0);
-    const hand = new THREE.ConeGeometry(0.045, 0.2, 6);
-    hand.translate(0, -0.1, 0);
+    // v1.11 ③：三指过长收尖（指根在腕点扇开，指尖几乎拖地）
+    const fingerGeos = [];
+    const wx = side * upLen * 0.18;
+    const wy = -upLen * 0.98 - loLen * 0.99;
+    const wz = upLen * 0.06;
+    for (const [fi, fl] of [[-1, 0.19], [0, 0.27], [1, 0.21]]) {
+      const fg = new THREE.ConeGeometry(0.015, fl, 5);
+      fg.translate(0, -fl / 2, 0);
+      fingerGeos.push(xform(fg, wx + fi * 0.03, wy, wz + fi * 0.014, fi * 0.08, 0, fi * 0.2));
+    }
     arm.add(mergedMesh([
       xform(up, 0, 0, 0, 0.1, 0, side * -0.16),
       xform(lo, side * upLen * 0.15, -upLen * 0.98, upLen * 0.1, -0.06, 0, side * 0.1),
-      xform(hand, side * upLen * 0.18, -upLen * 0.98 - loLen * 0.99, upLen * 0.06)
+      ...fingerGeos
     ], mat));
     arm.position.set(side * H * 0.115, H * 0.79, -H * 0.01);
     pivot.add(arm);
@@ -1077,26 +1133,32 @@ export function cornerWraith(height = 2.35) {
   group.userData.pivot = pivot;
   group.userData.mat = mat;
   /** 顿挪体态：s 为 lurchEase 后的阶梯进度——挪的时候侧倾/沉肩/臂拖摆，
-   *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。 */
+   *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。
+   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档，每停一次
+   *  都更「看着你」）；身体冻住时暗红内衬随呼吸搏动（红光在呼吸——
+   *  唯一还在动的东西）。 */
   group.userData.setLurch = (s, t = 0) => {
     const beat = Math.sin(s * Math.PI * 6);
-    pivot.rotation.x = 0.12;
-    pivot.rotation.z = 0.06 + beat * 0.075;
+    pivot.rotation.x = 0.12 + s * 0.14;
+    pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
     pivot.position.y = Math.abs(beat) * 0.035;
     armL.rotation.x = -0.08 + beat * 0.1;
     armR.rotation.x = -0.08 - beat * 0.1;
     armL.rotation.z = 0.05 * beat;
     armR.rotation.z = 0.05 * beat;
+    mat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
   };
-  /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆。 */
+  /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆；
+   *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。 */
   group.userData.setRush = (k, t = 0) => {
-    pivot.rotation.x = 0.12 + 0.3 * k;
+    pivot.rotation.x = 0.26 + 0.3 * k;
     pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
     pivot.position.y = 0;
     armL.rotation.x = -0.08 - 0.55 * k;
     armR.rotation.x = -0.08 - 0.55 * k;
     body.scale.set(1 + k * 0.1, 1, 1 + k * 0.1);
     fringe.scale.set(1 + k * 0.22, 1, 1 + k * 0.22);
+    mat.emissiveIntensity = 0.9 + k * 0.5;
   };
   return group;
 }

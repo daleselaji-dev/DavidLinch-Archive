@@ -341,6 +341,13 @@ export class AudioEngine {
         tone('sine', 58, 34, 0.22, 0.3);
         tone('sine', 52, 30, 0.26, 0.34, 0.42);
         break;
+      case 'dreadswell': { // v1.11 拐角 dread 拍: 低频升压——次声般的空气变重（灯才开始不对）
+        const f = noise('brown', 2.0, 'lowpass', 90, 1, 0.3, 0, 1.3);
+        f.frequency.linearRampToValueAtTime(210, t + 1.9);
+        tone('sine', 27, 46, 2.0, 0.3);
+        tone('sine', 54, 92, 1.9, 0.07, 0.12);
+        break;
+      }
       case 'scrape': { // 金属刮擦（v1.8 拐角惊吓）: 宽带擦噪拖行下坠 + 双声高位金属啸 + 尾端石屑
         const f = noise('pink', 0.9, 'bandpass', 950, 3, 0.16, 0, 0.16);
         f.frequency.linearRampToValueAtTime(340, t + 0.85);

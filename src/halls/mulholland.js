@@ -53,11 +53,18 @@ const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后
 
 // 冒烟与单测用：通路矩形并集 / 惊吓武装区 / 出生点（纯数据，可在 node 侧仿真行走）
 export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
+// v1.11 门禁 55：拐角沿——剧场侧墙沿巷到 z=-26.8、后墙 z=-26.6，
+// 「拐角」在 z≈-26.7。触发区必须贴着它（北缘距拐角 ≤1.6m、不晚于
+// 拐角以南 0.3m——cornerscare.test 几何守卫钉死，防再漂）。
+export const CORNER_EDGE = { x: 8.3, z: -26.7 };
 // v1.8 拐角惊吓（主触发）：巷尾拐角触发区——垃圾箱·后门方向即将
 // 入画的那一步就是扳机。顺巷南行视线自然落进 ±fov/2 锥内即触发；
 // 背向北归穿区不触发；面朝墙进区的，转回那个方向的瞬间触发。
+// v1.11 修正：v1.8–v1.10 的触发区（圆心 z=-25.9 r2.3）北缘在 z=-23.6，
+// 离拐角还有 3 米的直巷中段就引爆——错位置。现移到拐角本体：
+// 北缘 z≈-25.3，「即将看见」的最后一步才是扳机。
 export const CORNER_SCARE = {
-  zone: { x: 9.25, z: -25.9, r: 2.3 },   // 暗巷尽头、剧场东南拐角前
+  zone: { x: 9.3, z: -26.9, r: 1.6 },    // 拐角本体（北缘 z≈-25.3）
   lookAt: { x: 4.2, z: -30.6 },          // 垃圾箱与后门所在的西南方向
   fov: 2.6,                              // ±74.5°：顺巷南行必然在锥内
   cooldown: 75
@@ -1531,9 +1538,12 @@ export function build(ctx) {
   updaters.push((dt) => {
     rimLight.intensity += (rimState.on * 6.5 - rimLight.intensity) * Math.min(1, dt * 7);
   });
-  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处
-  const LURK_HIDE = new THREE.Vector3(6.4, 0, -28.6);
-  const LURK_OUT = new THREE.Vector3(8.7, 0, -26.4);
+  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处。
+  // v1.11：触发点移到拐角本体后玩家离拐角更近——藏点压深到后墙以西
+  // （从触发区北缘任何视线都被后墙截断），现身点贴在拐角沿（离玩家
+  // 约 2 米——从拐角后探出来的那一步就在你脸前）。
+  const LURK_HIDE = new THREE.Vector3(5.6, 0, -28.8);
+  const LURK_OUT = new THREE.Vector3(8.55, 0, -27.15);
   const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
 
   // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还
@@ -1554,8 +1564,13 @@ export function build(ctx) {
     scare.sub = 'dread';
     scare.t = 0;
     const B = SCARE_BEATS;
-    // 第一幕：整巷灯狂闪 + 世界的声音塌下去 + 拐角一声长刮擦 + 两记心跳
+    // 第一幕：整巷灯狂闪 + 世界的声音塌下去 + 拐角一声长刮擦 + 两记心跳。
+    // v1.11：恐惧拍若刚把巷灯按灭，先还灯——狂闪的第一幕必须看得见
+    // （灯异常是这个节拍的第一个字）；同拍加低频升压 dreadswell——
+    // 空气先变重，灯才开始不对。
+    lampKill.v = 0;
     lampPanic.v = 1;
+    audio.sfx('dreadswell', 0.7);
     audio.duck(1.2, 0.12, 1.6);
     audio.sfxAt('scrape', 8.4, -26.6, 0.85, 5);
     audio.sfx('heartbeat', 0.45);

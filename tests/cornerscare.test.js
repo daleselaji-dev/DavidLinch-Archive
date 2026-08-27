@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { cornerTrigger, lurchEase, multiRectBounds } from '../src/halls/kit.js';
 import {
-  CORNER_SCARE, SCARE_BEATS, WAKE_POINT, WALK_RECTS, SCARE_REGION, SPAWN
+  CORNER_SCARE, CORNER_EDGE, SCARE_BEATS, WAKE_POINT, WALK_RECTS, SCARE_REGION, SPAWN
 } from '../src/halls/mulholland.js';
 
 // ============================================================
@@ -177,6 +177,34 @@ describe('拐角触发区几何：主惊吓就长在必经之路上', () => {
   });
 });
 
+describe('v1.11 门禁 55：触发时机钉死在拐角处（几何守卫，防再漂）', () => {
+  // 顺巷南行（x=Z.x）最早可触发点 = 触发区北缘
+  const zEnter = Z.z + Z.r;
+
+  it('北缘贴着拐角沿：最早触发点距拐角 ≤1.6m、不晚于拐角以南 0.3m', () => {
+    expect(zEnter - CORNER_EDGE.z).toBeLessThanOrEqual(1.6);  // 不早（老病灶 3m）
+    expect(zEnter - CORNER_EDGE.z).toBeGreaterThanOrEqual(-0.3); // 不晚
+  });
+
+  it('老病灶回归钉：直巷中段（z≥-25.0，离拐角还有 1.7m+）绝不触发', () => {
+    const fire = vi.fn();
+    const trig = makeTrig(fire);
+    walkLine(trig, { yaw: 0, fromZ: -20, toZ: -25.0 });
+    expect(fire).not.toHaveBeenCalled(); // v1.8–v1.10 在 z=-23.6 就炸了
+    walkLine(trig, { yaw: 0, fromZ: -25.0, toZ: -28 });
+    expect(fire).toHaveBeenCalledTimes(1); // 拐角那一步才是扳机
+  });
+
+  it('与巷中恐惧拍（圆心 z=-21.5 r2.6）不同拍：触发区北缘在恐惧区以南', () => {
+    expect(zEnter).toBeLessThan(-24.1); // 恐惧拍南缘 -24.1——两拍之间必须留出走路的空隙
+  });
+
+  it('拐角沿数据自洽：拐角在巷的西侧、后墙一线', () => {
+    expect(CORNER_EDGE.x).toBeLessThan(Z.x);
+    expect(CORNER_EDGE.z).toBeCloseTo(-26.7, 1);
+  });
+});
+
 describe('多幕节拍 SCARE_BEATS：够吓人的节奏是排出来的', () => {
   it('节拍严格递增：dread → hush → lurch → rush → shock → blackout → wake', () => {
     const seq = ['dread', 'hush', 'lurch', 'rush', 'shock', 'blackout', 'wake']
@@ -265,6 +293,34 @@ describe('源码级门禁：主触发是拐角、多幕素材全接线、字幕�
     expect(src).toContain('cornerWraith(');
     expect(src).toContain('veiledFigure(');
     expect(src).toContain('rimLight');
+  });
+
+  it('v1.11 dread 拍升级：低频升压 dreadswell 接线 + 恐惧拍还灯（狂闪必须看得见）', () => {
+    expect(src).toContain("audio.sfx('dreadswell'");
+    // doCornerScare 第一幕：先 lampKill 归零再 lampPanic 起（恐惧拍刚灭的灯要还回来）
+    expect(src).toMatch(/lampKill\.v = 0;\s*\n\s*lampPanic\.v = 1;/);
+    const eng = readFileSync(new URL('../src/audio/engine.js', import.meta.url), 'utf8');
+    expect(eng).toContain("case 'dreadswell'");
+  });
+
+  it('v1.11 魅影 v2：兜帽空腔 / 第二层破披撕口 / 三指 / 冻住时红光在呼吸', () => {
+    const kit = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
+    expect(kit).toContain('hoodVoid');
+    expect(kit).toContain('capeGeo');
+    expect(kit).toContain('tear[');
+    expect(kit).toContain('fingerGeos');
+    // setLurch 里有 emissiveIntensity 的时基搏动（身体冻住，红光在呼吸）
+    const lurchBody = /setLurch = \(s, t = 0\) => \{[^]*?\};/.exec(kit)?.[0] ?? '';
+    expect(lurchBody).toMatch(/emissiveIntensity = [^;]*Math\.sin\(t/);
+    // 越挪越前倾：rotation.x 随 s 增长（每顿定格在更近的一档）
+    expect(lurchBody).toMatch(/rotation\.x = 0\.12 \+ s \*/);
+  });
+
+  it('v1.11 冒烟路径同步：routeA 停在新北缘外、进区步落在拐角本体', () => {
+    const cjs = readFileSync(new URL('../electron/main.cjs', import.meta.url), 'utf8');
+    expect(cjs).toContain('[9.3, -24.6]');   // 停点在北缘 z≈-25.3 外
+    expect(cjs).toContain('[[9.3, -26.9]]'); // 进区步 = 拐角本体圆心
+    expect(cjs).not.toContain('[9.3, -23.2]'); // 老停点（直巷中段）必须消失
   });
 
   it('展厅字幕全部 ≤22 字（门禁 19 口径）', () => {

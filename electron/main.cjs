@@ -145,8 +145,9 @@ function createWindow() {
         };
         const maybeWalkTest = (done) => {
           if (hall !== 'mulholland') { done(); return; }
-          // ① 走到拐角触发区北缘外一步（zone 圆心 9.25,-25.9 r2.3 → 北缘 z≈-23.6）
-          const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -23.2]]);
+          // ① 走到拐角触发区北缘外一步（v1.11 拐角化：zone 圆心 9.3,-26.9
+          //    r1.6 → 北缘 z≈-25.3，贴着拐角沿 z≈-26.7）
+          const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -24.6]]);
           win.webContents.executeJavaScript(`window.__SV__.walkPath(${routeA})`, true).then((rA) => {
             console.log(`[smoke] 后巷走通性（至拐角前）mulholland: ${JSON.stringify(rA)}`);
             if (!rA || !rA.ok) {
@@ -156,7 +157,7 @@ function createWindow() {
             }
             // 再一步走进拐角区（面朝南——垃圾箱·后门方向在视锥内），
             // 下一渲染帧 cornerTrigger 自然引爆（不靠 triggerEggs 强制）
-            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -25.9]])', true).then((rB) => {
+            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -26.9]])', true).then((rB) => {
               if (!rB || !rB.ok) {
                 console.error('[smoke] 走进拐角触发区失败');
                 app.exit(1);
