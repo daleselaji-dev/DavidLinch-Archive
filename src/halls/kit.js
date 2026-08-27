@@ -991,6 +991,11 @@ export function veiledFigure(height = 2.25) {
  * 一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 + 收尖
  * 手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
  * 极暗红内衬自发光：剪影光下只读出轮廓，闪光拍里读出体积。
+ * v1.11（门禁 55）三处升级：① 兜帽内 hoodVoid 纯黑无光空腔——闪光
+ * 拍里读出的不是「看不清脸」而是「没有脸」；② 第二层错相位破披
+ * （下摆 seeded 撕口）——剪影从光滑钟形变成叠着残布的人形；
+ * ③ 双手各三指过长收尖；setLurch 里身体冻住时**红光在呼吸**、
+ * 且越挪越前倾（每顿定格在更近的一档——每停一次都更「看着你」）。
  * userData: { pivot, mat, setLurch(s,t) 顿挪体态, setRush(k,t) 扑近形变 }
  */
 export function cornerWraith(height = 2.35) {
@@ -1036,6 +1041,49 @@ export function cornerWraith(height = 2.35) {
   geo.computeVertexNormals();
   const body = new THREE.Mesh(geo, mat);
   pivot.add(body);
+  // v1.11 ①：兜帽内的纯黑空腔——无光材质，任何灯/闪帧都照不进去。
+  // 半嵌进兜帽前脸，只露一个洞口的弧面：读出「没有脸」。
+  const hoodVoid = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 12, 10),
+    new THREE.MeshBasicMaterial({ color: 0x000000 })
+  );
+  hoodVoid.scale.set(0.9, 1.25, 0.6);
+  hoodVoid.position.set(0, H * 0.94, H * 0.088);
+  pivot.add(hoodVoid);
+  // v1.11 ②：第二层错相位破披——肩背披下的一层残布，褶相位与主身
+  // 错开，下摆一圈 seeded 参差撕口（双面材质，撕口翻看得到里子）。
+  const capeMat = new THREE.MeshPhysicalMaterial({
+    color: 0x060409, roughness: 0.95, metalness: 0,
+    sheen: 0.4, sheenColor: 0x160710, sheenRoughness: 0.65,
+    side: THREE.DoubleSide
+  });
+  const capeProf = [
+    [0.235, 0.55], [0.26, 0.62], [0.27, 0.68], [0.255, 0.74],
+    [0.21, 0.79], [0.13, 0.825], [0.09, 0.848]
+  ].map(([r, y]) => new THREE.Vector2(r * H * 0.5 * 1.1, y * H));
+  const capeGeo = new THREE.LatheGeometry(capeProf, 36);
+  const cpos = capeGeo.attributes.position;
+  const capeR = rng(157);
+  const tear = [];
+  for (let i = 0; i <= 36; i++) tear.push(capeR() * 0.12 + (i % 3 === 0 ? capeR() * 0.1 : 0));
+  for (let i = 0; i < cpos.count; i++) {
+    const x = cpos.getX(i);
+    const y = cpos.getY(i);
+    const z = cpos.getZ(i);
+    const rr = Math.hypot(x, z);
+    if (rr < 1e-4) continue;
+    const a = Math.atan2(z, x);
+    const fold = 1 + Math.sin(a * 5 + 0.9) * 0.06 + Math.sin(a * 11 + 2.6) * 0.022;
+    cpos.setX(i, x * fold);
+    cpos.setZ(i, z * fold);
+    if (y < H * 0.6) { // 只撕最下缘一圈
+      const idx = Math.min(36, Math.floor(((a + Math.PI) / (Math.PI * 2)) * 36));
+      cpos.setY(i, y + tear[idx] * H);
+    }
+  }
+  capeGeo.computeVertexNormals();
+  const cape = new THREE.Mesh(capeGeo, capeMat);
+  pivot.add(cape);
   // 裙裾破布条：一圈 seeded 长短错落的收尖布条（合并单 mesh）
   const wr = rng(83);
   const fringeGeos = [];
@@ -1060,12 +1108,20 @@ export function cornerWraith(height = 2.35) {
     up.translate(0, -upLen / 2, 0);
     const lo = new THREE.CylinderGeometry(0.022, 0.03, loLen, 8);
     lo.translate(0, -loLen / 2, 0);
-    const hand = new THREE.ConeGeometry(0.045, 0.2, 6);
-    hand.translate(0, -0.1, 0);
+    // v1.11 ③：三指过长收尖（指根在腕点扇开，指尖几乎拖地）
+    const fingerGeos = [];
+    const wx = side * upLen * 0.18;
+    const wy = -upLen * 0.98 - loLen * 0.99;
+    const wz = upLen * 0.06;
+    for (const [fi, fl] of [[-1, 0.19], [0, 0.27], [1, 0.21]]) {
+      const fg = new THREE.ConeGeometry(0.015, fl, 5);
+      fg.translate(0, -fl / 2, 0);
+      fingerGeos.push(xform(fg, wx + fi * 0.03, wy, wz + fi * 0.014, fi * 0.08, 0, fi * 0.2));
+    }
     arm.add(mergedMesh([
       xform(up, 0, 0, 0, 0.1, 0, side * -0.16),
       xform(lo, side * upLen * 0.15, -upLen * 0.98, upLen * 0.1, -0.06, 0, side * 0.1),
-      xform(hand, side * upLen * 0.18, -upLen * 0.98 - loLen * 0.99, upLen * 0.06)
+      ...fingerGeos
     ], mat));
     arm.position.set(side * H * 0.115, H * 0.79, -H * 0.01);
     pivot.add(arm);
@@ -1077,26 +1133,32 @@ export function cornerWraith(height = 2.35) {
   group.userData.pivot = pivot;
   group.userData.mat = mat;
   /** 顿挪体态：s 为 lurchEase 后的阶梯进度——挪的时候侧倾/沉肩/臂拖摆，
-   *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。 */
+   *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。
+   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档，每停一次
+   *  都更「看着你」）；身体冻住时暗红内衬随呼吸搏动（红光在呼吸——
+   *  唯一还在动的东西）。 */
   group.userData.setLurch = (s, t = 0) => {
     const beat = Math.sin(s * Math.PI * 6);
-    pivot.rotation.x = 0.12;
-    pivot.rotation.z = 0.06 + beat * 0.075;
+    pivot.rotation.x = 0.12 + s * 0.14;
+    pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
     pivot.position.y = Math.abs(beat) * 0.035;
     armL.rotation.x = -0.08 + beat * 0.1;
     armR.rotation.x = -0.08 - beat * 0.1;
     armL.rotation.z = 0.05 * beat;
     armR.rotation.z = 0.05 * beat;
+    mat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
   };
-  /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆。 */
+  /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆；
+   *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。 */
   group.userData.setRush = (k, t = 0) => {
-    pivot.rotation.x = 0.12 + 0.3 * k;
+    pivot.rotation.x = 0.26 + 0.3 * k;
     pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
     pivot.position.y = 0;
     armL.rotation.x = -0.08 - 0.55 * k;
     armR.rotation.x = -0.08 - 0.55 * k;
     body.scale.set(1 + k * 0.1, 1, 1 + k * 0.1);
     fringe.scale.set(1 + k * 0.22, 1, 1 + k * 0.22);
+    mat.emissiveIntensity = 0.9 + k * 0.5;
   };
   return group;
 }
@@ -1307,20 +1369,122 @@ export function ridgeRing(radius, {
   return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide }));
 }
 
-/** 松树（分层锥体，比单锥更像真树） */
+/**
+ * 松树资产 v2（v1.11 门禁 56 B1——重做点名的「三层光滑锥」）。
+ * 冠：8 层枝轮开口锥 + 顶梢针尖——每层下缘（枝尖圈）沿角度连续函数
+ * 参差伸缩 + 下垂（长短错落的枝尖，不再是光滑圆锥裙），针叶双色
+ * 笔触纹理 + 凹凸；杆：9 段×3 环开口柱——根部张开（角度噪声喇叭）、
+ * 全杆 S 形微弯、三根下垂断枝残桩，树皮竖向沟壑 canvas（map+bump 同源）。
+ * 冠/杆各一份几何与材质，专为两只 InstancedMesh 设计（mesh 数不变）；
+ * 显式返回 trunkGeo 高度归一 y∈[0,1]，实例侧用 scale.y 接到冠底。
+ */
 export function pineGeometryMaterial() {
-  const layers = [
-    xform(new THREE.ConeGeometry(1.05, 1.7, 8), 0, -0.7, 0),
-    xform(new THREE.ConeGeometry(0.82, 1.5, 8), 0, 0.25, 0),
-    xform(new THREE.ConeGeometry(0.55, 1.3, 8), 0, 1.15, 0)
+  // ---- 冠 ----
+  const tr = rng(67);
+  const tiers = [
+    [1.16, 1.0, -1.32], [1.03, 0.95, -0.86], [0.9, 0.92, -0.4],
+    [0.78, 0.88, 0.05], [0.65, 0.84, 0.48], [0.51, 0.8, 0.9],
+    [0.37, 0.74, 1.3], [0.2, 0.66, 1.66]
   ];
-  const geo = mergeGeometries(layers, false);
-  for (const l of layers) l.dispose();
+  const geos = [];
+  for (const [rad, h, y] of tiers) {
+    const cone = new THREE.ConeGeometry(rad, h, 12, 1, true);
+    const p = cone.attributes.position;
+    const ph = tr() * Math.PI * 2;
+    const ph2 = tr() * Math.PI * 2;
+    for (let vi = 0; vi < p.count; vi++) {
+      const vx = p.getX(vi);
+      const vy = p.getY(vi);
+      const vz = p.getZ(vi);
+      const vr = Math.hypot(vx, vz);
+      if (vr < 1e-4) continue;
+      const a = Math.atan2(vz, vx);
+      if (vy < 0) { // 枝尖圈：连续角度函数（seam 安全）参差 + 下垂
+        const jag = 1 + 0.24 * Math.sin(a * 5 + ph) + 0.12 * Math.sin(a * 9 + ph2) +
+          0.07 * Math.sin(a * 13 + ph * 1.3);
+        p.setX(vi, vx * jag);
+        p.setZ(vi, vz * jag);
+        p.setY(vi, vy - 0.16 - 0.13 * (0.5 + 0.5 * Math.sin(a * 7 + ph2 * 1.7)));
+      }
+    }
+    geos.push(xform(cone, 0, y, 0));
+  }
+  geos.push(xform(new THREE.ConeGeometry(0.055, 0.5, 6), 0, 1.92, 0)); // 顶梢针尖
+  const geo = mergeGeometries(geos, false);
+  for (const g of geos) g.dispose();
+  geo.computeVertexNormals();
+  // 针叶纹理：暗底 + 两色短笔触（斜排针束）
+  const needleTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#0a150e';
+    g.fillRect(0, 0, s, s);
+    const r = rng(61);
+    for (let i = 0; i < 340; i++) {
+      const x = r() * s;
+      const y = r() * s;
+      const l = 3 + r() * 7;
+      const a = Math.PI / 2 + (r() - 0.5) * 1.1;
+      g.strokeStyle = `rgba(${10 + r() * 26 | 0},${34 + r() * 40 | 0},${18 + r() * 26 | 0},${0.35 + r() * 0.4})`;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+      g.stroke();
+    }
+  }, 3, 3);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x0a1a10, roughness: 0.95,
-    bumpMap: noiseCanvasTexture(64, 128, 60, 3), bumpScale: 0.4
+    map: needleTex, color: 0x93a38c, roughness: 0.95,
+    bumpMap: needleTex, bumpScale: 0.5, side: THREE.DoubleSide
   });
-  return { geo, mat };
+  // ---- 杆（y∈[0,1] 归一，实例侧 scale.y 接冠底） ----
+  const trunk = new THREE.CylinderGeometry(0.052, 0.115, 1, 9, 3, true);
+  trunk.translate(0, 0.5, 0);
+  const tp = trunk.attributes.position;
+  for (let vi = 0; vi < tp.count; vi++) {
+    const vx = tp.getX(vi);
+    const vy = tp.getY(vi);
+    const vz = tp.getZ(vi);
+    const a = Math.atan2(vz, vx);
+    // 根部张开（角度噪声喇叭，越贴地越宽）
+    const flare = 1 + Math.pow(Math.max(0, (0.16 - vy) / 0.16), 1.7) *
+      (0.55 + 0.2 * Math.sin(a * 3 + 0.7) + 0.14 * Math.sin(a * 7 + 2.1));
+    // 全杆 S 形微弯
+    tp.setX(vi, vx * flare + Math.sin(vy * Math.PI) * 0.03 + vy * 0.02);
+    tp.setZ(vi, vz * flare);
+  }
+  const trunkParts = [trunk];
+  const sr = rng(73);
+  for (let i = 0; i < 3; i++) { // 断枝残桩：下垂的秃枝
+    const stub = new THREE.ConeGeometry(0.02 + sr() * 0.012, 0.22 + sr() * 0.14, 4, 1, true);
+    stub.translate(0, -0.08, 0);
+    const sa = sr() * Math.PI * 2;
+    const sy = 0.42 + i * 0.16 + sr() * 0.06;
+    trunkParts.push(xform(stub,
+      Math.cos(sa) * 0.07, sy, Math.sin(sa) * 0.07,
+      Math.PI * 0.62, sa, 0));
+  }
+  const trunkGeo = mergeGeometries(trunkParts, false);
+  for (const g of trunkParts) g.dispose();
+  trunkGeo.computeVertexNormals();
+  // 树皮：竖向沟壑 + 横向皮鳞裂（map/bump 同源）
+  const barkTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#150e08';
+    g.fillRect(0, 0, s, s);
+    const r = rng(59);
+    for (let i = 0; i < 46; i++) {
+      const x = r() * s;
+      g.fillStyle = `rgba(${30 + r() * 26 | 0},${20 + r() * 16 | 0},${12 + r() * 10 | 0},${0.5 + r() * 0.4})`;
+      g.fillRect(x, 0, 1 + r() * 3, s);
+    }
+    for (let i = 0; i < 60; i++) {
+      g.fillStyle = 'rgba(6,4,2,0.55)';
+      g.fillRect(r() * s, r() * s, 2 + r() * 7, 1 + r() * 2);
+    }
+  }, 1, 2);
+  const trunkMat = new THREE.MeshStandardMaterial({
+    map: barkTex, roughness: 0.95, bumpMap: barkTex, bumpScale: 0.55,
+    side: THREE.DoubleSide
+  });
+  return { geo, mat, trunkGeo, trunkMat };
 }
 
 /** 悬挂灯泡（车削灯罩） */

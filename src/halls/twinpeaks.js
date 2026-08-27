@@ -7,6 +7,7 @@
 // 分区之间由林间小径连接。全部原创程序化，无镜头复刻。
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quoteStand, quoteStandUpdater, velvetMaterial,
@@ -252,9 +253,10 @@ export function build(ctx) {
   ];
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
-  const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
-  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
+  // v1.11 B1：pineGeometryMaterial 重做为 v2（枝轮参差下垂 + 树皮沟壑杆
+  // + 断枝残桩）——杆几何 y∈[0,1] 归一，这里用 scale.y 接到冠底
+  // （老版固定 1.6m 杆在大树上会与冠脱节露一段空档）。
+  const { geo: pineGeo, mat: pineMat, trunkGeo, trunkMat } = pineGeometryMaterial();
   const COUNT = 340;
   const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
@@ -266,16 +268,18 @@ export function build(ctx) {
     const r = 6 + Math.pow(Math.random(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
-    if (insideWalkable(x, z) || inTreeExcl(x, z)) continue;
     const s = 0.8 + Math.random() * 2.4;
-    dummy.position.set(x, 2.1 * s + 0.9, z);
+    // v1.11 B1 修正：退让边距随树体量走（大树站得更靠后）——
+    // 老版一律 1.6m，贴路大树的冠垂到头部高度、走路一头扎进大面片里
+    if (insideWalkable(x, z, 1.6 + s * 0.6) || inTreeExcl(x, z)) continue;
+    dummy.position.set(x, 2.1 * s + 1.05, z);
     dummy.scale.setScalar(s);
     dummy.rotation.y = Math.random() * Math.PI;
     dummy.updateMatrix();
     pines.setMatrixAt(placed, dummy.matrix);
-    dummy.position.y = 0.8;
-    dummy.scale.set(s, 1, s);
-    dummy.rotation.y = 0;
+    // 杆：贴地立起，顶端探进冠底 0.45m（冠底世界高 ≈ 0.55s+1.05）
+    dummy.position.y = 0;
+    dummy.scale.set(s * 1.05, 0.55 * s + 1.5, s * 1.05);
     dummy.updateMatrix();
     trunks.setMatrixAt(placed, dummy.matrix);
     placed++;
@@ -354,9 +358,53 @@ export function build(ctx) {
   });
 
   // 树桩上的热咖啡
+  // v1.11 B3：树桩 v2——侧面树皮沟壑、顶面年轮端面（偏心圈层 + 径向
+  // 裂缝 + 边缘劈缺），CylinderGeometry 自带分组：侧/顶/底三材质单 mesh。
+  const stumpRingTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#6b4d28';
+    g.fillRect(0, 0, s, s);
+    const cx = s * 0.46;
+    const cy = s * 0.54; // 年轮偏心（树不是圆规画的）
+    const r = rng(37);
+    for (let i = 22; i >= 1; i--) {
+      const rr = (i / 22) * s * 0.5 * (1 + (i % 3) * 0.012);
+      g.fillStyle = i % 2
+        ? `rgb(${96 + r() * 14 | 0},${70 + r() * 10 | 0},${40 + r() * 8 | 0})`
+        : `rgb(${72 + r() * 10 | 0},${52 + r() * 8 | 0},${30 + r() * 6 | 0})`;
+      g.beginPath();
+      g.ellipse(cx, cy, rr, rr * 0.94, 0.15, 0, 7);
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(20,12,6,0.85)'; // 两道径向干裂
+    g.lineWidth = 2.5;
+    for (const a of [0.7, 3.6]) {
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(cx + Math.cos(a) * s * 0.52, cy + Math.sin(a) * s * 0.52);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(30,18,9,0.9)'; // 边缘一口劈缺
+    g.beginPath();
+    g.ellipse(s * 0.88, s * 0.3, 13, 8, 0.6, 0, 7);
+    g.fill();
+  });
+  const stumpBarkTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#241708';
+    g.fillRect(0, 0, s, s);
+    const r = rng(39);
+    for (let i = 0; i < 36; i++) {
+      const x = r() * s;
+      g.fillStyle = `rgba(${52 + r() * 22 | 0},${34 + r() * 14 | 0},${18 + r() * 9 | 0},${0.5 + r() * 0.4})`;
+      g.fillRect(x, 0, 2 + r() * 3, s);
+    }
+  }, 3, 1);
   const stump = new THREE.Mesh(
     new THREE.CylinderGeometry(0.5, 0.62, 0.7, 16),
-    new THREE.MeshStandardMaterial({ map: woodTexture({ base: [44, 28, 14], planks: 1, size: 128 }), roughness: 0.95 })
+    [
+      new THREE.MeshStandardMaterial({ map: stumpBarkTex, roughness: 0.95, bumpMap: stumpBarkTex, bumpScale: 0.5 }),
+      new THREE.MeshStandardMaterial({ map: stumpRingTex, roughness: 0.85, bumpMap: stumpRingTex, bumpScale: 0.22 }),
+      new THREE.MeshStandardMaterial({ color: 0x1a1108, roughness: 1 })
+    ]
   );
   stump.position.set(3.8, 0.35, 3.2);
   const cup = new THREE.Mesh(
@@ -368,14 +416,61 @@ export function build(ctx) {
   // v1.4 阶段 4：空地边缘的枯树桩鸮 —— 黑暗里两粒微光的眼睛；
   // E → 眼睛亮起、头无声地转过来对准你，一声近似翅膀的耳语（它先看见你的）
   const snag = new THREE.Group();
-  const barkMat = new THREE.MeshStandardMaterial({
-    map: woodTexture({ base: [30, 22, 14], planks: 1, size: 128 }), roughness: 0.95
+  // v1.11 B2：枯树桩 v2——不再是三根光滑圆柱。树皮沟壑贴图（map/bump
+  // 同源，树洞暗斑直接画进贴图）；主干根部张开、顶端劈裂参差上刺
+  // （断梢），主枝→次枝两级分枝层级。
+  const snagBarkTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#181008';
+    g.fillRect(0, 0, s, s);
+    const r = rng(93);
+    for (let i = 0; i < 40; i++) { // 竖向沟壑
+      const x = r() * s;
+      g.fillStyle = `rgba(${32 + r() * 22 | 0},${22 + r() * 14 | 0},${13 + r() * 9 | 0},${0.5 + r() * 0.4})`;
+      g.fillRect(x, 0, 1 + r() * 3, s);
+    }
+    for (let i = 0; i < 40; i++) { // 横向皮鳞裂
+      g.fillStyle = 'rgba(5,3,2,0.6)';
+      g.fillRect(r() * s, r() * s, 2 + r() * 6, 1 + r() * 2);
+    }
+    // 树洞：一枚椭圆暗斑（洞缘略亮）
+    g.fillStyle = 'rgba(46,32,18,0.9)';
+    g.beginPath();
+    g.ellipse(s * 0.32, s * 0.56, 9, 13, 0.2, 0, 7);
+    g.fill();
+    g.fillStyle = '#020101';
+    g.beginPath();
+    g.ellipse(s * 0.32, s * 0.56, 6.5, 10, 0.2, 0, 7);
+    g.fill();
   });
-  snag.add(mergedMesh([
-    xform(new THREE.CylinderGeometry(0.09, 0.15, 3.4, 10), 0, 1.7, 0),
-    xform(new THREE.CylinderGeometry(0.028, 0.045, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
-    xform(new THREE.CylinderGeometry(0.02, 0.035, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05)
-  ], barkMat));
+  const barkMat = new THREE.MeshStandardMaterial({
+    map: snagBarkTex, roughness: 0.95, bumpMap: snagBarkTex, bumpScale: 0.5
+  });
+  const snagTrunk = new THREE.CylinderGeometry(0.075, 0.16, 3.4, 10, 4, true);
+  snagTrunk.translate(0, 1.7, 0);
+  const sp = snagTrunk.attributes.position;
+  for (let vi = 0; vi < sp.count; vi++) {
+    const vx = sp.getX(vi);
+    const vy = sp.getY(vi);
+    const vz = sp.getZ(vi);
+    const a = Math.atan2(vz, vx);
+    const flare = 1 + Math.pow(Math.max(0, (0.6 - vy) / 0.6), 1.8) *
+      (0.5 + 0.25 * Math.sin(a * 3 + 1.2) + 0.15 * Math.sin(a * 6 + 0.4));
+    sp.setX(vi, vx * flare + Math.sin(vy * 1.1) * 0.03);
+    sp.setZ(vi, vz * flare);
+    if (vy > 3.2) { // 断梢：顶环角度函数参差（劈裂尖）
+      sp.setY(vi, vy + 0.16 * Math.sin(a * 4 + 0.6) + 0.12 * Math.sin(a * 7 + 2.2));
+    }
+  }
+  snagTrunk.computeVertexNormals();
+  // 分枝层级：主枝两根（保持鸮的栖枝端点），各带一根次枝
+  const snagGeos = [
+    snagTrunk,
+    xform(new THREE.CylinderGeometry(0.026, 0.048, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
+    xform(new THREE.ConeGeometry(0.013, 0.3, 5), 0.44, 3.16, 0.1, 0.5, 0, -0.5),
+    xform(new THREE.CylinderGeometry(0.018, 0.036, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05),
+    xform(new THREE.ConeGeometry(0.011, 0.24, 5), -0.34, 2.62, -0.1, -0.4, 0, 0.9)
+  ];
+  snag.add(mergedMesh(snagGeos, barkMat));
   const owl = new THREE.Group();
   const owlBody = new THREE.Mesh(
     new THREE.LatheGeometry([
@@ -788,7 +883,7 @@ export function build(ctx) {
     rrFringe.rotation.y = Math.sin(t * 1.1) * 0.01 + Math.sin(t * 8.4 - 0.5) * 0.02 * rrState.chain;
   });
   hotspots.add(rrShade, {
-    hint: 'E — 落地灯（这间房有两副面孔）',
+    hint: 'E — 落地灯',
     onActivate: () => {
       rrState.warm = rrState.warm ? 0 : 1;
       rrState.chain = 1;
@@ -834,6 +929,76 @@ export function build(ctx) {
       ui.caption('不知道是谁的。还热。', 3600);
     }
   });
+  // ---------- v1.11 门禁 57：椅臂上的另一杯（不认重力的咖啡） ----------
+  // 扶手椅臂上还搁着一杯——桌上那杯还热，这杯从来不冒气。
+  // E → 杯身缓缓倾斜 30°，而**液面纹丝不动地跟着杯壁走**（它凝住了），
+  // 停一拍，再自己缓缓立回来 + 一声逆放式音（reversecup）。
+  // 杯体两材质合一 mesh（groups：瓷 + 咖啡面），碟静杯动。
+  {
+    const ARM_A = Math.PI - 1.06; // chairB 卷臂中段（迎小径入口的那只臂）
+    const armX = Math.sin(ARM_A) * 0.395;
+    const armZ = Math.cos(ARM_A) * 0.395;
+    const fcGrp = new THREE.Group();
+    fcGrp.position.set(armX, 0.598, armZ);
+    chairB.add(fcGrp);
+    const porcelain = new THREE.MeshStandardMaterial({
+      color: 0xe8e2d5, roughness: 0.28, side: THREE.DoubleSide
+    });
+    const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.075, 0.011, 14), porcelain);
+    saucer.position.y = 0.0055;
+    fcGrp.add(saucer);
+    // 杯枢轴设在杯底缘（倾斜时像沿杯沿一点起翘，而非绕杯心打转）
+    const cupPivot = new THREE.Group();
+    cupPivot.position.set(0.03, 0.011, 0);
+    fcGrp.add(cupPivot);
+    const cupParts = mergeGeometries([
+      xform(new THREE.CylinderGeometry(0.044, 0.036, 0.068, 14, 1, true), -0.03, 0.034, 0),
+      xform(new THREE.CircleGeometry(0.0365, 14), -0.03, 0.004, 0, -Math.PI / 2, 0, 0),
+      xform(new THREE.TorusGeometry(0.026, 0.0075, 6, 12), -0.082, 0.036, 0)
+    ], false);
+    // 凝固的咖啡面：亚光深棕圆片，贴在杯口下一点（跟杯走是全部戏眼）
+    const solidCoffee = xform(new THREE.CircleGeometry(0.0405, 14), -0.03, 0.052, 0, -Math.PI / 2, 0, 0);
+    const cupGeo = mergeGeometries([cupParts, solidCoffee], true);
+    const cup = new THREE.Mesh(cupGeo, [
+      porcelain,
+      new THREE.MeshStandardMaterial({ color: 0x140b06, roughness: 0.55 })
+    ]);
+    cupPivot.add(cup);
+    // 世界坐标（redRoom → world）：sfxAt 用
+    const fcWorld = new THREE.Vector3();
+    // v1.11 P18：每次立回，杯**放不回原来的朝向**——方位角悄悄多转
+    // 3–7°（seeded，正负交替带偏置），杯柄慢慢指向别处；上限 ±20°
+    // 不夸张。红房间的东西没有一件在你以为的原位上。零预算纯标量。
+    const fcRng = rng(113);
+    const fcState = { t: -1, yaw: 0 };
+    updaters.push((dt) => {
+      if (fcState.t < 0) return;
+      fcState.t += dt;
+      const u = fcState.t;
+      let a;
+      if (u < 0.9) a = (1 - Math.cos(Math.min(1, u / 0.9) * Math.PI)) / 2; // 缓起
+      else if (u < 2.4) a = 1 + Math.sin((u - 0.9) * 11) * 0.012 * Math.exp(-(u - 0.9) * 2); // 定住微颤
+      else if (u < 3.8) a = (1 + Math.cos(Math.min(1, (u - 2.4) / 1.4) * Math.PI)) / 2; // 缓缓立回
+      else {
+        a = 0;
+        fcState.t = -1;
+        const drift = (0.05 + fcRng() * 0.07) * (fcRng() < 0.42 ? -1 : 1);
+        fcState.yaw = Math.max(-0.35, Math.min(0.35, fcState.yaw + drift));
+        cupPivot.rotation.y = fcState.yaw;
+      }
+      cupPivot.rotation.z = -0.52 * a; // 30°——液面是杯的一部分，跟着走
+    });
+    hotspots.add(cup, {
+      hint: 'E — 椅臂上的咖啡',
+      onActivate: () => {
+        if (fcState.t >= 0) return;
+        fcState.t = 0;
+        fcGrp.getWorldPosition(fcWorld);
+        audio.sfxAt('reversecup', fcWorld.x, fcWorld.z, 0.55, 2.5);
+        ui.caption('这一杯不会洒。', 3600);
+      }
+    });
+  }
   // v1.9 抛光第 9 遍·幕后的怪谈：人在红房间里待着，每 55–100s
   // 有什么东西贴着帷幕外侧走过一段——布被从外面顶出一道人形的鼓，
   // 慢慢挪过去又平回去（同料绒布椭球从褶皱里长出来，抽象无面目）。

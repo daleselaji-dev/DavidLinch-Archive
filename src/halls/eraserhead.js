@@ -4,6 +4,7 @@
 // 法兰管道 / 铆钉锅炉 / 检修步道 / 压力表 / 蒸汽 / 铁笼灯
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
   smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
@@ -711,7 +712,7 @@ export function build(ctx) {
   quad.rotation.z = Math.PI / 2 - 0.5;
   group.add(lever, leverBase, mergedMesh(boltGeos, pipeMat), quad);
   hotspots.add(lever, {
-    hint: 'E — 拉动阀门（这栋楼会回应）',
+    hint: 'E — 拉动阀门',
     onActivate: () => {
       steamBurst = 3.2;
       audio.sfx('clank');
@@ -1350,6 +1351,307 @@ export function build(ctx) {
   annexLamp.position.set(-S / 2 - 2.2, H - 1.4, 0);
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
+
+  // ---------- v1.11 门禁 57：缠布之物（工业畸胎感抽象存在） ----------
+  // 南墙深处、炉门与阀门之间的一张检修桌：锌盆里躺着一团缠满绷带状
+  // 布条的长形之物。**没有任何五官**，头端只是布条收拢（非肖像复刻，
+  // 纯程序化几何）。它在极缓地呼吸；隔一阵布下极小地挪一下（湿性
+  // 蠕鸣）。E → 呼吸屏住三秒（它知道你在看）+ 头顶检修灯抖一口——
+  // 没有字幕（A3 光先于字），看的人自己懂。
+  const NICHE_X = -S / 2 - 3.1;
+  const NICHE_Z = 2.08;
+  const ORB_X = -S / 2 - 0.5;
+  const nicheSteel = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(), color: 0x565660, roughness: 0.52, metalness: 0.8
+  });
+  // 检修桌（台面 + 四角钢腿 + 背板）与北墙搁架（焦黑球用）合并单 mesh
+  const legGeo = new THREE.BoxGeometry(0.05, 0.86, 0.05);
+  boilerRoom.add(mergedMesh([
+    xform(new THREE.BoxGeometry(1.3, 0.05, 0.62), NICHE_X, 0.86, NICHE_Z),
+    xform(legGeo, NICHE_X - 0.58, 0.43, NICHE_Z - 0.24),
+    xform(legGeo, NICHE_X + 0.58, 0.43, NICHE_Z - 0.24),
+    xform(legGeo, NICHE_X - 0.58, 0.43, NICHE_Z + 0.24),
+    xform(legGeo, NICHE_X + 0.58, 0.43, NICHE_Z + 0.24),
+    xform(new THREE.BoxGeometry(1.3, 0.38, 0.04), NICHE_X, 1.08, NICHE_Z + 0.3),
+    // 检修灯罩（钉在桌上方）
+    xform(new THREE.ConeGeometry(0.13, 0.12, 10, 1, true), NICHE_X, 2.4, NICHE_Z - 0.22),
+    // 北墙搁架：托板 + 双三角撑
+    xform(new THREE.BoxGeometry(0.6, 0.04, 0.34), ORB_X, 1.42, -2.42),
+    xform(new THREE.BoxGeometry(0.04, 0.2, 0.26), ORB_X - 0.24, 1.3, -2.46),
+    xform(new THREE.BoxGeometry(0.04, 0.2, 0.26), ORB_X + 0.24, 1.3, -2.46)
+  ], nicheSteel));
+  // 锌盆（侧壁开筒 + 底 + 卷边，合并后整体压扁成椭圆）
+  const basinMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(128, 110, 30), color: 0x9aa0a6,
+    roughness: 0.4, metalness: 0.85, side: THREE.DoubleSide
+  });
+  const basinWall = new THREE.CylinderGeometry(0.335, 0.27, 0.235, 16, 1, true);
+  const basinBtm = new THREE.CircleGeometry(0.27, 16);
+  const basin = mergedMesh([
+    xform(basinWall, 0, 0.12, 0),
+    xform(basinBtm, 0, 0.006, 0, -Math.PI / 2, 0, 0),
+    xform(new THREE.TorusGeometry(0.335, 0.013, 6, 18), 0, 0.238, 0, Math.PI / 2, 0, 0)
+  ], basinMat);
+  basin.scale.set(1.25, 1, 0.78);
+  basin.position.set(NICHE_X, 0.888, NICHE_Z);
+  boilerRoom.add(basin);
+  // v1.11 P17 湿痕晕：这只盆在这里放了很多年——背板下沿一片洇渍 +
+  // 几道锈滴垂痕（从盆沿高度往下走），台面上一圈盆位水线（比盆底
+  // 略大一号的暗环）。一张贴图上下两半、两片面片 UV 重映射后合并
+  // 单 mesh（零字幕零热点，年头自己说）。
+  const stainTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const st = rng(103);
+    // 上半：背板洇渍 + 锈滴垂痕
+    for (let i = 0; i < 8; i++) { // 洇渍云（贴下沿，越低越浓）
+      g.fillStyle = `rgba(38,34,30,${0.1 + st() * 0.12})`;
+      g.beginPath();
+      g.ellipse(s * (0.2 + st() * 0.6), s * (0.86 - st() * 0.1),
+        14 + st() * 22, 6 + st() * 8, st(), 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 5; i++) { // 锈滴垂痕（自盆沿高度垂下，粗细不一）
+      const x = s * (0.24 + st() * 0.52);
+      const w = 1.2 + st() * 2.2;
+      const yTop = s * (0.56 + st() * 0.06);
+      const grd = g.createLinearGradient(0, yTop, 0, s * 0.92);
+      grd.addColorStop(0, `rgba(96,58,36,${0.34 + st() * 0.2})`);
+      grd.addColorStop(1, 'rgba(60,40,30,0)');
+      g.fillStyle = grd;
+      g.fillRect(x - w / 2, yTop, w, s * 0.92 - yTop);
+      g.fillStyle = `rgba(110,66,40,${0.4 + st() * 0.2})`; // 滴头
+      g.fillRect(x - w / 2, yTop, w, 2.5);
+    }
+    // 下半：台面盆位水线（暗环 + 环内略沉一阶）
+    g.save();
+    g.translate(s * 0.5, s * 0.25);
+    g.fillStyle = 'rgba(30,28,26,0.16)';
+    g.beginPath();
+    g.ellipse(0, 0, 44, 20, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(24,22,20,0.5)';
+    g.lineWidth = 2.4;
+    g.beginPath();
+    g.ellipse(0, 0, 46, 21.5, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = 'rgba(120,110,96,0.2)'; // 水线外一线盐渍白
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.ellipse(0, 0, 49, 23.5, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.restore();
+  });
+  const remapV = (geo, off) => {
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setY(i, off + uv.getY(i) * 0.5);
+    return geo;
+  };
+  boilerRoom.add(new THREE.Mesh(
+    mergeGeometries([
+      xform(remapV(new THREE.PlaneGeometry(0.9, 0.3), 0.5),
+        NICHE_X, 1.03, NICHE_Z + 0.272, 0, Math.PI, 0),
+      xform(remapV(new THREE.PlaneGeometry(0.95, 0.62), 0),
+        NICHE_X, 0.8885, NICHE_Z, -Math.PI / 2, 0, 0)
+    ]),
+    new THREE.MeshBasicMaterial({
+      map: stainTex, transparent: true, opacity: 0.8, depthWrite: false
+    })
+  ));
+  // 缠布之物：车削长形（分段鼓包的襁褓轮廓）+ 布褶位移 + 绷带条贴图
+  const wrapTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#8e887c';
+    g.fillRect(0, 0, s, s);
+    const r = rng(101);
+    for (let i = 0; i < 18; i++) { // 斜向缠布条带（交叠 + 缝影）
+      const y = i * 8 + r() * 6 - 12;
+      g.fillStyle = `rgba(${128 + r() * 34 | 0},${122 + r() * 30 | 0},${110 + r() * 26 | 0},0.85)`;
+      g.beginPath();
+      g.moveTo(0, y);
+      g.lineTo(s, y - 14);
+      g.lineTo(s, y - 6);
+      g.lineTo(0, y + 8);
+      g.closePath();
+      g.fill();
+      g.fillStyle = 'rgba(40,36,30,0.35)';
+      g.fillRect(0, y + 7, s, 1);
+    }
+    for (let i = 0; i < 9; i++) { // 洇渍
+      const rg2 = g.createRadialGradient(r() * s, r() * s, 1, r() * s, r() * s, 8 + r() * 16);
+      rg2.addColorStop(0, 'rgba(70,60,44,0.4)');
+      rg2.addColorStop(1, 'rgba(70,60,44,0)');
+      g.fillStyle = rg2;
+      g.fillRect(0, 0, s, s);
+    }
+  }, 2, 1);
+  const bundleMat = new THREE.MeshStandardMaterial({
+    map: wrapTex, roughness: 0.88, bumpMap: wrapTex, bumpScale: 0.35
+  });
+  const bundleProf = [
+    [0.001, 0], [0.07, 0.03], [0.105, 0.1], [0.125, 0.2], [0.115, 0.3],
+    [0.13, 0.42], [0.12, 0.54], [0.1, 0.64], [0.085, 0.72], [0.095, 0.8],
+    [0.07, 0.9], [0.001, 1.0]
+  ].map(([r, y]) => new THREE.Vector2(r, y * 0.64));
+  const bundleGeo = new THREE.LatheGeometry(bundleProf, 18);
+  const bp = bundleGeo.attributes.position;
+  for (let vi = 0; vi < bp.count; vi++) {
+    const vx = bp.getX(vi);
+    const vy = bp.getY(vi);
+    const vz = bp.getZ(vi);
+    const vr = Math.hypot(vx, vz);
+    if (vr < 1e-4) continue;
+    const a = Math.atan2(vz, vx);
+    const fold = 1 + Math.sin(a * 6 + vy * 14) * 0.05 + Math.sin(a * 3 + vy * 5 + 1.1) * 0.03;
+    bp.setX(vi, vx * fold);
+    bp.setZ(vi, vz * fold);
+  }
+  bundleGeo.computeVertexNormals();
+  const bundle = new THREE.Mesh(bundleGeo, bundleMat);
+  bundle.rotation.set(0.05, 0.35, Math.PI / 2 - 0.06); // 躺进盆里，微斜
+  bundle.position.set(NICHE_X + 0.05, 1.02, NICHE_Z);
+  boilerRoom.add(bundle);
+  // 检修灯（灯罩已并入钢件）：将熄未熄的窄域工作灯
+  const nicheBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.028, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xf2ecda, emissiveIntensity: 1.6 })
+  );
+  nicheBulb.position.set(NICHE_X, 2.36, NICHE_Z - 0.22);
+  const nicheLight = new THREE.PointLight(0xe8e2d2, 2.1, 4.8, 1.9);
+  nicheLight.position.set(NICHE_X, 2.32, NICHE_Z - 0.22);
+  boilerRoom.add(nicheBulb, nicheLight);
+  const nicheState = { flick: 0 };
+  updaters.push((dt, t) => {
+    let f = 1 - Math.max(0, Math.sin(t * 9.7 + 3.1) * Math.sin(t * 3.7) - 0.74) * 1.9;
+    if (nicheState.flick > 0) {
+      nicheState.flick -= dt;
+      f = Math.random() < 0.45 ? 0.08 : 1.35;
+    }
+    nicheLight.intensity = 2.1 * f;
+    nicheBulb.material.emissiveIntensity = 1.6 * f;
+  });
+  // 呼吸（girth 微搏动）：E → 屏息 3s，回来时先深吸一大口
+  const bundleState = { amp: 1, hold: 0, deep: 0 };
+  updaters.push((dt, t) => {
+    if (bundleState.hold > 0) {
+      bundleState.hold -= dt;
+      bundleState.amp += (0 - bundleState.amp) * Math.min(1, dt * 8);
+      if (bundleState.hold <= 0) {
+        bundleState.deep = 0.9;
+        audio.sfxAt('wetstir', NICHE_X, NICHE_Z, 0.45, 3);
+      }
+    } else {
+      bundleState.deep = Math.max(0, bundleState.deep - dt * 0.5);
+      bundleState.amp += (1 + bundleState.deep - bundleState.amp) * Math.min(1, dt * 2.5);
+    }
+    const b = 1 + 0.02 * Math.sin(t * 1.35) * bundleState.amp;
+    bundle.scale.set(b, 1, b);
+  });
+  // 隔一阵布下极小地挪一下（seeded；声先于看清——听见的人才会走过去）
+  const stirRng = rng(107);
+  const stirState = { next: 26 + stirRng() * 30, k: 0 };
+  updaters.push((dt) => {
+    stirState.next -= dt;
+    if (stirState.next <= 0) {
+      stirState.next = 45 + stirRng() * 35;
+      stirState.k = 1;
+      audio.sfxAt('wetstir', NICHE_X, NICHE_Z, 0.16, 3);
+    }
+    if (stirState.k > 0) {
+      stirState.k = Math.max(0, stirState.k - dt * 1.4);
+      bundle.rotation.x = 0.05 + Math.sin(stirState.k * Math.PI * 3) * 0.02 * stirState.k;
+    }
+  });
+  hotspots.add(bundle, {
+    hint: 'E — 检修盆里的缠布',
+    onActivate: () => {
+      if (bundleState.hold > 0) return;
+      bundleState.hold = 3.0;
+      nicheState.flick = 0.85;
+      audio.sfxAt('wetstir', NICHE_X, NICHE_Z, 0.4, 3);
+      // 没有字幕：它只是屏住了呼吸（A3 光先于字）
+    }
+  });
+
+  // ---------- v1.11 门禁 57：焦黑坑洼球（北墙搁架） ----------
+  // 一颗焦黑坑洼的球，没有说明。常年极轻嗡鸣、极缓自转；E → 房间灯
+  // 暗一格、球身裂缝亮起又熄——看完才懂的空间暗示，无字幕。
+  const orbGeo = new THREE.SphereGeometry(0.155, 18, 14);
+  {
+    const op = orbGeo.attributes.position;
+    const orbSeed = rng(113);
+    const craters = [];
+    for (let i = 0; i < 9; i++) {
+      const th = orbSeed() * Math.PI * 2;
+      const ph2 = Math.acos(orbSeed() * 2 - 1);
+      craters.push([
+        Math.sin(ph2) * Math.cos(th), Math.cos(ph2), Math.sin(ph2) * Math.sin(th),
+        0.2 + orbSeed() * 0.5
+      ]);
+    }
+    const v = new THREE.Vector3();
+    for (let vi = 0; vi < op.count; vi++) {
+      v.set(op.getX(vi), op.getY(vi), op.getZ(vi)).normalize();
+      let d = 1;
+      for (const [cx, cy, cz, depth] of craters) {
+        const dot = v.x * cx + v.y * cy + v.z * cz;
+        if (dot > 0.86) {
+          const k = (dot - 0.86) / 0.14;
+          d -= depth * 0.16 * k * k;
+        }
+      }
+      op.setXYZ(vi, v.x * 0.155 * d, v.y * 0.155 * d, v.z * 0.155 * d);
+    }
+    orbGeo.computeVertexNormals();
+  }
+  const orbCrackTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#000000';
+    g.fillRect(0, 0, s, s);
+    const r = rng(117);
+    g.strokeStyle = 'rgba(255,120,50,0.9)';
+    g.lineWidth = 1.2;
+    for (let i = 0; i < 7; i++) { // 折线裂缝
+      let x = r() * s;
+      let y = r() * s;
+      g.beginPath();
+      g.moveTo(x, y);
+      for (let jj = 0; jj < 5; jj++) {
+        x += (r() - 0.5) * 30;
+        y += 8 + r() * 14;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  });
+  const orbMat = new THREE.MeshStandardMaterial({
+    map: noiseCanvasTexture(64, 24, 14, 5), color: 0x35322f, roughness: 0.96,
+    bumpMap: noiseCanvasTexture(64, 128, 70, 4), bumpScale: 0.5,
+    emissive: 0xff5a22, emissiveMap: orbCrackTex, emissiveIntensity: 0
+  });
+  const orb = new THREE.Mesh(orbGeo, orbMat);
+  orb.position.set(ORB_X, 1.6, -2.36);
+  boilerRoom.add(orb);
+  const orbRng = rng(127);
+  const orbState = { glow: 0, next: 24 + orbRng() * 40 };
+  updaters.push((dt) => {
+    orb.rotation.y += dt * 0.03; // 没有东西完全静止
+    orbState.next -= dt;
+    if (orbState.next <= 0) {
+      orbState.next = 70 + orbRng() * 40;
+      audio.sfxAt('om', ORB_X, -2.36, 0.07, 2.5); // 常年极轻嗡鸣
+    }
+    orbState.glow = Math.max(0, orbState.glow - dt * 0.45);
+    orbMat.emissiveIntensity = orbState.glow;
+    // 它亮的时候，房间灯替它暗一格（注册在 makeFlicker 之后乘法生效）
+    annexLamp.intensity *= 1 - Math.min(orbState.glow, 1) * 0.55;
+  });
+  hotspots.add(orb, {
+    hint: 'E — 搁架上的焦黑球',
+    onActivate: () => {
+      orbState.glow = 1.1;
+      audio.sfxAt('om', ORB_X, -2.36, 0.3, 2.5);
+      audio.sfx('coalrattle', 0.16);
+      // 无字幕：裂缝亮起又熄，房间灯替它暗了一格（A3 光先于字）
+    }
+  });
 
   // ---------- 煤角（v1.4 四遍）：炉子烧了五十年，煤终于进了场 ----------
   // 北墙投煤口 + 斜溜槽 → 锅炉腹侧煤堆（flatShading 晶面在余烬光里发亮）

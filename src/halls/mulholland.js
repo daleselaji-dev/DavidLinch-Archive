@@ -53,11 +53,18 @@ const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后
 
 // 冒烟与单测用：通路矩形并集 / 惊吓武装区 / 出生点（纯数据，可在 node 侧仿真行走）
 export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
+// v1.11 门禁 55：拐角沿——剧场侧墙沿巷到 z=-26.8、后墙 z=-26.6，
+// 「拐角」在 z≈-26.7。触发区必须贴着它（北缘距拐角 ≤1.6m、不晚于
+// 拐角以南 0.3m——cornerscare.test 几何守卫钉死，防再漂）。
+export const CORNER_EDGE = { x: 8.3, z: -26.7 };
 // v1.8 拐角惊吓（主触发）：巷尾拐角触发区——垃圾箱·后门方向即将
 // 入画的那一步就是扳机。顺巷南行视线自然落进 ±fov/2 锥内即触发；
 // 背向北归穿区不触发；面朝墙进区的，转回那个方向的瞬间触发。
+// v1.11 修正：v1.8–v1.10 的触发区（圆心 z=-25.9 r2.3）北缘在 z=-23.6，
+// 离拐角还有 3 米的直巷中段就引爆——错位置。现移到拐角本体：
+// 北缘 z≈-25.3，「即将看见」的最后一步才是扳机。
 export const CORNER_SCARE = {
-  zone: { x: 9.25, z: -25.9, r: 2.3 },   // 暗巷尽头、剧场东南拐角前
+  zone: { x: 9.3, z: -26.9, r: 1.6 },    // 拐角本体（北缘 z≈-25.3）
   lookAt: { x: 4.2, z: -30.6 },          // 垃圾箱与后门所在的西南方向
   fov: 2.6,                              // ±74.5°：顺巷南行必然在锥内
   cooldown: 75
@@ -1531,10 +1538,26 @@ export function build(ctx) {
   updaters.push((dt) => {
     rimLight.intensity += (rimState.on * 6.5 - rimLight.intensity) * Math.min(1, dt * 7);
   });
-  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处
-  const LURK_HIDE = new THREE.Vector3(6.4, 0, -28.6);
-  const LURK_OUT = new THREE.Vector3(8.7, 0, -26.4);
+  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处。
+  // v1.11：触发点移到拐角本体后玩家离拐角更近——藏点压深到后墙以西
+  // （从触发区北缘任何视线都被后墙截断），现身点贴在拐角沿（离玩家
+  // 约 2 米——从拐角后探出来的那一步就在你脸前）。
+  const LURK_HIDE = new THREE.Vector3(5.6, 0, -28.8);
+  const LURK_OUT = new THREE.Vector3(8.55, 0, -27.15);
   const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
+
+  // v1.11 P16：夜风偶尔推一下巷侧瓦楞围栏（fencewomp，seeded 稀发）——
+  // 位置沿围栏随机（x=11.55 那面），每次都从不太一样的地方响。给长巷
+  // 一个「这里的铁皮都松了」的材料证词；惊吓进行中不叠（不稀释节拍）。
+  const fenceRng = rng(67);
+  const fenceState = { timer: 40 + fenceRng() * 50 };
+  updaters.push((dt) => {
+    fenceState.timer -= dt;
+    if (fenceState.timer > 0) return;
+    fenceState.timer = 75 + fenceRng() * 55;
+    if (scare.sub !== null) return; // 这一阵风让给惊吓
+    audio.sfxAt('fencewomp', 11.55, -8 - fenceRng() * 18, 0.16, 4);
+  });
 
   // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还
   const wakeUp = (caption) => {
@@ -1554,8 +1577,13 @@ export function build(ctx) {
     scare.sub = 'dread';
     scare.t = 0;
     const B = SCARE_BEATS;
-    // 第一幕：整巷灯狂闪 + 世界的声音塌下去 + 拐角一声长刮擦 + 两记心跳
+    // 第一幕：整巷灯狂闪 + 世界的声音塌下去 + 拐角一声长刮擦 + 两记心跳。
+    // v1.11：恐惧拍若刚把巷灯按灭，先还灯——狂闪的第一幕必须看得见
+    // （灯异常是这个节拍的第一个字）；同拍加低频升压 dreadswell——
+    // 空气先变重，灯才开始不对。
+    lampKill.v = 0;
     lampPanic.v = 1;
+    audio.sfx('dreadswell', 0.7);
     audio.duck(1.2, 0.12, 1.6);
     audio.sfxAt('scrape', 8.4, -26.6, 0.85, 5);
     audio.sfx('heartbeat', 0.45);
@@ -1755,6 +1783,56 @@ export function build(ctx) {
   dragMark.rotation.z = 0.35;
   dragMark.position.set(7.2, 0.011, -27.6);
   group.add(dragMark);
+  // ③ v1.11 B5：拐角护角铁件——剧场东南砖角上一根从地钉到 2.6m 的
+  // L 形护条（老楼装卸通道的标配），锈蚀流挂，四对沉头螺栓；
+  // 1.2–1.8m 高一段被**刮亮**了几道斜痕——惊吓第一幕那声金属长刮擦，
+  // 从此有了实体锚点（它就是在这根铁上拖过去的）。
+  {
+    const ironTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#211f24';
+      g.fillRect(0, 0, s, s);
+      const ir = rng(53);
+      for (let i = 0; i < 26; i++) { // 锈斑
+        g.fillStyle = `rgba(${70 + ir() * 40 | 0},${38 + ir() * 22 | 0},${24 + ir() * 14 | 0},${0.16 + ir() * 0.22})`;
+        g.beginPath();
+        g.ellipse(ir() * s, ir() * s, 3 + ir() * 9, 2 + ir() * 6, ir() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+      for (let i = 0; i < 8; i++) { // 锈迹往下流挂
+        const x = ir() * s;
+        const y0 = ir() * s * 0.5;
+        g.fillStyle = 'rgba(64,36,22,0.24)';
+        g.fillRect(x, y0, 2 + ir() * 2, s * (0.2 + ir() * 0.5));
+      }
+      // 中段被刮亮的斜痕（贴巷面那条腿的戏眼）
+      g.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {
+        g.strokeStyle = `rgba(${150 + ir() * 50 | 0},${150 + ir() * 40 | 0},${146 + ir() * 40 | 0},${0.3 + ir() * 0.3})`;
+        g.lineWidth = 1.2 + ir() * 1.6;
+        g.beginPath();
+        g.moveTo(s * 0.2 + ir() * 20, s * 0.42 + i * 7);
+        g.lineTo(s * 0.86, s * 0.5 + i * 7 + ir() * 8);
+        g.stroke();
+      }
+    });
+    const ironMat = new THREE.MeshStandardMaterial({
+      map: ironTex, bumpMap: ironTex, bumpScale: 0.08,
+      metalness: 0.62, roughness: 0.55
+    });
+    const boltGeo = new THREE.CylinderGeometry(0.014, 0.017, 0.012, 8);
+    const guardGeos = [
+      // 贴巷面（东腿）+ 贴空地面（南腿）+ 角棱圆条
+      xform(new THREE.BoxGeometry(0.016, 2.6, 0.12), 8.15, 1.31, -26.638),
+      xform(new THREE.BoxGeometry(0.12, 2.6, 0.016), 8.098, 1.31, -26.69),
+      xform(new THREE.CylinderGeometry(0.014, 0.014, 2.6, 8), 8.152, 1.31, -26.692)
+    ];
+    for (const yy of [0.34, 1.04, 1.74, 2.44]) {
+      guardGeos.push(xform(boltGeo, 8.162, yy, -26.638, 0, 0, -Math.PI / 2)); // 东腿螺栓朝巷
+      guardGeos.push(xform(boltGeo, 8.098, yy, -26.702, Math.PI / 2, 0, 0)); // 南腿螺栓朝空地
+    }
+    boltGeo.dispose();
+    group.add(mergedMesh(guardGeos, ironMat));
+  }
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
   const chalkTex = canvasTexture(256, (g, s) => {

@@ -93,9 +93,11 @@ function createWindow() {
         // 普查 16/26/19/17/20/19/20 = 137（长明灯/束带/落地灯拉链/柴堆/
         // 歪瓷碗/衣帽间/蒸汽立管/擦痕/铅笔刀/表盘/阀牌/放大镜/检修牌…）
         // v1.10 阶段 3 重锁：普查 18/29/23/19/21/21/25 = 156，阈值 = 普查 -1
+        // v1.11 阶段 4 重锁：普查 18/30/25/20/22/21/26 = 162（七件彩蛋中带热点者
+        // +6：缠布/焦球/首饰盒/椅臂杯/小门/灯牌接骨——过影无热点），阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 17, archive: 28, eraserhead: 22, bluevelvet: 18,
-          twinpeaks: 20, mulholland: 20, studio: 24
+          lobby: 17, archive: 29, eraserhead: 24, bluevelvet: 19,
+          twinpeaks: 21, mulholland: 20, studio: 25
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -145,8 +147,9 @@ function createWindow() {
         };
         const maybeWalkTest = (done) => {
           if (hall !== 'mulholland') { done(); return; }
-          // ① 走到拐角触发区北缘外一步（zone 圆心 9.25,-25.9 r2.3 → 北缘 z≈-23.6）
-          const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -23.2]]);
+          // ① 走到拐角触发区北缘外一步（v1.11 拐角化：zone 圆心 9.3,-26.9
+          //    r1.6 → 北缘 z≈-25.3，贴着拐角沿 z≈-26.7）
+          const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -24.6]]);
           win.webContents.executeJavaScript(`window.__SV__.walkPath(${routeA})`, true).then((rA) => {
             console.log(`[smoke] 后巷走通性（至拐角前）mulholland: ${JSON.stringify(rA)}`);
             if (!rA || !rA.ok) {
@@ -156,7 +159,7 @@ function createWindow() {
             }
             // 再一步走进拐角区（面朝南——垃圾箱·后门方向在视锥内），
             // 下一渲染帧 cornerTrigger 自然引爆（不靠 triggerEggs 强制）
-            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -25.9]])', true).then((rB) => {
+            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -26.9]])', true).then((rB) => {
               if (!rB || !rB.ok) {
                 console.error('[smoke] 走进拐角触发区失败');
                 app.exit(1);
@@ -334,6 +337,15 @@ function createWindow() {
         shotCount += 1;
         interactiveCheck.then(() => {
           if (shotDir) {
+            // SV_SHOT_PRE: 可选，截屏前在页面执行一段 JS（如先拉帘/开盖，
+            // 把交互后的状态摆进镜头；配合 __SV__.activateByHint 使用）
+            const pre = process.env.SV_SHOT_PRE;
+            if (pre) {
+              win.webContents.executeJavaScript(pre, true).then(
+                (r) => console.log(`[smoke] 截屏前置脚本 ${hall}: ${JSON.stringify(r)}`),
+                (err) => console.error(`[smoke] 截屏前置脚本失败 ${hall}:`, err && err.message ? err.message : err)
+              );
+            }
             const pos = (process.env.SV_SHOT_POS || '').split(',').map(Number);
             if (pos.length === 3 && pos.every((v) => Number.isFinite(v))) {
               win.webContents.executeJavaScript(

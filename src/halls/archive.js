@@ -255,6 +255,8 @@ export function build(ctx) {
   }
 
   // 作品灯牌 —— 按年代沿两壁排布（事实性档案）
+  // v1.11 门禁 57：材质引用集中收档——心跳灯牌接骨时整排齐搏要用
+  const plaqueMats = [];
   const films = filmsSorted();
   films.forEach((film, i) => {
     const side = i % 2 === 0 ? -1 : 1;
@@ -262,6 +264,7 @@ export function build(ctx) {
     const plaque = archivePlaque(film);
     plaque.position.set(side * (W / 2 - 0.28), 2.05, z);
     plaque.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    plaqueMats.push(plaque.material);
     group.add(plaque);
     hotspots.add(plaque, {
       hint: `E — ${film.titleZh}（${film.year}）`,
@@ -1006,11 +1009,18 @@ export function build(ctx) {
 
   // ---------- 滚动图书梯（v1.4 P3 新件）：黄铜墙轨 + 双弦梯 + 挂钩 + 胶轮 ----------
   // E → 沿墙轨滚去另一端（轮子转、黄铜钩磨轨、木身吱呀）
+  // v1.11 B4 细节遍：墙轨支耳补铆钉（每耳两枚）——铁件是钉上去的，
+  // 不是长出来的
+  const railRivet = new THREE.CylinderGeometry(0.009, 0.009, 0.014, 6);
   group.add(mergedMesh([
     xform(new THREE.CylinderGeometry(0.022, 0.022, 4.2, 10), W / 2 - 0.16, 4.35, 2.4, Math.PI / 2, 0, 0),
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 0.6),
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 2.4),
-    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2)
+    xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2),
+    ...[0.6, 2.4, 4.2].flatMap((z) => [
+      xform(railRivet, W / 2 - 0.065, 4.368, z - 0.014, 0, 0, Math.PI / 2),
+      xform(railRivet, W / 2 - 0.065, 4.332, z + 0.014, 0, 0, Math.PI / 2)
+    ])
   ], M.brass));
   const ladder = new THREE.Group();
   const ladderWood = woodMat({ base: [34, 22, 13], planks: 1, size: 256, seed: 44, gloss: 0.45 });
@@ -1023,12 +1033,40 @@ export function build(ctx) {
     ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
   }
   ladder.add(mergedMesh(ladderGeos, ladderWood));
+  // v1.11 B4 细节遍①：踏面磨浅——用得最多的中段五级，踏杆顶面一条
+  // 被鞋底磨浅的窄亮带（越靠中间越宽），单独浅色合并 mesh
+  const wearMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.55 });
+  const wearGeos = [];
+  for (let i = 3; i <= 7; i++) {
+    const w = 0.3 - Math.abs(i - 5) * 0.05;
+    wearGeos.push(xform(
+      new THREE.BoxGeometry(w, 0.004, 0.02),
+      (i % 2 ? 0.02 : -0.02), 0.35 + i * 0.39 + 0.0165, 0
+    ));
+  }
+  ladder.add(mergedMesh(wearGeos, wearMat));
+  // v1.11 B4 细节遍②：每级踏杆两道防滑刻槽（深色细环）
+  const grooveMat = new THREE.MeshStandardMaterial({ color: 0x140c06, roughness: 0.9 });
+  const grooveGeo = new THREE.TorusGeometry(0.0168, 0.0022, 4, 10);
+  const grooveGeos = [];
+  for (let i = 0; i < 11; i++) {
+    for (const gx of [-0.09, 0.09]) {
+      grooveGeos.push(xform(grooveGeo, gx, 0.35 + i * 0.39, 0, 0, Math.PI / 2, 0));
+    }
+  }
+  ladder.add(mergedMesh(grooveGeos, grooveMat));
   // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉
+  // v1.11 B4 细节遍③：弦木外侧黄铜螺钉头 ×8（结构件有了「装配过」的证据）
+  const screwGeo = new THREE.SphereGeometry(0.0075, 8, 6);
   ladder.add(mergedMesh([
     xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
     xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
     xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045)
+    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045),
+    ...[0.74, 1.91, 3.08, 4.25].flatMap((y) => [
+      xform(screwGeo, -0.279, y, 0),
+      xform(screwGeo, 0.279, y, 0)
+    ])
   ], M.brass));
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
   const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);
@@ -1369,7 +1407,8 @@ export function build(ctx) {
       map: ghostTex, roughness: 0.55,
       emissive: 0xffffff, emissiveMap: ghostTex, emissiveIntensity: 0.7
     }));
-  ghostPlaque.position.set(-(W / 2 - 0.28), 2.05, 8.2);
+  const GHOST_Y = 2.05;
+  ghostPlaque.position.set(-(W / 2 - 0.28), -60, 8.2); // 藏时挪出射线（隐形网格仍会被 raycast）
   ghostPlaque.rotation.y = Math.PI / 2;
   ghostPlaque.visible = false;
   group.add(ghostPlaque);
@@ -1390,6 +1429,7 @@ export function build(ctx) {
     });
     ghostTimers.push(setTimeout(() => {
       ghostPlaque.visible = true;
+      ghostPlaque.position.y = GHOST_Y;
       audio.sfx('whisper', 0.8);
       ui.caption('身后的墙上，多了一块灯牌。', 4600);
     }, 1500));
@@ -1402,12 +1442,53 @@ export function build(ctx) {
   const vanishTrig = zoneTrigger({ x: -(W / 2 - 1.6), z: 8.2, r: 2.2 }, () => {
     if (!ghostPlaque.visible) return;
     ghostPlaque.visible = false;
+    ghostPlaque.position.y = -60;
     ghostState.active = false;
     audio.sfx('fluor', 0.9);
     audio.sfx('thud', 0.5);
     ui.caption('灯牌熄灭了。年表恢复了整齐。', 4600);
   }, { cooldown: 8 });
   updaters.push((dt) => vanishTrig.update(player, dt));
+
+  // ---------- v1.11 门禁 57：心跳灯牌接骨（灯牌显形期间可 E） ----------
+  // E → 一记心跳（位置化在灯牌上），同一拍里**整排年份灯箱齐搏**
+  // 一次（lub-dub 双峰包络，与 heartbeat 音色 0s/0.42s 双响对时）——
+  // 整条年表替那块不在年表上的灯牌搏动。字幕不加：看见即懂。
+  const hbPulse = { t: -1 };
+  const hbBump = (u, at, w) => {
+    const k = (u - at) / w;
+    return k >= 0 && k <= 1 ? Math.sin(k * Math.PI) : 0;
+  };
+  updaters.push((dt) => {
+    if (hbPulse.t < 0) return;
+    hbPulse.t += dt;
+    const u = hbPulse.t;
+    if (u > 1.05) {
+      // v1.11 P14 余温：齐搏收拍后年表灯箱立刻归位，唯独幽灵灯牌
+      // 自己多留一分暖（+16%），用 26s 极缓退回常值——它记得被按过。
+      for (const m of plaqueMats) m.emissiveIntensity = 0.5;
+      const cool = (u - 1.05) / 26;
+      if (cool >= 1) {
+        hbPulse.t = -1;
+        ghostPlaque.material.emissiveIntensity = 0.7;
+        return;
+      }
+      ghostPlaque.material.emissiveIntensity = 0.7 * (1.16 - 0.16 * cool);
+      return;
+    }
+    const k = hbBump(u, 0, 0.3) + hbBump(u, 0.42, 0.34) * 0.8;
+    for (const m of plaqueMats) m.emissiveIntensity = 0.5 * (1 + k * 1.15);
+    ghostPlaque.material.emissiveIntensity = 0.7 * (1 + k * 1.7);
+  });
+  hotspots.add(ghostPlaque, {
+    hint: 'E — 这块灯牌',
+    onActivate: () => {
+      // 搏动进行中不叠拍；余温期（>1.05s）可以再按——再来一记心跳
+      if (!ghostPlaque.visible || (hbPulse.t >= 0 && hbPulse.t <= 1.05)) return;
+      hbPulse.t = 0;
+      audio.sfxAt('heartbeat', -(W / 2 - 0.28), 8.2, 0.75, 3);
+    }
+  });
 
   // ============================================================
   // v1.10 阶段 2g·archive 件 1：缩微胶片阅读器——阅览桌尾自成
