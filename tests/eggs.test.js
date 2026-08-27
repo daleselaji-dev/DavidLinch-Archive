@@ -1,23 +1,58 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
+import { cornerRevealPath } from '../src/halls/kit.js';
 
 // v1.5 彩蛋接线源码审计（渲染/时序正确性由 electron --smoke 的
 // triggerEggs 全量引爆覆盖；这里锁定关键结构不被无意回退）。
 const mul = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
 const tp = readFileSync(new URL('../src/halls/twinpeaks.js', import.meta.url), 'utf8');
 
-describe('穆赫兰道「拐角那个东西」惊吓 v3', () => {
+describe('穆赫兰道「拐角那个东西」惊吓 v4', () => {
   const scareSeg = mul.slice(mul.indexOf('const doScare'), mul.indexOf('const scareTrig'));
 
-  it('触发点在暗巷拐角（z 在剧场东南角附近，不要求深入空地）', () => {
+  it('拐角即触发：触发圈整体压在剧场东南角拐角口（不允许巷中段提前引爆）', () => {
     const m = mul.match(/zoneTrigger\(\{ x: ([\d.-]+), z: ([\d.-]+), r: ([\d.]+) \}, doScare/);
     expect(m, '找不到 doScare 的 zoneTrigger').toBeTruthy();
     const [, x, z, r] = m.map(Number);
     expect(x).toBeGreaterThan(8.4);          // 在暗巷走廊内
     expect(x).toBeLessThan(11);
     expect(z).toBeGreaterThan(-27.6);        // 不在 BACKLOT 深处
-    expect(z).toBeLessThan(-20);             // 已过巷中段、贴近拐角
-    expect(r).toBeGreaterThanOrEqual(2.5);
+    expect(z).toBeLessThan(-25.5);           // 圆心贴着拐角口
+    expect(r).toBeGreaterThanOrEqual(2.5);   // 但也不许窄到擦肩漏触发
+    expect(r).toBeLessThanOrEqual(3.0);
+    // 触发圈上最远的入圈点离拐角（8.2,-26.7）也不得超过 4.2m——两步之内
+    expect(Math.hypot(x - 8.2, z + 26.7) + r).toBeLessThanOrEqual(4.2);
+  });
+
+  it('从拐角处挪出来：藏身点触发前不可见、绕角路径全程不穿墙（数值验证）', () => {
+    const m = mul.match(
+      /cornerRevealPath\(\s*new THREE\.Vector3\(([\d.-]+), 0, ([\d.-]+)\),\s*new THREE\.Vector3\(([\d.-]+), 0, ([\d.-]+)\)\s*\)/
+    );
+    expect(m, '找不到 cornerRevealPath 接线').toBeTruthy();
+    const [, fx, fz, px, pz] = m.map(Number);
+    // 藏身点：剧场后墙（z=-26.6）背面深处、后墙 x 覆盖范围内——触发前绝对看不见
+    expect(fz).toBeLessThan(-27.6);
+    expect(fx).toBeLessThan(8.05);
+    // 绕角枢轴：拐角外皮（东墙 x=8.05 以东、后墙 z=-26.6 以南）
+    expect(px).toBeGreaterThan(8.2);
+    expect(pz).toBeLessThan(-26.9);
+    const path = cornerRevealPath(new THREE.Vector3(fx, 0, fz), new THREE.Vector3(px, 0, pz));
+    // 墙体薄板（含 6cm 余量）：后墙 z=-26.6 x∈[-8.2,8.2]；东墙 x=8.05 z∈[-26.8,-13.6]
+    const inBackWall = (X, Z) => Math.abs(Z + 26.6) < 0.06 && X > -8.2 && X < 8.2;
+    const inEastWall = (X, Z) => Math.abs(X - 8.05) < 0.06 && Z > -26.8 && Z < -13.6;
+    const out = new THREE.Vector3();
+    // 玩家在触发圈内的代表位形：巷中 / 贴西墙 / 贴东墙 / 圈心 / 已绕过拐角 / 从空地折回
+    for (const [plx, plz] of [[9.7, -24.2], [8.7, -25.0], [10.6, -25.6], [9.6, -26.4], [9.0, -27.6], [7.6, -27.9]]) {
+      path.aim(plx, plz, 1.9);
+      for (let i = 0; i <= 80; i++) {
+        path.at(i / 80, out);
+        expect(inBackWall(out.x, out.z), `路径穿后墙 @玩家(${plx},${plz}) u=${i / 80}`).toBe(false);
+        expect(inEastWall(out.x, out.z), `路径穿东墙 @玩家(${plx},${plz}) u=${i / 80}`).toBe(false);
+      }
+      // 站位永远在玩家面前 ≤1.9m + 数值余量（贴太近时收在拐角枢轴，不穿模）
+      expect(Math.hypot(path.to.x - plx, path.to.z - plz)).toBeLessThanOrEqual(1.9 + 1e-9);
+    }
   });
 
   it('拐角即出：触发同帧 figure.visible = true / 灯灭 / 声音抽走（零铺垫拖沓）', () => {

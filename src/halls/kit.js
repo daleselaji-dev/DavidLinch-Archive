@@ -824,7 +824,9 @@ export function nightmareFigure(height = 2.4) {
   const head = new THREE.Group();
   const skull = new THREE.Mesh(headGeo, faceMat);
   head.add(skull);
-  // ---- 眼睛：深陷眼窝 + 会亮的眼球 + 不对称瞳孔（这双眼睛就是惊吓的核心） ----
+  // ---- 眼睛：深陷眼窝 + 熏黑眼圈 + 会亮的眼球 + 不对称瞳孔 ----
+  // （这双眼睛就是惊吓的核心——v1.7 加大眼球与眼圈，2m 外也读得出
+  // 「它在看你」；眉棱压出眼窝阴影，底光扫上来时整圈发黑。）
   const socketMat = new THREE.MeshStandardMaterial({ color: 0x080404, roughness: 1 });
   const eyeMat = new THREE.MeshStandardMaterial({
     color: 0xd8d2c2, roughness: 0.25, metalness: 0,
@@ -832,25 +834,40 @@ export function nightmareFigure(height = 2.4) {
   });
   const pupilMat = new THREE.MeshStandardMaterial({ color: 0x050302, roughness: 0.4 });
   const mkEye = (side, dy, sc) => {
-    const socket = new THREE.Mesh(new THREE.SphereGeometry(0.042 * sc, 10, 8), socketMat);
-    socket.position.set(side * 0.062, 0.035 + dy, 0.118);
-    socket.scale.z = 0.55;
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.026 * sc, 10, 8), eyeMat);
-    ball.position.set(side * 0.062, 0.035 + dy, 0.138);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.011 * sc, 8, 6), pupilMat);
-    pupil.position.set(side * 0.06, 0.033 + dy, 0.161);
-    head.add(socket, ball, pupil);
+    const socket = new THREE.Mesh(new THREE.SphereGeometry(0.048 * sc, 10, 8), socketMat);
+    socket.position.set(side * 0.062, 0.035 + dy, 0.116);
+    socket.scale.z = 0.5;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.041 * sc, 0.013, 6, 16), socketMat);
+    ring.position.set(side * 0.062, 0.035 + dy, 0.122);
+    ring.scale.z = 0.45; // 熏黑眼圈——把眼窝在惨白脸上圈出来
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.031 * sc, 10, 8), eyeMat);
+    ball.position.set(side * 0.062, 0.035 + dy, 0.136);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.0125 * sc, 8, 6), pupilMat);
+    pupil.position.set(side * 0.06, 0.033 + dy, 0.163);
+    head.add(socket, ring, ball, pupil);
   };
   mkEye(-1, 0.006, 1.0);   // 左眼略高
   mkEye(1, -0.004, 1.18);  // 右眼略大——不对称是最不对劲的细节
-  // 微张的嘴：一条无声的黑缝
+  // 眉棱：一道压在双眼上方的骨脊，让眼窝陷进阴影里
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.026, 0.05), faceMat);
+  brow.position.set(0, 0.088, 0.112);
+  brow.rotation.x = 0.55;
+  head.add(brow);
+  // 微张的嘴：一条无声的黑缝（update 里随不安撑成无声尖叫）
   const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), socketMat);
   mouth.scale.set(1.35, 0.5, 0.5);
   mouth.position.set(0, -0.108, 0.128);
   head.add(mouth);
-  // ---- 纠结的长发：贴颅乱壳 + 垂条 ----
-  const hairMat = new THREE.MeshStandardMaterial({ color: 0x090605, roughness: 1, metalness: 0 });
-  const hairGeo = new THREE.SphereGeometry(0.178, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.62);
+  // ---- 原作感长发（v1.7 重做）：不再是短须——贴颅乱壳 + 三组「长绺」
+  // （左鬓/右鬓/脑后）从颅顶披下来，最长垂到胸口；每绺顶粗尾细、
+  // 带过颅外披弧与缠结波浪，两鬓绺垂在脸颊两侧把那张脸框出来
+  // （眼睛留在发帘缝隙里）。左右绺独立成 mesh，update 里跟着
+  // 歪头蠕变各自摆，扑时整头长发向后掀。 ----
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: 0x0b0806, roughness: 0.92, metalness: 0,
+    bumpMap: noiseCanvasTexture(64, 100, 60, 5), bumpScale: 0.3
+  });
+  const hairGeo = new THREE.SphereGeometry(0.178, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.66);
   {
     const p = hairGeo.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -863,17 +880,56 @@ export function nightmareFigure(height = 2.4) {
   const hairCap = new THREE.Mesh(hairGeo, hairMat);
   hairCap.position.y = 0.02;
   head.add(hairCap);
-  const strandGeos = [];
-  const hr = rng(97);
-  for (let i = 0; i < 12; i++) {
-    const a = Math.PI * 0.35 + hr() * Math.PI * 1.3; // 只垂在两鬓与脑后，让开脸
-    const len = 0.22 + hr() * 0.3;
-    const sg = new THREE.CylinderGeometry(0.004, 0.012, len, 5);
+  // 单绺：锥形长发绺，root 挂在颅面上沿，v=0 发根 → v=1 发梢
+  const strand = (a, len, rTop, hr) => {
+    const seg = Math.max(5, Math.round(len * 10));
+    const sg = new THREE.CylinderGeometry(0.0045, rTop, len, 5, seg);
     sg.translate(0, -len / 2, 0);
-    sg.rotateZ((hr() - 0.5) * 0.5);
-    strandGeos.push(xform(sg, Math.cos(a) * 0.15, 0.06, Math.sin(a) * 0.15));
+    const p = sg.attributes.position;
+    const ux = Math.cos(a);
+    const uz = Math.sin(a);
+    const kinkF = 4 + hr() * 5;        // 缠结波频（缕缕不同）
+    const ph = hr() * 7;
+    const bowAmt = 0.05 + hr() * 0.05; // 过颅外披弧度
+    const drift = (hr() - 0.5) * 0.12; // 尾端横漂——绺与绺不平行才像乱发
+    for (let i = 0; i < p.count; i++) {
+      const v = -p.getY(i) / len;
+      const bow = Math.sin(Math.min(1, v * 2.2) * Math.PI) * bowAmt;
+      const kink = Math.sin(v * Math.PI * kinkF + ph) * 0.013 * v;
+      const sway = drift * v * v;
+      p.setX(i, p.getX(i) + ux * (bow + sway) + kink * uz);
+      p.setZ(i, p.getZ(i) + uz * (bow + sway) - kink * ux);
+    }
+    sg.computeVertexNormals();
+    return xform(sg, ux * 0.125, 0.115, uz * 0.125);
+  };
+  const F = Math.PI / 2; // 脸朝 +Z
+  const mkClumps = (angles, lenMin, lenMax, seed) => {
+    const hr = rng(seed);
+    return mergedMesh(
+      angles.map((a) => strand(a, lenMin + hr() * (lenMax - lenMin), 0.013 + hr() * 0.008, hr)),
+      hairMat
+    );
+  };
+  // 脑后披发：14 长绺盖满后颅与两侧（留出 ±0.85 rad 的脸窗），垂到胸口
+  const backAngles = [];
+  for (let i = 0; i < 14; i++) backAngles.push(F + 0.85 + (i / 13) * (Math.PI * 2 - 1.7));
+  const hairBack = mkClumps(backAngles, 0.58, 0.95, 97);
+  // 两鬓框脸绺：贴着脸窗边缘垂在颊侧与肩前（发帘只留一线，露出眼睛）
+  const hairL = mkClumps([F + 0.52, F + 0.66, F + 0.8], 0.5, 0.72, 98);
+  const hairR = mkClumps([F - 0.52, F - 0.66, F - 0.8], 0.48, 0.7, 99);
+  // 颅顶炸开的碎发（干枯短翘）
+  const wispHr = rng(101);
+  const wisps = [];
+  for (let i = 0; i < 6; i++) {
+    const a = wispHr() * Math.PI * 2;
+    const len = 0.1 + wispHr() * 0.12;
+    const wg = new THREE.CylinderGeometry(0.002, 0.006, len, 4);
+    wg.translate(0, len / 2, 0);
+    wg.rotateZ((wispHr() - 0.5) * 1.6);
+    wisps.push(xform(wg, Math.cos(a) * 0.09, 0.16, Math.sin(a) * 0.09));
   }
-  head.add(mergedMesh(strandGeos, hairMat));
+  head.add(hairBack, hairL, hairR, mergedMesh(wisps, hairMat));
   head.position.set(0, height * 0.86, 0.1); // 头探在身前（佝偻）
   head.rotation.z = 0.16;
   // ---- 双臂 + 苍白长手（指节过长，微微抬着，像要递给你什么） ----
@@ -925,6 +981,14 @@ export function nightmareFigure(height = 2.4) {
     armR.rotation.x = 0.34 + Math.sin(t * 1.2 + 2) * 0.05 + Math.cos(t * 24) * 0.05 * k;
     eyeMat.emissiveIntensity = 0.7 + k * 3.4 + Math.sin(t * 43) * 0.5 * k;
     faceMat.emissiveIntensity = 0.45 + k * 0.75;
+    // 长发跟着头动：两鬓绺反相轻摆，扑（k→1）时整头长发向后掀
+    const hs = Math.sin(t * 1.1) * 0.03 + Math.sin(t * 17) * 0.02 * k;
+    hairL.rotation.z = 0.02 + hs;
+    hairR.rotation.z = -0.02 - hs * 0.85;
+    hairBack.rotation.x = -0.02 - k * k * 0.18 + Math.sin(t * 1.7) * 0.02;
+    // 无声尖叫：不安越强，那条黑缝撑得越开
+    mouth.scale.y = 0.5 + k * k * 1.5;
+    mouth.scale.x = 1.35 - k * 0.35;
   };
   return group;
 }
@@ -1142,6 +1206,40 @@ export function zoneTrigger({ x, z, r }, onEnter, { cooldown = 20, once = false 
     }
   };
   return trig;
+}
+
+/**
+ * 绕拐角现身路径（v1.7 拐角惊吓专用，纯几何、可单测）。
+ * from = 藏身点（墙后，触发前绝对不可见）；pivot = 拐角外皮上的绕角枢轴。
+ * aim(px, pz, standOff) 依玩家位置算出站位（枢轴朝玩家方向 standOff 米处；
+ * 玩家贴得比 standOff 还近时收在枢轴本身，永不穿模）。
+ * at(u, out) 取二次贝塞尔 from→pivot→to 上的点：三个控制点都在墙外侧时，
+ * 凸包性质保证整条曲线永远不进墙——黑影是「贴着拐角挪出来」的，不是穿墙。
+ */
+export function cornerRevealPath(from, pivot) {
+  const to = new THREE.Vector3();
+  return {
+    from, pivot, to,
+    aim(px, pz, standOff = 1.9) {
+      const dx = px - pivot.x;
+      const dz = pz - pivot.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const k = Math.max(0, 1 - standOff / d);
+      to.set(pivot.x + dx * k, 0, pivot.z + dz * k);
+      return to;
+    },
+    at(u, out) {
+      const s = 1 - u;
+      const a = s * s;
+      const b = 2 * u * s;
+      const c = u * u;
+      out.set(
+        a * from.x + b * pivot.x + c * to.x, 0,
+        a * from.z + b * pivot.z + c * to.z
+      );
+      return out;
+    }
+  };
 }
 
 /** 立式话筒 v2（v1.4 P3：车削底座 + 药丸头 + 铬鳍片网罩 + 后倾支耳） */

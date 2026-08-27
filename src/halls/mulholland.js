@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
   smokeLayer, dustField, lightCone, lightCone2, quotePlaque, vitrine,
-  nightmareFigure, zoneTrigger, multiRectBounds,
+  nightmareFigure, zoneTrigger, cornerRevealPath, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
   asphaltMat, woodMat, rustMat, rng
 } from './kit.js';
@@ -1061,16 +1061,22 @@ export function build(ctx) {
     }
   });
 
-  // ---------- 惊吓彩蛋 v3：THE THING AT THE CORNER（拐角那个东西） ----------
-  // v1.6 重做，两个要求：①拐角即触发即现身——按原作的位置顺序与节奏，
-  // 你走到剧场东南角的那一步它就直接从拐角后面出来了，没有铺垫拖沓；
-  // ②它不再是粗黑剪影——nightmareFigure：烟垢惨白的脸、一双会亮的
-  // 眼睛、纠结长发与苍白长手，由一盏下巴底下的惨白底光照出来。
+  // ---------- 惊吓彩蛋 v4：THE THING AT THE CORNER（拐角那个东西） ----------
+  // v1.7 重做，按原作的位置顺序与节奏修死两件事：
+  // ①触发时机 = 走到拐角那一步：触发圈直接压在剧场东南角拐角口
+  //   （r 只够两步），不再是巷中段提前半条巷子就引爆的错位触发；
+  // ②现身路径 = 从拐角处挪出来：黑影藏在后墙背面（触发前从暗巷任何
+  //   角度都看不见），沿 cornerRevealPath 二次贝塞尔「贴着拐角外皮」
+  //   滑出——from/pivot/站位三个控制点全在墙外侧，凸包性质保证它
+  //   永远是绕出来的，不是穿墙冒出来的。
+  // ③它不是粗黑剪影——nightmareFigure v1.7：烟垢惨白的脸、一双会亮的
+  //   眼睛、垂到胸口的纠结长发（两鬓框脸）、苍白长手，由一盏下巴
+  //   底下的惨白底光照出来。
   // 节奏（总长 ≈2.9s，快、准、狠）：
   //   0.00s 触发瞬间：整巷灯与后门灯同帧熄灭 + 声音被整只手拔掉 +
   //          金属擦地一声——它已经在动了
-  //   0.00–0.55s 现身：从拐角后一步滑出，直接站到你面前 2.1m，
-  //          惨白底光亮起，那双眼睛看着你
+  //   0.00–0.55s 现身：绕过拐角一步滑到你面前 1.9m，惨白底光亮起，
+  //          那双眼睛已经在看你
   //   0.55–1.55s 凝视：头猛地歪向一侧，眼睛越来越亮，向你倾过来半步，
   //          两记心跳
   //   1.55s 扑：0.22s 冲到脸前 + scare 音墙 + shock 后处理 + 眼睛暴亮
@@ -1079,6 +1085,12 @@ export function build(ctx) {
   const figure = nightmareFigure(2.4);
   figure.visible = false;
   group.add(figure);
+  // 绕角路径：藏身点在后墙背面深处（z<-27.9，巷内任何触发位都看不到），
+  // 枢轴贴着拐角锈角铁外皮（x>8.4、z<-26.9，墙外侧）
+  const reveal = cornerRevealPath(
+    new THREE.Vector3(6.3, 0, -27.95),
+    new THREE.Vector3(8.55, 0, -27.05)
+  );
   // 惨白底光（打在脸上的那盏）+ 背后剪影红光
   const scareFace = new THREE.PointLight(0xd8e2ee, 0, 6, 1.5);
   const scareLight = new THREE.PointLight(0x8a1408, 0, 9, 1.6);
@@ -1089,7 +1101,7 @@ export function build(ctx) {
   const BEATS = { emerge: 0.55, breath: 0.7, thump2: 0.95, lunge: 1.55, hit: 1.77, blackout: 2.15, wake: 2.9 };
   const scare = {
     phase: 0, t: 0, cue: {},
-    from: new THREE.Vector3(), mid: new THREE.Vector3(), to: new THREE.Vector3()
+    mid: new THREE.Vector3(), to: new THREE.Vector3()
   };
   const faceAt = () => {
     figure.lookAt(player.x, 1.35, player.z);
@@ -1116,11 +1128,9 @@ export function build(ctx) {
     audio.sfxAt('dread', 8.6, -26.4, 1.0, 6);
     audio.sfxAt('metalscrape', 8.2, -26.8, 0.9, 5);
     audio.sfx('heartbeat', 0.9);
-    // 从拐角后（剧场东南角背面）一步滑出，直接站到你面前 2.1m
-    scare.from.set(6.8, 0, -27.8);
-    const dir = new THREE.Vector3(player.x - 8.2, 0, player.z + 26.4).normalize();
-    scare.mid.set(player.x - dir.x * 2.1, 0, player.z - dir.z * 2.1);
-    figure.position.copy(scare.from);
+    // 站位：贴着拐角朝你的方向 1.9m（你贴得更近它就停在拐角口）
+    scare.mid.copy(reveal.aim(player.x, player.z, 1.9));
+    figure.position.copy(reveal.from);
     figure.visible = true;
   };
   const cueOnce = (name, fn) => {
@@ -1161,11 +1171,11 @@ export function build(ctx) {
     });
     if (scare.phase === 1) {
       if (scare.t <= BEATS.emerge) {
-        // 现身：0.55s 一步到位（快出，不磨蹭），末端一记小急停
+        // 现身：0.55s 贴着拐角外皮绕出来（二次贝塞尔，永不穿墙），
+        // 快出急停——滑出的每一帧它都已经面朝你
         const u = Math.min(1, scare.t / BEATS.emerge);
-        const k = u < 0.82 ? (u / 0.82) ** 1.35 : 1 - (1 - u) * 0.6;
-        figure.position.lerpVectors(scare.from, scare.mid, k);
-        figure.position.y = 0;
+        const k = 1 - (1 - u) ** 1.6;
+        reveal.at(k, figure.position);
         scareFace.intensity = u * 7;
         scareLight.intensity = u * 2.2;
         figure.userData.update(dt, t, 0.55);
@@ -1192,7 +1202,9 @@ export function build(ctx) {
       faceAt();
     }
   });
-  const scareTrig = zoneTrigger({ x: 9.7, z: -25.2, r: 3.4 }, doScare, { cooldown: 45 });
+  // 触发圈压在拐角口：圆心贴着剧场东南角，半径只够两步——
+  // 「走到拐角的那一步」它就出来，绝不在巷中段提前引爆
+  const scareTrig = zoneTrigger({ x: 9.6, z: -26.4, r: 2.6 }, doScare, { cooldown: 45 });
   updaters.push((dt) => scareTrig.update(player, dt));
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）

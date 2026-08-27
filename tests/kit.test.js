@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
 import * as kit from '../src/halls/kit.js';
 import * as props from '../src/halls/props.js';
 
@@ -98,7 +99,7 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
 
   it('nightmareFigure 梦魇形体 v3 已导出，且带 userData.update 痉挛驱动', () => {
     expect(typeof kit.nightmareFigure).toBe('function');
-    expect(src).toMatch(/nightmareFigure[\s\S]{0,9000}userData\.update = \(dt, t, k/);
+    expect(src).toMatch(/nightmareFigure[\s\S]{0,13000}userData\.update = \(dt, t, k/);
   });
 
   it('梦魇形体不再是粗黑剪影：有眼窝/眼球/瞳孔、烟垢皮肤与长发细节', () => {
@@ -109,6 +110,37 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     // 双眼不对称（歪斜/大小差是「不对劲」的核心细节）
     expect(seg).toContain('mkEye(-1');
     expect(seg).toContain('mkEye(1');
+  });
+
+  it('v1.7 原作感长发：三组长绺（脑后/左鬓/右鬓）+ 最长垂到胸口 + 眼圈/眉棱/无声尖叫', () => {
+    const seg = src.slice(src.indexOf('export function nightmareFigure'));
+    for (const k of ['const strand =', 'mkClumps', 'hairBack', 'hairL', 'hairR', 'ring', 'brow', 'mouth.scale.y']) {
+      expect(seg, `nightmareFigure v1.7 缺细节: ${k}`).toContain(k);
+    }
+    // 脑后长绺最长必须垂到胸口量级（≥0.9m，头高 2.4m 的形体）
+    const m = seg.match(/mkClumps\(backAngles, ([\d.]+), ([\d.]+)/);
+    expect(m, '找不到脑后长绺 mkClumps 参数').toBeTruthy();
+    expect(Number(m[2])).toBeGreaterThanOrEqual(0.9);
+    // 扑时长发向后掀（k 驱动）
+    expect(seg).toContain('hairBack.rotation.x');
+  });
+
+  it('cornerRevealPath 绕角路径：凸包性质 + 贴脸触发时站位收在枢轴', () => {
+    expect(typeof kit.cornerRevealPath).toBe('function');
+    const p = kit.cornerRevealPath(new THREE.Vector3(0, 0, -2), new THREE.Vector3(2, 0, -1));
+    p.aim(2, 5, 1.9); // 玩家在枢轴正北 6m
+    const out = new THREE.Vector3();
+    for (let i = 0; i <= 20; i++) {
+      p.at(i / 20, out);
+      // 二次贝塞尔凸包：任何采样点都在三控制点包围盒内
+      expect(out.x).toBeGreaterThanOrEqual(-1e-9);
+      expect(out.x).toBeLessThanOrEqual(2 + 1e-9);
+      expect(out.z).toBeGreaterThanOrEqual(-2 - 1e-9);
+    }
+    expect(Math.hypot(p.to.x - 2, p.to.z - 5)).toBeCloseTo(1.9, 6);
+    p.aim(2.3, -0.6, 1.9); // 玩家贴脸——站位收在枢轴本身
+    expect(p.to.x).toBeCloseTo(2, 6);
+    expect(p.to.z).toBeCloseTo(-1, 6);
   });
 
   it('一体化黑松 pineTree 已导出：树干/根盘/针叶冠合并单几何 + 顶点色', () => {
