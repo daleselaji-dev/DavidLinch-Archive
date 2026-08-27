@@ -93,9 +93,11 @@ function createWindow() {
         // 普查 16/26/19/17/20/19/20 = 137（长明灯/束带/落地灯拉链/柴堆/
         // 歪瓷碗/衣帽间/蒸汽立管/擦痕/铅笔刀/表盘/阀牌/放大镜/检修牌…）
         // v1.10 阶段 3 重锁：普查 18/29/23/19/21/21/25 = 156，阈值 = 普查 -1
+        // v1.11 阶段 4 重锁：普查 18/30/25/20/22/21/26 = 162（七件彩蛋中带热点者
+        // +6：缠布/焦球/首饰盒/椅臂杯/小门/灯牌接骨——过影无热点），阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 17, archive: 28, eraserhead: 22, bluevelvet: 18,
-          twinpeaks: 20, mulholland: 20, studio: 24
+          lobby: 17, archive: 29, eraserhead: 24, bluevelvet: 19,
+          twinpeaks: 21, mulholland: 20, studio: 25
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
