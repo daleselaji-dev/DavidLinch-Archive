@@ -321,6 +321,8 @@ window.__SV__ = {
     hotspots.items.filter((m) => !(m.userData.hotspot && m.userData.hotspot.nav)).length,
   /** 冒烟/截屏：瞬移到指定位置（视觉复核各分区用） */
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
+  /** 冒烟/截屏：当前展厅 id（SV_SHOT_PRE 按厅分机位用） */
+  hall: () => (current ? current.id : null),
   /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹） */
   player: () => ({ x: controls.yawObject.position.x, z: controls.yawObject.position.z }),
   /**
@@ -352,6 +354,9 @@ window.__SV__ = {
         const d = Math.hypot(dx, dz) || 1;
         p.x += (dx / d) * speed * dt;
         p.z += (dz / d) * speed * dt;
+        // 真人往哪走脸就朝哪（yaw 0 → -z）：拐角/转身触发器读到的
+        // 是行走朝向，而不是上一次瞬移/截屏留下的残留视角
+        controls.yawObject.rotation.y = Math.atan2(-dx / d, -dz / d);
         if (current.built.bounds) current.built.bounds(p);
       }
     }

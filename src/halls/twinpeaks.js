@@ -1730,8 +1730,12 @@ export function build(ctx) {
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
     return g;
   };
-  const crustC = [0.62, 0.36, 0.14];
-  const fillC = [0.30, 0.045, 0.05];
+  // 顶点色走线性空间：sRGB 直觉值必须先转线性，否则渲染端整体提亮
+  // 成灰粉（首拍病灶）。crust 烤透金褐 / fill 暗樱桃糖浆。
+  const crustLin = new THREE.Color(0xa15a1e).convertSRGBToLinear();
+  const fillLin = new THREE.Color(0x4a0d10).convertSRGBToLinear();
+  const crustC = [crustLin.r, crustLin.g, crustLin.b];
+  const fillC = [fillLin.r, fillLin.g, fillLin.b];
   const pieGeos = [
     // 酥皮壁（开口圆柱，顶径 0.18 底径 0.2）+ 底封片
     pieTint(xform(new THREE.CylinderGeometry(0.18, 0.2, 0.09, 20, 1, true), 0, 0.06, 0), ...crustC),
@@ -1741,13 +1745,13 @@ export function build(ctx) {
   ];
   // 格纹条：扁圆棍（capsule 压扁），两向各 4 条，端头顺沿口收进
   const lattRng = rng(47);
-  const lattG = new THREE.CapsuleGeometry(0.014, 0.24, 3, 8);
+  const lattG = new THREE.CapsuleGeometry(0.019, 0.22, 3, 8);
   for (let i = 0; i < 4; i++) {
     const off = -0.105 + i * 0.07;
     const halfW = Math.sqrt(Math.max(0.02, 0.17 * 0.17 - off * off));
     const sL = halfW / 0.15;
-    pieGeos.push(pieTint(xform(lattG, off, 0.104, 0, Math.PI / 2, 0, 0.04 + lattRng() * 0.05, sL), ...crustC));
-    pieGeos.push(pieTint(xform(lattG, 0, 0.109, off, 0.04 + lattRng() * 0.05, 0, Math.PI / 2, sL), ...crustC));
+    pieGeos.push(pieTint(xform(lattG, off, 0.106, 0, Math.PI / 2, 0, 0.04 + lattRng() * 0.05, sL), ...crustC));
+    pieGeos.push(pieTint(xform(lattG, 0, 0.112, off, 0.04 + lattRng() * 0.05, 0, Math.PI / 2, sL), ...crustC));
   }
   lattG.dispose();
   // 拇指捏花沿：16 粒小球沿口一圈（错落深浅）

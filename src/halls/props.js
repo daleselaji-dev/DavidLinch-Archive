@@ -331,7 +331,7 @@ export function jukebox({ mats } = {}) {
   });
   const windowMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, map: titleTex,
-    emissive: 0xffca7a, emissiveMap: titleTex, emissiveIntensity: 0.35
+    emissive: 0xffca7a, emissiveMap: titleTex, emissiveIntensity: 0.2
   });
   const win = roundedBoxMesh(0.56, 0.2, 0.02, 0.01, windowMat);
   win.position.set(0, 0.98, 0.29);
@@ -354,7 +354,7 @@ export function jukebox({ mats } = {}) {
   g.userData.setOn = (on) => {
     tubeMat.emissiveIntensity = on ? 3.4 : 1.2;
     tubeMat2.emissiveIntensity = on ? 3.2 : 1.0;
-    windowMat.emissiveIntensity = on ? 1.1 : 0.35;
+    windowMat.emissiveIntensity = on ? 0.8 : 0.2;
     glow.intensity = on ? 7 : 0;
   };
   g.userData.tubeMats = [tubeMat, tubeMat2];

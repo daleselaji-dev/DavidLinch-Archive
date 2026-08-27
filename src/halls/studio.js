@@ -1177,9 +1177,9 @@ export function build(ctx) {
   // 绷画布的**内框**：四边撑条 + 中横档 + 四角撑楔（生松木色，画布
   // 反面才有的构造语言；观众能绕到画架背后）。挂 canvasMesh 名下
   // 跟画同倾角。
-  const stretcherMat = new THREE.MeshStandardMaterial({ color: 0xcbb287, roughness: 0.9 });
+  const backFrameMat = new THREE.MeshStandardMaterial({ color: 0xcbb287, roughness: 0.9 });
   const keyG = new THREE.BoxGeometry(0.024, 0.024, 0.01);
-  const stretcher = mergedMesh([
+  const backFrame = mergedMesh([
     xform(new THREE.BoxGeometry(0.92, 0.05, 0.018), 0, 0.555, -0.03),
     xform(new THREE.BoxGeometry(0.92, 0.05, 0.018), 0, -0.555, -0.03),
     xform(new THREE.BoxGeometry(0.05, 1.06, 0.018), -0.455, 0, -0.03),
@@ -1187,9 +1187,9 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.92, 0.055, 0.014), 0, 0, -0.028),
     ...[[-0.42, 0.52], [0.42, 0.52], [-0.42, -0.52], [0.42, -0.52]].map(
       ([kx, ky]) => xform(keyG, kx, ky, -0.036, 0, 0, Math.PI / 4))
-  ], stretcherMat);
+  ], backFrameMat);
   keyG.dispose();
-  canvasMesh.add(stretcher);
+  canvasMesh.add(backFrame);
   easel.add(canvasMesh);
   easel.position.set(-4.6, 0, -4.6);
   easel.rotation.y = 0.85;
