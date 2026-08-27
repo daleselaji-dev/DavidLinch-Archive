@@ -2387,17 +2387,58 @@ export function build(ctx) {
   // 彩蛋：环形石阵（空间错位）
   // ============================================================
   const grove = new THREE.Group();
+  // v1.12 门禁 60-D：石阵从裸 BoxGeometry（黑方块 placeholder）重做为
+  // **风化立石**——seeded 变形二十面体（横向捏窄成板状、竖向拉高、
+  // 逐顶点噪声起皮）+ 微沉入土 + 各自歪斜；基部一圈碎石垫脚；
+  // 直纹风化贴图（竖向淋痕 + 苔斑）map/bump 同源。合并单 mesh 零新增。
+  const stoneR = rng(41);
   const stoneGeos = [];
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
-    const h = 0.8 + Math.random() * 0.7;
-    stoneGeos.push(xform(
-      new THREE.BoxGeometry(0.4, h, 0.32),
-      Math.cos(a) * 2.4, h / 2, Math.sin(a) * 2.4,
-      (Math.random() - 0.5) * 0.16, a + Math.random() * 0.5, 0
+    const h = 0.8 + stoneR() * 0.7;
+    const g = new THREE.IcosahedronGeometry(0.5, 1);
+    const p = g.attributes.position;
+    for (let vi = 0; vi < p.count; vi++) {
+      const k = 1 + (stoneR() - 0.5) * 0.46;
+      p.setXYZ(vi,
+        p.getX(vi) * k * 0.5,
+        p.getY(vi) * (h + (stoneR() - 0.5) * 0.12),
+        p.getZ(vi) * k * 0.36);
+    }
+    g.computeVertexNormals();
+    stoneGeos.push(xform(g,
+      Math.cos(a) * 2.4, h * 0.42, Math.sin(a) * 2.4,
+      (stoneR() - 0.5) * 0.18, a + stoneR() * 0.5, (stoneR() - 0.5) * 0.12
     ));
+    for (let bi = 0; bi < 2; bi++) { // 基部碎石垫脚
+      const pb = new THREE.IcosahedronGeometry(0.06 + stoneR() * 0.05, 0);
+      stoneGeos.push(xform(pb,
+        Math.cos(a) * 2.4 + (stoneR() - 0.5) * 0.5, 0.03,
+        Math.sin(a) * 2.4 + (stoneR() - 0.5) * 0.5,
+        stoneR() * 2, stoneR() * 2, 0));
+    }
   }
-  grove.add(mergedMesh(stoneGeos, new THREE.MeshStandardMaterial({ color: 0x11141a, roughness: 0.9 })));
+  const stoneTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#171a20';
+    g.fillRect(0, 0, s, s);
+    const r = rng(43);
+    for (let i = 0; i < 40; i++) { // 竖向淋痕
+      const x = r() * s;
+      g.fillStyle = `rgba(${8 + r() * 10 | 0},${9 + r() * 10 | 0},${12 + r() * 12 | 0},${0.3 + r() * 0.35})`;
+      g.fillRect(x, r() * s * 0.4, 1 + r() * 2, s * (0.3 + r() * 0.6));
+    }
+    for (let i = 0; i < 26; i++) { // 苔斑（贴地一侧更密）
+      const y = s * (0.55 + r() * 0.45);
+      g.fillStyle = `rgba(${14 + r() * 12 | 0},${26 + r() * 18 | 0},${16 + r() * 10 | 0},${0.22 + r() * 0.3})`;
+      g.beginPath();
+      g.arc(r() * s, y, 1.5 + r() * 4, 0, Math.PI * 2);
+      g.fill();
+    }
+  }, 1, 1);
+  grove.add(mergedMesh(stoneGeos, new THREE.MeshStandardMaterial({
+    color: 0xb8bcc4, map: stoneTex, roughness: 0.95,
+    bumpMap: stoneTex, bumpScale: 0.55
+  })));
   const poolMat = waterMat(0x02030a, { seed: 32, repX: 1.5, repY: 1.5, env: 1.8 });
   const pool = new THREE.Mesh(new THREE.CircleGeometry(1.5, 28), poolMat);
   pool.rotation.x = -Math.PI / 2;
