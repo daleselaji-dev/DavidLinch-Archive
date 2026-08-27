@@ -1429,6 +1429,17 @@ export function pineTree({ seed = 41, detail = 1 } = {}) {
         (0.026 + d * 0.046) * tierShade
       );
     });
+    // 冠底盖片自遮蔽压暗（v1.7）：从树下抬头看，层底不该是一片亮板——
+    // 法线朝正下的盖片顶点整体压到三成，近景钻到树冠下也不穿帮
+    {
+      const nrm = cone.attributes.normal;
+      const col = cone.attributes.color;
+      for (let i = 0; i < nrm.count; i++) {
+        if (nrm.getY(i) < -0.75) {
+          col.setXYZ(i, col.getX(i) * 0.3, col.getY(i) * 0.3, col.getZ(i) * 0.3);
+        }
+      }
+    }
     parts.push(cone);
   }
   const geo = mergeGeometries(parts, false);
