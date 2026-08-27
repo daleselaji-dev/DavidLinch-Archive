@@ -13,7 +13,7 @@ import {
   zoneTrigger, zonesBounds, pineGeometryMaterial,
   roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
-  chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
+  chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing, contactShadows
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
@@ -1091,6 +1091,13 @@ export function build(ctx) {
       boxes.push({ g, doorPivot, flagPivot, sp });
     }
     town.add(row);
+    // v1.10 抛光 P6：三根木桩脚下各一小摊接触阴影（月光下的草皮
+    // 太平，桩子像插进图里——给它们各自压一摊影子）
+    town.add(contactShadows([
+      { x: 17.4, z: -0.6, r: 0.16 },
+      { x: 17.4, z: -1.1, r: 0.16 },
+      { x: 17.4, z: -1.6, r: 0.16 }
+    ], 0.36));
     // v1.10 抛光 P4：桩脚草里两封没人捡的信——一封压着另一封的角，
     // 邮票格空着、地址栏只有横线（寄出它们的那年没有名字）。
     const envMat = new THREE.MeshStandardMaterial({

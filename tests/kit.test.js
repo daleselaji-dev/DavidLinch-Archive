@@ -113,6 +113,28 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
     // 条纹贴图必须走 RepeatWrapping（滚动不撕边）
     expect(seg).toContain('RepeatWrapping');
   });
+
+  it('v1.10 P6 接触阴影 contactShadows：导出 + 单 mesh 合并 + 贴图缓存 + 防深度打架', () => {
+    expect(typeof kit.contactShadows).toBe('function');
+    const seg = src.slice(src.indexOf('export function contactShadows'), src.indexOf('// ---------- 圆角几何'));
+    // 多摊必须合并为单 mesh（预算：每厅只 +1）；贴图模块级缓存只画一次
+    expect(seg).toContain('mergedMesh');
+    expect(seg).toContain('ctShadowTex');
+    // 贴地贴片三件套：不写深度、polygonOffset、透明
+    expect(seg).toContain('depthWrite: false');
+    expect(seg).toContain('polygonOffset: true');
+    expect(seg).toContain('transparent: true');
+  });
+
+  it('v1.10 P6 接触阴影已在六厅接线（mulholland 新件为平面/壁挂件，刻意不加）', () => {
+    const halls = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'studio'];
+    for (const h of halls) {
+      const hs = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hs, `${h} 缺少 contactShadows 接线`).toContain('contactShadows([');
+    }
+    const mul = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
+    expect(mul).not.toContain('contactShadows([');
+  });
 });
 
 describe('v1.3 道具预制体库导出面', () => {

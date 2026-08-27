@@ -188,6 +188,41 @@ export function softCircleTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(2
   });
 }
 
+// ---------- v1.10 P6 接触阴影 ----------
+let ctShadowTex = null;
+/**
+ * 接触阴影贴片组——道具落地处的一小摊软阴影（假 AO），防「摆上去的」
+ * 悬浮感。spots: [{ x, z, r, rz?, ry?, y? }]（rz 缺省为 r=圆摊；ry 为
+ * 摊的水平朝向；y 缺省 0.006 贴地）。多摊合并为**单 mesh**、共享一张
+ * 径向贴图（模块级缓存），polygonOffset 防与地面深度打架；黑色不受光，
+ * 低档无需回退（静态零带宽）。
+ */
+export function contactShadows(spots, opacity = 0.42) {
+  if (!ctShadowTex) {
+    ctShadowTex = canvasTexture(128, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const rad = g.createRadialGradient(s / 2, s / 2, s * 0.05, s / 2, s / 2, s / 2);
+      rad.addColorStop(0, 'rgba(0,0,0,0.9)');
+      rad.addColorStop(0.55, 'rgba(0,0,0,0.42)');
+      rad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rad;
+      g.fillRect(0, 0, s, s);
+    });
+  }
+  const geos = spots.map(({ x, z, r, rz = r, ry = 0, y = 0.006 }) => {
+    const g = new THREE.PlaneGeometry(r * 2, rz * 2);
+    // 先在面内定朝向再放平：rotateZ(θ) → rotateX(-π/2) 等价于水平 yaw θ
+    g.rotateZ(ry);
+    g.rotateX(-Math.PI / 2);
+    g.translate(x, y, z);
+    return g;
+  });
+  return mergedMesh(geos, new THREE.MeshBasicMaterial({
+    map: ctShadowTex, color: 0x000000, transparent: true, opacity,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1
+  }));
+}
+
 // ---------- 圆角几何 / 合并 ----------
 /** 圆角盒几何 */
 export function roundedBoxGeo(w, h, d, r, segments = 3) {

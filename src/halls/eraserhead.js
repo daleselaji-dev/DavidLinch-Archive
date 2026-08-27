@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
-  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat
+  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat, contactShadows
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -1957,6 +1957,9 @@ export function build(ctx) {
     lockerGrp.add(ajarPivot);
     const AJAR = -0.42; // 常态虚掩角
     ajarPivot.rotation.y = AJAR;
+    // v1.10 抛光 P6：柜排脚下一道软阴影（水泥地上铁柜的坐实感），
+    // 随组嗡震微移——挂着的锁摆、柜底的影跟着一起动才对
+    lockerGrp.add(contactShadows([{ x: 0, z: 0.06, r: 1.0, rz: 0.44 }], 0.46));
     // 东墙：打卡钟（z-3.05）与汇流排（z1.7）之间，面朝室内（-x）
     lockerGrp.position.set(S / 2 - 0.28, 0, -0.75);
     lockerGrp.rotation.y = -Math.PI / 2;

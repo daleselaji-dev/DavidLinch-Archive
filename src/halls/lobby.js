@@ -17,7 +17,7 @@ import {
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quoteStand, quoteStandUpdater, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat, marbleMat, rng, canvasTexture
+  chevronMat, woodMat, marbleMat, rng, canvasTexture, contactShadows
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -968,6 +968,9 @@ export function build(ctx) {
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
     lilyHit.position.set(0.85, 0.34, 2.05);
     group.add(lilyHit);
+    // v1.10 抛光 P6：花身下一小摊接触阴影（抛光大理石上尤其读得出
+    // 「放着」而非「浮着」；台面 y=0.24）
+    group.add(contactShadows([{ x: 0.86, z: 2.06, r: 0.3, rz: 0.14, ry: -0.55, y: 0.247 }], 0.38));
     const strayPetal = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.055),
       new THREE.MeshStandardMaterial({
         color: 0xe9e2d2, roughness: 0.6, transparent: true, opacity: 0, side: THREE.DoubleSide

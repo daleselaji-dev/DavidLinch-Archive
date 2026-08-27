@@ -11,7 +11,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quoteStand, quoteStandUpdater, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture,
-  woodMat as woodPbr, fabricMat, rng
+  woodMat as woodPbr, fabricMat, rng, contactShadows
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -2426,6 +2426,16 @@ export function build(ctx) {
     brolly.position.set(0.88, 0, D / 2 - 0.4);
     brolly.rotation.set(-0.1, 0.3, 0.045);
     group.add(brolly);
+    // v1.10 抛光 P6：接触阴影六摊合一（转椅蛛脚/行李箱/伞尖/
+    // 字纸篓/篓外两团纸）——木地板反着台灯，脚下没影最出戏
+    group.add(contactShadows([
+      { x: -5.25, z: -1.05, r: 0.42 },
+      { x: 1.42, z: D / 2 - 0.6, r: 0.3, rz: 0.17, ry: -0.12 },
+      { x: 0.88, z: D / 2 - 0.41, r: 0.09 },
+      { x: -7.15, z: -0.62, r: 0.19 },
+      { x: -6.72, z: -0.18, r: 0.055, y: 0.004 },
+      { x: -7.42, z: -0.12, r: 0.055, y: 0.004 }
+    ], 0.42));
     const caseState = { t: -1, swing: -1 };
     updaters.push((dt, t) => {
       if (caseState.t >= 0) {

@@ -13,7 +13,7 @@ import {
   neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
   velvetMaterial, zoneTrigger, rectBounds, darkFigure,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
-  woodMat, fabricMat, enamelMat, rng
+  woodMat, fabricMat, enamelMat, rng, contactShadows
 } from './kit.js';
 import { propMats, jukebox, beerTaps, cashRegister, wallPhone } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -1696,6 +1696,14 @@ export function build(ctx) {
     shoeB.position.set(3.4, 0, 6.13);
     shoeB.rotation.y = 0.14 + 0.38;
     group.add(shoeA, shoeB);
+    // v1.10 抛光 P6：接触阴影四摊合一（歌单立牌底座/牌脚铅笔/
+    // 穿衣镜八字腿/镜前红鞋）——深地板上尤其防「摆上去的」浮感
+    group.add(contactShadows([
+      { x: 2.25, z: -3.0, r: 0.3 },
+      { x: 2.52, z: -2.82, r: 0.1, rz: 0.032, ry: 1.15, y: 0.004 },
+      { x: 3.35, z: 6.68, r: 0.64, rz: 0.4, ry: 0.14 },
+      { x: 3.32, z: 6.15, r: 0.23, rz: 0.15, ry: 0.14 }
+    ], 0.4));
     // 一盏很暗的冷光让暗玻有得反——镜子在门边自己亮着一线
     const mirGlow = new THREE.PointLight(0xaab8e0, 1.2, 3.4, 2);
     mirGlow.position.set(3.2, 2.1, 5.9);

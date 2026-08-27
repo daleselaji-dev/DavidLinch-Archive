@@ -10,7 +10,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows
 } from './kit.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
@@ -1561,6 +1561,11 @@ export function build(ctx) {
       xform(new THREE.CylinderGeometry(0.028, 0.028, 0.026, 8), 0.47, 0.175, 0.2),
       xform(new THREE.TorusGeometry(0.062, 0.006, 6, 18), 0.47, 0.175, 0.2, Math.PI / 2, 0, 0)
     ], reelMat));
+    // v1.10 抛光 P6：接触阴影两摊（柜台脚 + 胶片盒摞），随组同转
+    mfGrp.add(contactShadows([
+      { x: 0, z: 0, r: 0.46, rz: 0.38 },
+      { x: 0.445, z: 0.115, r: 0.16 }
+    ], 0.44));
     // 阅览桌尾：读者从长廊一侧凑上去看
     mfGrp.position.set(-3.55, 0, -12.15);
     mfGrp.rotation.y = 0.9;
