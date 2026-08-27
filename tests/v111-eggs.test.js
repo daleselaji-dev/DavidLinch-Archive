@@ -130,6 +130,14 @@ describe('v1.11 门禁 57：几何与连锁守卫', () => {
     expect(SRC.studio).toContain('{ x: 5.75, z: -9.27, ry: 0 }');
   });
 
+  it('studio 小门 P13：三处预置位地面磨痕合并单 mesh（门会搬家这件事地板自己说）', () => {
+    // 磨痕铺满全部预置位（SPOTS.map 合并），不只当前掷中的那处
+    expect(SRC.studio).toContain('SPOTS.map((p) => xform(');
+    expect(SRC.studio).toContain('三处墙脚都有');
+    // 贴地防深度打架口径与 dragMark 同族：微抬 + 不写深度
+    expect(/scuffGeo[\s\S]{0,400}depthWrite: false/.test(SRC.studio)).toBe(true);
+  });
+
   it('twinpeaks 凝固咖啡面并进杯体（跟杯走），碟不动', () => {
     // 咖啡面是杯几何的一个 group，不是独立静止 mesh
     expect(SRC.twinpeaks).toContain('solidCoffee');

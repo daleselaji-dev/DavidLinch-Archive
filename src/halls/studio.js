@@ -7,6 +7,7 @@
 // 拉帘 / 冥想 / 画架 / 留言板，并含「咖啡→烟→天气」叙事链。
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quoteStand, quoteStandUpdater, zoneTrigger,
@@ -1832,6 +1833,48 @@ export function build(ctx) {
         setTimeout(() => audio.sfxAt('deepdrip', spot.x, spot.z, 0.6, 2.2), 950);
       }
     });
+    // v1.11 P13：三处预置位的地面磨痕——门只在一处，但**三处墙脚都有
+    // 它待过的痕迹**（门槛压痕 + 门角拖出的弧擦 + 几粒剥落的暗漆）。
+    // 细心的人会发现另外两面墙脚也有：门会搬家这件事，地板自己说。
+    const scuffTex = canvasTexture(96, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const sr = rng(59);
+      // 门槛压痕：贴墙一条浅暗带（两端更深——立梃脚）
+      const grad = g.createLinearGradient(0, 0, 0, s * 0.34);
+      grad.addColorStop(0, 'rgba(12,14,12,0.5)');
+      grad.addColorStop(1, 'rgba(12,14,12,0)');
+      g.fillStyle = grad;
+      g.fillRect(s * 0.08, 0, s * 0.84, s * 0.34);
+      g.fillStyle = 'rgba(8,10,9,0.55)';
+      g.fillRect(s * 0.08, 0, s * 0.1, s * 0.2);
+      g.fillRect(s * 0.82, 0, s * 0.1, s * 0.2);
+      // 门角弧擦：开合在地上磨出的两道浅弧
+      for (let i = 0; i < 2; i++) {
+        g.strokeStyle = `rgba(16,18,15,${0.34 - i * 0.12})`;
+        g.lineWidth = 2.5 - i;
+        g.beginPath();
+        g.arc(s * 0.14, s * 0.06, s * (0.52 + i * 0.14), 0.12, Math.PI * 0.42);
+        g.stroke();
+      }
+      // 剥落的暗漆粒（与门板同色系——是从这扇门上掉下来的）
+      for (let i = 0; i < 7; i++) {
+        g.fillStyle = `rgba(30,40,34,${0.3 + sr() * 0.3})`;
+        g.beginPath();
+        g.ellipse(s * (0.14 + sr() * 0.7), s * (0.1 + sr() * 0.5),
+          1 + sr() * 2.2, 0.8 + sr() * 1.6, sr() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+    });
+    const scuffGeo = new THREE.PlaneGeometry(0.52, 0.3);
+    group.add(new THREE.Mesh(
+      mergeGeometries(SPOTS.map((p) => xform(
+        scuffGeo, p.x + Math.sin(p.ry) * 0.17, 0.012, p.z + Math.cos(p.ry) * 0.17,
+        -Math.PI / 2, 0, p.ry
+      ))),
+      new THREE.MeshBasicMaterial({
+        map: scuffTex, transparent: true, opacity: 0.6, depthWrite: false
+      })
+    ));
   }
 
   // 深水序列：大鱼群（冥想时才可见）
