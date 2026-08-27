@@ -1529,6 +1529,22 @@ export function build(ctx) {
     standGrp.position.set(2.25, 0, -3.0);
     standGrp.rotation.y = 0.34;
     group.add(standGrp);
+    // v1.10 抛光 P4：牌架脚下掉着那支铅笔——划掉第三首的就是它，
+    // 笔尖磨秃了，滚到底座影子里没人捡。
+    const pencil = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.0055, 0.0055, 0.126, 6), 0, 0, 0, 0, 0, Math.PI / 2),
+      xform(new THREE.CylinderGeometry(0.0016, 0.0055, 0.02, 6), -0.073, 0, 0, 0, 0, Math.PI / 2)
+    ], new THREE.MeshStandardMaterial({ color: 0x9a865a, roughness: 0.6 }));
+    const pencilTip = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0004, 0.0016, 0.006, 6),
+      new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.4, metalness: 0.5 })
+    );
+    pencilTip.rotation.z = Math.PI / 2;
+    pencilTip.position.x = -0.086;
+    pencil.add(pencilTip);
+    pencil.position.set(2.52, 0.007, -2.82);
+    pencil.rotation.y = 1.15;
+    group.add(pencil);
     const cardShake = { t: -1 };
     const spotSwallow = { t: -1 };
     updaters.push((dt) => {
@@ -1653,6 +1669,33 @@ export function build(ctx) {
     mirGrp.position.set(3.35, 0, 6.68);
     mirGrp.rotation.y = Math.PI + 0.14;
     group.add(mirGrp);
+    // v1.10 抛光 P4：镜前一双红缎高跟鞋——鞋尖朝镜并排摆着，
+    // 一只摆正、一只微微歪开。有人在这面镜子前换过鞋；
+    // 换下的这双还等在原地。
+    // 缎面而非漆皮：首拍清漆 + envMap 1.6 在 Bloom 下炸成一团红光
+    // （截屏捕获），压回缎面参数让鞋形读得出来
+    const heelMat = new THREE.MeshPhysicalMaterial({
+      color: 0x5e0a14, roughness: 0.38, metalness: 0.05,
+      clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.55
+    });
+    const mkHeel = () => {
+      const toe = new THREE.SphereGeometry(0.032, 10, 8);
+      toe.scale(1, 0.68, 1.55);
+      return mergedMesh([
+        xform(toe, 0, 0.024, 0.062),
+        xform(new THREE.BoxGeometry(0.058, 0.011, 0.135), 0, 0.052, -0.022, -0.42, 0, 0),
+        xform(new THREE.BoxGeometry(0.058, 0.012, 0.06), 0, 0.081, -0.078),
+        xform(new THREE.CylinderGeometry(0.0065, 0.0105, 0.08, 8), 0, 0.04, -0.096)
+      ], heelMat);
+    };
+    const shoeA = mkHeel();
+    const shoeB = mkHeel();
+    // 鞋尖朝镜（镜面朝向 rot=π+0.14，鞋反向面对它）
+    shoeA.position.set(3.24, 0, 6.16);
+    shoeA.rotation.y = 0.14;
+    shoeB.position.set(3.4, 0, 6.13);
+    shoeB.rotation.y = 0.14 + 0.38;
+    group.add(shoeA, shoeB);
     // 一盏很暗的冷光让暗玻有得反——镜子在门边自己亮着一线
     const mirGlow = new THREE.PointLight(0xaab8e0, 1.2, 3.4, 2);
     mirGlow.position.set(3.2, 2.1, 5.9);

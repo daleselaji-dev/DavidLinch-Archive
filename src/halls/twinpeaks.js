@@ -1091,6 +1091,29 @@ export function build(ctx) {
       boxes.push({ g, doorPivot, flagPivot, sp });
     }
     town.add(row);
+    // v1.10 抛光 P4：桩脚草里两封没人捡的信——一封压着另一封的角，
+    // 邮票格空着、地址栏只有横线（寄出它们的那年没有名字）。
+    const envMat = new THREE.MeshStandardMaterial({
+      map: canvasTexture(64, (g, s) => {
+        g.fillStyle = '#d8d1bd';
+        g.fillRect(0, 0, s, s);
+        g.strokeStyle = 'rgba(120,110,88,0.8)';
+        g.lineWidth = 1.5;
+        g.strokeRect(s * 0.68, s * 0.08, s * 0.24, s * 0.28);
+        for (const yy of [0.55, 0.7, 0.85]) {
+          g.beginPath();
+          g.moveTo(s * 0.14, s * yy);
+          g.lineTo(s * 0.62, s * yy);
+          g.stroke();
+        }
+      }), roughness: 0.85
+    });
+    for (const [ex, ez, spin, lift] of [[17.66, -0.82, 0.5, 0.008], [17.58, -0.9, -0.85, 0.014]]) {
+      const env = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.1), envMat);
+      env.rotation.set(-Math.PI / 2, 0, spin);
+      env.position.set(ex, lift, ez);
+      town.add(env);
+    }
     // 中箱门永远关不上：E → 啪合 → 弹开两跳回到敞开；邻箱旗半拍后放平（连锁）
     const mbState = { t: -1, once: false, flagDropped: false };
     const midBox = boxes[1];
@@ -1724,6 +1747,24 @@ export function build(ctx) {
       xform(new THREE.BoxGeometry(0.06, 0.035, 0.012), 0, -0.09, 0.058),
       xform(new THREE.BoxGeometry(0.008, 0.022, 0.014), 0, -0.09, 0.062)
     ], M.brass));
+    // v1.10 抛光 P4：找零口——壳底一只小找零杯（底板+前唇+双侧板，
+    // 后壁借壳体），里面立着一枚没人拿的镍币（面朝外、往后靠着）。
+    // 找零一直在，投币的人没再回来。
+    wb.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.085, 0.012, 0.042), 0, -0.148, 0.044),
+      xform(new THREE.BoxGeometry(0.085, 0.03, 0.008), 0, -0.132, 0.062),
+      xform(new THREE.BoxGeometry(0.008, 0.03, 0.038), -0.0435, -0.132, 0.044),
+      xform(new THREE.BoxGeometry(0.008, 0.03, 0.038), 0.0435, -0.132, 0.044)
+    ], M.chrome));
+    const nickel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.016, 0.016, 0.0035, 14),
+      new THREE.MeshStandardMaterial({
+        map: brushedMetalTexture(64, 40, 18), color: 0xb9bcc0, roughness: 0.35, metalness: 0.9
+      })
+    );
+    nickel.rotation.x = Math.PI / 2 - 0.18;
+    nickel.position.set(0.014, -0.128, 0.05);
+    wb.add(nickel);
     // 挂在窗右侧的墙面（高背旁、坐着伸手够得到的高度）
     wb.position.set(29.7, 1.35, -3.47);
     wb.rotation.y = Math.PI;
