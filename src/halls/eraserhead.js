@@ -823,29 +823,99 @@ export function build(ctx) {
     }
   });
 
-  // 暖气炉龛 —— 抽象的发光格栅
+  // 暖气炉龛 v2（v1.12 D-12）—— 旧版是「实心圆角板 + 发光贴纸 +
+  // 6 根方鳍」的占位级构造，却是全厅彩蛋核心（炉里的小舞台）。
+  // 重做：①真壁龛（四边框 + 暗背板，光从龛腔里出来）②铸铁柱式
+  // 暖气片双列排管——中央留 0.5m 台口缺，辉光从缺口涌出、小人
+  // 就在缺口前起舞（台口即舞台）③底部歧管/关节球/支脚/带手轮
+  // 进水阀落地。净 −4 mesh（6 鳍 → 框铁件 1 + 排管 1）
   const alcove = new THREE.Group();
-  const frame = roundedBoxMesh(2.5, 2.1, 0.4, 0.08, bodyMat);
-  frame.position.y = 1.05;
+  const nicheGeos = [
+    xform(roundedBoxGeo(2.5, 0.22, 0.4, 0.05, 2), 0, 1.99, 0),   // 顶楣
+    xform(roundedBoxGeo(2.5, 0.14, 0.44, 0.05, 2), 0, 0.07, 0),  // 底槛
+    xform(roundedBoxGeo(0.25, 2.1, 0.4, 0.05, 2), -1.125, 1.05, 0),
+    xform(roundedBoxGeo(0.25, 2.1, 0.4, 0.05, 2), 1.125, 1.05, 0),
+    xform(new THREE.BoxGeometry(2.1, 1.9, 0.03), 0, 1.05, -0.15) // 暗背板
+  ];
+  const frame = mergedMesh(nicheGeos, bodyMat);
+  // 辉光带径向渐变（中心亮、四缘沉进龛影）——平铺 1.6 强度在 bloom
+  // 下会把整龛烧白，排管只剩隐约竖纹（光克制审视项）
+  const glowTex = canvasTexture(64, (g, s) => {
+    const grad = g.createRadialGradient(s / 2, s / 2, s * 0.08, s / 2, s / 2, s * 0.62);
+    grad.addColorStop(0, '#fff6e8');
+    grad.addColorStop(0.55, '#b09a78');
+    grad.addColorStop(1, '#241c12');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
   const glow = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.9, 1.5),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xfff6e8, emissiveIntensity: 1.6 })
+    new THREE.PlaneGeometry(1.9, 1.6),
+    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.6 })
   );
-  glow.position.set(0, 1.05, 0.21);
-  for (let i = 0; i < 6; i++) {
-    const fin = roundedBoxMesh(0.09, 1.55, 0.1, 0.03, bodyMat);
-    fin.position.set(-0.8 + i * 0.32, 1.05, 0.26);
-    alcove.add(fin);
+  glow.position.set(0, 1.05, -0.08);
+  // 铸铁排管：左右两列各 5 节（前后双管 + 上下关节球），中央台口缺
+  const radIronMat = new THREE.MeshStandardMaterial({
+    map: brushedMetalTexture(128, 70, 26), color: 0x3a3e42, roughness: 0.58,
+    metalness: 0.6, envMapIntensity: 0.7,
+    bumpMap: noiseCanvasTexture(64, 128, 55, 4), bumpScale: 0.3
+  });
+  const radGeos = [];
+  const tubeGeo = new THREE.CylinderGeometry(0.034, 0.034, 1.3, 10);
+  const knuckleGeo = new THREE.SphereGeometry(0.044, 10, 8);
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 5; i++) {
+      const x = side * (0.29 + i * 0.155);
+      radGeos.push(xform(tubeGeo, x, 0.89, 0.14));
+      radGeos.push(xform(tubeGeo, x, 0.89, 0.02));
+      radGeos.push(xform(knuckleGeo, x, 1.54, 0.08));
+      radGeos.push(xform(knuckleGeo, x, 0.24, 0.08));
+    }
   }
+  // 上下歧管（贯通台口缺——一台中间缺了一截的暖气，缺口就是台口）
+  const manifoldGeo = new THREE.CylinderGeometry(0.045, 0.045, 1.9, 12);
+  radGeos.push(xform(manifoldGeo, 0, 1.58, 0.08, 0, 0, Math.PI / 2));
+  radGeos.push(xform(manifoldGeo, 0, 0.2, 0.08, 0, 0, Math.PI / 2));
+  // 支脚 ×2 + 进水阀（立杆 + 手轮 + 三辐条 + 落地弯管）
+  radGeos.push(xform(new THREE.BoxGeometry(0.09, 0.2, 0.12), -0.85, 0.1, 0.08));
+  radGeos.push(xform(new THREE.BoxGeometry(0.09, 0.2, 0.12), 0.85, 0.1, 0.08));
+  radGeos.push(xform(new THREE.CylinderGeometry(0.018, 0.022, 0.13, 8), 0.98, 0.3, 0.08));
+  radGeos.push(xform(new THREE.TorusGeometry(0.052, 0.011, 6, 14), 0.98, 0.37, 0.08, Math.PI / 2));
+  for (let k = 0; k < 3; k++) {
+    radGeos.push(xform(new THREE.CylinderGeometry(0.006, 0.006, 0.096, 6),
+      0.98, 0.37, 0.08, Math.PI / 2, 0, (k / 3) * Math.PI));
+  }
+  radGeos.push(xform(new THREE.CylinderGeometry(0.028, 0.028, 0.16, 8), 1.06, 0.2, 0.08, 0, 0, Math.PI / 2));
+  radGeos.push(xform(new THREE.CylinderGeometry(0.028, 0.03, 0.2, 8), 1.13, 0.1, 0.08));
+  tubeGeo.dispose();
+  knuckleGeo.dispose();
+  manifoldGeo.dispose();
+  const radiatorBody = mergedMesh(radGeos, radIronMat);
+  // 台口踏沿：缺口下一块窄沿（小人脚下那道台板）
+  const sillTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#d8d2c4';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#141416';
+    const n = 6;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < 2; j++) {
+        if ((i + j) % 2 === 0) g.fillRect((i * s) / n, (j * s) / 2, s / n, s / 2);
+      }
+    }
+  });
+  const stageSill = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.035, 0.14),
+    new THREE.MeshStandardMaterial({ map: sillTex, roughness: 0.55, envMapIntensity: 0.9 })
+  );
+  stageSill.position.set(0, 0.1, 0.2);
   const alight = new THREE.PointLight(0xfff6e8, 5, 8, 1.8);
   alight.position.set(0, 1.2, 0.8);
-  alcove.add(frame, glow, alight);
+  alcove.add(frame, glow, radiatorBody, stageSill, alight);
   alcove.position.set(5.2, 0, -S / 2 + 0.55);
   group.add(alcove);
   updaters.push((dt, t) => {
-    const p = 1.3 + Math.sin(t * 0.8) * 0.35 + (Math.random() < 0.01 ? 1.2 : 0);
+    const p = 0.72 + Math.sin(t * 0.8) * 0.2 + (Math.random() < 0.01 ? 0.7 : 0);
     glow.material.emissiveIntensity = p;
-    alight.intensity = 3.5 + p * 1.4;
+    alight.intensity = 2.6 + p * 1.2;
   });
   hotspots.add(glow, {
     hint: 'E — 凝视暖气炉的光',

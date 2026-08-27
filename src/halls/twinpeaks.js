@@ -850,11 +850,31 @@ export function build(ctx) {
     ], 18),
     rrBrass
   ));
+  // v1.12 D-12：丝罩透光改竖向渐变（灯泡高度最亮、上下沿收暗）+
+  // 绢面拼幅缝 8 道——此前 0.7 平铺整罩被 bloom 读成发光块，
+  // 流苏穗全部淹没在辉光里（光克制审视项）
+  const rrShadeGlowTex = canvasTexture(64, (g, s) => {
+    const grad = g.createLinearGradient(0, 0, 0, s);
+    grad.addColorStop(0, '#5a4830');
+    grad.addColorStop(0.42, '#ffe2b0');
+    grad.addColorStop(0.72, '#c9a878');
+    grad.addColorStop(1, '#6e5638');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(60,44,24,0.55)';
+    g.lineWidth = 1.5;
+    for (let i = 0; i < 8; i++) {
+      g.beginPath();
+      g.moveTo((i / 8) * s, 0);
+      g.lineTo((i / 8) * s, s);
+      g.stroke();
+    }
+  });
   const rrShade = new THREE.Mesh(
     new THREE.CylinderGeometry(0.2, 0.31, 0.3, 18, 1, true),
     new THREE.MeshStandardMaterial({
       color: 0xd8ccb2, roughness: 0.82, side: THREE.DoubleSide,
-      emissive: 0xffe2b0, emissiveIntensity: 0.7
+      emissive: 0xffffff, emissiveMap: rrShadeGlowTex, emissiveIntensity: 0.5
     })
   );
   rrShade.position.y = 1.78;
