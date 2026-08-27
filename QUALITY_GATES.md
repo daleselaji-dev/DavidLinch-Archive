@@ -10,6 +10,7 @@
 > 交互 ≥105+连锁 ≥2 / 音景 v1.4 / 预算 240·240k·40 / 1.4.0 重新打包）。**
 > **v1.6.0 新增门禁 33–34（惊吓 v3 拐角即出+细节眼睛 / 黑松一体化 / 博物馆讲解零元叙事 /
 > 冥想深潜 v2 / 悬停材质克隆 / 1.6.0 重新打包）。未全绿不得交付。**
+> **v1.8.0 新增门禁 37–38（Blender 4.1.1 权威细模管线 / 彩蛋+讲解扩容 / 1.8.0 重新打包）。**
 
 ## 门禁清单
 
@@ -472,6 +473,40 @@ corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
 - [x] `release/SmokeVelvet-LynchArchive-Portable-1.7.0.exe`（Windows x64 便携版双击即运行）
 - [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
 - [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD）同步 1.7.0
+
+### 37. Blender 权威细模管线 + 彩蛋/讲解扩容（v1.8 新增）
+- [x] **Blender 4.1.1 headless 工具链入仓可复现**：`assets/blender/scripts/`
+      （svlib 共享库 + gen_pine / gen_figure / gen_ladder + build_blendmeshes）；
+      每个脚本 `blender -b -P` 一跑到底：HI 细模 → GAME 游戏档 → 三机位 CLI 渲染自检 →
+      `.blend` 入仓（`assets/blender/blends/`）→ 量化 JSON 导出
+- [x] **零外部媒体合规保持**：GAME 档量化（pos uint16 / normal int8 / color uint8 /
+      index uint16/32）base64 打进 `src/data/blendmeshes.js`——仓库零媒体文件
+      （compliance 扫描全绿）；`.blend` 为权威源、`.js` 为发行格式
+- [x] **运行时解码器入单测**：`kit.blendGeo` + `cylUV`/`planarUV`；全部烘焙件
+      解码断言（AABB/三角预算 hero≤1000·far≤450/法线归一化/未知名抛错）
+- [x] **三件重做资产接线**：双峰黑松双 LOD 实例化 72+215（夜色分级像素校准 vs v1.7
+      基线）；穆赫兰道梦魇人物（雕刻颅骨+14 绺长发烘进网格，动画挂点/材质通道契约
+      全保持，scare-verify 逐帧通过）；档案廊图书梯（车削踏杆/黄铜箍/轮叉烘进顶点色）
+- [x] **管线确定性**：重跑三脚本 + 重建 blendmeshes.js 字节级一致（SHA256 相同）
+- [x] **彩蛋扩容**：七厅各 +1 可触发彩蛋/交互（audio-guide / year-ripple /
+      intercom-reply / monitor-howl / mill-whistle / marquee-stutter / 松节油罐），
+      全部 ≥2 通道反馈 + 连锁；triggerEggs 清单同步（每厅 ≥2，双峰 4、穆赫兰 3）
+- [x] **讲解扩容合规**：大厅语音导览三段馆长讲解 + 新交互物品旁白 + QUOTES 新增
+      公开访谈短语一条；narration 审计（长度/出处/禁词/元叙事）全绿
+- [x] 交互普查 124 → **131**；INTERACTIVE_MIN 七厅各 +1（13/24/17/16/18/20/16）；
+      预算保持 240/240k/40 全绿（峰值 lobby 240 mesh / twinpeaks 225.9k tris / archive 27 灯）；
+      单测 204 → **208**
+
+**验证方式**：`tools/blender-4.1.1-linux-x64/blender -b -P assets/blender/scripts/gen_*.py`
+三连 + `build_blendmeshes.py` 重建比对 SHA256 + `npm test`（208）+
+`xvfb-run npx electron . --smoke`（新阈值全绿）+ 渲染图目视复核。
+
+### 38. Release 1.8.0（v1.8 新增）
+- [x] `npm test`（208）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.8.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.8.0
 
 ---
 

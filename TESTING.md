@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test        # vitest 单元测试（201 用例）
+npm test        # vitest 单元测试（208 用例）
 npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 ```
 
@@ -17,6 +17,23 @@ npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron
 | `tests/jazz.test.js` | 爵士氛围层配方：BPM/摇摆比例、行走贝斯与和声音域、ride 骨架、混音电平上限 |
 | `tests/narration.test.js` | 旁白四档模式体系、**留白预算**（每厅一句 ≤24 字/总字数 ≤160/禁说教词）、引语库（数量/中英/出处/长度审计）、二手标签与理论名词清零断言、ESSAYS 移除断言、**展签预算源码级审计**（每厅 quotePlaque ≤2、standPlaque 清零、字幕字面量 ≤26 字） |
 | `tests/compliance.test.js` | 合规声明关键词、仓库零媒体素材文件、旁白原创中文短句、引语出处标注、README 免责声明 |
+| `tests/kit.test.js`（v1.8 组） | `blendGeo` 解码器：全部 Blender 烘焙件解码（位置/法线/顶点色/索引）、未知名抛错、法线归一化、`cylUV`/`planarUV` 计数、松树/人物/梯子三角与包围盒预算 |
+
+## Blender 权威细模管线（v1.8，可复现验证）
+
+```bash
+B=tools/blender-4.1.1-linux-x64/blender   # 官方 Linux 包，BUILD.md 有下载说明
+$B --version                              # 应输出 Blender 4.1.1
+$B -b -P assets/blender/scripts/gen_pine.py      # 黑松：HI 细模 + GAME 档 + 三机位渲染 + 存 blend
+$B -b -P assets/blender/scripts/gen_figure.py    # 梦魇人物：同上
+$B -b -P assets/blender/scripts/gen_ladder.py    # 图书梯：同上
+$B -b -P assets/blender/scripts/build_blendmeshes.py  # 量化烘焙 → src/data/blendmeshes.js
+sha256sum src/data/blendmeshes.js         # 与仓库版本字节级一致（管线确定性）
+```
+
+渲染自检图输出到 `assets/blender/renders/`（gitignore，不入仓）：逐张目视复核
+松树层积剪影、人物长发/雕刻眼窝、梯子车削踏杆与铜箍。`.blend` 文件在
+`assets/blender/blends/`（入仓，权威源）。
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -61,6 +78,23 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] 蓝丝绒「衣柜的暗侧」：绕进右前角**衣柜与墙的夹缝** → 全场熄灯 → 呼吸声 → 百叶板条透出红光 → 字幕
 - [ ] 双峰「环形石阵」：在林间空地**背对帷幕之门**走上岔路小径（与红房间/夜街/瀑布三条主路相反方向）→ 尽头找到九块立石与黑水潭 → 走进石阵 → 萤火凝固、风声抽走、远处帷幕骤亮 → 黑幕 → **已被移到帷幕之门正前**
 - [ ] 林奇的房间「收音机自己醒来」：绕到工作桌与画架**背后的死角** → 台灯熄灭 → 收音机自行开机播出你的名字 → 六秒后恢复
+
+### v1.8 新增彩蛋/交互复现步骤
+- [ ] **大厅「语音导览」（audio-guide）**：入口右侧黄铜导览台，三只听筒各按一次 E →
+      每只播一段馆长讲解（docentNote 通道）；**三只都听完** → 吊灯集体沉暗一拍 +
+      帷幕深处一声窃语 + 字幕
+- [ ] **档案廊「年份涟漪」（year-ripple）**：入口处黄铜拉杆 E → 年表灯牌**从最新往最老**
+      逐块过亮再回落（时间倒着淌一遍），尽头纪念墙跟着醒一拍 + 字幕
+- [ ] **橡皮头「对讲机应答」（intercom-reply）**：车间墙上对讲机呼叫钮 E → 静电 →
+      远处一扇门响了一声 → **锅炉房全部压力表同时涌一格**（跑过去能看到指针还没回落）
+- [ ] **蓝丝绒「返听音箱试音」（monitor-howl）**：舞台上的监听楔 E → 载波啸叫扫频 +
+      聚光猛缩半拍再回 + 台口脚灯高频抖一串 + 后幕寒颤 + 网面短暂泛蓝
+- [ ] **双峰「锯木厂汽笛」（mill-whistle）**：瀑布眺望台黄铜拉杆 E → 远处锯木厂
+      汽笛两长声 + 烟囱烟涌 + 厂房亮窗眨一轮
+- [ ] **穆赫兰道「霓虹结巴」（marquee-stutter）**：剧场侧墙霓虹配电箱 E → ILLUSIÓN
+      跑马灯整组结巴换色再复原，**只有一个字母慢半拍**
+- [ ] **画室「松节油罐」**：画架脚边锡罐 E → 盖子啪嗒掀开又落回、罐身晃两下、
+      托板抹布跟着动 + 字幕/物品旁白
 
 ### 林奇的房间（第 6 扇门）
 - [ ] 台灯可开关；墙上开关控制顶灯；只开台灯时氛围明显变化
@@ -144,5 +178,5 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.6.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.8.0.exe` 双击直接运行（免安装）
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常
