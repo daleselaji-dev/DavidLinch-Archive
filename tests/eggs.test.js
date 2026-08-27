@@ -6,8 +6,10 @@ import { readFileSync } from 'node:fs';
 const mul = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
 const tp = readFileSync(new URL('../src/halls/twinpeaks.js', import.meta.url), 'utf8');
 
-describe('穆赫兰道「拐角黑影」惊吓 v2', () => {
-  it('触发点已挪到暗巷拐角（z 在剧场东南角附近，不再要求深入空地）', () => {
+describe('穆赫兰道「拐角那个东西」惊吓 v3', () => {
+  const scareSeg = mul.slice(mul.indexOf('const doScare'), mul.indexOf('const scareTrig'));
+
+  it('触发点在暗巷拐角（z 在剧场东南角附近，不要求深入空地）', () => {
     const m = mul.match(/zoneTrigger\(\{ x: ([\d.-]+), z: ([\d.-]+), r: ([\d.]+) \}, doScare/);
     expect(m, '找不到 doScare 的 zoneTrigger').toBeTruthy();
     const [, x, z, r] = m.map(Number);
@@ -18,14 +20,37 @@ describe('穆赫兰道「拐角黑影」惊吓 v2', () => {
     expect(r).toBeGreaterThanOrEqual(2.5);
   });
 
-  it('使用 lurkerFigure 变体而非旧 darkFigure，且带剪影红光', () => {
-    expect(mul).toContain('lurkerFigure(');
-    expect(mul).not.toContain('darkFigure(');
-    expect(mul).toContain('scareLight');
+  it('拐角即出：触发同帧 figure.visible = true / 灯灭 / 声音抽走（零铺垫拖沓）', () => {
+    expect(scareSeg, '现身不在触发同帧').toContain('figure.visible = true');
+    expect(scareSeg, '灯没有在触发同帧熄灭').toContain('alleyPanic.mode = 2');
+    expect(scareSeg, '声音没有在触发同帧抽走').toContain('audio.duck');
+    // doScare 内不允许任何 setTimeout/later 铺垫（旧版 2.9s 灯闪铺垫已废弃）
+    expect(scareSeg).not.toContain('later(');
+    expect(scareSeg).not.toContain('setTimeout(');
   });
 
-  it('五幕节奏齐备：异常(dread/metalscrape/heartbeat)→真空(duck)→现身→扑(scare+shock)→黑幕传送', () => {
-    for (const k of ["'dread'", "'metalscrape'", "'heartbeat'", "audio.duck", "'scare'", 'engine.shock', 'ui.fade(true)', 'teleport(']) {
+  it('节拍全由 dt 帧循环驱动（低帧率下声画不脱节），总长 ≤ 3.2s、现身 ≤ 0.6s', () => {
+    const m = mul.match(/const BEATS = \{([^}]+)\}/);
+    expect(m, '找不到 BEATS 节拍表').toBeTruthy();
+    const beats = {};
+    for (const [, k, v] of m[1].matchAll(/(\w+): ([\d.]+)/g)) beats[k] = Number(v);
+    expect(beats.emerge, '现身太慢（拐角即出要求 ≤0.6s）').toBeLessThanOrEqual(0.6);
+    expect(Math.max(...Object.values(beats)), '全链太长（拖沓）').toBeLessThanOrEqual(3.2);
+    expect(beats.wake).toBeGreaterThan(beats.blackout);
+    expect(beats.blackout).toBeGreaterThan(beats.lunge);
+    expect(beats.lunge).toBeGreaterThan(beats.emerge);
+  });
+
+  it('使用 nightmareFigure（细节+眼睛）而非粗黑剪影，且带惨白底光与剪影红光', () => {
+    expect(mul).toContain('nightmareFigure(');
+    expect(mul).not.toContain('lurkerFigure(');
+    expect(mul).not.toContain('darkFigure(');
+    expect(mul).toContain('scareFace');   // 下巴底下的惨白底光——照出那张脸
+    expect(mul).toContain('scareLight');  // 背后剪影红光
+  });
+
+  it('声画链齐备：dread/metalscrape/heartbeat/breath → 真空(duck) → 扑(scare+shock) → 黑幕传送', () => {
+    for (const k of ["'dread'", "'metalscrape'", "'heartbeat'", "'breath'", 'audio.duck', "'scare'", 'engine.shock', 'ui.fade(true)', 'teleport(']) {
       expect(mul, `惊吓链缺环节: ${k}`).toContain(k);
     }
   });

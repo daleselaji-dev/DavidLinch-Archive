@@ -289,6 +289,7 @@ export function build(ctx) {
       if (first) {
         audio.sfxAt('crank', 4.6, 2.4, 0.9);
         narration.jazz.setEnabled(true);
+        ui.docentNote('他与作曲家巴达拉门蒂合作三十年，音乐总先于画面。');
         ui.caption('黄铜喇叭醒了。', 3200);
       }
     }
@@ -322,6 +323,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('chime');
       ui.caption('一卷空白胶片。深水里还有没捞上来的鱼。', 4600);
+      ui.docentNote('晚年他仍在写剧本，许多构想只留在笔记与访谈里。');
     }
   });
 
@@ -629,6 +631,7 @@ export function build(ctx) {
       audio.sfxAt('creak', 5.1, -3.1, 0.3, 3);
       setTimeout(() => audio.sfx('whisper', 0.35), 500);
       ui.caption('扣子系到最上面一颗。他总是这样。', 3800);
+      ui.docentNote('他多年只穿一种搭配：扣到领口的白衬衫和深色外套。');
     }
   });
 

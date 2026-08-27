@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
-  zoneTrigger, zonesBounds, pineGeometryMaterial,
+  zoneTrigger, zonesBounds, pineTree,
   roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
   chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
@@ -146,47 +146,56 @@ export function build(ctx) {
   ], new THREE.MeshBasicMaterial({ color: 0x03060d, fog: false }));
   group.add(peaks);
 
-  // ---------- 松林（实例化，避开可逛分区 + 视线走廊） ----------
-  // v1.4 修正：树的散布是非种子随机——瀑布盆地里偶尔会长出一棵巨松
-  // 把整面水幕挡死（撞见与否全凭运气）。眺望台的「望」必须成立：
-  // 瀑布盆地与观景镜→锯木厂的视线走廊内不落树
+  // ---------- 松林（v1.6 一体化资产重做） ----------
+  // 树干+根盘+针叶冠是同一几何体（kit.pineTree），整树等比实例缩放：
+  // 无论多大的树，干与冠永远长在一起。近景走廊内用英雄树（裙缘参差/
+  // 垂梢/枝桩细节），远景用简化树控制三角形预算；散布改 seeded 确定性
+  // （同一份构建同一片森林），逐棵 instanceColor 冷暖微差打破复制感。
+  // 瀑布盆地与观景镜→锯木厂的视线走廊内不落树。
   const TREE_EXCL = [
     { minX: 3.5, maxX: 20.5, minZ: -49, maxZ: -28.4 },
     { minX: 17, maxX: 36, minZ: -44, maxZ: -30 }
   ];
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
-  const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
-  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
-  const COUNT = 340;
-  const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
+  const heroPine = pineTree({ seed: 41, detail: 1 });
+  const farPine = pineTree({ seed: 42, detail: 0 });
+  const HERO_MAX = 96;
+  const FAR_MAX = 250;
+  const pinesHero = new THREE.InstancedMesh(heroPine.geo, heroPine.mat, HERO_MAX);
+  const pinesFar = new THREE.InstancedMesh(farPine.geo, farPine.mat, FAR_MAX);
   const dummy = new THREE.Object3D();
-  let placed = 0;
+  const tint = new THREE.Color();
+  const trng = rng(53);
+  let nHero = 0;
+  let nFar = 0;
   let guard = 0;
-  while (placed < COUNT && guard++ < 9000) {
-    const a = Math.random() * Math.PI * 2;
-    const r = 6 + Math.pow(Math.random(), 0.72) * 46;
+  while ((nHero < HERO_MAX || nFar < FAR_MAX) && guard++ < 14000) {
+    const a = trng() * Math.PI * 2;
+    const r = 6 + Math.pow(trng(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
+    const s = 0.85 + trng() * 2.1;
+    const ry = trng() * Math.PI * 2;
+    const tv = 0.8 + trng() * 0.34;
     if (insideWalkable(x, z) || inTreeExcl(x, z)) continue;
-    const s = 0.8 + Math.random() * 2.4;
-    dummy.position.set(x, 2.1 * s + 0.9, z);
+    const isHero = r < 24;
+    if (isHero ? nHero >= HERO_MAX : nFar >= FAR_MAX) continue;
+    const mesh = isHero ? pinesHero : pinesFar;
+    const idx = isHero ? nHero++ : nFar++;
+    dummy.position.set(x, -0.04, z);
     dummy.scale.setScalar(s);
-    dummy.rotation.y = Math.random() * Math.PI;
+    dummy.rotation.y = ry;
     dummy.updateMatrix();
-    pines.setMatrixAt(placed, dummy.matrix);
-    dummy.position.y = 0.8;
-    dummy.scale.set(s, 1, s);
-    dummy.rotation.y = 0;
-    dummy.updateMatrix();
-    trunks.setMatrixAt(placed, dummy.matrix);
-    placed++;
+    mesh.setMatrixAt(idx, dummy.matrix);
+    tint.setRGB(tv * 0.95, tv, tv * 0.97); // 冷月光下逐棵微差
+    mesh.setColorAt(idx, tint);
   }
-  pines.count = placed;
-  trunks.count = placed;
-  group.add(pines, trunks);
+  pinesHero.count = nHero;
+  pinesFar.count = nFar;
+  if (pinesHero.instanceColor) pinesHero.instanceColor.needsUpdate = true;
+  if (pinesFar.instanceColor) pinesFar.instanceColor.needsUpdate = true;
+  group.add(pinesHero, pinesFar);
 
   // ============================================================
   // ① 林间空地 —— 红帷幕之门
@@ -342,6 +351,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('sip');
       ui.caption('热咖啡。趁热。', 3200);
+      ui.docentNote('他一天喝许多杯咖啡，说好点子常跟着咖啡一起来。');
     }
   });
   // v1.5：空地边缘的倒木 + 一台对讲机（谁留下的？频道还开着）
@@ -474,6 +484,7 @@ export function build(ctx) {
     onActivate: () => {
       rrState.warm = rrState.warm ? 0 : 1;
       audio.sfx(rrState.warm ? 'lampon' : 'lampoff');
+      ui.docentNote('红房间的台词先倒着念、再倒放，语调因此漂浮。');
     }
   });
   // 两椅之间的独脚小圆桌 + 一杯没主的咖啡
@@ -1200,6 +1211,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('chime', 0.6);
       ui.caption('今天的派还没卖完。', 3200);
+      ui.docentNote('取景的华盛顿州小镇餐馆，如今仍在卖樱桃派。');
     }
   });
   // 咖啡壶（保温座 + 玻璃壶）

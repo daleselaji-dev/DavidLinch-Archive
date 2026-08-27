@@ -93,12 +93,30 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
   });
 });
 
-describe('v1.5 拐角惊吓 / 对讲机资产', () => {
+describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
   const src = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
 
-  it('lurkerFigure 潜行黑影 v2 已导出，且带 userData.update 痉挛驱动', () => {
-    expect(typeof kit.lurkerFigure).toBe('function');
-    expect(src).toMatch(/lurkerFigure[\s\S]{0,2400}userData\.update = \(dt, t, k/);
+  it('nightmareFigure 梦魇形体 v3 已导出，且带 userData.update 痉挛驱动', () => {
+    expect(typeof kit.nightmareFigure).toBe('function');
+    expect(src).toMatch(/nightmareFigure[\s\S]{0,9000}userData\.update = \(dt, t, k/);
+  });
+
+  it('梦魇形体不再是粗黑剪影：有眼窝/眼球/瞳孔、烟垢皮肤与长发细节', () => {
+    const seg = src.slice(src.indexOf('export function nightmareFigure'));
+    for (const k of ['socket', 'eyeMat', 'pupil', 'skinTex', 'hairCap', 'mkEye', 'faceMat']) {
+      expect(seg, `nightmareFigure 缺细节: ${k}`).toContain(k);
+    }
+    // 双眼不对称（歪斜/大小差是「不对劲」的核心细节）
+    expect(seg).toContain('mkEye(-1');
+    expect(seg).toContain('mkEye(1');
+  });
+
+  it('一体化黑松 pineTree 已导出：树干/根盘/针叶冠合并单几何 + 顶点色', () => {
+    expect(typeof kit.pineTree).toBe('function');
+    const seg = src.slice(src.indexOf('export function pineTree'));
+    for (const k of ['trunk', 'flare', 'mergeGeometries', 'vertexColors: true', "setAttribute('color'"]) {
+      expect(seg.slice(0, 6000), `pineTree 缺要素: ${k}`).toContain(k);
+    }
   });
 
   it('walkieTalkie 对讲机预制体已导出，暴露 body/ptt/ledMat/antenna 交互挂点', () => {

@@ -41,6 +41,21 @@ export class UI {
     this.hintBar = el('div', 'hud-hint', '');
     this.captionBar = el('div', 'hud-caption', '');
     this.fpsBar = el('div', 'hud-fps', 'FPS —');
+    // 博物馆讲解卡（进厅背景讲解）
+    this.docentCard = el('div', 'hud-docent-card');
+    this.docentTitle = el('b', null, '');
+    this.docentLines = el('div', 'docent-lines');
+    this.docentCard.append(this.docentTitle, this.docentLines);
+    this._docentTimer = null;
+    // 物品旁白（浏览展品时的讲解低语）
+    this.docentBar = el('div', 'hud-docent-note', '');
+    this._docentNoteTimer = null;
+    // 名言/想法漂浮层
+    this.thoughtBox = el('div', 'hud-thought');
+    this.thoughtText = el('p', null, '');
+    this.thoughtSrc = el('span', null, '');
+    this.thoughtBox.append(this.thoughtText, this.thoughtSrc);
+    this._thoughtTimer = null;
 
     const dock = el('div', 'hud-dock');
     const mkBtn = (label, key, fn) => {
@@ -85,7 +100,10 @@ export class UI {
     act.addEventListener('click', () => this.o.onAct());
     touch.append(this.stick, act);
 
-    this.hud.append(title, this.hallLabel, this.crosshair, this.hintBar, this.captionBar, this.fpsBar, dock, touch);
+    this.hud.append(
+      title, this.hallLabel, this.crosshair, this.hintBar, this.captionBar,
+      this.docentCard, this.docentBar, this.thoughtBox, this.fpsBar, dock, touch
+    );
     this._bindStick();
   }
 
@@ -135,6 +153,37 @@ export class UI {
     this.captionBar.textContent = text;
     this.captionBar.classList.add('on');
     this._captionTimer = setTimeout(() => this.captionBar.classList.remove('on'), ms);
+  }
+
+  /** 博物馆讲解卡：进厅时左下角浮现两行背景讲解，停留后自行退场 */
+  showDocent(entry, ms = 11000) {
+    if (!entry) return;
+    clearTimeout(this._docentTimer);
+    this.docentTitle.textContent = entry.title;
+    this.docentLines.replaceChildren();
+    for (const line of entry.lines) this.docentLines.append(el('p', null, line));
+    this.docentCard.classList.add('on');
+    this._docentTimer = setTimeout(() => this.docentCard.classList.remove('on'), ms);
+  }
+
+  /** 物品旁白：浏览展品时的一行讲解低语（与字幕不同通道，可并存；同文一场只出一次） */
+  docentNote(text, ms = 7000) {
+    if (!this._docentSeen) this._docentSeen = new Set();
+    if (this._docentSeen.has(text)) return;
+    this._docentSeen.add(text);
+    clearTimeout(this._docentNoteTimer);
+    this.docentBar.textContent = text;
+    this.docentBar.classList.add('on');
+    this._docentNoteTimer = setTimeout(() => this.docentBar.classList.remove('on'), ms);
+  }
+
+  /** 名言/想法漂浮：右上角一段引语轻轻淌过（main.js 定时调度） */
+  driftThought(zh, source, ms = 10000) {
+    clearTimeout(this._thoughtTimer);
+    this.thoughtText.textContent = '「' + zh + '」';
+    this.thoughtSrc.textContent = '— DAVID LYNCH · ' + source;
+    this.thoughtBox.classList.add('on');
+    this._thoughtTimer = setTimeout(() => this.thoughtBox.classList.remove('on'), ms);
   }
 
   fade(dark) { this.fader.classList.toggle('clear', !dark); }

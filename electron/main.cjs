@@ -198,6 +198,15 @@ function createWindow() {
                 require('fs').mkdirSync(shotDir, { recursive: true });
                 require('fs').writeFileSync(require('path').join(shotDir, `${hall}.png`), img.toPNG());
                 console.log(`[smoke] 截屏: ${hall}.png`);
+                // SV_EGG_SHOT=1: 截屏后立即引爆彩蛋，延迟 SV_EGG_SHOT_DELAY 毫秒
+                // 再补拍一张（核验惊吓/幻象的实际画面，视觉自检用）
+                if (process.env.SV_EGG_SHOT === '1') {
+                  await win.webContents.executeJavaScript('window.__SV__.triggerEggs()', true).catch(() => {});
+                  await new Promise((r) => setTimeout(r, Number(process.env.SV_EGG_SHOT_DELAY || 1200)));
+                  const img2 = await win.webContents.capturePage();
+                  require('fs').writeFileSync(require('path').join(shotDir, `${hall}-egg.png`), img2.toPNG());
+                  console.log(`[smoke] 彩蛋截屏: ${hall}-egg.png`);
+                }
               } catch (err) {
                 console.error('[smoke] 截屏失败', err);
               }

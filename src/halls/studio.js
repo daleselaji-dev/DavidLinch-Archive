@@ -351,7 +351,10 @@ export function build(ctx) {
       ttState.playing = !ttState.playing;
       narration.jazz.setEnabled(ttState.playing);
       audio.sfx(ttState.playing ? 'chime' : 'thud', 0.5);
-      if (ttState.playing) ui.caption('针尖落进沟槽。', 3000);
+      if (ttState.playing) {
+        ui.caption('针尖落进沟槽。', 3000);
+        ui.docentNote('他也做音乐，晚年发行过两张个人专辑。');
+      }
     }
   });
 
@@ -667,6 +670,7 @@ export function build(ctx) {
       audio.sfx('sip');
       if (chain.step === 0) { chain.step = 1; chain.t = 0; }
       ui.caption('「再难喝的咖啡，也好过没有咖啡。」', 3600);
+      ui.docentNote('他推出过自己的咖啡豆品牌，包装印着他的签名。');
     }
   });
 
@@ -787,6 +791,7 @@ export function build(ctx) {
         paintState.progress = 0;
         audio.sfx('curtain', 0.4);
         ui.caption('画开始自己生长。', 3000);
+        ui.docentNote('他先是画家：在费城学画，想让画动起来，于是有了电影。');
       }
     }
   });

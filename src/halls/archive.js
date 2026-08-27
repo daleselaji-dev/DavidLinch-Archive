@@ -312,6 +312,7 @@ export function build(ctx) {
       if (clockState.t < 0) clockState.t = 0;
       audio.sfxAt('ratchet', -W / 2, 8.6, 0.45, 3);
       ui.caption('它不是坏了。它只是不同意。', 3600);
+      ui.docentNote('他每天冥想两次，四十多年不曾间断。');
     }
   });
 
@@ -687,7 +688,10 @@ export function build(ctx) {
     onActivate: () => {
       projState.on = !projState.on;
       audio.sfxAt(projState.on ? 'projector' : 'switch', -2.0, 8.2, 0.7);
-      if (projState.on) ui.caption('每秒二十四格的空白。', 3600);
+      if (projState.on) {
+        ui.caption('每秒二十四格的空白。', 3600);
+        ui.docentNote('2006 年起他改用数字摄影机，并说不会再回头。');
+      }
     }
   });
 
@@ -742,6 +746,7 @@ export function build(ctx) {
       audio.sfxAt('ladderroll', W / 2 - 1, ladderState.z, 0.8, 4);
       setTimeout(() => audio.sfxAt('thud', W / 2 - 1, ladderState.target, 0.28, 3), 950);
       ui.caption('最上面一格，谁也够不着。', 3200);
+      ui.docentNote('他的画作与手稿多次在美术馆整馆回顾展出。');
     }
   });
 

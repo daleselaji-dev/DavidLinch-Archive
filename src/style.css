@@ -149,6 +149,55 @@ html, body {
 }
 .hud-fps.on { display: block; }
 
+/* ---------- 博物馆讲解层（v1.6） ---------- */
+.hud-docent-card {
+  position: absolute; left: 22px; bottom: 118px;
+  width: min(360px, 72vw);
+  background: linear-gradient(160deg, rgba(16,9,11,0.88), rgba(10,6,8,0.78));
+  border: 1px solid rgba(201,163,92,0.35); border-left: 3px solid var(--gold, #c9a35c);
+  padding: 13px 16px 11px;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.9s, transform 0.9s;
+  pointer-events: none;
+}
+.hud-docent-card.on { opacity: 1; transform: translateY(0); }
+.hud-docent-card b {
+  display: block; font-family: var(--font-title);
+  font-size: 12px; letter-spacing: 0.22em; color: #d8b878;
+  margin-bottom: 7px;
+}
+.hud-docent-card .docent-lines p {
+  margin: 3px 0; font-size: 12px; line-height: 1.85;
+  letter-spacing: 0.1em; color: var(--ivory); opacity: 0.92;
+}
+.hud-docent-note {
+  position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+  max-width: min(640px, 86vw); text-align: center;
+  font-family: var(--font-title); font-size: 12px; letter-spacing: 0.14em;
+  line-height: 1.8; color: #d8c9a8;
+  text-shadow: 0 1px 6px #000;
+  opacity: 0; transition: opacity 0.7s; pointer-events: none;
+}
+.hud-docent-note.on { opacity: 0.95; }
+.hud-docent-note::before { content: '◈ '; color: #c9a35c; }
+.hud-thought {
+  position: absolute; top: 120px; right: 26px;
+  width: min(300px, 62vw); text-align: right;
+  opacity: 0; transform: translateX(8px);
+  transition: opacity 1.4s, transform 1.4s;
+  pointer-events: none;
+}
+.hud-thought.on { opacity: 0.9; transform: translateX(0); }
+.hud-thought p {
+  font-family: var(--font-title); font-style: italic;
+  font-size: 13px; line-height: 1.9; letter-spacing: 0.1em;
+  color: var(--ivory); text-shadow: 0 1px 8px #000;
+  margin: 0 0 5px;
+}
+.hud-thought span {
+  font-size: 10px; letter-spacing: 0.16em; color: rgba(216,184,120,0.8);
+}
+
 /* ---------- 字母显现旁白 ---------- */
 .letters-box {
   position: absolute; left: 50%; bottom: 15%;
@@ -350,6 +399,11 @@ body.touch .touch-ui { display: block; }
   .dock-btn small { display: none; }
   .hud-hint { bottom: 168px; font-size: 10px; padding: 6px 12px; letter-spacing: 0.12em; }
   .hud-caption { bottom: 210px; font-size: 12px; }
+  .hud-docent-card { left: 10px; bottom: 246px; width: min(300px, 78vw); padding: 9px 12px 8px; }
+  .hud-docent-card .docent-lines p { font-size: 11px; line-height: 1.7; }
+  .hud-docent-note { top: 40px; font-size: 11px; }
+  .hud-thought { top: 84px; right: 12px; width: min(220px, 58vw); }
+  .hud-thought p { font-size: 11px; line-height: 1.7; }
   .letters-box { bottom: 248px; font-size: 14px; line-height: 1.9; letter-spacing: 0.1em; }
   .stick { bottom: 60px; }
   .touch-act { bottom: 78px; }
