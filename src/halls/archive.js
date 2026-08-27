@@ -704,23 +704,35 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.1, 0.05, 0.05), W / 2 - 0.1, 4.35, 4.2)
   ], M.brass));
   const ladder = new THREE.Group();
-  const ladderWood = woodMat({ base: [34, 22, 13], planks: 1, size: 256, seed: 44, gloss: 0.45 });
-  const stringerGeo = roundedBoxGeo(0.035, 4.55, 0.09, 0.012, 2);
+  // v1.6 精修：暖色深木 + 低光泽（原先偏灰发亮）；弦木加厚
+  const ladderWood = woodMat({ base: [52, 33, 17], planks: 1, size: 256, seed: 44, gloss: 0.28 });
+  const stringerGeo = roundedBoxGeo(0.042, 4.55, 0.095, 0.014, 2);
   const ladderGeos = [
     xform(stringerGeo, -0.26, 2.275, 0),
     xform(stringerGeo, 0.26, 2.275, 0)
   ];
   for (let i = 0; i < 11; i++) {
-    ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
+    // 踏杆：中段微鼓的车削剖面（两端 0.015 → 中腹 0.019），久踩的圆润感
+    ladderGeos.push(xform(new THREE.CylinderGeometry(0.015, 0.019, 0.26, 10), -0.13, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
+    ladderGeos.push(xform(new THREE.CylinderGeometry(0.019, 0.015, 0.26, 10), 0.13, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
   }
   ladder.add(mergedMesh(ladderGeos, ladderWood));
-  // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉
-  ladder.add(mergedMesh([
+  // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉 + 踏杆端黄铜销钉 ×22
+  const brassBits = [
     xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
     xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
     xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
     xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045)
-  ], M.brass));
+  ];
+  for (let i = 0; i < 11; i++) {
+    for (const sx of [-1, 1]) {
+      brassBits.push(xform(
+        new THREE.CylinderGeometry(0.011, 0.013, 0.012, 8),
+        sx * 0.283, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2
+      ));
+    }
+  }
+  ladder.add(mergedMesh(brassBits, M.brass));
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
   const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);
   wheelL.rotation.z = Math.PI / 2;
@@ -749,6 +761,47 @@ export function build(ctx) {
       ui.docentNote('他的画作与手稿多次在美术馆整馆回顾展出。');
     }
   });
+
+  // ---------- 通高档案柜塔（v1.6）：图书梯有了存在的理由 ----------
+  // 墙轨下原是整面空墙（梯子无处可去）。补一座 4 米档案抽屉柜：
+  // 台座/顶檐 + 120 只小抽屉（黄铜拉手 + 标签框）+ 三只微开的屉。
+  {
+    const towerWood = woodMat({ base: [40, 26, 14], planks: 2, vertical: true, size: 256, seed: 61, gloss: 0.3 });
+    const drawerWood = woodMat({ base: [58, 38, 20], planks: 1, size: 128, seed: 62, gloss: 0.35 });
+    const TZ = 2.4;              // 柜塔中心（梯轨行程中段）
+    const TW = 3.2;              // 宽（沿 z）
+    const carcass = [
+      xform(new THREE.BoxGeometry(0.22, 3.9, TW), W / 2 - 0.13, 2.0, TZ),          // 柜体
+      xform(new THREE.BoxGeometry(0.3, 0.14, TW + 0.12), W / 2 - 0.16, 0.07, TZ),  // 台座
+      xform(new THREE.BoxGeometry(0.3, 0.1, TW + 0.12), W / 2 - 0.16, 4.0, TZ),    // 顶檐
+      // 竖向分件柱 ×3（把 120 屉分成四列组，柜面不再是一张平板）
+      xform(new THREE.BoxGeometry(0.26, 3.76, 0.05), W / 2 - 0.14, 2.02, TZ - TW / 2 + 0.8),
+      xform(new THREE.BoxGeometry(0.26, 3.76, 0.05), W / 2 - 0.14, 2.02, TZ),
+      xform(new THREE.BoxGeometry(0.26, 3.76, 0.05), W / 2 - 0.14, 2.02, TZ + TW / 2 - 0.8)
+    ];
+    group.add(mergedMesh(carcass, towerWood));
+    const fronts = [];
+    const pulls = [];
+    const ajar = new Set([23, 61, 104]); // 三只微开的屉（seeded 手选）
+    const dr = rng(63);
+    let di = 0;
+    for (let row = 0; row < 15; row++) {
+      const y = 0.32 + row * 0.245;
+      for (let col = 0; col < 8; col++) {
+        const z = TZ - TW / 2 + 0.22 + col * 0.395;
+        const open = ajar.has(di) ? 0.07 : 0;
+        const jx = W / 2 - 0.265 - open - dr() * 0.004; // 面板进出微差：手工抽屉的呼吸
+        fronts.push(xform(new THREE.BoxGeometry(0.024, 0.215, 0.355), jx, y, z));
+        pulls.push(
+          xform(new THREE.BoxGeometry(0.016, 0.016, 0.07), jx - 0.014, y - 0.052, z),          // 拉手
+          xform(new THREE.BoxGeometry(0.008, 0.052, 0.092), jx - 0.008, y + 0.038, z)          // 标签框
+        );
+        di += 1;
+      }
+    }
+    group.add(mergedMesh(fronts, drawerWood));
+    group.add(mergedMesh(pulls, M.brass));
+  }
 
   // ---------- 气送管站（v1.4 五遍）：黄铜立管进天花 + 铁站体 + 翻盖口 + 铜舱 ----------
   // E → 舱滑进站口、盖合上、whoosh 吸走 → 远处闷响 → 几秒后叮一声，

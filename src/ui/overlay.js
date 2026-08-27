@@ -251,6 +251,13 @@ export class UI {
   closeAll() {
     this.closeInfo();
     for (const name of Object.keys(this.modals)) this.closeModal(name);
+    // 换厅/开面板时收掉讲解通道，别把上一厅的旁白带进下一厅
+    clearTimeout(this._docentTimer);
+    clearTimeout(this._docentNoteTimer);
+    clearTimeout(this._thoughtTimer);
+    this.docentCard.classList.remove('on');
+    this.docentBar.classList.remove('on');
+    this.thoughtBox.classList.remove('on');
   }
 
   _showInfo(title, tag) {

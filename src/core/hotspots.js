@@ -56,15 +56,30 @@ export class Hotspots {
   _setCurrent(mesh) {
     if (this.current === mesh) return;
     if (this.current) {
-      const m = this.current.material;
-      if (m && m.emissive && this.current.userData._baseEmissive !== undefined) {
-        m.emissiveIntensity = this.current.userData._baseEmissive;
+      // 归还原材质（悬停用的是克隆件，绝不污染共享材质）
+      const ud = this.current.userData;
+      if (ud._hoverOrig) {
+        this.current.material = ud._hoverOrig;
+        ud._hoverOrig = null;
       }
     }
     this.current = mesh;
     if (mesh) {
-      if (mesh.material && mesh.material.emissive) {
-        mesh.userData._baseEmissive = mesh.material.emissiveIntensity;
+      // v1.6：悬停暖光对所有 Standard 材质生效（含 emissive 为黑的木/铁件）。
+      // 共享材质（M.brass 等）直接调 emissive 会让全厅同料件一起亮——
+      // 改为按 mesh 克隆一份悬停材质并缓存，离开即换回。
+      const m = mesh.material;
+      if (m && m.emissive && !Array.isArray(m)) {
+        const ud = mesh.userData;
+        if (!ud._hoverMat || ud._hoverSrc !== m) {
+          ud._hoverMat = m.clone();
+          ud._hoverSrc = m;
+          ud._hoverBaseEm = m.emissive.clone();
+          ud._hoverBaseInt = m.emissiveIntensity;
+        }
+        ud._hoverOrig = m;
+        mesh.material = ud._hoverMat;
+        this._pulseT = 0;
       }
       this.audio.sfx('hover');
       this.ui.setHint(mesh.userData.hotspot.hint || '互动');
@@ -82,10 +97,14 @@ export class Hotspots {
     const hit = hits.length && hits[0].distance < MAX_DIST ? hits[0].object : null;
     this._setCurrent(hit);
 
-    if (this.current && this.current.material && this.current.material.emissive) {
+    const c = this.current;
+    if (c && c.userData._hoverOrig) {
       this._pulseT += dt;
-      const base = this.current.userData._baseEmissive ?? 0.4;
-      this.current.material.emissiveIntensity = base + (Math.sin(this._pulseT * 7) * 0.5 + 0.5) * 0.9;
+      const ud = c.userData;
+      const k = Math.sin(this._pulseT * 6) * 0.5 + 0.5;
+      // 蜡光呼吸：在原自发光之上叠一层微暖，暗料件也能看见"它在等你"
+      ud._hoverMat.emissive.copy(ud._hoverBaseEm).lerp(HOVER_TINT, 0.3 + k * 0.25);
+      ud._hoverMat.emissiveIntensity = Math.max(ud._hoverBaseInt, 0.22 + k * 0.3);
     }
   }
 }
