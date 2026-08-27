@@ -2049,12 +2049,16 @@ export function build(ctx) {
     xform(knobGeo, 0.07, 1.18, 0.375)
   ], M.brass));
   knobGeo.dispose();
+  // v1.12 D-17：百叶从「0.94 整条横贯双门」改为**逐门分幅**——原做法把
+  // 中缝/旋钮全部盖死（双门根本打不开的装配矛盾，正立面读成一整块通风
+  // 板）。每级改左右两半（各 0.4，居中 ±0.3）合并单 mesh 网格数守恒，
+  // 中央让出 0.2 立梃带：中缝重新读出、旋钮从百叶后面回到立梃上
   const slats = [];
   for (let i = 0; i < 8; i++) {
-    const slat = new THREE.Mesh(
-      new THREE.BoxGeometry(0.94, 0.09, 0.03),
-      new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.7, emissive: 0xd4243c, emissiveIntensity: 0 })
-    );
+    const slat = mergedMesh([
+      xform(new THREE.BoxGeometry(0.4, 0.09, 0.03), -0.3, 0, 0),
+      xform(new THREE.BoxGeometry(0.4, 0.09, 0.03), 0.3, 0, 0)
+    ], new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.7, emissive: 0xd4243c, emissiveIntensity: 0 }));
     slat.position.set(0, 0.75 + i * 0.17, 0.36);
     slat.rotation.x = 0.5;
     closet.add(slat);

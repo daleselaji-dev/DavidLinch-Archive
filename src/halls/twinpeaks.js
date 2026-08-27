@@ -2473,12 +2473,55 @@ export function build(ctx) {
     force() { vigilFire(); }
   };
   updaters.push((dt) => vigilTrig.update(player, dt));
-  // 锯木厂剪影（烟囱 + 缓慢的烟）
-  const millMat = new THREE.MeshBasicMaterial({ color: 0x05070c, fog: false });
-  const mill = mergedMesh([
+  // 锯木厂剪影 v2（v1.12 D-18）——旧版三只平顶盒黑上加黑：夜空同为
+  // 近黑，眺望台正望过去整厂读成一片虚无、只剩烟悬在半空。剪影级重做：
+  // ①主棚双坡屋脊 + 披屋单坡（厂房轮廓线）②原木上料坡道 + 双支腿
+  // （锯木厂最认得出的一笔）③锥形木屑焚炉（西北厂区的语言）+ 囱顶
+  // 防火帽箍；④顶点色两粒**值夜窗**微暖光（睡着的厂留一盏灯——剪影
+  // 有了自证，不与「锯木厂睡着了」抵触）。全并单 mesh 网格数守恒
+  const millGeos = [
     xform(new THREE.BoxGeometry(10, 5, 6), 0, 2.5, 0),
     xform(new THREE.BoxGeometry(5, 3, 6.2), -5.5, 1.5, 0),
     xform(new THREE.CylinderGeometry(0.5, 0.7, 7, 10), 2.5, 6, 1)
+  ];
+  // 屋面三片单独收进「月色顶」组——比厂身抬半档的冷灰，衬崖影时
+  // 轮廓线还在（月光落在坡屋面上的那点差别，剪影自证的第二笔）
+  const millRoofGeos = [
+    // 主棚双坡（两片斜板到脊，端面缺口衬黑天不可见）
+    xform(new THREE.BoxGeometry(10.6, 0.18, 3.55), 0, 5.82, -1.62, -0.55, 0, 0),
+    xform(new THREE.BoxGeometry(10.6, 0.18, 3.55), 0, 5.82, 1.62, 0.55, 0, 0),
+    // 披屋单坡（向外倾）
+    xform(new THREE.BoxGeometry(5.5, 0.14, 6.7), -5.6, 3.25, 0, 0, 0, 0.24)
+  ];
+  millGeos.push(
+    // 原木上料坡道：从地面斜升到主棚檐口 + 双支腿
+    xform(new THREE.BoxGeometry(8.2, 0.22, 1.1), 6.6, 2.6, 2.4, 0, 0, 0.56),
+    xform(new THREE.BoxGeometry(0.22, 2.4, 0.22), 8.6, 1.2, 2.4),
+    xform(new THREE.BoxGeometry(0.22, 3.6, 0.22), 6.4, 1.8, 2.4),
+    // 锥形木屑焚炉 + 炉顶小帽
+    xform(new THREE.ConeGeometry(2.3, 4.8, 12), -9.8, 2.4, 1.2),
+    xform(new THREE.CylinderGeometry(0.5, 0.72, 0.5, 10), -9.8, 4.95, 1.2),
+    // 囱顶防火帽箍
+    xform(new THREE.CylinderGeometry(0.62, 0.56, 0.42, 10), 2.5, 9.4, 1)
+  );
+  // 值夜窗 ×2：主棚 +z 立面一大一小（面向眺望台的那一侧）
+  const millWinGeos = [
+    xform(new THREE.PlaneGeometry(0.55, 0.4), -1.4, 1.7, 3.02),
+    xform(new THREE.PlaneGeometry(0.3, 0.34), 1.9, 2.1, 3.02)
+  ];
+  const millTint = (geo, color) => {
+    const c = new THREE.Color(color);
+    const n = geo.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return geo;
+  };
+  const millMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false });
+  const mill = mergedMesh([
+    ...millGeos.map((g) => millTint(g, 0x05070c)),
+    ...millRoofGeos.map((g) => millTint(g, 0x0c1220)),
+    ...millWinGeos.map((g) => millTint(g, 0x9c6a34))
   ], millMat);
   mill.position.set(30, 0, -38);
   overlook.add(mill);
