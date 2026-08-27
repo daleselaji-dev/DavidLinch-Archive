@@ -1719,21 +1719,59 @@ export function build(ctx) {
   const pieGroup = new THREE.Group();
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.03, 22),
     new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.3 }));
-  const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.09, 20),
-    new THREE.MeshStandardMaterial({
-      map: canvasTexture(128, (g, s) => {
-        g.fillStyle = '#8a4a1c';
-        g.fillRect(0, 0, s, s);
-        g.strokeStyle = '#5c2c10';
-        g.lineWidth = 5;
-        for (let i = 0; i < 5; i++) {
-          g.beginPath(); g.moveTo((i / 5) * s + 12, 0); g.lineTo((i / 5) * s + 12, s); g.stroke();
-          g.beginPath(); g.moveTo(0, (i / 5) * s + 12); g.lineTo(s, (i / 5) * s + 12); g.stroke();
-        }
-      }),
-      roughness: 0.7
-    }));
-  pie.position.y = 0.06;
+  // v1.12 门禁 61（二级细节）：派从「圆柱上画格子」升级成**真格纹派**——
+  // 酥皮壁（开口圆柱）+ 顶面暗樱桃填馅圆盘 + 格纹条真实几何（两向各 4 条，
+  // 条与条之间露出发亮的馅）+ 一圈拇指捏花沿。顶点色分件上色：
+  // 单材质单 mesh，零新增（罩下的英雄道具值得真几何）。
+  const pieTint = (g, r, gg, b) => {
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = r; arr[i * 3 + 1] = gg; arr[i * 3 + 2] = b; }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
+  const crustC = [0.62, 0.36, 0.14];
+  const fillC = [0.30, 0.045, 0.05];
+  const pieGeos = [
+    // 酥皮壁（开口圆柱，顶径 0.18 底径 0.2）+ 底封片
+    pieTint(xform(new THREE.CylinderGeometry(0.18, 0.2, 0.09, 20, 1, true), 0, 0.06, 0), ...crustC),
+    pieTint(xform(new THREE.CircleGeometry(0.2, 20), 0, 0.016, 0, -Math.PI / 2, 0, 0), ...crustC),
+    // 填馅面（微低于沿口——烤塌下去的那一点点）
+    pieTint(xform(new THREE.CircleGeometry(0.175, 20), 0, 0.098, 0, -Math.PI / 2, 0, 0), ...fillC)
+  ];
+  // 格纹条：扁圆棍（capsule 压扁），两向各 4 条，端头顺沿口收进
+  const lattRng = rng(47);
+  const lattG = new THREE.CapsuleGeometry(0.014, 0.24, 3, 8);
+  for (let i = 0; i < 4; i++) {
+    const off = -0.105 + i * 0.07;
+    const halfW = Math.sqrt(Math.max(0.02, 0.17 * 0.17 - off * off));
+    const sL = halfW / 0.15;
+    pieGeos.push(pieTint(xform(lattG, off, 0.104, 0, Math.PI / 2, 0, 0.04 + lattRng() * 0.05, sL), ...crustC));
+    pieGeos.push(pieTint(xform(lattG, 0, 0.109, off, 0.04 + lattRng() * 0.05, 0, Math.PI / 2, sL), ...crustC));
+  }
+  lattG.dispose();
+  // 拇指捏花沿：16 粒小球沿口一圈（错落深浅）
+  const crimpG = new THREE.SphereGeometry(0.016, 8, 6);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    pieGeos.push(pieTint(
+      xform(crimpG, Math.cos(a) * 0.178, 0.102 + lattRng() * 0.006, Math.sin(a) * 0.178),
+      crustC[0] * (0.9 + lattRng() * 0.2), crustC[1] * (0.9 + lattRng() * 0.2), crustC[2]));
+  }
+  crimpG.dispose();
+  const pie = mergedMesh(pieGeos, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.52, // 馅的糖浆光和酥皮哑光的折中，罩内读感靠顶点色
+    map: canvasTexture(64, (g, s) => {
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, s, s);
+      const pr = rng(48);
+      for (let i = 0; i < 90; i++) { // 烤斑细噪（乘在顶点色上）
+        g.fillStyle = `rgba(120,70,30,${0.05 + pr() * 0.1})`;
+        const x = pr() * s, y = pr() * s;
+        g.fillRect(x, y, 1 + pr() * 2, 1 + pr() * 2);
+      }
+    })
+  }));
   const dome = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
     new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.14, roughness: 0.05, envMapIntensity: 1.6, depthWrite: false }));
   dome.position.y = 0.02;

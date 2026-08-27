@@ -293,9 +293,45 @@ export function jukebox({ mats } = {}) {
     grillGeos.push(xform(barGeo, -0.28 + i * 0.07, 0.46, 0.315));
   }
   barGeo.dispose();
+  // v1.12 门禁 61（二级细节）：投币口——按键排右肩一块竖装铜板
+  // （面板上唯一会被手指摸亮的地方），板上一道竖槽由两条凸棱夹出，
+  // 槽下一粒退币钮。并进格栅黄铜网格：零新增 mesh。
+  grillGeos.push(xform(new THREE.BoxGeometry(0.07, 0.13, 0.012), 0.31, 0.78, 0.328, -0.5, 0, 0));
+  grillGeos.push(xform(new THREE.BoxGeometry(0.012, 0.052, 0.008), 0.296, 0.802, 0.34, -0.5, 0, 0));
+  grillGeos.push(xform(new THREE.BoxGeometry(0.012, 0.052, 0.008), 0.324, 0.802, 0.34, -0.5, 0, 0));
+  grillGeos.push(xform(new THREE.CylinderGeometry(0.013, 0.016, 0.01, 10), 0.31, 0.742, 0.352, Math.PI / 2 - 0.5, 0, 0));
   g.add(mergedMesh(grillGeos, M.brass));
+  // v1.12 门禁 61（二级细节）：显示窗从「一条空白琥珀」变成**选曲标签架**
+  // ——两列纸条、条上一道虚线示意曲名（无真实文字，合规），左缘一列
+  // 圆孔是换标签的抽针位。亮灯时逐条被点亮（emissiveMap 同贴图）。
+  const titleTex = canvasTexture(256, (g2, s) => {
+    g2.fillStyle = '#141018';
+    g2.fillRect(0, 0, s, s);
+    const tr = rng(43);
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 2; col++) {
+        const x = 14 + col * 122, y = 22 + row * 44;
+        g2.fillStyle = `rgba(232,226,208,${0.82 + tr() * 0.14})`;
+        g2.fillRect(x, y, 106, 30);
+        g2.fillStyle = 'rgba(40,30,26,0.7)';
+        const dashes = 3 + Math.floor(tr() * 3);
+        let dx = x + 8;
+        for (let d = 0; d < dashes; d++) {
+          const w = 10 + tr() * 22;
+          g2.fillRect(dx, y + 13, w, 3.5);
+          dx += w + 6;
+          if (dx > x + 96) break;
+        }
+        g2.beginPath();
+        g2.fillStyle = '#0a0a10';
+        g2.arc(x + 3, y + 15, 2.5, 0, Math.PI * 2);
+        g2.fill();
+      }
+    }
+  });
   const windowMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a10, emissive: 0xffca7a, emissiveIntensity: 0.35
+    color: 0xffffff, map: titleTex,
+    emissive: 0xffca7a, emissiveMap: titleTex, emissiveIntensity: 0.35
   });
   const win = roundedBoxMesh(0.56, 0.2, 0.02, 0.01, windowMat);
   win.position.set(0, 0.98, 0.29);
@@ -595,10 +631,26 @@ export function ticketBooth({ mats } = {}) {
   g.add(sill);
   const bowlMat = M.brass.clone();
   bowlMat.side = THREE.DoubleSide;
-  const bowl = new THREE.Mesh(lathe([
+  // v1.12 门禁 61（二级细节）：柜台从「一块板上放一只碟」升级成
+  // **交易五金组**——出票槽（双板夹一道 8mm 缝，缝里透出台面的暗
+  // 木色）+ 台缘防磨铜条（几十年手肘和硬币磨出来的那一条）+ 碟侧
+  // 固定螺钉。全部并进碗的黄铜网格：零新增 mesh。
+  const bowlGeo = lathe([
     [0.002, 0], [0.055, 0.008], [0.085, 0.03], [0.1, 0.052], [0.105, 0.055]
-  ], 18), bowlMat);
-  bowl.position.set(0, 1.178, 0.52);
+  ], 18).translate(0, 1.178, 0.52);
+  const slotPlate = new THREE.BoxGeometry(0.16, 0.006, 0.038);
+  const slotCap = new THREE.BoxGeometry(0.025, 0.006, 0.008);
+  const bowl = mergedMesh([
+    bowlGeo,
+    xform(slotPlate, -0.28, 1.1785, 0.499),
+    xform(slotPlate, -0.28, 1.1785, 0.545),
+    xform(slotCap, -0.3475, 1.1785, 0.522),
+    xform(slotCap, -0.2125, 1.1785, 0.522),
+    xform(new THREE.BoxGeometry(1.06, 0.01, 0.018), 0, 1.172, 0.683),
+    xform(new THREE.CylinderGeometry(0.007, 0.009, 0.005, 8), -0.125, 1.1785, 0.52),
+    xform(new THREE.CylinderGeometry(0.007, 0.009, 0.005, 8), 0.125, 1.1785, 0.52)
+  ], bowlMat);
+  slotPlate.dispose(); slotCap.dispose();
   g.add(bowl);
   g.userData.bowl = bowl;
   // 二折折窗：左扇铰在左立柱，右扇铰在左扇右缘
@@ -1730,6 +1782,7 @@ export function memorialStele({ mats } = {}) {
         xform(slotG, sx, sy, D / 2 + 0.0105, 0, 0, 0.6 + si * 0.9) // 螺槽各朝一向（装过的痕迹）
       ])
   ], M.brass));
+  plaqueBack.dispose(); screwHead.dispose(); slotG.dispose();
   // 背面：蚀刻烟纹——一缕烟从碑脚升到冠沿（原创线刻，无文字）。
   // 绕到碑后看到的不是黑板，而是这缕烟。
   const smokeTex = canvasTexture(256, (g2, s) => {

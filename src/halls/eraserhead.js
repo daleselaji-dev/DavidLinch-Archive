@@ -2040,23 +2040,38 @@ export function build(ctx) {
   pencilCase.position.set(3.2, 0, 5.0);
   pencilCase.rotation.y = -2.4;
   group.add(pencilCase);
+  // v1.12 门禁 61（二级细节）：铅笔补上两处缺失的连接件——
+  // ①削尖端先露一段**削出来的木锥**（刀口下的浅木色），石墨尖只占
+  // 最末一粒；②橡皮不再直接怼在杆上，中间一节**铝箍**（两道压紧
+  // 滚棱）。片名由来的英雄道具，解剖学必须成立。
   const pencil = new THREE.Group();
   const shaft = new THREE.Mesh(
     new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6),
     new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.6 })
   );
-  const tip = new THREE.Mesh(
-    new THREE.ConeGeometry(0.02, 0.06, 6),
-    new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.8 })
+  const woodCone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.02, 0.07, 6),
+    new THREE.MeshStandardMaterial({ color: 0xdfc290, roughness: 0.85 })
   );
-  tip.position.y = -0.28;
+  woodCone.position.y = -0.285;
+  woodCone.rotation.x = Math.PI;
+  const tip = new THREE.Mesh(
+    new THREE.ConeGeometry(0.009, 0.033, 6),
+    new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.45 })
+  );
+  tip.position.y = -0.3085;
   tip.rotation.x = Math.PI;
+  const ferrule = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 0.035, 12), 0, 0.2625, 0),
+    xform(new THREE.TorusGeometry(0.022, 0.0025, 6, 14), 0, 0.252, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.TorusGeometry(0.022, 0.0025, 6, 14), 0, 0.272, 0, Math.PI / 2, 0, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0xb8bcc2, roughness: 0.35, metalness: 0.85 }));
   const eraser = new THREE.Mesh(
     new THREE.CylinderGeometry(0.021, 0.021, 0.05, 8),
     new THREE.MeshStandardMaterial({ color: 0xd88a94, roughness: 0.9 })
   );
-  eraser.position.y = 0.275;
-  pencil.add(shaft, tip, eraser);
+  eraser.position.y = 0.292;
+  pencil.add(shaft, woodCone, tip, ferrule, eraser);
   pencil.rotation.z = 0.5;
   pencil.position.y = 0.1;
   pencilCase.userData.slot.add(pencil);
