@@ -2034,6 +2034,26 @@ export function build(ctx) {
   };
   const radiatorTrig = zoneTrigger({ x: -6.4, z: -6.2, r: 1.8 }, radiatorEgg, { cooldown: 45 });
   updaters.push((dt) => radiatorTrig.update(player, dt));
+  // v1.12 门禁 61（彩蛋可发现性·光/声引导）：炉栅里偶尔透出一口
+  // 暖光（stageGlow 低强度呼吸一次，带一点炉膛式的抖）+ 一声很轻
+  // 的远蒸汽——车间对面也看得见那格栅亮了一下。彩蛋进行中
+  // （blackout/小人可见）让位。零字幕、零新增 mesh。
+  const stageCueRng = rng(66);
+  const stageCue = { next: 20 + stageCueRng() * 25, pulse: 0 };
+  updaters.push((dt) => {
+    if (blackout.v > 0 || tinyFigure.visible) { stageCue.pulse = 0; return; }
+    stageCue.next -= dt;
+    if (stageCue.next <= 0) {
+      stageCue.next = 45 + stageCueRng() * 40;
+      stageCue.pulse = 1;
+      audio.sfxAt('steamfar', 5.2, -S / 2 + 1.4, 0.35, 6);
+    }
+    if (stageCue.pulse > 0) {
+      stageCue.pulse = Math.max(0, stageCue.pulse - dt / 2.2);
+      const kk = 1 - stageCue.pulse;
+      stageGlow.intensity = Math.sin(kk * Math.PI) * 1.5 * (0.8 + Math.sin(kk * 37) * 0.2);
+    }
+  });
 
   // ---------- 展柜：一支铅笔（片名的由来） ----------
   const pencilCase = vitrine('一支铅笔', 'WHY THE TITLE', '#9fb4c7');

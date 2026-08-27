@@ -1984,6 +1984,8 @@ export function build(ctx) {
   const closetEgg = () => {
     for (const id of closetTimers) clearTimeout(id);
     closetTimers = [];
+    closetCue.hold = 8; // 引导渗光让位（见下方可发现性引导）
+    closetCue.pulse = 0;
     const prevWarm = dimState.warm;
     dimState.warm = 0.04;
     audio.duck(1.8, 0.03, 2.6);
@@ -2001,6 +2003,26 @@ export function build(ctx) {
   };
   const closetTrig = zoneTrigger({ x: 7.6, z: 5.6, r: 1.25 }, closetEgg, { cooldown: 45 });
   updaters.push((dt) => closetTrig.update(player, dt));
+  // v1.12 门禁 61（彩蛋可发现性·光/声引导）：衣柜隔一阵自己出一声
+  // 很轻的木吱呀，板条缝里同时渗一丝红光呼吸一次（1.6s 起落）——
+  // 在歌厅另一头也能听见方位、看见那个角落亮了一下。彩蛋进行中
+  // 让位（hold 8s）。零字幕、零新增 mesh。
+  const closetCueRng = rng(58);
+  const closetCue = { next: 24 + closetCueRng() * 30, pulse: 0, hold: 0 };
+  updaters.push((dt) => {
+    if (closetCue.hold > 0) { closetCue.hold -= dt; return; }
+    closetCue.next -= dt;
+    if (closetCue.next <= 0) {
+      closetCue.next = 50 + closetCueRng() * 35;
+      closetCue.pulse = 1;
+      audio.sfxAt('creak', 6.9, 5.0, 0.3, 6);
+    }
+    if (closetCue.pulse > 0) {
+      closetCue.pulse = Math.max(0, closetCue.pulse - dt / 1.6);
+      const k = Math.sin((1 - closetCue.pulse) * Math.PI);
+      for (const s of slats) s.material.emissiveIntensity = k * 0.12;
+    }
+  });
 
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
