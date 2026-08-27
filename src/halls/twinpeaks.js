@@ -287,6 +287,34 @@ export function build(ctx) {
   pines.count = placed;
   trunks.count = placed;
   group.add(pines, trunks);
+  // v1.12 门禁 60：林地散布件——三根倒木（路侧可见、离步道 2.5m+ 不挡路）。
+  // 每根：渐细主干斜卧微沉 + 厚端根盘（劈裂缘）+ 两根断枝残桩，
+  // 复用树皮材质合并单 mesh（+1 mesh 零新材质）。
+  const logR = rng(97);
+  const logGeos = [];
+  for (const [lx, lz, lyaw] of [[13.6, 16.8, 0.7], [2.6, -16.2, -0.9], [-9.2, -11.8, 2.3]]) {
+    const len = 2.6 + logR() * 1.1;
+    const rr = 0.13 + logR() * 0.05;
+    const main = new THREE.CylinderGeometry(rr * 0.72, rr, len, 9, 1);
+    main.rotateZ(Math.PI / 2); // 卧倒（沿 x）
+    logGeos.push(xform(main, lx, rr * 0.62, lz, 0.04, lyaw, 0));
+    // 厚端根盘：压扁的短锥（断根劈裂缘朝外）
+    const root = new THREE.CylinderGeometry(rr * 2.1, rr * 1.5, 0.12, 9);
+    root.rotateZ(Math.PI / 2);
+    logGeos.push(xform(root,
+      lx - Math.cos(lyaw) * (len / 2), rr * 1.15, lz + Math.sin(lyaw) * (len / 2),
+      0.04, lyaw, 0.12));
+    for (let bi = 0; bi < 2; bi++) { // 断枝残桩 ×2（朝上参差）
+      const bl = 0.22 + logR() * 0.2;
+      const stub = new THREE.CylinderGeometry(0.02, 0.038, bl, 5);
+      stub.translate(0, bl / 2, 0);
+      const along = (logR() - 0.5) * len * 0.6;
+      logGeos.push(xform(stub,
+        lx + Math.cos(lyaw) * along, rr * 1.1, lz - Math.sin(lyaw) * along,
+        (logR() - 0.5) * 0.9, logR() * Math.PI, (logR() - 0.5) * 0.9));
+    }
+  }
+  group.add(mergedMesh(logGeos, trunkMat));
 
   // ============================================================
   // ① 林间空地 —— 红帷幕之门

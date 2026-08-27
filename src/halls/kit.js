@@ -1484,15 +1484,35 @@ export function ridgeRing(radius, {
  */
 export function pineGeometryMaterial() {
   // ---- 冠 ----
+  // v1.12 门禁 60 精修循环 v3：v2 的八层枝轮彼此首尾相接——中景读感
+  // 仍是「连续锥裙叠塔」。三处结构升级：
+  // ① 每层锥体收短（×0.8）拉开**层间空隙**，加一根贯穿冠体的内脊
+  //   （顶点色压成暗褐——空隙里露出来的是被针叶阴影吃掉的树干）；
+  // ② 顶点色分层明暗：下层枝轮压暗到 0.62（老枝背光），向上渐亮——
+  //   一棵树自己就有纵深，不吃后处理；
+  // ③ 下层枝轮下垂加深（0.16→0.30 随层递减）+ 段数 12→16（近树
+  //   枝尖圈不再读出折角）。
   const tr = rng(67);
   const tiers = [
     [1.16, 1.0, -1.32], [1.03, 0.95, -0.86], [0.9, 0.92, -0.4],
     [0.78, 0.88, 0.05], [0.65, 0.84, 0.48], [0.51, 0.8, 0.9],
     [0.37, 0.74, 1.3], [0.2, 0.66, 1.66]
   ];
+  const tint = (g, r, gg, b) => {
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      arr[i * 3] = r;
+      arr[i * 3 + 1] = gg;
+      arr[i * 3 + 2] = b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
   const geos = [];
-  for (const [rad, h, y] of tiers) {
-    const cone = new THREE.ConeGeometry(rad, h, 12, 1, true);
+  for (const [ti, [rad, h, y]] of tiers.entries()) {
+    const low = 1 - ti / (tiers.length - 1); // 1=最下层
+    const cone = new THREE.ConeGeometry(rad, h * 0.8, 16, 1, true);
     const p = cone.attributes.position;
     const ph = tr() * Math.PI * 2;
     const ph2 = tr() * Math.PI * 2;
@@ -1508,12 +1528,19 @@ export function pineGeometryMaterial() {
           0.07 * Math.sin(a * 13 + ph * 1.3);
         p.setX(vi, vx * jag);
         p.setZ(vi, vz * jag);
-        p.setY(vi, vy - 0.16 - 0.13 * (0.5 + 0.5 * Math.sin(a * 7 + ph2 * 1.7)));
+        p.setY(vi, vy - (0.1 + 0.2 * low) -
+          (0.09 + 0.1 * low) * (0.5 + 0.5 * Math.sin(a * 7 + ph2 * 1.7)));
       }
     }
-    geos.push(xform(cone, 0, y, 0));
+    const shade = 0.62 + 0.38 * (1 - low); // 下层暗、上层亮
+    geos.push(xform(tint(cone, shade, shade, shade), 0, y, 0));
   }
-  geos.push(xform(new THREE.ConeGeometry(0.055, 0.5, 6), 0, 1.92, 0)); // 顶梢针尖
+  geos.push(xform(
+    tint(new THREE.ConeGeometry(0.055, 0.5, 6), 1, 1, 1), 0, 1.92, 0)); // 顶梢针尖
+  // 冠内脊：层间空隙里露出来的一段暗褐树干（顶点色压色，同材质零新增）
+  geos.push(xform(
+    tint(new THREE.CylinderGeometry(0.045, 0.075, 3.2, 7), 0.55, 0.34, 0.22),
+    0, 0.16, 0));
   const geo = mergeGeometries(geos, false);
   for (const g of geos) g.dispose();
   geo.computeVertexNormals();
@@ -1537,10 +1564,11 @@ export function pineGeometryMaterial() {
   }, 3, 3);
   const mat = new THREE.MeshStandardMaterial({
     map: needleTex, color: 0x93a38c, roughness: 0.95,
-    bumpMap: needleTex, bumpScale: 0.5, side: THREE.DoubleSide
+    bumpMap: needleTex, bumpScale: 0.5, side: THREE.DoubleSide,
+    vertexColors: true // v1.12：分层明暗 + 冠内脊压色
   });
-  // ---- 杆（y∈[0,1] 归一，实例侧 scale.y 接冠底） ----
-  const trunk = new THREE.CylinderGeometry(0.052, 0.115, 1, 9, 3, true);
+  // ---- 杆（y∈[0,1] 归一，实例侧 scale.y 接冠底；v1.12 段数 9→12） ----
+  const trunk = new THREE.CylinderGeometry(0.052, 0.115, 1, 12, 3, true);
   trunk.translate(0, 0.5, 0);
   const tp = trunk.attributes.position;
   for (let vi = 0; vi < tp.count; vi++) {
