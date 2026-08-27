@@ -4,6 +4,7 @@
 // 法兰管道 / 铆钉锅炉 / 检修步道 / 压力表 / 蒸汽 / 铁笼灯
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
   smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
@@ -1394,6 +1395,68 @@ export function build(ctx) {
   basin.scale.set(1.25, 1, 0.78);
   basin.position.set(NICHE_X, 0.888, NICHE_Z);
   boilerRoom.add(basin);
+  // v1.11 P17 湿痕晕：这只盆在这里放了很多年——背板下沿一片洇渍 +
+  // 几道锈滴垂痕（从盆沿高度往下走），台面上一圈盆位水线（比盆底
+  // 略大一号的暗环）。一张贴图上下两半、两片面片 UV 重映射后合并
+  // 单 mesh（零字幕零热点，年头自己说）。
+  const stainTex = canvasTexture(128, (g, s) => {
+    g.clearRect(0, 0, s, s);
+    const st = rng(103);
+    // 上半：背板洇渍 + 锈滴垂痕
+    for (let i = 0; i < 8; i++) { // 洇渍云（贴下沿，越低越浓）
+      g.fillStyle = `rgba(38,34,30,${0.1 + st() * 0.12})`;
+      g.beginPath();
+      g.ellipse(s * (0.2 + st() * 0.6), s * (0.86 - st() * 0.1),
+        14 + st() * 22, 6 + st() * 8, st(), 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 5; i++) { // 锈滴垂痕（自盆沿高度垂下，粗细不一）
+      const x = s * (0.24 + st() * 0.52);
+      const w = 1.2 + st() * 2.2;
+      const yTop = s * (0.56 + st() * 0.06);
+      const grd = g.createLinearGradient(0, yTop, 0, s * 0.92);
+      grd.addColorStop(0, `rgba(96,58,36,${0.34 + st() * 0.2})`);
+      grd.addColorStop(1, 'rgba(60,40,30,0)');
+      g.fillStyle = grd;
+      g.fillRect(x - w / 2, yTop, w, s * 0.92 - yTop);
+      g.fillStyle = `rgba(110,66,40,${0.4 + st() * 0.2})`; // 滴头
+      g.fillRect(x - w / 2, yTop, w, 2.5);
+    }
+    // 下半：台面盆位水线（暗环 + 环内略沉一阶）
+    g.save();
+    g.translate(s * 0.5, s * 0.25);
+    g.fillStyle = 'rgba(30,28,26,0.16)';
+    g.beginPath();
+    g.ellipse(0, 0, 44, 20, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(24,22,20,0.5)';
+    g.lineWidth = 2.4;
+    g.beginPath();
+    g.ellipse(0, 0, 46, 21.5, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = 'rgba(120,110,96,0.2)'; // 水线外一线盐渍白
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.ellipse(0, 0, 49, 23.5, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.restore();
+  });
+  const remapV = (geo, off) => {
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setY(i, off + uv.getY(i) * 0.5);
+    return geo;
+  };
+  boilerRoom.add(new THREE.Mesh(
+    mergeGeometries([
+      xform(remapV(new THREE.PlaneGeometry(0.9, 0.3), 0.5),
+        NICHE_X, 1.03, NICHE_Z + 0.272, 0, Math.PI, 0),
+      xform(remapV(new THREE.PlaneGeometry(0.95, 0.62), 0),
+        NICHE_X, 0.8885, NICHE_Z, -Math.PI / 2, 0, 0)
+    ]),
+    new THREE.MeshBasicMaterial({
+      map: stainTex, transparent: true, opacity: 0.8, depthWrite: false
+    })
+  ));
   // 缠布之物：车削长形（分段鼓包的襁褓轮廓）+ 布褶位移 + 绷带条贴图
   const wrapTex = canvasTexture(128, (g, s) => {
     g.fillStyle = '#8e887c';
