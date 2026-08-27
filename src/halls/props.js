@@ -1691,6 +1691,20 @@ export function memorialStele({ mats } = {}) {
   );
   insc.position.set(0, 1.72, D / 2 + 0.005);
   g.add(insc);
+  // v1.12 门禁 61（二级细节）：铭文从「贴在石上的贴花」变成**装上去的
+  // 铜牌**——牌后一块带厚度的黄铜底板（边缘倒角高光探出石面一线）+
+  // 四角沉头螺钉（贴脸看的面才给五金）
+  const plaqueBack = new THREE.BoxGeometry(0.9, 0.9, 0.012);
+  const screwHead = new THREE.CylinderGeometry(0.011, 0.014, 0.006, 8);
+  const slotG = new THREE.BoxGeometry(0.014, 0.0022, 0.003);
+  g.add(mergedMesh([
+    xform(plaqueBack, 0, 1.72, D / 2 - 0.002), // 前表面 0.184，铭文面 0.185——留 1mm 防共面闪烁
+    ...[[-0.405, 2.125], [0.405, 2.125], [-0.405, 1.315], [0.405, 1.315]].flatMap(
+      ([sx, sy], si) => [
+        xform(screwHead, sx, sy, D / 2 + 0.007, Math.PI / 2, 0, 0),
+        xform(slotG, sx, sy, D / 2 + 0.0105, 0, 0, 0.6 + si * 0.9) // 螺槽各朝一向（装过的痕迹）
+      ])
+  ], M.brass));
   // 背面：蚀刻烟纹——一缕烟从碑脚升到冠沿（原创线刻，无文字）。
   // 绕到碑后看到的不是黑板，而是这缕烟。
   const smokeTex = canvasTexture(256, (g2, s) => {
