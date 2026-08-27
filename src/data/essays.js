@@ -1,16 +1,19 @@
 // ============================================================
 // 展馆文案与旁白稿。
-// 文案原则（v1.3 —— 回到 v1.0 克制量级）：
+// 文案原则（v1.6 —— 三层讲解体系，仍守克制与零剧透）：
 //   1. 尽量让林奇自己解释自己：全站以其公开访谈与著作中的
 //      短引语为唯一「解读」，不提供策展评述文章、不借理论名词；
-//   2. 旁白配额：全馆 ≤8 条，每条 ≤16 字，总字数 ≤110；
-//      只在首访、延迟出现一次；措辞为风格化空间提示
-//      （光/质感/空间感受）或公开事实一行，禁止剧情叙述；
-//   3. 展签宁缺毋滥：每厅林奇原话展签 ≤1；事实铭牌只写
-//      「片名 + 年份」一行；
-//   4. 气氛交给空间、光、声与静默，不用文字解释气氛；
-//   5. 零原作叙事剧透：不复述任何电影/剧集情节，不引用影视
-//      对白 verbatim（源码级单测扫描禁词）。
+//   2. 三层旁白：
+//      · 风格线 NARRATIONS：每厅一句 ≤16 字的空间提示，首访先响；
+//      · 馆方讲解 DOCENT：每厅一段 ≤34 字的博物馆背景讲解
+//        （公开事实：年份/地点/奖项/工作方式），风格线之后低声补上；
+//      · 物品旁白 ITEM_NOTES：重点展项首次交互时一句 ≤26 字的
+//        馆方注脚（创作背景/公开事实），每件一次不重复。
+//   3. 严禁元叙事（「东西都可以碰」「点击试试」类操作说明）；
+//      严禁剧情叙述与对白引用（源码级单测扫描禁词）；
+//   4. 展签宁缺毋滥：每厅林奇原话展签 ≤1；事实铭牌只写
+//      「片名 + 年份」一行；名言以轮播短引语出现（HALL_QUOTES）；
+//   5. 气氛交给空间、光、声与静默，讲解只给事实，不解释气氛。
 // 短引语 + 出处类型（访谈/著作）属非商业粉丝纪念语境下的合理
 // 使用；不摘抄任何受版权保护的长段文字。
 // ============================================================
@@ -88,6 +91,30 @@ export const QUOTES = [
     en: 'Intuition is the key to everything.',
     zh: '直觉是一切的钥匙。',
     source: '公开访谈'
+  },
+  {
+    id: 'spiritual',
+    en: 'Eraserhead is my most spiritual movie.',
+    zh: '《橡皮头》是我最属灵的一部电影。',
+    source: '公开访谈'
+  },
+  {
+    id: 'idea-tells',
+    en: 'If you stay true to the idea, it tells you everything you need to know.',
+    zh: '只要忠于那个点子，它会告诉你一切你需要知道的。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'cinema-language',
+    en: 'Cinema is a language. It can say big, abstract things.',
+    zh: '电影是一种语言，能说出巨大而抽象的事物。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'different-thing',
+    en: 'Every viewer is going to get a different thing.',
+    zh: '每个观众得到的，都会是不一样的东西。',
+    source: '公开访谈'
   }
 ];
 
@@ -95,8 +122,20 @@ export function quoteById(id) {
   return QUOTES.find((q) => q.id === id) || null;
 }
 
-// ---------- 旁白（v1.3：v1.0 克制量级。每厅一句 ≤16 字，
-// 风格化空间提示，首访一次，迟到而安静） ----------
+// 每厅名言轮播偏好：驻留约一分钟后，低声浮现一条与该厅作品/创作
+// 相关的短引语（每次到访轮换一条，不重复打扰）
+export const HALL_QUOTES = {
+  lobby: ['sense', 'voice', 'intuition'],
+  archive: ['cinema-language', 'idea-tells', 'doughnut'],
+  eraserhead: ['spiritual', 'philly', 'darkness'],
+  bluevelvet: ['home', 'darkness', 'sound5050'],
+  twinpeaks: ['coffee', 'doughnut', 'home'],
+  mulholland: ['different-thing', 'meaning', 'sense'],
+  studio: ['bigfish', 'you', 'idea-tells']
+};
+
+// ---------- 风格线（每厅一句 ≤16 字，首访先响，迟到而安静） ----------
+// v1.6：studio 原句「东西可以碰」属元叙事（操作说明），已清除。
 export const NARRATIONS = {
   welcome: { lang: 'zh-CN', text: '慢慢走。让眼睛先适应黑。' },
   lobby: { lang: 'zh-CN', text: '六扇门，六种深浅的黑。' },
@@ -105,7 +144,39 @@ export const NARRATIONS = {
   bluevelvet: { lang: 'zh-CN', text: '灯只照亮歌者的一半。' },
   twinpeaks: { lang: 'zh-CN', text: '风穿过冷杉。咖啡还热。' },
   mulholland: { lang: 'zh-CN', text: '这条路只在夜里成立。' },
-  studio: { lang: 'zh-CN', text: '他的房间。东西可以碰。' }
+  studio: { lang: 'zh-CN', text: '他的房间。灯还亮着。' }
+};
+
+// ---------- 馆方讲解（v1.6：博物馆背景/内容讲解，每厅一段 ≤34 字。
+// 只陈述公开事实：年份/地点/奖项/工作方式；风格线之后低声补上，
+// 首访一次。不解释气氛，不复述剧情。） ----------
+export const DOCENT = {
+  lobby: { lang: 'zh-CN', text: '烟与天鹅绒——悼念大卫·林奇的展馆。六扇门，各通一件作品。' },
+  archive: { lang: 'zh-CN', text: '档案长廊收录一九六六至二〇一七年的作品年表与公开奖项。' },
+  eraserhead: { lang: 'zh-CN', text: '《橡皮头》摄制五年，一九七七年上映。展厅重构它的工业夜。' },
+  bluevelvet: { lang: 'zh-CN', text: '《蓝丝绒》上映于一九八六年。展厅重构小镇歌厅的灯与夜。' },
+  twinpeaks: { lang: 'zh-CN', text: '《双峰》始于一九九〇年。冷杉、咖啡与红房间由此进入电视史。' },
+  mulholland: { lang: 'zh-CN', text: '《穆赫兰道》二〇〇一年获戛纳最佳导演。夜路通向一座剧场。' },
+  studio: { lang: 'zh-CN', text: '按他公开谈及的日常复原：咖啡、画架、冥想，和一台收音机。' }
+};
+
+// ---------- 物品旁白（v1.6：重点展项首次交互时的馆方注脚，
+// 每件一句 ≤26 字，只讲创作背景与公开事实，一次不重复） ----------
+export const ITEM_NOTES = {
+  'lobby-stele': { lang: 'zh-CN', text: '一九四六年生于蒙大拿州米苏拉，二〇二五年离开。' },
+  'archive-projector': { lang: 'zh-CN', text: '16 毫米放映机——「会动的画」最初的介质。' },
+  'archive-ladder': { lang: 'zh-CN', text: '年表放最高处的，永远是还没拍的那部。' },
+  'eraserhead-machine': { lang: 'zh-CN', text: '早年特效多为他亲手制作，这台机器致敬那段手工岁月。' },
+  'eraserhead-radiator': { lang: 'zh-CN', text: '暖气炉里藏着一方小舞台——本片最著名的意象之一。' },
+  'bluevelvet-jukebox': { lang: 'zh-CN', text: '五十年代点唱机：他挚爱的年代，歌单的入口。' },
+  'bluevelvet-curtain': { lang: 'zh-CN', text: '蓝色天鹅绒——片名的质感来源，也是他挚爱的幕布。' },
+  'twinpeaks-pie': { lang: 'zh-CN', text: '樱桃派与黑咖啡，剧集里小镇餐馆的日常仪式。' },
+  'twinpeaks-scope': { lang: 'zh-CN', text: '瀑布取景自华盛顿州斯诺夸尔米，剧集片头名景。' },
+  'mulholland-sign': { lang: 'zh-CN', text: '这条路真实存在，盘在好莱坞北面的山脊上。' },
+  'mulholland-cube': { lang: 'zh-CN', text: '原创道具研究：一只不肯说明来历的蓝色立方体。' },
+  'studio-easel': { lang: 'zh-CN', text: '他一生先是画家——每天画画，电影是画的延伸。' },
+  'studio-radio': { lang: 'zh-CN', text: '他爱听天气预报，也曾亲自每天播一段。' },
+  'studio-cushion': { lang: 'zh-CN', text: '他公开练习超越冥想逾五十年，每天两次，从不间断。' }
 };
 
 // 版权与合规声明（应用内页 + README 同步；只保留必要事实陈述）

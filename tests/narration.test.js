@@ -3,7 +3,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { NARRATION_MODES } from '../src/ui/narration.js';
 import * as ESSAY_MODULE from '../src/data/essays.js';
-import { NARRATIONS, QUOTES, LEGAL, ABOUT_RENDER, quoteById } from '../src/data/essays.js';
+import {
+  NARRATIONS, DOCENT, ITEM_NOTES, HALL_QUOTES,
+  QUOTES, LEGAL, ABOUT_RENDER, quoteById
+} from '../src/data/essays.js';
 
 const HALL_KEYS = ['lobby', 'archive', 'eraserhead', 'bluevelvet', 'twinpeaks', 'mulholland', 'studio'];
 
@@ -47,6 +50,90 @@ describe('留白预算：旁白宁少勿滥（v1.3 收紧至 v1.0 克制量级�
       for (const w of banned) {
         expect(n.text, `旁白说教词: ${key} → ${w}`).not.toContain(w);
       }
+    }
+  });
+});
+
+describe('v1.6 三层讲解体系：博物馆讲解 + 物品旁白 + 名言轮播', () => {
+  const HALLS = HALL_KEYS;
+
+  it('每厅一段馆方讲解（DOCENT），每段 ≤34 字、≤2 句，仅公开事实', () => {
+    for (const key of HALLS) {
+      expect(DOCENT[key], `缺馆方讲解: ${key}`).toBeTruthy();
+      const text = DOCENT[key].text;
+      expect(text.length, `讲解过长: ${key} → ${text}`).toBeLessThanOrEqual(34);
+      expect(text.length).toBeGreaterThanOrEqual(10);
+      const sentences = text.split(/[。！？]/).filter((s) => s.trim().length > 0);
+      expect(sentences.length, `讲解多于两句: ${key}`).toBeLessThanOrEqual(2);
+    }
+    expect(Object.keys(DOCENT).length).toBeLessThanOrEqual(8);
+  });
+
+  it('物品旁白（ITEM_NOTES）：每件 ≤26 字，全馆 ≥12 件，key 归属七厅', () => {
+    const keys = Object.keys(ITEM_NOTES);
+    expect(keys.length).toBeGreaterThanOrEqual(12);
+    for (const key of keys) {
+      const hall = key.split('-')[0];
+      expect(HALLS, `物品 key 不归属任何厅: ${key}`).toContain(hall);
+      const text = ITEM_NOTES[key].text;
+      expect(text.length, `物品旁白过长: ${key} → ${text}`).toBeLessThanOrEqual(26);
+      expect(text.length).toBeGreaterThanOrEqual(8);
+    }
+  });
+
+  it('名言轮播（HALL_QUOTES）：每厅 ≥2 条且全部可在 QUOTES 检索到', () => {
+    for (const key of HALLS) {
+      const pool = HALL_QUOTES[key];
+      expect(pool, `缺名言轮播: ${key}`).toBeTruthy();
+      expect(pool.length).toBeGreaterThanOrEqual(2);
+      for (const id of pool) {
+        expect(quoteById(id), `名言 id 无效: ${key} → ${id}`).toBeTruthy();
+      }
+    }
+  });
+
+  it('全部讲解层禁元叙事（操作说明/打破第四面墙的表述零出现）', () => {
+    const banned = ['可以碰', '都可以', '点击', '按 E', '按E', '鼠标', '键盘', '试试看', '不妨'];
+    const all = [
+      ...Object.entries(NARRATIONS).map(([k, v]) => [`NARRATIONS.${k}`, v.text]),
+      ...Object.entries(DOCENT).map(([k, v]) => [`DOCENT.${k}`, v.text]),
+      ...Object.entries(ITEM_NOTES).map(([k, v]) => [`ITEM_NOTES.${k}`, v.text])
+    ];
+    for (const [where, text] of all) {
+      for (const w of banned) {
+        expect(text, `元叙事表述: ${where} → ${w}`).not.toContain(w);
+      }
+    }
+  });
+
+  it('讲解层不复述剧情：无叙事连接词，不引用对白', () => {
+    const banned = ['后来', '然后', '接着', '最后他', '剧情', '讲述了', '故事里'];
+    const all = [...Object.values(DOCENT), ...Object.values(ITEM_NOTES)].map((v) => v.text);
+    for (const text of all) {
+      for (const w of banned) {
+        expect(text, `讲解疑似叙事: ${text} → ${w}`).not.toContain(w);
+      }
+    }
+  });
+
+  it('主编排接线：首访两段式（风格线 → 馆方讲解）+ 驻留名言轮播 + 换厅清定时器', () => {
+    const main = readFileSync(join(process.cwd(), 'src', 'main.js'), 'utf-8');
+    expect(main).toContain('narration.speakKey(key)');
+    expect(main).toContain('narration.speakDocent(id)');
+    expect(main).toContain('narration.speakQuote(q)');
+    expect(main).toMatch(/for \(const t of hallTimers\) clearTimeout\(t\)/);
+  });
+
+  it('物品旁白接线：七厅合计 ≥12 处 speakItem，且 key 均存在于 ITEM_NOTES', () => {
+    const hallsDir = join(process.cwd(), 'src', 'halls');
+    const src = readdirSync(hallsDir)
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => readFileSync(join(hallsDir, f), 'utf-8'))
+      .join('\n');
+    const used = [...src.matchAll(/speakItem\('([^']+)'\)/g)].map((m) => m[1]);
+    expect(used.length).toBeGreaterThanOrEqual(12);
+    for (const key of used) {
+      expect(ITEM_NOTES[key], `speakItem 引用不存在的 key: ${key}`).toBeTruthy();
     }
   });
 });

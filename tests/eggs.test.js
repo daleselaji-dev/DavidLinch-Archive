@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 const mul = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
 const tp = readFileSync(new URL('../src/halls/twinpeaks.js', import.meta.url), 'utf8');
 
-describe('穆赫兰道「拐角黑影」惊吓 v2', () => {
-  it('触发点已挪到暗巷拐角（z 在剧场东南角附近，不再要求深入空地）', () => {
+describe('穆赫兰道「拐角黑影」惊吓 v3（拐角即出）', () => {
+  it('触发点在暗巷拐角（z 在剧场东南角附近，不要求深入空地）', () => {
     const m = mul.match(/zoneTrigger\(\{ x: ([\d.-]+), z: ([\d.-]+), r: ([\d.]+) \}, doScare/);
     expect(m, '找不到 doScare 的 zoneTrigger').toBeTruthy();
     const [, x, z, r] = m.map(Number);
@@ -18,14 +18,29 @@ describe('穆赫兰道「拐角黑影」惊吓 v2', () => {
     expect(r).toBeGreaterThanOrEqual(2.5);
   });
 
-  it('使用 lurkerFigure 变体而非旧 darkFigure，且带剪影红光', () => {
+  it('使用 lurkerFigure v3（带眼）而非旧 darkFigure，且带剪影红光', () => {
     expect(mul).toContain('lurkerFigure(');
     expect(mul).not.toContain('darkFigure(');
     expect(mul).toContain('scareLight');
   });
 
-  it('五幕节奏齐备：异常(dread/metalscrape/heartbeat)→真空(duck)→现身→扑(scare+shock)→黑幕传送', () => {
-    for (const k of ["'dread'", "'metalscrape'", "'heartbeat'", "audio.duck", "'scare'", 'engine.shock', 'ui.fade(true)', 'teleport(']) {
+  it('拐角即出：触发同帧滑出（phase=3 无前置延时）+ 0.3s 滑到面前 + 0.75s 内起扑', () => {
+    // doScare 里第一动作即 phase=3（黑影出场），不再有 2.9s 铺垫计时器
+    expect(mul).toMatch(/const doScare = \(\) => \{\s*\n\s*if \(scare\.phase !== 0\) return;\s*\n\s*\/\/[^\n]*\n\s*scare\.phase = 3;/);
+    expect(mul).toMatch(/scare\.t \/ 0\.3\b/);      // 0.3s 滑出
+    expect(mul).toMatch(/\}, 750\);/);               // 0.75s 起扑
+    expect(mul).toMatch(/\}, 1150\);/);              // 1.15s 黑幕
+    expect(mul).not.toMatch(/\}, 2900\);/);          // 旧的拖沓铺垫已删除
+  });
+
+  it('铺垫改为接近驱动：unease 距离场 + 巷灯随之失稳 + dread 预警一记', () => {
+    for (const k of ['alleyPanic.unease', "sfxAt('dread'", 'dreadState.armed']) {
+      expect(mul, `接近驱动铺垫缺环节: ${k}`).toContain(k);
+    }
+  });
+
+  it('声画链齐备：silencecut 抽真空(duck) + metalscrape 拖地 + scare+shock + 黑幕(heartbeat) + 错位传送', () => {
+    for (const k of ["'silencecut'", "'metalscrape'", "'heartbeat'", 'audio.duck', "'scare'", 'engine.shock', 'ui.fade(true)', 'teleport(']) {
       expect(mul, `惊吓链缺环节: ${k}`).toContain(k);
     }
   });
@@ -33,6 +48,18 @@ describe('穆赫兰道「拐角黑影」惊吓 v2', () => {
   it('可重复触发且有冷却；彩蛋以 corner-scare 暴露给冒烟测试', () => {
     expect(mul).toMatch(/doScare, \{ cooldown: \d+ \}/);
     expect(mul).toContain("'corner-scare': scareTrig");
+  });
+});
+
+describe('穆赫兰道「午夜来电」彩蛋（v1.6 惊吓连锁）', () => {
+  it('惊吓归位时武装电话亭（lateCall.arm），走近响铃，接起有静电/呼吸/亭灯寒颤', () => {
+    for (const k of ['lateCall.arm()', "sfxAt('phonering'", 'lateCall.ringing', 'boothShiver']) {
+      expect(mul, `午夜来电缺环节: ${k}`).toContain(k);
+    }
+  });
+
+  it('彩蛋以 late-call 暴露给冒烟测试', () => {
+    expect(mul).toContain("'late-call': lateCall");
   });
 });
 

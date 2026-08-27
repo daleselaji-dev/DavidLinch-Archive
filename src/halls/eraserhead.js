@@ -35,7 +35,7 @@ const MAIN = { minX: -S / 2 + 1.1, maxX: S / 2 - 1.1, minZ: -S / 2 + 1.6, maxZ: 
 const ANNEX = { minX: -S / 2 - 6.2, maxX: -S / 2 + 1.2, minZ: -2.6, maxZ: 2.6 }; // 锅炉房
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player } = ctx;
+  const { hotspots, ui, goTo, audio, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -437,6 +437,7 @@ export function build(ctx) {
       machineState.run = 0.35; // 打个嗝，随后被恢复更新器拉回 1
       setTimeout(() => audio.sfxAt('creak', -2.9, -5.9, 0.35, 3), 340);
       ui.caption('它听见了，但它不打算停。', 3400);
+      narration.speakItem('eraserhead-machine');
     }
   });
 
@@ -622,6 +623,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('lullaby', 0.5);
       ui.caption('光的后面还有一层光。', 3600);
+      narration.speakItem('eraserhead-radiator');
     }
   });
 

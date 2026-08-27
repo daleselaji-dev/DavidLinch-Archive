@@ -66,7 +66,7 @@ const insideWalkable = (x, z, margin = 1.6) => {
 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, player, teleport } = ctx;
+  const { hotspots, ui, goTo, audio, player, teleport, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
   const timers = [];
@@ -156,37 +156,35 @@ export function build(ctx) {
   ];
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
-  const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
-  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
+  // v1.6 一体化松树：树干+枝桩+树冠为单几何（kit.pineGeometryMaterial），
+  // 整树统一缩放——树干与树体永不分离；近景完整细节 / 远景剪影低模两档
+  const { geo: pineNearGeo, mat: pineMat } = pineGeometryMaterial('near');
+  const { geo: pineFarGeo } = pineGeometryMaterial('far');
   const COUNT = 340;
-  const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
+  const NEAR_R = 26; // 距场地中心此半径内用完整细节档
+  const pinesNear = new THREE.InstancedMesh(pineNearGeo, pineMat, COUNT);
+  const pinesFar = new THREE.InstancedMesh(pineFarGeo, pineMat, COUNT);
   const dummy = new THREE.Object3D();
-  let placed = 0;
+  let placedNear = 0;
+  let placedFar = 0;
   let guard = 0;
-  while (placed < COUNT && guard++ < 9000) {
+  while (placedNear + placedFar < COUNT && guard++ < 9000) {
     const a = Math.random() * Math.PI * 2;
     const r = 6 + Math.pow(Math.random(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
     if (insideWalkable(x, z) || inTreeExcl(x, z)) continue;
-    const s = 0.8 + Math.random() * 2.4;
-    dummy.position.set(x, 2.1 * s + 0.9, z);
+    const s = 0.7 + Math.random() * 1.7;
+    dummy.position.set(x, 0, z);
     dummy.scale.setScalar(s);
-    dummy.rotation.y = Math.random() * Math.PI;
+    dummy.rotation.y = Math.random() * Math.PI * 2;
     dummy.updateMatrix();
-    pines.setMatrixAt(placed, dummy.matrix);
-    dummy.position.y = 0.8;
-    dummy.scale.set(s, 1, s);
-    dummy.rotation.y = 0;
-    dummy.updateMatrix();
-    trunks.setMatrixAt(placed, dummy.matrix);
-    placed++;
+    if (r < NEAR_R) pinesNear.setMatrixAt(placedNear++, dummy.matrix);
+    else pinesFar.setMatrixAt(placedFar++, dummy.matrix);
   }
-  pines.count = placed;
-  trunks.count = placed;
-  group.add(pines, trunks);
+  pinesNear.count = placedNear;
+  pinesFar.count = placedFar;
+  group.add(pinesNear, pinesFar);
 
   // ============================================================
   // ① 林间空地 —— 红帷幕之门
@@ -1231,6 +1229,7 @@ export function build(ctx) {
     onActivate: () => {
       pcaseState.spin = 2.2;
       audio.sfx('chime', 0.5);
+      narration.speakItem('twinpeaks-pie');
     }
   });
 
@@ -1647,6 +1646,7 @@ export function build(ctx) {
       scopeState.target = (scopeState.target + 1) % 2;
       audio.sfx('creak', 0.55);
       ui.caption(scopeState.target === 0 ? '瀑布不停。' : '锯木厂睡着了。', 3000);
+      narration.speakItem('twinpeaks-scope');
     }
   });
   const mist = smokeLayer(36, { x: 9, z: 5 }, { opacity: 0.08, size: 6, yBase: 0.5, ySpread: 3.5, color: 0xc8dce8 });

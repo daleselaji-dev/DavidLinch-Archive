@@ -1,10 +1,11 @@
 // ============================================================
 // 《穆赫兰道》展厅 —— NIGHT ROAD & THE ILLUSION THEATER
 // 夜路 + 路灯 + 剧场 + 蓝色立方体 (梦境反转交互)
-// 彩蛋 v1.5：
+// 彩蛋 v1.6：
 //   · THE THING AT THE CORNER —— 沿暗巷走到剧场拐角的人，会遇到那个东西
-//     （五幕节奏：灯相异常→真空压迫→拐角现身逼近→扑→黑幕错位）
+//     （v3 拐角即出：接近驱动的前奏不安 → 触发同帧滑出 → 对视一拍 → 扑 → 黑幕错位）
 //   · THERE IS NO BAND —— 对着舞台话筒按 E，歌声与歌者剪影会先后离场
+//   · THE LATE CALL —— 它见过你之后，巷内电话亭会为你响铃
 // 全部原创程序化惊吓/幻象，无镜头复刻、无对白引用
 // ============================================================
 import * as THREE from 'three';
@@ -43,7 +44,7 @@ const ALLEY = { minX: 8.4, maxX: 11.0, minZ: -31.5, maxZ: 6.5 };    // 暗巷
 const BACKLOT = { minX: -10.5, maxX: 11.0, minZ: -33.0, maxZ: -27.6 }; // 背后空地
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, engine, player, teleport } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, teleport, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
   const timers = [];
@@ -243,7 +244,10 @@ export function build(ctx) {
   group.add(roadSign, signPole);
   hotspots.add(roadSign, {
     hint: 'E — 《穆赫兰道》档案',
-    onActivate: () => ui.showFilm('mulholland-drive')
+    onActivate: () => {
+      ui.showFilm('mulholland-drive');
+      narration.speakItem('mulholland-sign');
+    }
   });
 
   // 路肩护栏（白色立柱 + 波形护板，合并单 mesh）
@@ -795,7 +799,7 @@ export function build(ctx) {
   // v1.5 P3：巷壁灯从「悬空裸灯泡」升级成完整壁灯资产——
   // 铆钉底板 + 鹅颈弯臂 + 锥形罩（可见内壁）+ 灯泡 + 板下锈挂贴花。
   // 两盏共用一个「恐慌」状态机：0 正常将熄闪烁 / 1 异常狂闪 / 2 全灭（惊吓相位驱动）
-  const alleyPanic = { mode: 0 };
+  const alleyPanic = { mode: 0, unease: 0 }; // unease: 接近拐角的距离驱动（0–1）
   const sconceRust = rustMat({ color: 0x8a8f96, seed: 53, repX: 1, repY: 1, rust: 0.7, env: 0.6 });
   const sconceShadeMat = rustMat({ color: 0x6d7076, seed: 54, repX: 1, repY: 1, rust: 0.55, env: 0.7 });
   sconceShadeMat.side = THREE.DoubleSide;
@@ -852,7 +856,11 @@ export function build(ctx) {
         f = Math.sin(t * 47 + S.phase * 3) * Math.sin(t * 13 + S.phase) > -0.2
           ? (Math.random() < 0.1 ? 0.02 : 1.35) : 0.06;
       } else {
-        f = Math.sin(t * (19 - S.phase) + S.phase) * Math.sin(t * 6.3 + S.phase * 0.4) > 0.55 ? 0.12 : 1;
+        // 正常将熄闪烁——接近拐角时（unease↑）闪得更频、更深、更不对
+        const u = alleyPanic.unease || 0;
+        const gate = 0.55 - u * 0.75;
+        f = Math.sin(t * (19 - S.phase + u * 14) + S.phase) * Math.sin(t * 6.3 + S.phase * 0.4) > gate
+          ? 0.12 - u * 0.09 : 1;
       }
       S.light.intensity = 3.3 * f;
       S.bulbMat.emissiveIntensity = 2.4 * Math.max(0.02, f);
@@ -1030,9 +1038,29 @@ export function build(ctx) {
   hotspots.add(booth.userData.handset, {
     hint: 'E — 听筒还挂着微温',
     onActivate: () => {
+      if (lateCall.ringing) {
+        // 接起午夜来电：铃停，静电与呼吸，亭灯打一个寒颤
+        lateCall.ringing = false;
+        lateCall.armed = false;
+        audio.sfx('radio', 0.75);
+        later(() => audio.sfx('breath', 0.5), 900);
+        later(() => audio.sfx('whisper', 0.4), 2200);
+        boothShiver.t = 0;
+        ui.caption('电话是打给刚才的你的。', 4600);
+        return;
+      }
       audio.sfx('radio', 0.6);
       ui.caption('没有拨号音。只有呼吸。', 3600);
     }
+  });
+  // 亭灯寒颤（接起午夜来电时的光反馈）
+  const boothShiver = { t: -1 };
+  updaters.push((dt) => {
+    if (boothShiver.t < 0) return;
+    boothShiver.t += dt;
+    if (boothShiver.t > 1.6) { boothShiver.t = -1; return; }
+    booth.userData.topSignMat.emissiveIntensity =
+      0.9 * (Math.random() < 0.4 ? 0.1 : 1.8) * (1 - boothShiver.t / 1.6);
   });
   // 转盘拨号 —— 顺时针转到底，再嗒嗒嗒弹回
   const dialState = { t: 0 };
@@ -1051,104 +1079,185 @@ export function build(ctx) {
     }
   });
 
-  // ---------- 惊吓彩蛋 v2：THE THING AT THE CORNER（拐角黑影） ----------
-  // v1.5 重做：触发点从空地深处挪到暗巷拐角——玩家沿巷走到剧场东南角、
-  // 即将看见后门与垃圾箱方向时就触发，不再要求深入 BACKLOT。
-  // 节奏五幕（总长 ≈6.2s，快慢有留白）：
-  //   ① 0.0s 环境异常：两盏巷灯狂闪失相 + 次声低压涌起 + 垃圾箱方向一声金属拖地 + 心跳
-  //   ② 2.0s 真空压迫：声音被整只手拔掉，整条巷连同后门灯一起熄灭——0.9s 纯黑寂静
-  //   ③ 2.9s 现身：黑影从拐角「挪」出来，一顿一顿逼近到 2.3m，背后一粒红剪影光
-  //   ④ 4.5s 扑：0.24s 加速到面前 0.9m + scare 音墙 + shock 后处理
-  //   ⑤ 5.4s 黑幕错位：醒来已被放回巷口，背对来路。可重复触发（冷却 40s）。
+  // ---------- 惊吓彩蛋 v3：THE THING AT THE CORNER（拐角黑影） ----------
+  // v1.6 重做：**拐角即出**——原作节奏是「转过拐角的瞬间它已经在那里」，
+  // 不再有 2.9s 的前置铺垫拖沓。铺垫改为「接近驱动」：越走近拐角，
+  // 巷灯闪烁越不安、次声低压随距离涌起（dread 在 z<-17 处一记）。
+  // 触发后四幕（总长 ≈2.35s，一刀切没有废拍）：
+  //   ① 0.00s 同帧三件事：声音被整只手拔掉（silencecut+duck）、巷灯狂闪失相、
+  //            黑影已从拐角滑出（0.3s 滑到面前 1.9m）+ 金属拖地 + 背后红剪影光
+  //   ② 0.30s 对视一拍：它站定看你——眼睛在黑暗里亮着，痉挛，不眨眼
+  //   ③ 0.75s 扑：0.22s 加速到面前 0.55m + 全巷熄灭只剩眼睛 + scare 音墙 + shock
+  //   ④ 1.15s 黑幕 + 心跳；1.95s 醒来已被放回巷口，背对来路。冷却 40s 可重复。
   const figure = lurkerFigure(2.55);
   figure.visible = false;
   group.add(figure);
-  const scareLight = new THREE.PointLight(0x8a1408, 0, 7, 1.6); // 黑影背后的剪影红光
-  scareLight.position.set(6.9, 2.3, -28.7);
+  const scareLight = new THREE.PointLight(0x8a1408, 0, 8, 1.6); // 黑影背后的剪影红光
+  scareLight.position.set(8.3, 2.3, -27.2);
   group.add(scareLight);
+  // 迎面的病白冷光：像巷口一盏快坏的日光灯突然醒来——
+  // 只在它现身时亮，专门把那张脸照给你看（皮、眼窝、嘴、手指）
+  const faceLight = new THREE.PointLight(0xb9ccc4, 0, 6, 2.0);
+  group.add(faceLight);
   const scare = { phase: 0, t: 0, from: new THREE.Vector3(), mid: new THREE.Vector3(), to: new THREE.Vector3() };
+  const CORNER = { x: 8.35, z: -26.9 }; // 剧场东南角（锈角铁护板处）——它住在这后面
+
+  // 接近驱动的前奏：巷子越深越不对劲（不占用触发后的任何一毫秒）
+  const dreadState = { armed: true };
+  updaters.push(() => {
+    if (scare.phase !== 0) return;
+    const inAlley = player.x > 8.4 && player.z < -8;
+    const d = Math.hypot(player.x - CORNER.x, player.z - CORNER.z);
+    alleyPanic.unease = inAlley ? Math.max(0, Math.min(1, 1 - d / 15)) : 0;
+    if (inAlley && player.z < -17 && dreadState.armed) {
+      dreadState.armed = false;
+      audio.sfxAt('dread', 9.4, -26, 0.55, 9);
+    }
+    if (!inAlley && player.z > -6) dreadState.armed = true; // 退出巷子后重新武装
+  });
 
   const doScare = () => {
     if (scare.phase !== 0) return;
-    scare.phase = 1;
+    // ① 同帧：声音抽走 + 灯相狂乱 + 它已经出来了
+    scare.phase = 3;
     scare.t = 0;
-    // ① 环境异常
+    alleyPanic.unease = 0;
     alleyPanic.mode = 1;
-    audio.sfxAt('dread', 9.4, -26, 0.9, 7);
-    later(() => audio.sfxAt('metalscrape', 4.6, -31, 0.85, 5), 650);
-    later(() => audio.sfx('heartbeat', 0.9), 1250);
+    audio.sfx('silencecut', 0.85);
+    audio.duck(1.7, 0.012, 2.8);
+    audio.sfxAt('metalscrape', CORNER.x, CORNER.z, 0.95, 6);
+    scare.from.set(CORNER.x - 0.6, 0, CORNER.z - 0.6); // 从拐角后滑出
+    const dir = new THREE.Vector3(player.x - CORNER.x, 0, player.z - CORNER.z).normalize();
+    scare.mid.set(player.x - dir.x * 1.9, 0, player.z - dir.z * 1.9);
+    figure.position.copy(scare.from);
+    figure.visible = true;
+    // ② 0.3s 已在面前：对视一拍（whisper 贴耳）
+    later(() => audio.sfx('whisper', 0.7), 300);
     later(() => {
-      // ② 真空压迫
-      audio.duck(2.6, 0.012, 3.4);
-      alleyPanic.mode = 2;
-      backLampState.on = 0;
-    }, 2000);
-    later(() => {
-      // ③ 黑影从拐角挪出来（先给 0.9s 纯黑寂静的留白）
-      scare.phase = 3;
-      scare.t = 0;
-      scare.from.set(6.9, 0, -28.7);
-      const dir = new THREE.Vector3(player.x - scare.from.x, 0, player.z - scare.from.z).normalize();
-      scare.mid.set(player.x - dir.x * 2.3, 0, player.z - dir.z * 2.3);
-      figure.position.copy(scare.from);
-      figure.visible = true;
-      audio.sfx('whisper', 0.55);
-    }, 2900);
-    later(() => {
-      // ④ 扑
+      // ③ 扑：全巷熄灭，只剩眼睛和红光
       scare.phase = 4;
       scare.t = 0;
       scare.mid.copy(figure.position);
-      const dir = new THREE.Vector3(player.x - figure.position.x, 0, player.z - figure.position.z).normalize();
-      scare.to.set(player.x - dir.x * 0.9, 0, player.z - dir.z * 0.9);
+      const d2 = new THREE.Vector3(player.x - figure.position.x, 0, player.z - figure.position.z).normalize();
+      scare.to.set(player.x - d2.x * 0.55, 0, player.z - d2.z * 0.55);
+      alleyPanic.mode = 2;
+      backLampState.on = 0;
       audio.sfx('scare');
       engine.shock(1, 0.9, 0x1a0000);
-    }, 4500);
+    }, 750);
     later(() => {
-      // ⑤ 黑幕 + 空间错位
+      // ④ 黑幕 + 心跳
       figure.visible = false;
       scareLight.intensity = 0;
+      faceLight.intensity = 0;
       ui.fade(true);
-    }, 5400);
+      audio.sfx('heartbeat', 0.9);
+    }, 1150);
     later(() => {
-      teleport(9.7, 9.5, Math.PI); // 巷口，背对来路
+      teleport(9.7, 9.5, Math.PI); // 空间错位：醒来在巷口，背对来路
       ui.fade(false);
       alleyPanic.mode = 0;
       backLampState.on = 1;
+      lateCall.arm(); // 彩蛋连锁：它见过你之后，巷里的电话会响
       audio.sfx('whisper', 0.7);
       ui.caption('你梦见过这个地方。现在，它也梦见了你。', 5200);
       scare.phase = 0; // 允许再次触发（zoneTrigger 冷却控制频率）
-    }, 6200);
+    }, 1950);
   };
   updaters.push((dt, t) => {
     if (scare.phase === 3) {
-      // 逼近：整体缓进 + 每 0.3s 一次小顿挫（「挪」出来，不是滑出来）
+      // 滑出：0.3s 内从拐角后滑到面前 1.9m，随后站定对视（痉挛+凝视）
       scare.t += dt;
-      const u = Math.min(1, scare.t / 1.5);
-      const k = u * u * (3 - 2 * u);
-      const hitch = Math.max(0, Math.sin(u * Math.PI * 5)) ** 3 * 0.05;
-      figure.position.lerpVectors(scare.from, scare.mid, Math.min(1, k + hitch));
+      const u = Math.min(1, scare.t / 0.3);
+      const k = 1 - (1 - u) ** 3;
+      figure.position.lerpVectors(scare.from, scare.mid, k);
       figure.position.y = 0;
       figure.lookAt(player.x, 1.5, player.z);
-      figure.userData.update(dt, t, 0.35 + u * 0.45);
+      figure.userData.update(dt, t, 0.8);
       scareLight.position.set(
-        figure.position.x + (figure.position.x - player.x) * 0.25, 2.3,
-        figure.position.z + (figure.position.z - player.z) * 0.25
+        figure.position.x + (figure.position.x - player.x) * 0.3, 2.3,
+        figure.position.z + (figure.position.z - player.z) * 0.3
       );
-      scareLight.intensity = 0.8 + u * 2.6 + Math.sin(t * 41) * 0.4;
+      scareLight.intensity = 1.2 + k * 2.8 + Math.sin(t * 41) * 0.5;
+      // 迎面冷光：故障日光灯式的抽搐闪，落在它的脸上
+      faceLight.position.set(
+        player.x + (figure.position.x - player.x) * 0.5, 2.05,
+        player.z + (figure.position.z - player.z) * 0.5
+      );
+      faceLight.intensity = (0.9 + k * 1.9) * (Math.sin(t * 47) * 0.5 + 0.5 > 0.24 ? 1 : 0.3);
     } else if (scare.phase === 4) {
       scare.t += dt;
-      const k = Math.min(1, scare.t / 0.24); // 0.24s 内扑到面前
+      const k = Math.min(1, scare.t / 0.22); // 0.22s 内扑到面前
       figure.position.lerpVectors(scare.mid, scare.to, k * k);
+      figure.position.y = -k * 0.62; // 边扑边佝偻下压——那张脸落到你的脸前
       figure.lookAt(player.x, 1.4, player.z);
       figure.userData.update(dt, t, 1);
       figure.rotation.z += Math.sin(scare.t * 74) * 0.11; // 高频痉挛
       scareLight.position.set(figure.position.x, 2.1, figure.position.z);
       scareLight.intensity = 5.5;
+      faceLight.position.set(
+        player.x + (figure.position.x - player.x) * 0.4, 1.9,
+        player.z + (figure.position.z - player.z) * 0.4
+      );
+      faceLight.intensity = 4.6; // 扑到面前那一拍：脸必须看得一清二楚
+    } else if (scare.phase === 9) {
+      // 摆拍定格（视觉核验用）：站定痉挛/凝视，不推进时序
+      figure.lookAt(player.x, 1.5, player.z);
+      figure.userData.update(dt, t, 0.9);
     }
   });
-  const scareTrig = zoneTrigger({ x: 9.7, z: -25.2, r: 3.3 }, doScare, { cooldown: 40 });
-  updaters.push((dt) => scareTrig.update(player, dt));
+  const scareZone = zoneTrigger({ x: 9.7, z: -25.2, r: 3.3 }, doScare, { cooldown: 40 });
+  updaters.push((dt) => scareZone.update(player, dt));
+  const scareTrig = {
+    force: () => scareZone.force(),
+    /** 截屏核验：把黑影定格在相机正前方 dist 米（crouch 下压米数，不进入惊吓时序） */
+    pose: (dist = 1.7, crouch = 0) => {
+      const fwd = new THREE.Vector3();
+      engine.camera.getWorldDirection(fwd);
+      fwd.y = 0;
+      fwd.normalize();
+      figure.position.set(player.x + fwd.x * dist, -crouch, player.z + fwd.z * dist);
+      figure.visible = true;
+      alleyPanic.mode = 1;
+      scare.phase = 9;
+      scareLight.position.set(figure.position.x + fwd.x * 0.9, 2.3, figure.position.z + fwd.z * 0.9);
+      scareLight.intensity = 3.4;
+      faceLight.position.set(player.x + fwd.x * dist * 0.45, 1.95, player.z + fwd.z * dist * 0.45);
+      faceLight.intensity = 3.2;
+    },
+    unpose: () => {
+      figure.visible = false;
+      scareLight.intensity = 0;
+      faceLight.intensity = 0;
+      alleyPanic.mode = 0;
+      scare.phase = 0;
+    }
+  };
+
+  // ---------- 彩蛋连锁：THE LATE CALL（午夜来电） ----------
+  // 拐角的东西见过你之后，走近巷内电话亭——铃声响起（它在找刚才的你）。
+  // E 接起：铃停，听筒里只有静电与呼吸，亭灯打一个寒颤。只响一次/每次惊吓后。
+  const lateCall = {
+    armed: false, ringing: false, t: 0,
+    arm() { this.armed = true; },
+    force() { this.armed = true; this.startRing(); },
+    startRing() {
+      if (this.ringing || !this.armed) return;
+      this.ringing = true;
+      this.t = 0;
+      audio.sfxAt('phonering', 10.2, -18, 0.85, 7);
+    }
+  };
+  const ringTrig = zoneTrigger({ x: 10.2, z: -18, r: 3.6 }, () => lateCall.startRing(), { cooldown: 8 });
+  updaters.push((dt, t) => {
+    if (lateCall.armed && !lateCall.ringing && scare.phase === 0) ringTrig.update(player, dt);
+    if (!lateCall.ringing) return;
+    lateCall.t += dt;
+    // 铃声期间亭顶灯随铃急闪
+    booth.userData.topSignMat.emissiveIntensity = 0.9 * (Math.sin(t * 34) > 0 ? 1.5 : 0.4);
+    if (lateCall.t > 2.6 && lateCall.t < 2.7) audio.sfxAt('phonering', 10.2, -18, 0.7, 7);
+    if (lateCall.t > 12) { lateCall.ringing = false; lateCall.armed = false; } // 没人接，它挂了
+  });
 
   // 空地上唯一的提示——半掩的粉笔螺旋（原创图形，无文字、无对白引用）
   const chalkTex = canvasTexture(256, (g, s) => {
@@ -1586,6 +1695,7 @@ export function build(ctx) {
       invertState.target = 1;
       audio.sfx('invert');
       ui.caption('梦翻了个面。', 3200);
+      narration.speakItem('mulholland-cube');
     }
   });
 
@@ -1647,7 +1757,7 @@ export function build(ctx) {
   // v1.5 氛围：雾的呼吸——路雾与巷雾按不同长波起伏；惊吓异常相位时巷雾骤浓
   updaters.push((dt, t) => {
     roadHaze.material.opacity = 0.05 * (1 + Math.sin(t * 0.11) * 0.3 + Math.sin(t * 0.043 + 1.7) * 0.2);
-    const panic = alleyPanic.mode === 1 ? 0.09 : 0;
+    const panic = alleyPanic.mode === 1 ? 0.09 : (alleyPanic.unease || 0) * 0.03;
     const target = 0.055 * (1 + Math.sin(t * 0.09 + 2) * 0.3) + panic;
     alleyFog.material.opacity += (target - alleyFog.material.opacity) * Math.min(1, dt * 2);
   });
@@ -1687,7 +1797,7 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'corner-scare': scareTrig, 'no-band': noBandTrig },
+    eggs: { 'corner-scare': scareTrig, 'no-band': noBandTrig, 'late-call': lateCall },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);
