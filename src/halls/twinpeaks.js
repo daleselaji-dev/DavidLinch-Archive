@@ -2236,13 +2236,36 @@ export function build(ctx) {
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   const rejoinGeos = [];
-  for (const [nx, ny, ns] of [[10.1, 11.4, 1.05], [14.2, 12.3, 0.85]]) {
-    const nose = rockMesh(ns, 0x1a222c);
-    nose.scale.z = 0.55;
-    nose.position.set(nx, ny, -41.35);
-    overlook.add(nose);
-    rejoinGeos.push(xform(new THREE.PlaneGeometry(ns * 1.9, 2.6), nx, ny - ns * 0.7 - 1.15, -41.02));
-  }
+  // v1.12 D-9（眺望台正面复检三轮定案）：两颗中幅漂浮刺球从来不是
+  // 「双瀑」的语言（D-2 提亮/白沫领/剪切线三方案都救不了错误的形与
+  // 位）。正版语义重排：①**冠顶崖齿**——一块宽楔岩贴上缘正中把水口
+  // 一分为二（上半没进崖冠线，只露下垂的齿尖）；②齿下**干影带**——
+  // 被分开的水在齿后留下一条暗隙（渐隐面片压暗幕体）；③下方白瀑
+  // **重新织合**（rejoin 流纹）+ 齿冠喷溅白。网格数守恒：两鼻→一齿
+  // 一带（tp 240 贴顶纪律）
+  const tooth = rockMesh(1.35, 0x0d1219);
+  tooth.scale.set(1.5, 1.0, 0.5);
+  tooth.position.set(12, 13.35, -41.3);
+  overlook.add(tooth);
+  const dryTex = canvasTexture(64, (g, s) => {
+    const grad = g.createLinearGradient(0, 0, 0, s);
+    grad.addColorStop(0, 'rgba(9,13,19,0.88)');
+    grad.addColorStop(0.6, 'rgba(9,13,19,0.5)');
+    grad.addColorStop(1, 'rgba(9,13,19,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const dryBand = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.1, 2.6),
+    new THREE.MeshBasicMaterial({ map: dryTex, transparent: true, depthWrite: false })
+  );
+  dryBand.position.set(12, 11.3, -41.05);
+  overlook.add(dryBand);
+  // 织合白瀑（干影带下端两股水重新拧成一股）+ 齿侧两道剪切亮缕 + 齿冠喷溅
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(2.3, 2.8), 12, 9.6, -41.02));
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(0.55, 2.4), 9.8, 12.7, -41.0));
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(0.55, 2.4), 14.2, 12.7, -41.0));
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(2.6, 0.9), 12, 13.9, -41.0));
   overlook.add(mergedMesh(rejoinGeos, rejoinMat));
   // 上缘白沿（水离崖那一线）+ 底部翻涌泡沫带
   const brink = new THREE.Mesh(
