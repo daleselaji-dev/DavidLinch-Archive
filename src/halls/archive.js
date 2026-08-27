@@ -1404,6 +1404,278 @@ export function build(ctx) {
   }, { cooldown: 8 });
   updaters.push((dt) => vanishTrig.update(player, dt));
 
+  // ============================================================
+  // v1.10 阶段 2g·archive 件 1：缩微胶片阅读器——阅览桌尾自成
+  // 一座小站：金属立柜台 + 斜屏罩壳 + 双片盘（一满一空）+
+  // 走带 + 侧摇钮。E → 机器嗡一声醒来，屏亮起一卷**空白胶片**
+  // 缓缓滚动（齿孔带与画格线都在，画格里什么都没有），双盘
+  // 对转 7s 又自己停下。整卷都没拍过东西。
+  // ============================================================
+  {
+    const mfGrp = new THREE.Group();
+    const mfSteel = new THREE.MeshStandardMaterial({
+      color: 0x2a2e30, roughness: 0.45, metalness: 0.6, envMapIntensity: 0.9
+    });
+    // 立柜台（前脸微内收 + 底踢脚 + 台面）
+    mfGrp.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.62, 0.72, 0.5), 0, 0.4, 0),
+      xform(new THREE.BoxGeometry(0.56, 0.08, 0.44), 0, 0.04, 0),
+      xform(new THREE.BoxGeometry(0.66, 0.035, 0.54), 0, 0.775, 0)
+    ], mfSteel));
+    // 罩壳：竖直背箱 + 斜屏罩（前倾裹住屏）
+    const hood = new THREE.Mesh(roundedBoxGeo(0.52, 0.56, 0.34, 0.03, 3), mfSteel);
+    hood.position.set(0, 1.1, -0.05);
+    hood.rotation.x = -0.16;
+    mfGrp.add(hood);
+    // 屏：空白胶片滚动（齿孔带 + 画格线 + 尘点；画格里什么都没有）
+    const filmTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#c9d4d2';
+      g.fillRect(0, 0, s, s);
+      // 两侧齿孔带
+      g.fillStyle = '#818e8c';
+      g.fillRect(0, 0, s * 0.14, s);
+      g.fillRect(s * 0.86, 0, s * 0.14, s);
+      g.fillStyle = '#c9d4d2';
+      for (let k = 0; k < 6; k++) {
+        g.fillRect(s * 0.045, s * (k / 6 + 0.03), s * 0.05, s * 0.09);
+        g.fillRect(s * 0.905, s * (k / 6 + 0.03), s * 0.05, s * 0.09);
+      }
+      // 画格线（两格）+ 格内空白 + 零星尘点
+      g.strokeStyle = 'rgba(70,80,78,0.7)';
+      g.lineWidth = 2;
+      for (const yy of [0.02, 0.5, 0.98]) {
+        g.beginPath();
+        g.moveTo(s * 0.15, s * yy);
+        g.lineTo(s * 0.85, s * yy);
+        g.stroke();
+      }
+      const fr = rng(97);
+      g.fillStyle = 'rgba(90,98,96,0.5)';
+      for (let i = 0; i < 14; i++) {
+        g.fillRect(s * (0.16 + fr() * 0.66), fr() * s, 1.4, 1.4 + fr() * 2);
+      }
+    });
+    filmTex.wrapS = filmTex.wrapT = THREE.RepeatWrapping;
+    const mfScreenMat = new THREE.MeshStandardMaterial({
+      map: filmTex, color: 0x17191a, roughness: 0.6,
+      emissive: 0xffffff, emissiveMap: filmTex, emissiveIntensity: 0.04
+    });
+    const mfScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.3), mfScreenMat);
+    mfScreen.position.set(0, 1.1, 0.13);
+    mfScreen.rotation.x = -0.16;
+    mfGrp.add(mfScreen);
+    // 顶部双片盘横臂：一满一空 + 走带斜过罩顶
+    const reelMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1c1e, roughness: 0.35, metalness: 0.7, envMapIntensity: 1.0
+    });
+    mfGrp.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.56, 0.03, 0.05), 0, 1.46, -0.1, -0.16, 0, 0)
+    ], mfSteel));
+    const mkReel = (full) => {
+      const r = new THREE.Group();
+      const geos = [
+        xform(new THREE.CylinderGeometry(0.028, 0.028, 0.05, 10), 0, 0, 0, Math.PI / 2 - 0.16, 0, 0),
+        xform(new THREE.TorusGeometry(0.105, 0.008, 6, 20), 0, 0, 0, -0.16, 0, 0)
+      ];
+      for (let k = 0; k < 3; k++) {
+        geos.push(xform(new THREE.BoxGeometry(0.012, 0.19, 0.01), 0, 0, 0, Math.PI / 2 - 0.16, (k / 3) * Math.PI, 0));
+      }
+      if (full) {
+        geos.push(xform(new THREE.CylinderGeometry(0.085, 0.085, 0.032, 18), 0, 0, 0, Math.PI / 2 - 0.16, 0, 0));
+      }
+      r.add(mergedMesh(geos, reelMat));
+      return r;
+    };
+    const reelA = mkReel(true);
+    reelA.position.set(-0.19, 1.53, -0.11);
+    const reelB = mkReel(false);
+    reelB.position.set(0.19, 1.53, -0.11);
+    mfGrp.add(reelA, reelB);
+    // 走带（两盘之间一段暗色薄带压过罩顶导辊）
+    mfGrp.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.38, 0.024, 0.004), 0, 1.525, -0.075, -0.16, 0, 0)
+    ], new THREE.MeshStandardMaterial({ color: 0x101212, roughness: 0.5 })));
+    // 侧摇钮（进片手轮）
+    const mfKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.04, 12), reelMat);
+    mfKnob.rotation.z = Math.PI / 2;
+    mfKnob.position.set(0.34, 1.02, 0.02);
+    mfGrp.add(mfKnob);
+    // 屏下小铭牌（MICROFILM · 空白批次号）
+    const mfPlate = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.16, 0.035),
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(128, (g, s) => {
+          g.fillStyle = '#b8b2a2';
+          g.fillRect(0, 0, s, s);
+          g.save();
+          g.scale(1, 4.6);
+          g.font = '700 17px Georgia, serif';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillStyle = '#3c382e';
+          g.fillText('MICROFILM', s / 2, s / 2 / 4.6);
+          g.restore();
+        }), roughness: 0.5
+      })
+    );
+    mfPlate.position.set(0, 0.87, 0.256);
+    mfGrp.add(mfPlate);
+    // 屏面幽光（开机才有）
+    const mfGlow = new THREE.PointLight(0xdfe8e4, 0, 1.6, 2.2);
+    mfGlow.position.set(0, 1.15, 0.4);
+    mfGrp.add(mfGlow);
+    // 阅览桌尾：读者从长廊一侧凑上去看
+    mfGrp.position.set(-3.55, 0, -12.15);
+    mfGrp.rotation.y = 0.9;
+    group.add(mfGrp);
+    const mfState = { t: -1 };
+    updaters.push((dt) => {
+      if (mfState.t < 0) return;
+      mfState.t += dt;
+      const T = mfState.t;
+      // 转速包络：起转 0.8s 缓入 → 稳走 → 5.6s 起 1.4s 缓停
+      const spd = T < 0.8 ? (T / 0.8) * (T / 0.8) : T < 5.6 ? 1 : Math.max(0, 1 - (T - 5.6) / 1.4);
+      filmTex.offset.y -= dt * 0.85 * spd;
+      reelA.children[0].rotation.z -= dt * 5.2 * spd;
+      reelB.children[0].rotation.z -= dt * 8.8 * spd;
+      mfKnob.rotation.x += dt * 4.4 * spd;
+      const lit = Math.min(1, T / 0.5) * (T > 6.4 ? Math.max(0, 1 - (T - 6.4) / 0.6) : 1);
+      mfScreenMat.emissiveIntensity = 0.04 + lit * 0.85;
+      mfGlow.intensity = lit * 1.4;
+      if (T > 7.2) {
+        mfState.t = -1;
+        mfScreenMat.emissiveIntensity = 0.04;
+        mfGlow.intensity = 0;
+      }
+    });
+    hotspots.add(hood, {
+      hint: 'E — 缩微胶片阅读器',
+      onActivate: () => {
+        if (mfState.t >= 0) return;
+        mfState.t = 0;
+        audio.sfxAt('switch', -3.55, -12.15, 0.5, 3);
+        audio.sfxAt('ratchet', -3.55, -12.15, 0.3);
+        setTimeout(() => audio.sfxAt('click', -3.55, -12.15, 0.4), 7000);
+        ui.caption('整卷都没拍过东西。', 3800);
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 阶段 2g·archive 件 2：索引灯箱——阅览桌上方的西墙，
+  // 一面年份格灯箱（5×4 二十格，四格空白）。有一格常年闪
+  // （镇流器坏在那一年）。E → 这格熄了，灯搬进隔壁那年接着闪；
+  // 再按再搬。灯在年表里找地方住。
+  // ============================================================
+  {
+    const boxGrp = new THREE.Group();
+    const YEARS = [
+      '1967', '1970', '1974', '1977', '1980',
+      '1984', '1986', '1990', '1992', '',
+      '1997', '1999', '2001', '2002', '2006',
+      '', '2017', '', '2020', ''
+    ];
+    const COLS = 5;
+    const ROWS = 4;
+    const CELL_W = 0.21;
+    const CELL_H = 0.155;
+    // 框体
+    boxGrp.add(new THREE.Mesh(
+      roundedBoxGeo(COLS * CELL_W + 0.1, ROWS * CELL_H + 0.1, 0.09, 0.02, 3),
+      new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.5, metalness: 0.55 })
+    ));
+    // 年份格面板（微光的奶面，格线 + 年份小字）
+    const gridTex = canvasTexture(256, (g, s) => {
+      g.fillStyle = '#20242a';
+      g.fillRect(0, 0, s, s);
+      const cw = s / COLS;
+      const ch = s / ROWS;
+      g.strokeStyle = 'rgba(10,12,14,0.9)';
+      g.lineWidth = 3;
+      for (let c = 0; c <= COLS; c++) { g.beginPath(); g.moveTo(c * cw, 0); g.lineTo(c * cw, s); g.stroke(); }
+      for (let r = 0; r <= ROWS; r++) { g.beginPath(); g.moveTo(0, r * ch); g.lineTo(s, r * ch); g.stroke(); }
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      for (let i = 0; i < YEARS.length; i++) {
+        const c = i % COLS;
+        const r = (i / COLS) | 0;
+        if (!YEARS[i]) continue;
+        // 奶面底
+        g.fillStyle = 'rgba(190,196,188,0.16)';
+        g.fillRect(c * cw + 3, r * ch + 3, cw - 6, ch - 6);
+        // 纵向预拉伸补偿：面板宽高比 1.69、画布正方 → 字要先拉高
+        const sy = (COLS * CELL_W) / (ROWS * CELL_H);
+        g.save();
+        g.scale(1, sy);
+        g.font = '400 15px Georgia, serif';
+        g.fillStyle = 'rgba(222,228,218,0.85)';
+        g.fillText(YEARS[i], c * cw + cw / 2, (r * ch + ch / 2) / sy);
+        g.restore();
+      }
+    });
+    const gridMat = new THREE.MeshStandardMaterial({
+      map: gridTex, roughness: 0.6,
+      emissive: 0xfff4dc, emissiveMap: gridTex, emissiveIntensity: 0.5
+    });
+    const grid = new THREE.Mesh(
+      new THREE.PlaneGeometry(COLS * CELL_W, ROWS * CELL_H), gridMat
+    );
+    grid.position.z = 0.047;
+    boxGrp.add(grid);
+    // 会闪的那一格：覆在格面上的亮片（镇流器坏在那一年）
+    const litCells = YEARS.map((y, i) => y ? i : -1).filter((i) => i >= 0);
+    const flickCell = new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL_W - 0.02, CELL_H - 0.02),
+      new THREE.MeshStandardMaterial({
+        color: 0x2a2620, roughness: 0.5, transparent: true, opacity: 0.55,
+        emissive: 0xffe9c0, emissiveIntensity: 1.05, depthWrite: false
+      })
+    );
+    flickCell.position.z = 0.049;
+    boxGrp.add(flickCell);
+    const cellPos = (i) => {
+      const c = i % COLS;
+      const r = (i / COLS) | 0;
+      flickCell.position.x = (c - (COLS - 1) / 2) * CELL_W;
+      flickCell.position.y = ((ROWS - 1) / 2 - r) * CELL_H;
+    };
+    let flickAt = litCells.indexOf(3); // 1977 起家（镇流器坏在工厂那年）
+    let flickIdx = 3;
+    cellPos(flickIdx);
+    boxGrp.position.set(-W / 2 + 0.07, 2.05, -14.2);
+    boxGrp.rotation.y = Math.PI / 2;
+    group.add(boxGrp);
+    const boxDip = { t: -1 };
+    updaters.push((dt, t) => {
+      // 坏镇流器：不规则双正弦嚼一下
+      const bad = Math.sin(t * 23) * Math.sin(t * 6.1) > 0.86 ? 0.25 : 1;
+      flickCell.material.emissiveIntensity = 1.05 * bad;
+      if (boxDip.t >= 0) {
+        boxDip.t += dt;
+        const u = boxDip.t / 1.1;
+        if (u >= 1) { boxDip.t = -1; gridMat.emissiveIntensity = 0.5; }
+        else gridMat.emissiveIntensity = 0.5 * (1 - Math.sin(u * Math.PI) * 0.55);
+      }
+    });
+    let saidBox = false;
+    hotspots.add(grid, {
+      hint: 'E — 索引灯箱',
+      onActivate: () => {
+        // 这格熄了，隔壁那年亮起来接着闪
+        flickAt = (flickAt + 1) % litCells.length;
+        flickIdx = litCells[flickAt];
+        cellPos(flickIdx);
+        audio.sfxAt('fluor', -W / 2 + 0.07, -14.2, 0.55);
+        audio.sfxAt('switch', -W / 2 + 0.07, -14.2, 0.3, 3);
+        boxDip.t = 0;
+        if (!saidBox) {
+          saidBox = true;
+          ui.caption('它搬进了隔壁那年。', 3600);
+        }
+      }
+    });
+  }
+
   // 回大厅之门
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, L / 2 - 0.6);
