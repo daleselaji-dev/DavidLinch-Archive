@@ -1290,6 +1290,10 @@ export function ridgeRing(radius, {
 export function pineTree({ detail = 1 } = {}) {
   const geo = blendGeo(detail ? 'pine/hero' : 'pine/far');
   const mat = new THREE.MeshStandardMaterial({
+    // color 乘数是夜色分级（与厅内 instanceColor 调色同层）：连续裙锥
+    // 的受光面积比 v1.7 分层锥大（旧版层间露出压暗盖片），月光下会
+    // 整片泛灰——按 v1.7 已验收截屏像素校准压回「黑松要黑」的基调
+    color: 0x8d948d,
     vertexColors: true, roughness: 0.96, metalness: 0,
     bumpMap: noiseCanvasTexture(64, 128, 74, 3), bumpScale: 0.38
   });

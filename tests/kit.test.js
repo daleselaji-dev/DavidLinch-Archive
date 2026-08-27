@@ -157,11 +157,11 @@ describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
     const seg = src.slice(src.indexOf('export function pineTree'));
     expect(seg).toContain("blendGeo(detail ? 'pine/hero' : 'pine/far')");
     expect(seg).toContain('vertexColors: true');
-    // 双 LOD 三角预算（双峰厅 70×hero + 190×far 必须压在 240k 内）
+    // 双 LOD 三角预算（双峰厅 72×hero + 215×far 必须压在 240k 内）
     const hero = kit.blendGeo('pine/hero');
     const far = kit.blendGeo('pine/far');
     expect(hero.index.count / 3).toBeLessThanOrEqual(1000);
-    expect(far.index.count / 3).toBeLessThanOrEqual(400);
+    expect(far.index.count / 3).toBeLessThanOrEqual(450);
     // 顶点色（针叶明暗/干皮色温）随几何一起烘焙
     expect(hero.attributes.color).toBeTruthy();
     expect(far.attributes.color).toBeTruthy();

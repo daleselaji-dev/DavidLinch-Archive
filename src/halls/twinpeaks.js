@@ -162,11 +162,12 @@ export function build(ctx) {
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
   // v1.8：pineTree 换 Blender 权威细模档（gen_pine.py 烘焙），
-  // hero 档 905 tris / far 档 301 tris——实例数按预算重配
+  // hero 档 933 tris / far 档 427 tris——实例数按预算重配
+  // （72×933 + 215×427 ≈ 159k，全厅 ≈226k，卡在 240k 硬门禁内）
   const heroPine = pineTree({ detail: 1 });
   const farPine = pineTree({ detail: 0 });
-  const HERO_MAX = 70;
-  const FAR_MAX = 190;
+  const HERO_MAX = 72;
+  const FAR_MAX = 215;
   const pinesHero = new THREE.InstancedMesh(heroPine.geo, heroPine.mat, HERO_MAX);
   const pinesFar = new THREE.InstancedMesh(farPine.geo, farPine.mat, FAR_MAX);
   const dummy = new THREE.Object3D();

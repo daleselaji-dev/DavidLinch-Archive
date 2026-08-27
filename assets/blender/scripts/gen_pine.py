@@ -59,10 +59,13 @@ def bark_col(x, y, z, ph):
 
 
 def needle_col(d, shade, under=1.0):
-    """d = 0 冠芯 → 1 梢端；shade 层暗系数；under<1 冠底压暗。"""
-    return ((0.016 + d * 0.032) * shade * under,
-            (0.038 + d * 0.064) * shade * under,
-            (0.026 + d * 0.048) * shade * under)
+    """d = 0 冠芯 → 1 梢端；shade 层暗系数；under<1 冠底压暗。
+    v1.8b 整体再压 0.62：游戏档平滑法线朝上比程序化多面锥受月光多，
+    反照率补偿回「黑松要黑」的夜色基调（对照 v1.7 截屏像素校准）。"""
+    k = 0.62 * shade * under
+    return ((0.014 + d * 0.030) * k,
+            (0.034 + d * 0.060) * k,
+            (0.023 + d * 0.044) * k)
 
 
 # ---------- 树干（HI / GAME 同函数，段数不同） ----------
@@ -247,7 +250,10 @@ def build_game(P, radial=18, rims=3, with_stubs=True, with_caps=True):
         faces = []
         cols = []
         shade = 0.70 + tier['u'] * 0.30
-        tier_h = 1.35 - tier['u'] * 0.5
+        # v1.8c 层高收短（1.35→1.05 系）：层与层之间拉开黑缝——
+        # v1.7 分层锥「亮层/暗层交替 + 层间露黑」的剪影是黑森林的签名，
+        # 连续裙锥会把整树读成一片受月光的灰罩
+        tier_h = 1.05 - tier['u'] * 0.4
         y_top = tier['y'] + tier_h * 0.55
         # 枝角 → 角向瓣包络（游戏档的裙缘参差不再是纯正弦，而是 HI 枝位投影：
         # 每根枝在对应角向顶出一瓣，瓣间深收——低模轮廓继承细模的枝相）
@@ -258,6 +264,8 @@ def build_game(P, radial=18, rims=3, with_stubs=True, with_caps=True):
                 k = math.cos(min(abs(d) * (2.6 - br['fat'] * 1.2), math.pi / 2))
                 best = max(best, (k ** 1.4) * (br['len'] / tier['r']))
             return 0.60 + best * 0.58
+        rim_y = []      # 裙缘逐角向 y（唇带/盖片贴着缘走）
+        rim_r = []
         for j in range(rims + 1):
             v = j / rims  # 0 顶 → 1 裙缘
             for s in range(radial):
@@ -265,34 +273,49 @@ def build_game(P, radial=18, rims=3, with_stubs=True, with_caps=True):
                 lb = lobe(a)
                 r = tier['r'] * v * lb
                 # 瓣缘各自垂坠（瓣大垂深），瓣间上收——裙缘读成一圈枝，不是一顶帽
-                droop = (v ** 1.6) * (0.22 + 0.30 * lb) * tier_h
+                droop = (v ** 1.15) * (0.30 + 0.34 * lb) * tier_h
                 jag = math.sin(a * 9 + tier['phase']) * 0.05 * v
-                verts.append((math.cos(a) * r, y_top - v * tier_h * 0.62 - droop + jag, math.sin(a) * r))
+                y = y_top - v * tier_h * 0.62 - droop + jag
+                verts.append((math.cos(a) * r, y, math.sin(a) * r))
                 d = min(1.0, v * lb)
                 cols.append(needle_col(d, shade))
+                if j == rims:
+                    rim_y.append(y)
+                    rim_r.append(r)
         for j in range(rims):
             for s in range(radial):
                 p = j * radial + s
                 q = j * radial + (s + 1) % radial
                 faces.append((p, q, q + radial, p + radial))
-        # 裙底盖片（自遮蔽压暗色）：缘环 → 干芯回收（远景档省略）
-        if not with_caps:
+        # 裙缘唇带（v1.8c）：缘环再向下内收一圈——法线朝外下、
+        # 顶点色压到四成，月光照不进：每层裙底一圈暗带，
+        # 复现 v1.7 分层锥「亮暗交替」的层积剪影
+        rim0 = rims * radial
+        lip0 = len(verts)
+        for s in range(radial):
+            a = s / radial * TAU
+            verts.append((math.cos(a) * rim_r[s] * 0.90, rim_y[s] - 0.17 * tier_h,
+                          math.sin(a) * rim_r[s] * 0.90))
+            cols.append(needle_col(0.25, shade, under=0.4))
+        for s in range(radial):
+            faces.append((rim0 + s, rim0 + (s + 1) % radial,
+                          lip0 + (s + 1) % radial, lip0 + s))
+        # 裙底盖片（自遮蔽压暗色）：唇带 → 干芯回收。
+        # 只给低层挂盖（u<0.45，玩家只会钻到低层树冠下），高层省三角
+        if not (with_caps and tier['u'] < 0.45):
             items.append((verts, faces, cols))
             continue
-        rim0 = rims * radial
         base = len(verts)
         for s in range(radial):
             a = s / radial * TAU
-            lb = lobe(a)
-            r = tier['r'] * lb
-            droop = 0.34 * tier_h * lb
-            verts.append((math.cos(a) * r * 0.98, y_top - tier_h * 0.62 - droop - 0.02, math.sin(a) * r * 0.98))
-            cols.append(needle_col(min(1.0, lb) * 0.3, shade, under=0.3))
+            verts.append((math.cos(a) * rim_r[s] * 0.86, rim_y[s] - 0.17 * tier_h - 0.02,
+                          math.sin(a) * rim_r[s] * 0.86))
+            cols.append(needle_col(0.2, shade, under=0.3))
         centre = len(verts)
-        verts.append((0.0, y_top - tier_h * 0.66, 0.0))
+        verts.append((0.0, y_top - tier_h * 0.60, 0.0))
         cols.append(needle_col(0.0, shade, under=0.3))
         for s in range(radial):
-            faces.append((rim0 + s, rim0 + (s + 1) % radial, base + (s + 1) % radial, base + s))
+            faces.append((lip0 + s, lip0 + (s + 1) % radial, base + (s + 1) % radial, base + s))
             faces.append((centre, base + (s + 1) % radial, base + s))
         items.append((verts, faces, cols))
     return svlib.merge_pydata(items)
