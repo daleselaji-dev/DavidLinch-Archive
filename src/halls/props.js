@@ -8,6 +8,7 @@
 // 所有几何与贴图均程序化生成，无外部素材。
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   roundedBoxGeo, roundedBoxMesh, mergedMesh, xform, canvasTexture,
   woodMat, brassMat, chromeMat, ironMat, fabricMat, rng
@@ -380,7 +381,11 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
     // 发动机舱盖脊线
     xform(roundedBoxGeo(1.4, 0.16, 0.5, 0.07), 1.35, 1.03, 0),
     // 行李箱斜背
-    xform(roundedBoxGeo(0.9, 0.4, 1.3, 0.16), -1.72, 0.95, 0, 0, 0, 0.35)
+    xform(roundedBoxGeo(0.9, 0.4, 1.3, 0.16), -1.72, 0.95, 0, 0, 0, 0.35),
+    // v1.12 D-10：B 柱 ×2 + 分体风挡中柱——窗带不再连成一圈玻璃环
+    xform(new THREE.BoxGeometry(0.07, 0.48, 0.03), 0.02, 1.3, 0.735),
+    xform(new THREE.BoxGeometry(0.07, 0.48, 0.03), 0.02, 1.3, -0.735),
+    xform(new THREE.BoxGeometry(0.03, 0.44, 0.05), 0.61, 1.3, 0)
   ];
   g.add(mergedMesh(bodyGeos, paint));
   // 翼子板（半embedded 球壳拉长）+ 踏板
@@ -424,11 +429,13 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
   ], new THREE.MeshStandardMaterial({ color: 0x3a0508, emissive: 0xd4243c, emissiveIntensity: 0.4 }));
   g.add(tail);
   // 车窗（整体镶入的深色玻璃）
+  // v1.12 D-10（贴脸病灶）：旧版直角玻璃盒比圆角舱壳还宽 0.02——舱体
+  // 的圆角全被它盖住、车顶读成硬盒 → 玻璃改圆角盒（窗带仍微凸于舱壳）
   const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0x0a1218, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.85,
     envMapIntensity: 1.6
   });
-  g.add(new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.44, 1.44), glassMat)
+  g.add(new THREE.Mesh(roundedBoxGeo(1.84, 0.44, 1.46, 0.13), glassMat)
     .translateX(-0.32).translateY(1.32));
   // v1.4 v2.5（P3 装配感）：门缝线 + 铬门把手 + 引擎盖飞饰 + 侧后视镜 + 排气尾管
   const seamGeos = [];
@@ -462,7 +469,23 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
     capGeos.push(xform(capGeo, x, 0.36, z + (z > 0 ? 0.06 : -0.06), z > 0 ? Math.PI / 2 : -Math.PI / 2, 0, 0));
   }
   tireGeo.dispose(); capGeo.dispose();
-  g.add(mergedMesh(tireGeos, new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.92 })));
+  // v1.12 D-10：白圈胎壁——夜街里纯黑轮胎隐形、轮拱只剩黑洞；40 年代
+  // 流线正好是白壁胎的年代（一圈灰白把四只轮子从夜里捞回来）。
+  // 胎与白圈 useGroups 合成单 mesh 双材质，网格数不变
+  const wallGeos = [];
+  const wallRing = new THREE.RingGeometry(0.185, 0.272, 18);
+  for (const [x, z] of [[1.32, 0.78], [1.32, -0.78], [-1.32, 0.78], [-1.32, -0.78]]) {
+    wallGeos.push(xform(wallRing, x, 0.36, z + (z > 0 ? 0.115 : -0.115), 0, z > 0 ? 0 : Math.PI, 0));
+  }
+  wallRing.dispose();
+  const tirePart = mergeGeometries(tireGeos, false);
+  const wallPart = mergeGeometries(wallGeos, false);
+  const tireAll = mergeGeometries([tirePart, wallPart], true);
+  for (const gg of [...tireGeos, ...wallGeos, tirePart, wallPart]) gg.dispose();
+  g.add(new THREE.Mesh(tireAll, [
+    new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.92 }),
+    new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.85 })
+  ]));
   g.add(mergedMesh(capGeos, M.chrome));
   const headLightL = new THREE.SpotLight(0xffe9c0, 0, 16, 0.5, 0.5, 1.4);
   headLightL.position.set(2.05, 0.86, 0);
