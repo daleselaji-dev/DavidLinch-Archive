@@ -1022,15 +1022,20 @@ export function build(ctx) {
       xform(railRivet, W / 2 - 0.065, 4.332, z + 0.014, 0, 0, Math.PI / 2)
     ])
   ], M.brass));
+  // v1.12 门禁 60 结构遍（INSPECT 定位到一处**结构级病灶**）：v1.4–v1.11
+  // 的梯面建在 XY 平面（双弦沿 x 分开）——梯面平行于墙、顶端双钩一只
+  // 够不到墙轨一只穿进墙里，且沿走廊主轴侧看整梯读成一根杆。现在把
+  // 梯面转到 **ZY 平面**（双弦沿墙轨方向 z 分开）：绕 z 轴后倾 0.21
+  // 时双钩同高同距一起落在 x=4.34 的墙轨上——滚梯的真实装配几何。
   const ladder = new THREE.Group();
   const ladderWood = woodMat({ base: [34, 22, 13], planks: 1, size: 256, seed: 44, gloss: 0.45 });
-  const stringerGeo = roundedBoxGeo(0.035, 4.55, 0.09, 0.012, 2);
+  const stringerGeo = roundedBoxGeo(0.095, 4.55, 0.04, 0.012, 2);
   const ladderGeos = [
-    xform(stringerGeo, -0.26, 2.275, 0),
-    xform(stringerGeo, 0.26, 2.275, 0)
+    xform(stringerGeo, 0, 2.275, -0.26),
+    xform(stringerGeo, 0, 2.275, 0.26)
   ];
   for (let i = 0; i < 11; i++) {
-    ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, 0, 0, Math.PI / 2));
+    ladderGeos.push(xform(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 8), 0, 0.35 + i * 0.39, 0, Math.PI / 2, 0, 0));
   }
   ladder.add(mergedMesh(ladderGeos, ladderWood));
   // v1.11 B4 细节遍①：踏面磨浅——用得最多的中段五级，踏杆顶面一条
@@ -1040,40 +1045,54 @@ export function build(ctx) {
   for (let i = 3; i <= 7; i++) {
     const w = 0.3 - Math.abs(i - 5) * 0.05;
     wearGeos.push(xform(
-      new THREE.BoxGeometry(w, 0.004, 0.02),
-      (i % 2 ? 0.02 : -0.02), 0.35 + i * 0.39 + 0.0165, 0
+      new THREE.BoxGeometry(0.02, 0.004, w),
+      0, 0.35 + i * 0.39 + 0.0165, (i % 2 ? 0.02 : -0.02)
     ));
   }
   ladder.add(mergedMesh(wearGeos, wearMat));
   // v1.11 B4 细节遍②：每级踏杆两道防滑刻槽（深色细环）
+  // v1.12 结构遍④：踏杆两端**贯穿榫 + 楔片**——踏杆穿透弦木、外侧
+  // 露榫头端面、榫面上打一根横楔（图书梯的传统做法：11 级 ×2 端）
   const grooveMat = new THREE.MeshStandardMaterial({ color: 0x140c06, roughness: 0.9 });
   const grooveGeo = new THREE.TorusGeometry(0.0168, 0.0022, 4, 10);
+  const tenonGeo = new THREE.CylinderGeometry(0.019, 0.019, 0.008, 8);
+  const wedgeGeo = new THREE.BoxGeometry(0.007, 0.03, 0.012);
   const grooveGeos = [];
   for (let i = 0; i < 11; i++) {
-    for (const gx of [-0.09, 0.09]) {
-      grooveGeos.push(xform(grooveGeo, gx, 0.35 + i * 0.39, 0, 0, Math.PI / 2, 0));
+    const y = 0.35 + i * 0.39;
+    for (const gz of [-0.09, 0.09]) {
+      grooveGeos.push(xform(grooveGeo, 0, y, gz));
+    }
+    for (const sz of [-1, 1]) {
+      grooveGeos.push(xform(tenonGeo, 0, y, sz * 0.284, Math.PI / 2, 0, 0));
+      grooveGeos.push(xform(wedgeGeo, 0, y, sz * 0.289, 0, 0, 0.35));
     }
   }
   ladder.add(mergedMesh(grooveGeos, grooveMat));
-  // 顶端黄铜挂钩 ×2（扣住墙轨）+ 底端轮叉
+  // 顶端黄铜挂钩 ×2（同高同距扣住 z 向墙轨）+ 底端轮叉侧板
   // v1.11 B4 细节遍③：弦木外侧黄铜螺钉头 ×8（结构件有了「装配过」的证据）
   const screwGeo = new THREE.SphereGeometry(0.0075, 8, 6);
   ladder.add(mergedMesh([
-    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), -0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
-    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.26, 4.52, 0.02, -0.3, Math.PI / 2, 0),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), -0.26, 0.1, 0.045),
-    xform(new THREE.BoxGeometry(0.05, 0.12, 0.02), 0.26, 0.1, 0.045),
-    ...[0.74, 1.91, 3.08, 4.25].flatMap((y) => [
-      xform(screwGeo, -0.279, y, 0),
-      xform(screwGeo, 0.279, y, 0)
+    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.02, 4.52, -0.26, 0, 0, -0.35),
+    xform(new THREE.TorusGeometry(0.055, 0.014, 6, 12, Math.PI * 1.2), 0.02, 4.52, 0.26, 0, 0, -0.35),
+    // 轮叉：每轮一对侧板（沿轴向跨住轮盘）+ 贯穿轴销（v1.12 五金遍）
+    ...[-0.26, 0.26].flatMap((z) => [
+      xform(new THREE.BoxGeometry(0.012, 0.12, 0.05), 0.02, 0.1, z),
+      xform(new THREE.BoxGeometry(0.012, 0.12, 0.05), 0.07, 0.1, z),
+      xform(new THREE.CylinderGeometry(0.007, 0.007, 0.075, 6), 0.045, 0.05, z, 0, 0, Math.PI / 2)
+    ]),
+    // 螺钉钉在级间（不撞榫头）
+    ...[0.55, 1.72, 2.9, 4.06].flatMap((y) => [
+      xform(screwGeo, 0, y, -0.281),
+      xform(screwGeo, 0, y, 0.281)
     ])
   ], M.brass));
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.85 });
   const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), wheelMat);
   wheelL.rotation.z = Math.PI / 2;
-  wheelL.position.set(-0.26, 0.05, 0.06);
+  wheelL.position.set(0.045, 0.05, -0.26);
   const wheelR = wheelL.clone();
-  wheelR.position.x = 0.26;
+  wheelR.position.z = 0.26;
   ladder.add(wheelL, wheelR);
   ladder.position.set(W / 2 - 1.12, 0, 2.4);
   ladder.rotation.z = -0.21;
