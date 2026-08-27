@@ -2251,13 +2251,18 @@ export function filmProjector({ mats } = {}) {
   lensTip.position.set(0, 1.1, 0.385);
   g.add(lensTip);
   // 供片/收片盘（侧板 + 三辐条 + 片饼），装在盘臂端，可旋转
+  // v1.12 巡查修正：镀铬平板映黑环境时隐形、暗厅里只剩「发光辐条」
+  // ——外缘加圈（曲面从任何角度都接得住高光，圆轮廓不丢）
   const mkReel = (filmR) => {
     const r = new THREE.Group();
     const plateGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.008, 22);
     const spokeGeo = new THREE.BoxGeometry(0.022, 0.006, 0.3);
+    const rimGeo = new THREE.TorusGeometry(0.166, 0.008, 8, 26);
     const reelGeos = [
       xform(plateGeo, -0.02, 0, 0, 0, 0, Math.PI / 2),
-      xform(plateGeo, 0.02, 0, 0, 0, 0, Math.PI / 2)
+      xform(plateGeo, 0.02, 0, 0, 0, 0, Math.PI / 2),
+      xform(rimGeo, -0.024, 0, 0, 0, Math.PI / 2, 0),
+      xform(rimGeo, 0.024, 0, 0, 0, Math.PI / 2, 0)
     ];
     for (let i = 0; i < 3; i++) {
       reelGeos.push(xform(spokeGeo, -0.021, 0, 0, i * Math.PI / 3, 0, 0));
@@ -2265,10 +2270,11 @@ export function filmProjector({ mats } = {}) {
     }
     plateGeo.dispose();
     spokeGeo.dispose();
+    rimGeo.dispose();
     r.add(mergedMesh(reelGeos, M.chrome));
     const film = new THREE.Mesh(
       new THREE.CylinderGeometry(filmR, filmR, 0.024, 20),
-      new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.55 })
+      new THREE.MeshStandardMaterial({ color: 0x1c1713, roughness: 0.5 })
     );
     film.rotation.z = Math.PI / 2;
     r.add(film);
