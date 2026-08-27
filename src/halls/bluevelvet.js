@@ -1445,6 +1445,264 @@ export function build(ctx) {
   coatNook.rotation.y = -Math.PI / 2;
   group.add(coatNook);
 
+  // ============================================================
+  // v1.10 阶段 2c·bluevelvet 件 1：今夜的歌单立牌（台阶旁）——
+  // 黄铜落地牌架 + 午夜蓝卡片：TONIGHT 三首曲目，第三首被划掉、
+  // 第四行只剩一道涂污。E → 卡片打个颤 + page；1.0s 后舞台聚光
+  // 咽一口气、话筒那头一声几不可闻的呼吸（连锁）——
+  // 名单知道今晚唱到哪一首为止。
+  // ============================================================
+  {
+    const standGrp = new THREE.Group();
+    // 车削黄铜底座 + 立杆 + 顶部关节球
+    const standGeos = [
+      xform(new THREE.LatheGeometry([
+        new THREE.Vector2(0.15, 0), new THREE.Vector2(0.145, 0.02), new THREE.Vector2(0.05, 0.045),
+        new THREE.Vector2(0.03, 0.05), new THREE.Vector2(0.024, 0.07)
+      ], 16), 0, 0, 0),
+      xform(new THREE.CylinderGeometry(0.014, 0.019, 1.06, 10), 0, 0.58, 0),
+      xform(new THREE.SphereGeometry(0.028, 10, 8), 0, 1.12, 0)
+    ];
+    // 牌框：四边黄铜窄条 + 底托唇 + 双压角夹（斜倚在关节球上）
+    const FR_TILT = -0.24;
+    const frameGeos = [
+      xform(new THREE.BoxGeometry(0.5, 0.022, 0.02), 0, 1.46, -0.083, FR_TILT, 0, 0),
+      xform(new THREE.BoxGeometry(0.5, 0.022, 0.02), 0, 0.855, 0.065, FR_TILT, 0, 0),
+      xform(new THREE.BoxGeometry(0.022, 0.64, 0.02), -0.24, 1.157, -0.009, FR_TILT, 0, 0),
+      xform(new THREE.BoxGeometry(0.022, 0.64, 0.02), 0.24, 1.157, -0.009, FR_TILT, 0, 0),
+      xform(new THREE.BoxGeometry(0.16, 0.02, 0.045), 0, 0.845, 0.078, FR_TILT, 0, 0),
+      xform(new THREE.SphereGeometry(0.014, 8, 6), -0.13, 1.462, -0.07),
+      xform(new THREE.SphereGeometry(0.014, 8, 6), 0.13, 1.462, -0.07)
+    ];
+    standGrp.add(mergedMesh([...standGeos, ...frameGeos], brassMat));
+    // 卡片：午夜蓝底 + 金双边线 + TONIGHT + 三首原创曲目（第三首划掉）
+    const cardTex2 = canvasTexture(256, (g, s) => {
+      g.fillStyle = '#0c1024';
+      g.fillRect(0, 0, s, s);
+      g.strokeStyle = 'rgba(196,164,96,0.85)';
+      g.lineWidth = 2.5;
+      g.strokeRect(12, 12, s - 24, s - 24);
+      g.lineWidth = 1;
+      g.strokeStyle = 'rgba(196,164,96,0.4)';
+      g.strokeRect(19, 19, s - 38, s - 38);
+      g.textAlign = 'center';
+      g.fillStyle = '#d8c491';
+      g.font = '600 25px Georgia, serif';
+      g.fillText('T O N I G H T', s / 2, 58);
+      g.strokeStyle = 'rgba(196,164,96,0.6)';
+      g.beginPath();
+      g.moveTo(58, 74); g.lineTo(s - 58, 74);
+      g.stroke();
+      g.font = 'italic 400 20px Georgia, serif';
+      g.fillStyle = '#c9cede';
+      g.fillText('Slow Room', s / 2, 112);
+      g.fillText('Blue Rose Waltz', s / 2, 148);
+      g.fillStyle = 'rgba(160,166,186,0.62)';
+      g.fillText('The Stairway', s / 2, 184);
+      // 第三首被人用铅笔划掉
+      g.strokeStyle = 'rgba(120,126,148,0.85)';
+      g.lineWidth = 2.2;
+      g.beginPath();
+      g.moveTo(74, 178); g.lineTo(184, 176);
+      g.stroke();
+      // 第四行：只剩一道被指腹抹开的涂污
+      const smear = g.createLinearGradient(88, 0, 172, 0);
+      smear.addColorStop(0, 'rgba(150,150,170,0)');
+      smear.addColorStop(0.4, 'rgba(150,150,170,0.34)');
+      smear.addColorStop(1, 'rgba(150,150,170,0)');
+      g.fillStyle = smear;
+      g.fillRect(84, 208, 92, 9);
+      g.font = '400 12px Georgia, serif';
+      g.fillStyle = 'rgba(196,164,96,0.55)';
+      g.fillText('10:30  ·  THE BLUE ROOM', s / 2, s - 24);
+    });
+    const setCard = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.44, 0.58),
+      new THREE.MeshStandardMaterial({
+        map: cardTex2, roughness: 0.75,
+        emissive: 0xffffff, emissiveMap: cardTex2, emissiveIntensity: 0.16
+      })
+    );
+    setCard.position.set(0, 1.157, 0.001);
+    setCard.rotation.x = FR_TILT;
+    standGrp.add(setCard);
+    standGrp.position.set(2.25, 0, -3.0);
+    standGrp.rotation.y = 0.34;
+    group.add(standGrp);
+    const cardShake = { t: -1 };
+    const spotSwallow = { t: -1 };
+    updaters.push((dt) => {
+      if (cardShake.t >= 0) {
+        cardShake.t += dt;
+        const k = Math.exp(-cardShake.t * 3.2);
+        if (k < 0.02) { cardShake.t = -1; setCard.rotation.x = FR_TILT; setCard.rotation.z = 0; }
+        else {
+          setCard.rotation.x = FR_TILT + Math.sin(cardShake.t * 21) * 0.05 * k;
+          setCard.rotation.z = Math.sin(cardShake.t * 15 + 0.7) * 0.03 * k;
+        }
+      }
+      // 连锁：聚光咽一口气（注册在乐队 lerp 之后，乘法覆写当帧生效）
+      if (spotSwallow.t >= 0) {
+        spotSwallow.t += dt;
+        const u = spotSwallow.t / 1.3;
+        if (u >= 1) spotSwallow.t = -1;
+        else spot.intensity *= 1 - Math.sin(u * Math.PI) * 0.72;
+      }
+    });
+    hotspots.add(setCard, {
+      hint: 'E — 今夜的歌单',
+      onActivate: () => {
+        if (cardShake.t < 0) cardShake.t = 0;
+        audio.sfxAt('page', 2.25, -3.0, 0.6);
+        later(() => { spotSwallow.t = 0; }, 1000);
+        later(() => audio.sfxAt('breath', 0, -D / 2 + 2.3, 0.22, 3), 1150);
+        ui.caption('最后一首没有名字。', 3600);
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 阶段 2c·bluevelvet 件 2：半掩的穿衣镜（南墙门侧）——
+  // 木框摇镜骑在 A 形架上，一块防尘布从顶角斜盖住小半面镜子；
+  // 镜面是暗玻，里面的房间没开灯。E → 布往下滑一截 + tassel，
+  // 露出来的那一瞬镜子深处站着个东西（1.2s，只这一次）；
+  // 布只肯滑两截，再按只剩整面镜在轴上轻轻点头。
+  // ============================================================
+  {
+    const mirGrp = new THREE.Group();
+    const mirWood = woodMat({ base: [30, 18, 13], planks: 1, size: 128, seed: 71, gloss: 0.5 });
+    // A 形架：双侧八字腿 + 横撑 + 轴头旋钮
+    const legAng = 0.3;
+    const rigGeos = [
+      xform(new THREE.CylinderGeometry(0.021, 0.026, 1.62, 8), -0.43, 0.78, -0.115, legAng, 0, 0.045),
+      xform(new THREE.CylinderGeometry(0.021, 0.026, 1.62, 8), -0.43, 0.78, 0.115, -legAng, 0, 0.045),
+      xform(new THREE.CylinderGeometry(0.021, 0.026, 1.62, 8), 0.43, 0.78, -0.115, legAng, 0, -0.045),
+      xform(new THREE.CylinderGeometry(0.021, 0.026, 1.62, 8), 0.43, 0.78, 0.115, -legAng, 0, -0.045),
+      xform(new THREE.CylinderGeometry(0.016, 0.016, 0.86, 8), 0, 0.42, 0, 0, 0, Math.PI / 2)
+    ];
+    const rig = mergedMesh(rigGeos, mirWood);
+    mirGrp.add(rig);
+    mirGrp.add(mergedMesh([
+      xform(new THREE.SphereGeometry(0.032, 10, 8), -0.475, 1.52, 0),
+      xform(new THREE.SphereGeometry(0.032, 10, 8), 0.475, 1.52, 0)
+    ], brassMat));
+    // 镜身在轴上的枢转组（镜框 + 暗玻 + 背板 + 镜中形体 + 防尘布）
+    const framePivot = new THREE.Group();
+    framePivot.position.y = 1.52;
+    const frameGeos2 = [
+      xform(new THREE.BoxGeometry(0.05, 1.66, 0.05), -0.36, 0, 0),
+      xform(new THREE.BoxGeometry(0.05, 1.66, 0.05), 0.36, 0, 0),
+      xform(new THREE.BoxGeometry(0.77, 0.06, 0.05), 0, 0.85, 0),
+      xform(new THREE.BoxGeometry(0.77, 0.06, 0.05), 0, -0.85, 0)
+    ];
+    framePivot.add(mergedMesh(frameGeos2, mirWood));
+    // 暗玻镜面：几乎全反射的深色玻璃——里面的房间没开灯
+    const mirGlass = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.68, 1.62),
+      new THREE.MeshPhysicalMaterial({
+        color: 0x1c2334, roughness: 0.04, metalness: 0.92, envMapIntensity: 2.4,
+        transparent: true, opacity: 0.72, clearcoat: 1, clearcoatRoughness: 0.05
+      })
+    );
+    mirGlass.position.z = 0.012;
+    framePivot.add(mirGlass);
+    const mirBack = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.7, 1.63),
+      new THREE.MeshStandardMaterial({ color: 0x030308, roughness: 0.98 })
+    );
+    mirBack.position.z = -0.09;
+    framePivot.add(mirBack);
+    // 镜子深处的东西（压扁塞进玻璃与背板之间，常态不在）
+    const mirFigure = darkFigure(1.5);
+    mirFigure.scale.set(0.6, 0.85, 0.16);
+    mirFigure.position.set(0.08, -0.81, -0.05);
+    mirFigure.visible = false;
+    framePivot.add(mirFigure);
+    // 防尘布：从顶档翻搭下来盖住小半面镜子——前幅（带静态褶皱）+
+    // 翻过横档的顶折 + 背幅短垂，三片一组才像「搭上去的布」
+    const clothMat = new THREE.MeshStandardMaterial({
+      map: weaveTexture('#4a4d58', '#5a5e6c', 128, 20),
+      color: 0x8a90a2, roughness: 0.92, side: THREE.DoubleSide
+    });
+    const cloth = new THREE.Group();
+    const clothGeo = new THREE.PlaneGeometry(0.58, 0.88, 14, 10);
+    const cp = clothGeo.attributes.position;
+    for (let i = 0; i < cp.count; i++) {
+      const cx = cp.getX(i);
+      const cy = cp.getY(i);
+      const w2 = 0.5 - cy / 0.88; // 底摆最活
+      cp.setZ(i, Math.sin(cx * 17 + cy * 3) * 0.024 * (0.5 + w2) + Math.sin(cy * 9) * 0.008);
+    }
+    clothGeo.computeVertexNormals();
+    const clothFront = new THREE.Mesh(clothGeo, clothMat);
+    clothFront.position.y = -0.44; // 前幅垂下（组原点设在顶折线）
+    const clothCap = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.14), clothMat);
+    clothCap.rotation.x = -Math.PI / 2 + 0.18;
+    clothCap.position.set(0, 0.012, -0.055);
+    const clothBack = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.3), clothMat);
+    clothBack.position.set(0, -0.13, -0.12);
+    clothBack.rotation.x = 0.1;
+    cloth.add(clothFront, clothCap, clothBack);
+    const CLOTH_Y0 = 0.9; // 顶折线正骑在上横档上
+    const CLOTH_TILT = -0.16;
+    cloth.position.set(0.17, CLOTH_Y0, 0.055);
+    cloth.rotation.z = CLOTH_TILT;
+    framePivot.add(cloth);
+    framePivot.rotation.x = -0.06; // 镜身微微后仰
+    mirGrp.add(framePivot);
+    mirGrp.position.set(3.35, 0, 6.68);
+    mirGrp.rotation.y = Math.PI + 0.14;
+    group.add(mirGrp);
+    // 一盏很暗的冷光让暗玻有得反——镜子在门边自己亮着一线
+    const mirGlow = new THREE.PointLight(0xaab8e0, 1.2, 3.4, 2);
+    mirGlow.position.set(3.2, 2.1, 5.9);
+    group.add(mirGlow);
+    const clothState = { slip: 0, anim: -1, nod: -1 };
+    updaters.push((dt) => {
+      if (clothState.anim >= 0) {
+        clothState.anim += dt;
+        const u = Math.min(1, clothState.anim / 0.9);
+        const e = 1 - Math.pow(1 - u, 3);
+        const k = clothState.slip - 1 + e;
+        cloth.position.y = CLOTH_Y0 - k * 0.17;
+        cloth.rotation.z = CLOTH_TILT - k * 0.1;
+        if (u >= 1) clothState.anim = -1;
+      }
+      if (clothState.nod >= 0) {
+        clothState.nod += dt;
+        const k = Math.exp(-clothState.nod * 1.6);
+        if (k < 0.02) { clothState.nod = -1; framePivot.rotation.x = -0.06; }
+        else framePivot.rotation.x = -0.06 + Math.sin(clothState.nod * 6.5) * 0.035 * k;
+      }
+    });
+    hotspots.add(mirGlass, {
+      hint: 'E — 半掩的穿衣镜',
+      onActivate: () => {
+        if (clothState.anim >= 0) return;
+        if (clothState.slip < 2) {
+          clothState.slip += 1;
+          clothState.anim = 0;
+          audio.sfxAt('tassel', 3.35, 6.68, 0.6);
+          if (clothState.slip === 1) {
+            // 布掀开的那一瞬，镜子深处站着个东西——只这一次
+            later(() => {
+              mirFigure.visible = true;
+              audio.sfxAt('breath', 3.35, 6.68, 0.4, 3);
+            }, 480);
+            later(() => { mirFigure.visible = false; }, 1680);
+            ui.caption('盖上它是有原因的。', 3600);
+          } else {
+            ui.caption('镜子里的房间没开灯。', 3600);
+          }
+        } else {
+          if (clothState.nod < 0) clothState.nod = 0;
+          audio.sfxAt('creak', 3.35, 6.68, 0.4);
+          ui.caption('布不肯再往下了。', 3200);
+        }
+      }
+    });
+  }
+
   // ---------- 彩蛋：衣柜的暗侧 ----------
   const closetMat = new THREE.MeshStandardMaterial({
     map: woodTexture({ base: [26, 18, 12], planks: 2, vertical: true, size: 256 }), roughness: 0.8
