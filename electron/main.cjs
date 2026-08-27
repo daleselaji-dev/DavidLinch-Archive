@@ -300,6 +300,25 @@ function createWindow() {
         // SV_SHOT_POS: 可选 "x,z,yaw" —— 截屏前瞬移（复核厅内分区）
         // SV_SHOT_LOW: 可选 "1" —— 截屏前切低画质档（低档退化视觉点验）
         // 顺序：交互密度检查 → （瞬移 + 截屏）→ 全量激活 + 彩蛋 → 下一厅
+        // SV_OPEN_SHOT: 可选，开幕点灯序列连拍（仅首厅装载）。软渲染
+        // 合成器前 ~6.5s 是黑窗（淡入 + 预取占满），可见进程被压缩在
+        // 约 7–10s——6.6s 起每 0.4s 连拍 10 帧覆盖第 0 拍 → 吊灯错拍 →
+        // 尘埃醒来收口
+        const openDir = process.env.SV_OPEN_SHOT;
+        if (openDir && shotCount === 0) {
+          for (let oi = 0; oi < 10; oi++) {
+            setTimeout(async () => {
+              try {
+                const img = await win.webContents.capturePage();
+                require('fs').mkdirSync(openDir, { recursive: true });
+                require('fs').writeFileSync(require('path').join(openDir, `open-${String(oi).padStart(2, '0')}.png`), img.toPNG());
+                console.log(`[smoke] 开幕捕帧: open-${oi}.png`);
+              } catch (err) {
+                console.error('[smoke] 开幕捕帧失败', err);
+              }
+            }, 6600 + oi * 400);
+          }
+        }
         const shotDir = process.env.SV_SHOT_DIR;
         if (shotDir && process.env.SV_SHOT_LOW === '1') {
           win.webContents.executeJavaScript(
