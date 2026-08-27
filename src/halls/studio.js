@@ -11,7 +11,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, smokeLayer, dustField,
   quoteStand, quoteStandUpdater, zoneTrigger,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture,
-  woodMat as woodPbr, fabricMat, rng, contactShadows
+  woodMat as woodPbr, fabricMat, rng, contactShadows, wallAO
 } from './kit.js';
 import { propMats, angleLamp, radioCabinet, turntable, typewriter, ceilingFan, clubChair } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -2492,6 +2492,17 @@ export function build(ctx) {
   group.add(back);
   updaters.push(back.userData.update);
   hotspots.add(back.userData.portal, { nav: true, hint: 'E — 回到天鹅绒大厅', onActivate: () => goTo('lobby') });
+
+  // v1.10 抛光 P15：墙脚 AO 带——木墙与木地板的交线一圈软阴影
+  // （北墙沿帘洞分两段），亮木地板上「墙贴着地」的 CG 感就是
+  // 这一条线杀掉的。合并单 mesh 零带宽。
+  group.add(wallAO([
+    { x: -2.675, z: -D / 2 + 0.275, len: 11.15, ry: 0 },
+    { x: 7.175, z: -D / 2 + 0.275, len: 2.15, ry: 0 },
+    { x: 0, z: D / 2 - 0.275, len: W, ry: Math.PI },
+    { x: -W / 2 + 0.275, z: 0, len: D, ry: Math.PI / 2 },
+    { x: W / 2 - 0.275, z: 0, len: D, ry: -Math.PI / 2 }
+  ], 0.3));
 
   // 边界：主房间 + （帘开着才可进的）冥想角
   const clamp = (p) => {

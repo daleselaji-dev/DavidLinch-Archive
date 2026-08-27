@@ -223,6 +223,41 @@ export function contactShadows(spots, opacity = 0.42) {
   }));
 }
 
+// ---------- v1.10 P15 墙脚 AO 带 ----------
+let wallAOTex = null;
+/**
+ * 墙脚阴影带——墙与地交线处的一条软渐变（假环境光遮蔽），杀掉
+ * 「墙贴着地」的 CG 感。runs: [{ x, z, len, ry?, w?, y? }]——每条以
+ * (x,z) 为中点、沿本地 x 向铺 len 长；暗边初始朝世界 -z，ry 绕竖轴
+ * 转到贴墙一侧（0=北墙 / π=南墙 / π/2=西墙 / -π/2=东墙）。多条合并
+ * **单 mesh**、共享一张线性渐变贴图（模块级缓存），polygonOffset 防
+ * 与地面深度打架；黑色不受光，静态零带宽低档免回退（与接触阴影同口径）。
+ */
+export function wallAO(runs, opacity = 0.32) {
+  if (!wallAOTex) {
+    wallAOTex = canvasTexture(64, (g, s) => {
+      g.clearRect(0, 0, s, s);
+      const grad = g.createLinearGradient(0, 0, 0, s);
+      grad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(0.42, 'rgba(0,0,0,0.3)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, s, s);
+    });
+  }
+  const geos = runs.map(({ x, z, len, ry = 0, w = 0.55, y = 0.008 }) => {
+    const g = new THREE.PlaneGeometry(len, w);
+    g.rotateX(-Math.PI / 2); // 放平后贴图暗边（画布顶行）指向世界 -z
+    g.rotateY(ry);
+    g.translate(x, y, z);
+    return g;
+  });
+  return mergedMesh(geos, new THREE.MeshBasicMaterial({
+    map: wallAOTex, color: 0x000000, transparent: true, opacity,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1
+  }));
+}
+
 // ---------- 圆角几何 / 合并 ----------
 /** 圆角盒几何 */
 export function roundedBoxGeo(w, h, d, r, segments = 3) {

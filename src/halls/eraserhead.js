@@ -9,7 +9,7 @@ import {
   smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
   zoneTrigger, makeFlicker, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, brushedMetalTexture,
-  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat, contactShadows
+  concreteMat, brickMat, hangingBulb, rustMat, rng, woodMat, brassMat, contactShadows, wallAO
 } from './kit.js';
 import { propMats, fireboxDoor, valveWheel, fuseBox, pipeRail } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
@@ -2325,6 +2325,16 @@ export function build(ctx) {
     dust.material.opacity = 0.3 * (1 + engine.breath * 0.3);
     haze.material.opacity = 0.06 * (1 + engine.breath * 0.22);
   });
+  // v1.10 抛光 P15：墙脚 AO 带——砖墙与水泥地坪的交线一圈软阴影
+  // （西墙沿门洞分两段），工业硬面之间的「贴图接缝感」靠这条线压住。
+  group.add(wallAO([
+    { x: 0, z: -S / 2 + 0.275, len: S, ry: 0 },
+    { x: 0, z: S / 2 - 0.275, len: S, ry: Math.PI },
+    { x: S / 2 - 0.275, z: 0, len: S, ry: -Math.PI / 2 },
+    { x: -S / 2 + 0.275, z: -5.05, len: 6.9, ry: Math.PI / 2 },
+    { x: -S / 2 + 0.275, z: 5.05, len: 6.9, ry: Math.PI / 2 }
+  ], 0.34));
+
   // v1.10 抛光 P13「远处的声」：楼那头有人敲管道——三下，一下比
   // 一下轻，每 70–120s（seeded）从西墙外很远的地方传来。管道通到
   // 哪儿没人知道；对暖气说话的也许不是人。

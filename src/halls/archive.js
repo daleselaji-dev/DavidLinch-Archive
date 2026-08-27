@@ -10,7 +10,7 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows, wallAO
 } from './kit.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
@@ -1802,6 +1802,14 @@ export function build(ctx) {
     dust.material.opacity = 0.32 * (1 + engine.breath * 0.24);
     smoke.material.opacity = 0.03 * (1 + engine.breath * 0.16);
   });
+  // v1.10 抛光 P15：墙脚 AO 带——长廊两面墙与石地的交线软阴影
+  // （西墙沿龛口分两段），48m 纵深里这两条线把墙「按」在地上。
+  group.add(wallAO([
+    { x: W / 2 - 0.275, z: 0, len: L, ry: -Math.PI / 2 },
+    { x: -W / 2 + 0.275, z: -(L / 2 + 2.5) / 2, len: L / 2 - 2.5, ry: Math.PI / 2 },
+    { x: -W / 2 + 0.275, z: (L / 2 + 2.5) / 2, len: L / 2 - 2.5, ry: Math.PI / 2 }
+  ], 0.32));
+
   // v1.10 抛光 P13「远处的声」：西墙隔壁的房间里一只木抽屉滑轨
   // 到底闷闷关上——每 75–130s（seeded）一声。这面墙后没有房间；
   // 归档的动作在没有房间的地方继续进行。

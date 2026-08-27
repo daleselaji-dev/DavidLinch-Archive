@@ -135,6 +135,26 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
     const mul = readFileSync(new URL('../src/halls/mulholland.js', import.meta.url), 'utf8');
     expect(mul).not.toContain('contactShadows([');
   });
+
+  it('v1.10 P15 墙脚 AO 带 wallAO：导出 + 单 mesh 合并 + 贴图缓存 + 防深度打架', () => {
+    expect(typeof kit.wallAO).toBe('function');
+    const seg = src.slice(src.indexOf('export function wallAO'), src.indexOf('// ---------- 圆角几何'));
+    expect(seg).toContain('mergedMesh');
+    expect(seg).toContain('wallAOTex');
+    expect(seg).toContain('createLinearGradient');
+    expect(seg).toContain('depthWrite: false');
+    expect(seg).toContain('polygonOffset: true');
+    expect(seg).toContain('transparent: true');
+  });
+
+  it('v1.10 P15 墙脚 AO 带已在三个室内硬墙厅接线（studio/archive/eraserhead 各合并单 mesh）', () => {
+    for (const h of ['studio', 'archive', 'eraserhead']) {
+      const hs = readFileSync(new URL(`../src/halls/${h}.js`, import.meta.url), 'utf8');
+      expect(hs, `${h} 缺少 wallAO 接线`).toContain('wallAO([');
+      // 每厅只出现一次（合并单 mesh，预算 +1）
+      expect(hs.split('wallAO([').length - 1, `${h} wallAO 应只接一次`).toBe(1);
+    }
+  });
 });
 
 describe('v1.3 道具预制体库导出面', () => {
