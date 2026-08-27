@@ -1732,8 +1732,10 @@ export function build(ctx) {
   };
   // 顶点色走线性空间：sRGB 直觉值必须先转线性，否则渲染端整体提亮
   // 成灰粉（首拍病灶）。crust 烤透金褐 / fill 暗樱桃糖浆。
-  const crustLin = new THREE.Color(0xa15a1e).convertSRGBToLinear();
-  const fillLin = new THREE.Color(0x4a0d10).convertSRGBToLinear();
+  // 注意亮度下限：转线性后漫反射若跌到 ~3%（如 0x7c3e11），宽镜面
+  // 灰光会反客为主、把派「读灰」——中档暖褐才立得住色相
+  const crustLin = new THREE.Color(0xb0641f).convertSRGBToLinear();
+  const fillLin = new THREE.Color(0x5a1013).convertSRGBToLinear();
   const crustC = [crustLin.r, crustLin.g, crustLin.b];
   const fillC = [fillLin.r, fillLin.g, fillLin.b];
   const pieGeos = [
@@ -1764,7 +1766,7 @@ export function build(ctx) {
   }
   crimpG.dispose();
   const pie = mergedMesh(pieGeos, new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.52, // 馅的糖浆光和酥皮哑光的折中，罩内读感靠顶点色
+    vertexColors: true, roughness: 0.66, // 压住宽镜面灰光，色相交给顶点色
     map: canvasTexture(64, (g, s) => {
       g.fillStyle = '#ffffff';
       g.fillRect(0, 0, s, s);
@@ -1776,8 +1778,10 @@ export function build(ctx) {
       }
     })
   }));
+  // v1.12：罩子白纱收敛——env 反射 1.6→1.0、不透明度 0.14→0.11，
+  // 罩下的派不再隔着一层奶（英雄道具优先于罩子的存在感）
   const dome = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.14, roughness: 0.05, envMapIntensity: 1.6, depthWrite: false }));
+    new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.11, roughness: 0.05, envMapIntensity: 1.0, depthWrite: false }));
   dome.position.y = 0.02;
   pieGroup.add(plate, pie, dome);
   pieGroup.position.set(30.7, 1.12, -9.2);
