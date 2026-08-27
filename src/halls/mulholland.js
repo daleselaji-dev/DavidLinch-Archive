@@ -1537,6 +1537,9 @@ export function build(ctx) {
       scare.to.set(pv.x - (dx / d) * 0.85, 0, pv.z - (dz / d) * 0.85);
       audio.sfx('scare');
       audio.sfx('breath', 0.85);
+      // v1.10 P7：它扑近的同一拍，雾也收拢一口（世界跟着收紧，
+      // 引擎瞬态 ~3s 自行退掉——横跨黑幕，醒来时雾还没完全松开）
+      engine.fogSurge(0.9);
     }, B.rush);
     later(() => { // 扑到脸前：闷击 + 后处理冲击 + 暗红闪帧
       audio.sfx('thud', 1.0);
@@ -1592,6 +1595,8 @@ export function build(ctx) {
     audio.duck(1.3, 0.02, 2.8);
     audio.sfx('scare');
     audio.sfx('breath', 0.85);
+    // v1.10 P7：回头看见的同一帧雾收拢一口（与拐角惊吓同语言）
+    engine.fogSurge(0.9);
     later(() => {
       // 扑到脸前的一拍：闷击 + 后处理冲击 + 暗红闪帧
       audio.sfx('thud', 1.0);

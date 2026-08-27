@@ -163,6 +163,24 @@ function createWindow() {
                 return;
               }
               console.log('[smoke] 已走进拐角触发区：等待拐角惊吓多幕序列自然触发…');
+              // SV_SCARE_SHOT: 可选，惊吓多幕序列连拍捕帧（视觉证据）。
+              // 软渲染下扳机在进区后的下一渲染帧引爆（~0.4–1.2s 漂移），
+              // 单点必踩空——从 3s 起每 0.8s 连拍 6 帧覆盖顿挪→扑近→冲击窗
+              const scareDir = process.env.SV_SCARE_SHOT;
+              if (scareDir) {
+                for (let si = 0; si < 14; si++) {
+                  setTimeout(async () => {
+                    try {
+                      const img = await win.webContents.capturePage();
+                      require('fs').mkdirSync(scareDir, { recursive: true });
+                      require('fs').writeFileSync(require('path').join(scareDir, `scare-${String(si).padStart(2, '0')}.png`), img.toPNG());
+                      console.log(`[smoke] 惊吓捕帧: scare-${si}.png`);
+                    } catch (err) {
+                      console.error('[smoke] 惊吓捕帧失败', err);
+                    }
+                  }, 2200 + si * 800);
+                }
+              }
               // 多幕序列 later 链按实时钟走（~6.5s）+ 软渲染冗余 → 预算 40s
               pollUntilWake('拐角惊吓', 40000, () => {
                 console.log('[smoke] 拐角惊吓自然触发 OK：转过拐角 → 灯闪/刮擦/心跳 → 留白 → 顿挪现身 → 扑近 → 空间错位移回巷口 (9.7,9.5)');

@@ -57,6 +57,7 @@ export class Engine {
     // 低画质档保留）；breath ∈ [-1,1] 同时供各厅尘埃/烟雾层做节奏调制
     this._fogPulse = null;
     this._fogBase = 0.03;
+    this._fogSurge = 0;
     this.breath = 0;
     this.quality = 'high';
     this._fps = { frames: 0, acc: 0, value: 60 };
@@ -139,6 +140,13 @@ export class Engine {
     if (flashColor !== null) u.uFlashColor.value.set(flashColor);
   }
 
+  /** v1.10 P7 雾涌：瞬间把雾收拢一口（乘法瞬态，主循环内指数衰减
+   *  ~3s 归位）。纯标量零带宽，低画质档同样生效——惊吓扑近时
+   *  世界跟着收紧的那一下。 */
+  fogSurge(amount = 0.9) {
+    this._fogSurge = Math.max(this._fogSurge || 0, amount);
+  }
+
   start() {
     if (this._running) return;
     this._running = true;
@@ -154,10 +162,19 @@ export class Engine {
       if (u.uShock.value > 0.0005) u.uShock.value *= Math.exp(-dt * 2.0); else u.uShock.value = 0;
       if (u.uFlash.value > 0.0005) u.uFlash.value *= Math.exp(-dt * 7.5); else u.uFlash.value = 0;
       // 雾的呼吸（B1）：逐厅周期/深度；无配置时呼吸相位仍在走（B2 尘埃可用）
+      // v1.10 P7 雾涌瞬态叠乘：呼吸照常、涌上来的那口自己退掉
       const fp = this._fogPulse;
       this.breath = Math.sin((t * Math.PI * 2) / ((fp && fp.period) || 32));
-      if (fp && this.scene.fog) {
-        this.scene.fog.density = this._fogBase * (1 + (fp.depth || 0.1) * this.breath);
+      if (this.scene.fog) {
+        let fd = this._fogBase;
+        if (fp) fd *= 1 + (fp.depth || 0.1) * this.breath;
+        if (this._fogSurge > 0.002) {
+          fd *= 1 + this._fogSurge;
+          this._fogSurge *= Math.exp(-dt * 1.1);
+        } else if (this._fogSurge) {
+          this._fogSurge = 0;
+        }
+        this.scene.fog.density = fd;
       }
       for (const fn of this.updaters) fn(dt, t);
       this.composer.render();
