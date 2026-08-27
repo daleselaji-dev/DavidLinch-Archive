@@ -335,6 +335,15 @@ function createWindow() {
         shotCount += 1;
         interactiveCheck.then(() => {
           if (shotDir) {
+            // SV_SHOT_PRE: 可选，截屏前在页面执行一段 JS（如先拉帘/开盖，
+            // 把交互后的状态摆进镜头；配合 __SV__.activateByHint 使用）
+            const pre = process.env.SV_SHOT_PRE;
+            if (pre) {
+              win.webContents.executeJavaScript(pre, true).then(
+                (r) => console.log(`[smoke] 截屏前置脚本 ${hall}: ${JSON.stringify(r)}`),
+                (err) => console.error(`[smoke] 截屏前置脚本失败 ${hall}:`, err && err.message ? err.message : err)
+              );
+            }
             const pos = (process.env.SV_SHOT_POS || '').split(',').map(Number);
             if (pos.length === 3 && pos.every((v) => Number.isFinite(v))) {
               win.webContents.executeJavaScript(

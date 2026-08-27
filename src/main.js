@@ -370,5 +370,18 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
+  /**
+   * 冒烟/截屏（v1.11）：按 hint 片段激活单个热点（如截屏前先拉帘/
+   * 开盖，把「交互后的状态」摆进镜头）。返回是否命中。
+   */
+  activateByHint: (sub) => {
+    for (const m of hotspots.items) {
+      const h = m.userData.hotspot;
+      if (!h || h.nav || !h.hint || !h.hint.includes(sub)) continue;
+      h.onActivate();
+      return true;
+    }
+    return false;
+  },
   version: '1.10.0'
 };
