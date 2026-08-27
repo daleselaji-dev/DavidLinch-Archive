@@ -190,3 +190,45 @@ describe('v1.11 门禁 57：新音色 ≥3 在引擎且被接线', () => {
     expect(seg).toContain('11.55, -8 - fenceRng() * 18');
   });
 });
+
+describe('v1.12 门禁 61 追加：门虚空纵深 + 门后剪影（一次性，零字幕）', () => {
+  const kit = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
+
+  it('门虚空不再是纯色发光平板：灰度纵深贴图（底缘渗光/中缝竖隙/顶部楣影）', () => {
+    expect(kit).toContain('portalDepthTex');
+    expect(kit).toContain('emissiveMap: portalDepthTex');
+    // 三个层次都在：底缘渗光 + 中缝竖隙 + 顶部收暗
+    const at = kit.indexOf('portalDepthTex');
+    const seg = kit.slice(at, at + 1600);
+    expect(seg).toContain('floorGlow');
+    expect(seg).toContain('slit');
+    expect(seg).toContain('topShade');
+  });
+
+  it('门后剪影：贴近任意一扇门触发、整馆一次性（fired 锁存）', () => {
+    expect(SRC.lobby).toContain('doorGhost');
+    expect(SRC.lobby).toContain('doorGhost.fired = true');
+    // 触发半径贴近门（< 3m）
+    expect(/d < 2\.6/.test(SRC.lobby)).toBe(true);
+    // 开幕点灯前不走
+    expect(/openGate\.chand < 1\) return;.*开幕点灯前/.test(SRC.lobby)).toBe(true);
+  });
+
+  it('门后剪影零字幕（克制是设计的一部分）+ 两声轻脚步空间化', () => {
+    const at = SRC.lobby.indexOf('doorGhostTex');
+    const end = SRC.lobby.indexOf('doorGhostMesh.material.opacity = 0');
+    expect(at).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(at);
+    const seg = SRC.lobby.slice(at, end);
+    expect(seg).not.toContain('ui.caption');
+    expect((seg.match(/sfxAt\('step-wood'/g) || []).length).toBe(2);
+  });
+
+  it('剪影为抽象无面目（头影/肩/披落身形三团块，非肖像合规口径）', () => {
+    const at = SRC.lobby.indexOf('doorGhostTex');
+    const seg = SRC.lobby.slice(at, at + 1400);
+    expect(seg).toContain('头影');
+    expect(seg).toContain('披落身形');
+    expect(seg).not.toMatch(/face|眼|口|鼻/);
+  });
+});
