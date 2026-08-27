@@ -2152,6 +2152,257 @@ export function build(ctx) {
     });
   }
 
+  // ============================================================
+  // v1.10 阶段 2e·studio 件 1：书桌转椅——四爪铸铁蛛脚 + 立柱 +
+  // 圆座盘 + 弧形背档五根立辐，拉离桌子半步、歪着（刚有人起身）。
+  // E → 椅子慢慢转过大半圈停住——椅背正对着绿罩台灯（creak 起步
+  // + 落定 woodknock 轻声）；再按转回来。谁坐过它，不想被灯看着。
+  // ============================================================
+  {
+    const chairWood = woodPbr({ base: [40, 24, 13], planks: 1, size: 128, seed: 83, gloss: 0.55 });
+    const chairGrp = new THREE.Group();
+    const ironMat = new THREE.MeshStandardMaterial({
+      color: 0x16130f, roughness: 0.45, metalness: 0.85, envMapIntensity: 0.9
+    });
+    // 四爪蛛脚（斜落的方腿 + 端头小滚轮珠）+ 立柱 + 黄铜升降套环
+    const spiderGeos = [
+      xform(new THREE.CylinderGeometry(0.026, 0.034, 0.42, 10), 0, 0.24, 0)
+    ];
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      spiderGeos.push(
+        xform(new THREE.BoxGeometry(0.3, 0.032, 0.045),
+          Math.cos(a) * 0.155, 0.075, Math.sin(a) * 0.155, 0, -a, -0.32),
+        xform(new THREE.SphereGeometry(0.021, 8, 6), Math.cos(a) * 0.29, 0.021, Math.sin(a) * 0.29)
+      );
+    }
+    chairGrp.add(mergedMesh(spiderGeos, ironMat));
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.05, 12), M.brass);
+    collar.position.y = 0.4;
+    chairGrp.add(collar);
+    // 旋转组：座盘（碟形边）+ 弧背档 + 五根立辐
+    const chairSpin = new THREE.Group();
+    chairSpin.position.y = 0.47;
+    const seatMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.2, 0.05, 20), chairWood);
+    const seatRim = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.017, 8, 24), chairWood);
+    seatRim.rotation.x = Math.PI / 2;
+    seatRim.position.y = 0.02;
+    chairSpin.add(seatMesh, seatRim);
+    // 背档：弧形上梁扣住座盘后半（开口朝前）+ 五根立辐
+    // xform 欧拉 XYZ 下 rz 先转（选弧段起点）、rx 后放平
+    const ARC = Math.PI * 0.94;
+    const backGeos = [
+      xform(new THREE.TorusGeometry(0.21, 0.021, 8, 20, ARC),
+        0, 0.42, 0, Math.PI / 2, 0, Math.PI * 1.5 - ARC / 2)
+    ];
+    for (let i = 0; i < 5; i++) {
+      const az = Math.PI * 1.5 - ARC / 2 + ((i + 0.5) / 5) * ARC;
+      backGeos.push(xform(
+        new THREE.CylinderGeometry(0.011, 0.014, 0.4, 8),
+        Math.cos(az) * 0.205, 0.22, Math.sin(az) * 0.205
+      ));
+    }
+    chairSpin.add(mergedMesh(backGeos, chairWood));
+    chairGrp.add(chairSpin);
+    // 拉离桌子半步、歪着——面桌但没对正
+    const CHAIR_FACE_DESK = -Math.PI / 2 + 0.38;
+    chairSpin.rotation.y = CHAIR_FACE_DESK;
+    chairGrp.position.set(-5.25, 0, -1.05);
+    group.add(chairGrp);
+    // E → 转过大半圈，椅背对准台灯方向（前脸朝东南）
+    const CHAIR_BACK_TO_LAMP = Math.PI / 4;
+    const chairState = { turn: -1, from: 0, to: 0, away: false };
+    updaters.push((dt, t) => {
+      if (chairState.turn >= 0) {
+        chairState.turn += dt;
+        const u = Math.min(1, chairState.turn / 3.4);
+        const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        chairSpin.rotation.y = chairState.from + (chairState.to - chairState.from) * e;
+        if (u >= 1) chairState.turn = -1;
+      } else {
+        // 没人坐它的时候，它自己在极小的幅度里晃——像还没停稳
+        chairSpin.rotation.y += Math.sin(t * 0.4) * 0.012 * dt;
+      }
+    });
+    hotspots.add(seatMesh, {
+      hint: 'E — 书桌转椅',
+      onActivate: () => {
+        if (chairState.turn >= 0) return;
+        chairState.away = !chairState.away;
+        chairState.from = chairSpin.rotation.y;
+        // 走远路：绕过大半圈才停下——它选了不用面对你的那条路
+        chairState.to = chairState.away ? CHAIR_BACK_TO_LAMP - Math.PI * 2 : CHAIR_FACE_DESK;
+        chairState.turn = 0;
+        audio.sfxAt('creak', -5.25, -1.05, 0.55);
+        later(() => audio.sfxAt('woodknock', -5.25, -1.05, 0.2), 3200);
+        ui.caption(chairState.away ? '它不想被灯看着。' : '又坐回灯的对面。', 3400);
+      }
+    });
+  }
+
+  // ============================================================
+  // v1.10 阶段 2e·studio 件 2：门后的行李箱——立在回廊门边，
+  // 旧皮箱（磨边皮革 + 双箍带 + 八只包角 + 提手）+ 一张空白
+  // 行李牌吊在提手上。E → 两只黄铜锁扣错拍弹开（latchsnap），
+  // 悬一拍，又自己扣回去；0.8s 后行李牌晃起来（连锁）。
+  // 随时能走，从没走成。
+  // ============================================================
+  {
+    const caseGrp = new THREE.Group();
+    // 磨边皮革：深牛血底 + 云斑 + 划痕 + 四缘磨浅
+    const leatherTex = canvasTexture(256, (g, s) => {
+      g.fillStyle = '#3c2418';
+      g.fillRect(0, 0, s, s);
+      const lr = rng(87);
+      for (let i = 0; i < 60; i++) {
+        g.fillStyle = `rgba(${20 + lr() * 30},${12 + lr() * 18},${8 + lr() * 12},${0.12 + lr() * 0.2})`;
+        g.beginPath();
+        g.ellipse(lr() * s, lr() * s, 8 + lr() * 26, 5 + lr() * 16, lr() * Math.PI, 0, Math.PI * 2);
+        g.fill();
+      }
+      for (let i = 0; i < 22; i++) {
+        g.strokeStyle = `rgba(120,86,58,${0.1 + lr() * 0.22})`;
+        g.lineWidth = 0.6 + lr() * 1.2;
+        g.beginPath();
+        const x0 = lr() * s;
+        const y0 = lr() * s;
+        g.moveTo(x0, y0);
+        g.lineTo(x0 + (lr() - 0.5) * 60, y0 + (lr() - 0.5) * 40);
+        g.stroke();
+      }
+      // 四缘磨浅（被提着蹭出来的旧）
+      const edge = g.createLinearGradient(0, 0, 0, s);
+      edge.addColorStop(0, 'rgba(150,110,74,0.3)');
+      edge.addColorStop(0.12, 'rgba(150,110,74,0)');
+      edge.addColorStop(0.88, 'rgba(150,110,74,0)');
+      edge.addColorStop(1, 'rgba(150,110,74,0.34)');
+      g.fillStyle = edge;
+      g.fillRect(0, 0, s, s);
+    });
+    const leatherMat = new THREE.MeshStandardMaterial({
+      map: leatherTex, roughness: 0.58, envMapIntensity: 0.8
+    });
+    const caseBody = roundedBoxMesh(0.6, 0.84, 0.24, 0.035, leatherMat);
+    caseBody.position.y = 0.42;
+    caseGrp.add(caseBody);
+    // 双箍带（略深）+ 八只包角
+    const strapMat = new THREE.MeshStandardMaterial({ color: 0x241108, roughness: 0.5 });
+    caseGrp.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.065, 0.85, 0.255), -0.16, 0.42, 0),
+      xform(new THREE.BoxGeometry(0.065, 0.85, 0.255), 0.16, 0.42, 0)
+    ], strapMat));
+    const cornerGeos = [];
+    for (const sx of [-1, 1]) for (const sy of [0, 1]) for (const sz of [-1, 1]) {
+      cornerGeos.push(xform(
+        roundedBoxGeo(0.075, 0.075, 0.06, 0.02, 2),
+        sx * 0.275, 0.035 + sy * 0.77, sz * 0.095
+      ));
+    }
+    caseGrp.add(mergedMesh(cornerGeos, new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x6a5432, roughness: 0.45, metalness: 0.85, envMapIntensity: 1.0
+    })));
+    // 提手（皮拱）+ 两枚黄铜锁扣（盖片可弹开）
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.016, 8, 14, Math.PI), strapMat);
+    handle.position.y = 0.87;
+    caseGrp.add(handle);
+    caseGrp.add(mergedMesh([
+      xform(new THREE.BoxGeometry(0.03, 0.02, 0.034), -0.072, 0.858, 0),
+      xform(new THREE.BoxGeometry(0.03, 0.02, 0.034), 0.072, 0.858, 0)
+    ], M.brass));
+    const latchLids = [];
+    for (const sx of [-1, 1]) {
+      const base = new THREE.Mesh(roundedBoxGeo(0.056, 0.02, 0.05, 0.006, 2), M.brass);
+      base.position.set(sx * 0.185, 0.845, 0.0);
+      caseGrp.add(base);
+      const lid = new THREE.Mesh(roundedBoxGeo(0.05, 0.012, 0.042, 0.005, 2), M.brass);
+      lid.geometry.translate(0, 0.006, 0.018); // 枢轴设在后缘
+      lid.position.set(sx * 0.185, 0.856, -0.018);
+      caseGrp.add(lid);
+      latchLids.push(lid);
+    }
+    // 空白行李牌：细绳从提手垂下 + 纸牌（框线、姓名/地址栏全空）
+    const tagPivot = new THREE.Group();
+    tagPivot.position.set(0.075, 0.87, 0);
+    const tagStr = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0022, 0.0022, 0.1, 5),
+      new THREE.MeshStandardMaterial({ color: 0x9a8a6a, roughness: 0.9 })
+    );
+    tagStr.position.y = -0.05;
+    const tagTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#ded4bc';
+      g.fillRect(0, 0, s, s);
+      g.strokeStyle = '#8a7c5e';
+      g.lineWidth = 4;
+      g.strokeRect(6, 6, s - 12, s - 12);
+      g.font = '400 13px Georgia, serif';
+      g.fillStyle = '#8a7c5e';
+      g.fillText('NAME', 18, 40);
+      g.fillText('DEST.', 18, 78);
+      g.strokeStyle = 'rgba(120,108,82,0.75)';
+      g.lineWidth = 1.6;
+      for (const yy of [52, 90, 108]) {
+        g.beginPath();
+        g.moveTo(18, yy);
+        g.lineTo(s - 18, yy);
+        g.stroke();
+      }
+    });
+    const tag = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.078, 0.096),
+      new THREE.MeshStandardMaterial({ map: tagTex, roughness: 0.85, side: THREE.DoubleSide })
+    );
+    tag.position.y = -0.148;
+    tagPivot.add(tagStr, tag);
+    caseGrp.add(tagPivot);
+    // 立在门边、背靠墙微仰，箱面朝房间
+    caseGrp.position.set(1.42, 0, D / 2 - 0.62);
+    caseGrp.rotation.set(-0.055, Math.PI - 0.12, 0);
+    group.add(caseGrp);
+    const caseState = { t: -1, swing: -1 };
+    updaters.push((dt, t) => {
+      if (caseState.t >= 0) {
+        caseState.t += dt;
+        const T = caseState.t;
+        for (let i = 0; i < 2; i++) {
+          const t0 = T - i * 0.09;
+          let open = 0;
+          if (t0 > 0 && t0 < 1.15) {
+            // 弹开带簧震 → 悬住 → 自己扣回
+            const pop = Math.min(1, t0 / 0.1);
+            const wob = t0 < 0.55 ? Math.sin(t0 * 26) * 0.12 * Math.exp(-t0 * 4) : 0;
+            const close = t0 > 0.92 ? 1 - Math.min(1, (t0 - 0.92) / 0.1) : 1;
+            open = (pop + wob) * close;
+          }
+          latchLids[i].rotation.x = -1.35 * Math.max(0, Math.min(1.1, open));
+        }
+        if (T >= 1.35) { caseState.t = -1; latchLids[0].rotation.x = 0; latchLids[1].rotation.x = 0; }
+      }
+      if (caseState.swing >= 0) {
+        caseState.swing += dt;
+        const k = Math.exp(-caseState.swing * 1.4);
+        if (k < 0.02) { caseState.swing = -1; tagPivot.rotation.z = 0; tagPivot.rotation.x = 0; }
+        else {
+          tagPivot.rotation.z = Math.sin(caseState.swing * 7.5) * 0.5 * k;
+          tagPivot.rotation.x = Math.sin(caseState.swing * 5.8 + 0.6) * 0.22 * k;
+        }
+      }
+    });
+    hotspots.add(caseBody, {
+      hint: 'E — 门后的行李箱',
+      onActivate: () => {
+        if (caseState.t >= 0) return;
+        caseState.t = 0;
+        audio.sfxAt('latchsnap', 1.42, D / 2 - 0.62, 0.7);
+        later(() => audio.sfxAt('click', 1.42, D / 2 - 0.62, 0.35), 1040);
+        later(() => {
+          caseState.swing = 0;
+          audio.sfxAt('tassel', 1.42, D / 2 - 0.62, 0.3);
+        }, 1900);
+        ui.caption('随时能走。从没走成。', 3800);
+      }
+    });
+  }
+
   // 回大厅
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, D / 2 - 0.55);
