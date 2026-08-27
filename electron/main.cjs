@@ -95,9 +95,11 @@ function createWindow() {
         // v1.5：twinpeaks 对讲机 ×2（18→20）——阈值 17→19；其余不变
         // v1.8：七厅各 +1（导览架/年份巡礼/工厂对讲机/返听音箱/
         //       厂笛拉杆/霓虹检修箱/松节油罐）——阈值全线 +1
+        // v1.9：bluevelvet 谱架歌单（stage-seance 连锁入口）+1、
+        //       twinpeaks 柜台收音机（深夜访谈档 / night-frequency）+1
         const INTERACTIVE_MIN = {
-          lobby: 13, archive: 24, eraserhead: 17, bluevelvet: 16,
-          twinpeaks: 20, mulholland: 16, studio: 18
+          lobby: 13, archive: 24, eraserhead: 17, bluevelvet: 17,
+          twinpeaks: 21, mulholland: 16, studio: 18
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true

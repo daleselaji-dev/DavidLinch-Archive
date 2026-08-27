@@ -1129,6 +1129,110 @@ export function build(ctx) {
   });
 
   // ============================================================
+  // v1.9 三条件连锁彩蛋：台侧谱架歌单 → 降神一曲 stage-seance
+  // 谱架上留着今晚的歌单，末行写着「(blue light — tacet)」。
+  // 条件链：① 点唱机开（乐队醒着）× ② 脚灯拨到蓝场 × ③ E 翻歌单
+  // → 聚光转冷、深呼吸扫台，全屋桌灯退场、蓝洗地起，贝斯自己应
+  // 了两声，一段无人声源的咏叹（aria）从空舞台上浮起来——结束时
+  // 灯一拍切回暖场。条件不齐时歌单给指路字幕。冒烟名 stage-seance。
+  // ============================================================
+  const standGrp = new THREE.Group();
+  standGrp.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.014, 0.018, 0.98, 8), 0, 0.49, 0),
+    // 三叉底脚
+    ...[0, 2.094, 4.189].map((a) => xform(
+      new THREE.CylinderGeometry(0.009, 0.012, 0.3, 6),
+      Math.cos(a) * 0.11, 0.05, Math.sin(a) * 0.11, Math.sin(a) * 1.25, 0, -Math.cos(a) * 1.25)),
+    // 谱板托框（下沿托条 + 两根斜撑）
+    xform(new THREE.BoxGeometry(0.4, 0.02, 0.03), 0, 0.985, 0.045, -0.5, 0, 0),
+    xform(new THREE.BoxGeometry(0.02, 0.3, 0.02), -0.14, 1.12, 0.01, -0.5, 0, 0),
+    xform(new THREE.BoxGeometry(0.02, 0.3, 0.02), 0.14, 1.12, 0.01, -0.5, 0, 0)
+  ], brassMat));
+  const setlistTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#efe6d2';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#b9a888';
+    g.lineWidth = 2;
+    g.strokeRect(10, 10, s - 20, s - 20);
+    g.fillStyle = '#2a2018';
+    g.textAlign = 'center';
+    g.font = '700 28px Georgia, serif';
+    g.fillText('TONIGHT', s / 2, 54);
+    g.textAlign = 'left';
+    g.font = '18px Georgia, serif';
+    g.fillStyle = '#3a3026';
+    g.fillText('1. slow blue', 40, 104);
+    g.fillText('2. slower blue', 40, 140);
+    g.fillText('3. (blue light \u2014 tacet)', 40, 176);
+    g.fillStyle = '#8a2030';
+    g.font = 'italic 15px Georgia, serif';
+    g.fillText('band awake \u00b7 blue foots', 40, 218);
+  });
+  const setlist = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.3, 0.3),
+    new THREE.MeshStandardMaterial({ map: setlistTex, roughness: 0.8 })
+  );
+  setlist.position.set(0, 1.14, 0.028);
+  setlist.rotation.x = -0.5;
+  standGrp.add(setlist);
+  standGrp.position.set(2.3, 0.55, -D / 2 + 3.0); // 台面上、步行界外一线
+  standGrp.rotation.y = 0.16;
+  group.add(standGrp);
+  const seance = { t: -1, cool: 0, prevWarm: 1, prevBlue: 0 };
+  const seanceCold = new THREE.Color(0x9fb2ff);
+  const SEANCE_WARM = new THREE.Color(0xeef2ff);
+  const runSeance = () => {
+    if (seance.t >= 0 || seance.cool > 0) return;
+    seance.t = 0;
+    seance.cool = 50;
+    seance.prevWarm = dimState.warm;
+    seance.prevBlue = dimState.blue;
+    dimState.warm = 0.12; // 桌灯退场（借深蓝时刻的灯光总线，结束复原）
+    dimState.blue = 0.55;
+    audio.duck(2.0, 0.1, 3.2);
+    audio.sfxAt('aria', 0, -D / 2 + 2.3, 0.8, 9);
+    curtainShudder.t = 0;
+    curtainShudder.e = Math.max(curtainShudder.e, 0.55);
+  };
+  updaters.push((dt) => {
+    if (seance.cool > 0) seance.cool -= dt;
+    if (seance.t < 0) return;
+    const prev = seance.t;
+    seance.t += dt;
+    const u = seance.t;
+    const cross = (m) => prev < m && u >= m;
+    if (cross(0.7)) ui.caption('脚灯自己排好了队。', 3200);
+    if (cross(2.3)) { bassState.t = 0; audio.sfxAt('pluck', -3.35, -D / 2 + 0.9, 0.5, 6); }
+    if (cross(4.2)) ui.caption('有人在唱。台上没有人。', 4200);
+    if (cross(5.6)) { bassState.t = 0; audio.sfxAt('pluck', -3.35, -D / 2 + 0.9, 0.35, 6); }
+    if (cross(7.2)) ui.docentNote('他与作曲家巴达拉门蒂的合作，始于这部电影。');
+    if (u >= 9.8) {
+      seance.t = -1;
+      dimState.warm = seance.prevWarm;
+      dimState.blue = seance.prevBlue;
+      spot.color.copy(SEANCE_WARM); // 灯一拍切回暖场（硬切是这段的收束）
+      audio.sfx('lampon', 0.5);
+      ui.caption('灯一拍回了暖场。', 3000);
+      return;
+    }
+    // 聚光转冷 + 深呼吸扫台：绝对写覆盖乐队连锁基线，结束即交还
+    spot.color.lerp(seanceCold, Math.min(1, dt * 2.5));
+    const env = Math.min(1, u / 1.2) * Math.min(1, (9.8 - u) / 1.4);
+    spot.intensity = 18 + 60 * (0.5 + 0.5 * Math.sin(u * 1.5)) * env;
+    footLights.material.emissiveIntensity = 2.2 + Math.sin(u * 6.4) * 1.5 * env;
+    footWash.intensity = 4 + Math.sin(u * 6.4 + 1.2) * 2.4 * env;
+  });
+  hotspots.add(setlist, {
+    hint: 'E — 谱架上的歌单',
+    onActivate: () => {
+      audio.sfxAt('page', 2.3, -D / 2 + 3.0, 0.6, 3);
+      if (!jukeState.on) ui.caption('歌单第一行：先叫醒乐队。', 3600);
+      else if (footMode.idx !== 1) ui.caption('歌单末行：台口换蓝场。', 3600);
+      else runSeance();
+    }
+  });
+
+  // ============================================================
   // v1.8 彩蛋：返听音箱试音——台上那只监听楔一直开着。E → 载波
   // 啸叫扫过一遍（radio 合成），聚光猛缩半拍再回来、台口脚灯跟着
   // 闪一串、后幕打个寒颤：整套扩声真的通着电。冒烟名 monitor-howl。
@@ -1343,6 +1447,21 @@ export function build(ctx) {
     spawn: { x: 0, z: 5.4, yaw: 0 },
     bounds: rectBounds(-W / 2 + 1.2, W / 2 - 1.2, -D / 2 + 3.2, D / 2 - 1.3),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'closet-side': closetTrig, 'monitor-howl': { force: runHowl } }
+    eggs: {
+      'closet-side': closetTrig,
+      'monitor-howl': { force: runHowl },
+      // force 补齐三条件再点火（冒烟/复现快进：乐队醒 + 蓝场 + 翻歌单）
+      'stage-seance': {
+        force: () => {
+          if (!jukeState.on) {
+            jukeState.on = true;
+            juke.userData.setOn(true);
+            narration.jazz.setEnabled(true);
+          }
+          footMode.idx = 1;
+          runSeance();
+        }
+      }
+    }
   };
 }

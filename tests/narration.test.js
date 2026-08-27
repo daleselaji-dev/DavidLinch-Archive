@@ -74,6 +74,12 @@ describe('文案哲学：只用林奇自己的话，二手解读退场', () => {
     expect(quoteById('nonexistent')).toBeNull();
   });
 
+  it('v1.9 深夜电台档新增引语（mystery/worlds/detectives/outofdark）', () => {
+    for (const id of ['mystery', 'worlds', 'detectives', 'outofdark']) {
+      expect(quoteById(id), `缺引语: ${id}`).toBeTruthy();
+    }
+  });
+
   it('策展文章体系已移除（不再导出 ESSAYS，原话摘录墙是唯一「解读」）', () => {
     expect(ESSAY_MODULE.ESSAYS).toBeUndefined();
   });

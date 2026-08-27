@@ -130,6 +130,31 @@ export const QUOTES = [
     en: 'Negativity is the enemy of creativity.',
     zh: '负面情绪是创造力的敌人。',
     source: '公开访谈（多次提及）'
+  },
+  // v1.9 深夜电台档（双峰 diner 柜台收音机轮播的访谈短引语）
+  {
+    id: 'mystery',
+    en: 'The more unknowable the mystery, the more beautiful it is.',
+    zh: '谜越是不可知，就越美。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'worlds',
+    en: 'All my movies are about strange worlds that you can\u2019t go into unless you build them.',
+    zh: '我的电影都关于奇怪的世界——不亲手造出来，你就进不去。',
+    source: '公开访谈'
+  },
+  {
+    id: 'detectives',
+    en: 'We\u2019re all like detectives in life. There\u2019s something at the end of the trail that we\u2019re all looking for.',
+    zh: '我们都像生活里的侦探：小径尽头有个东西，人人都在找。',
+    source: '公开访谈'
+  },
+  {
+    id: 'outofdark',
+    en: 'I love seeing people come out of darkness.',
+    zh: '我爱看人从黑暗里走出来。',
+    source: '公开访谈'
   }
 ];
 

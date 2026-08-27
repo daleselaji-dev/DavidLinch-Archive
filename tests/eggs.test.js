@@ -135,6 +135,41 @@ describe('双峰对讲机彩蛋', () => {
   });
 });
 
+describe('v1.9 连锁彩蛋扩容（stage-seance / night-frequency）', () => {
+  const bv = readFileSync(new URL('../src/halls/bluevelvet.js', import.meta.url), 'utf8');
+
+  it('蓝丝绒谱架三条件连锁：点唱机开 × 蓝场脚灯 × 翻歌单，缺件时给指路字幕', () => {
+    for (const k of ['runSeance', '!jukeState.on', 'footMode.idx !== 1', "'stage-seance'"]) {
+      expect(bv, `stage-seance 缺环节: ${k}`).toContain(k);
+    }
+  });
+
+  it('降神声画 ≥3 通道：aria 咏叹 + 聚光转冷呼吸 + 灯光总线复原 + 贝斯自应', () => {
+    for (const k of ["'aria'", 'seanceCold', 'dimState.warm = seance.prevWarm', 'bassState.t = 0']) {
+      expect(bv, `stage-seance 缺通道: ${k}`).toContain(k);
+    }
+  });
+
+  it('force 补齐三条件再点火（冒烟可复现：乐队醒 + 蓝场 + 点火）', () => {
+    const seg = bv.slice(bv.indexOf("'stage-seance'"));
+    expect(seg).toContain('juke.userData.setOn(true)');
+    expect(seg).toContain('footMode.idx = 1');
+    expect(seg).toContain('runSeance()');
+  });
+
+  it('双峰柜台收音机：Blender 细模档 + 深夜访谈短引语轮播 + 三连调台窗口判定', () => {
+    for (const k of ['radioCabinet({ mats: M })', 'NIGHT_AIR', 'radioAir.presses', "'night-frequency'"]) {
+      expect(tp, `night-frequency 缺环节: ${k}`).toContain(k);
+    }
+  });
+
+  it('夜频事件：全镇灯光两拍收暗（diner 先、街口滞后）+ 电话亭应铃 + 远鸮', () => {
+    for (const k of ['nightFreq.diner', 'nightFreq.town', "'phonering'", 'runNightFreq']) {
+      expect(tp, `night-frequency 缺通道: ${k}`).toContain(k);
+    }
+  });
+});
+
 describe('v1.5 氛围增强（雾呼吸 + 稀发远景事件）', () => {
   it('穆赫兰道：路雾/巷雾呼吸 + 远景事件调度器（惊吓中不插话）', () => {
     expect(mul).toContain('roadHaze.material.opacity = 0.05 * (1 + Math.sin');

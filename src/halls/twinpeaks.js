@@ -18,7 +18,8 @@ import {
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
-  counterClutter, ceilingFan, viewScope, clubChair, overlookRail, walkieTalkie
+  counterClutter, ceilingFan, viewScope, clubChair, overlookRail, walkieTalkie,
+  radioCabinet
 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
@@ -689,10 +690,12 @@ export function build(ctx) {
     townLamps.push({ bulbMat: lamp.userData.bulbMat, light: lamp.userData.light });
   }
   updaters.push((dt, t) => {
+    // nightFreq.town：夜频事件的街口收暗拍（diner 先、街口滞后一拍）
+    const dim = 1 - nightFreq.town * 0.85;
     for (const [i, L] of townLamps.entries()) {
       const f = Math.sin(t * 14 + i * 5) > 0.94 ? 0.3 : 1;
-      L.light.intensity = 8 * f;
-      L.bulbMat.emissiveIntensity = 3 * f;
+      L.light.intensity = 8 * f * dim;
+      L.bulbMat.emissiveIntensity = 3 * f * dim;
     }
   });
 
@@ -1069,9 +1072,10 @@ export function build(ctx) {
   dinerInner.add(pendantA, pendantB);
   updaters.push((dt, t) => {
     const w = 1 + Math.sin(t * 3.1) * 0.04 + Math.sin(t * 12.7) * 0.02;
-    dinerBulbMat.emissiveIntensity = 2.6 * w;
-    pendantA.intensity = 3.4 * w;
-    pendantB.intensity = 3.4 * w;
+    const dim = 1 - nightFreq.diner * 0.85; // 夜频事件：diner 先收暗
+    dinerBulbMat.emissiveIntensity = 2.6 * w * dim;
+    pendantA.intensity = 3.4 * w * dim;
+    pendantB.intensity = 3.4 * w * dim;
   });
   // 东墙字排菜单板（黑底白字条：通用小食与价目，零商标）
   const menuBoardTex = canvasTexture(256, (g, s) => {
@@ -1335,6 +1339,74 @@ export function build(ctx) {
       audio.sfxAt('bell', 30.68, -5.7, 0.55, 4);
       setTimeout(() => { pcaseState.spin = 1.3; }, 600);
       ui.caption('没有人应。派自己转了一圈。', 3400);
+    }
+  });
+
+  // ============================================================
+  // v1.9 讲解层 + 彩蛋：柜台收音机（Blender 大教堂细模档 gen_radio.py）
+  // E → 调台：指针滑向新频点、表盘泛暖，静电里浮出一段深夜访谈
+  // 重播（林奇公开访谈短引语轮播——收音机是本厅的「访谈触发器」）。
+  // 45s 内连调三次 → 夜频事件 night-frequency：整座镇的灯分两拍
+  // 收暗（diner 先、街口滞后一拍再一起亮回）、电话亭应了一声铃、
+  // 远处一记鸮鸣——深夜广播传得比想象远。冒烟名 night-frequency。
+  // ============================================================
+  const NIGHT_AIR = [
+    '「谜越是不可知，就越美。」——他在著作里写',
+    '「我们都像生活里的侦探。」——公开访谈',
+    '「就在表面底下，还有另一个世界。」——公开访谈',
+    '「我爱看人从黑暗里走出来。」——公开访谈'
+  ];
+  const dinerRadio = radioCabinet({ mats: M });
+  dinerRadio.position.set(31.02, 1.11, -4.98);
+  dinerRadio.rotation.y = -Math.PI / 2 + 0.12; // 面朝吧凳，微微偏向柜台纵深
+  dinerInner.add(dinerRadio);
+  const radioAir = { warm: 0, needleTo: 0.14, idx: 0, presses: [], clock: 0 };
+  const nightFreq = { t: -1, cool: 0, town: 0, diner: 0 };
+  const runNightFreq = () => {
+    if (nightFreq.t >= 0 || nightFreq.cool > 0) return;
+    nightFreq.t = 0;
+    nightFreq.cool = 90;
+    audio.duck(2.4, 0.12, 3.2);
+    audio.sfxAt('radio', 31.0, -5.0, 0.9, 9);
+    later(() => ui.caption('整座镇都在听。', 4000), 1300);
+    later(() => audio.sfxAt('phonering', 26.5, 1.1, 0.5, 14), 3000);
+    later(() => audio.sfxAt('owl', -18, 22, 0.55, 32), 5200);
+  };
+  updaters.push((dt, t) => {
+    radioAir.clock = t;
+    if (radioAir.warm > 0) radioAir.warm -= dt;
+    const lit = radioAir.warm > 0 || nightFreq.t >= 0;
+    dinerRadio.userData.dialMat.emissiveIntensity = lit ? 0.9 + Math.sin(t * 3.1) * 0.18 : 0.2;
+    dinerRadio.userData.needle.position.x +=
+      (radioAir.needleTo - dinerRadio.userData.needle.position.x) * Math.min(1, dt * 2.4);
+    if (nightFreq.cool > 0) nightFreq.cool -= dt;
+    if (nightFreq.t < 0) return;
+    nightFreq.t += dt;
+    const u = nightFreq.t;
+    // 两拍波包络：起拍 t0 → 1.2s 内压满 → 5.2s 起 2.2s 内一起亮回
+    const envAt = (t0) => u < t0 ? 0
+      : u < t0 + 1.2 ? (u - t0) / 1.2
+        : u < 5.2 ? 1 : Math.max(0, 1 - (u - 5.2) / 2.2);
+    nightFreq.diner = envAt(0.4);
+    nightFreq.town = envAt(1.6);
+    if (u > 8) { nightFreq.t = -1; nightFreq.diner = 0; nightFreq.town = 0; }
+  });
+  hotspots.add(dinerRadio.userData.body, {
+    hint: 'E — 柜台收音机（深夜档）',
+    onActivate: () => {
+      radioAir.warm = 7;
+      radioAir.needleTo = 0.075 + Math.random() * 0.13;
+      audio.sfxAt('radio', 31.0, -5.0, 0.7, 5);
+      const line = NIGHT_AIR[radioAir.idx % NIGHT_AIR.length];
+      radioAir.idx += 1;
+      later(() => ui.caption('📻 ' + line, 5200), 1000);
+      if (radioAir.idx === 1) ui.docentNote('归来季里，他亲自演了一位联邦调查局副局长。');
+      radioAir.presses.push(radioAir.clock);
+      if (radioAir.presses.length > 3) radioAir.presses.shift();
+      if (radioAir.presses.length === 3 &&
+        radioAir.presses[2] - radioAir.presses[0] < 45 && nightFreq.cool <= 0) {
+        later(runNightFreq, 1800);
+      }
     }
   });
 
@@ -1869,7 +1941,8 @@ export function build(ctx) {
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: {
       'stone-circle': groveTrig, 'falls-vigil': vigilTrig,
-      'walkie-duet': { force: runDuet }, 'mill-whistle': { force: runMillWhistle }
+      'walkie-duet': { force: runDuet }, 'mill-whistle': { force: runMillWhistle },
+      'night-frequency': { force: runNightFreq }
     },
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
