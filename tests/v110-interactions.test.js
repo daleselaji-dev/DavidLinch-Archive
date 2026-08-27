@@ -118,3 +118,17 @@ describe('v1.10 P10 远处的光（稀疏夜空事件，seeded 间隔）', () =>
     expect(SRC.mulholland).toMatch(/mergedMesh\(\[\s*xform\(new THREE\.PlaneGeometry\(1\.2, 1\.2\)/);
   });
 });
+
+describe('v1.10 P14 入口长毯（开门第一眼第四看，纯场景件）', () => {
+  it('lobby 丝绒长毯在源：金双边线 + 中线磨浅 + 两端流苏 + 天鹅绒 sheen', () => {
+    expect(SRC.lobby).toContain('runnerTex');
+    expect(SRC.lobby).toContain('中线磨浅');
+    expect(SRC.lobby).toMatch(/sheen: 1\.0,\s*sheenRoughness: 0\.55/);
+    // 静态单 mesh、polygonOffset 防与拼花地板深度打架
+    expect(SRC.lobby).toMatch(/runner = new THREE\.Mesh\([\s\S]{0,700}polygonOffsetFactor: -2/);
+  });
+
+  it('长毯与 C4 积水洼同口径：纯场景件不设热点', () => {
+    expect(SRC.lobby).not.toMatch(/hotspots\.add\(runner/);
+  });
+});

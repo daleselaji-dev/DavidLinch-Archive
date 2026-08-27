@@ -17,7 +17,7 @@ import {
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quoteStand, quoteStandUpdater, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
-  chevronMat, woodMat, marbleMat, rng, canvasTexture, contactShadows
+  chevronMat, woodMat, marbleMat, rng, canvasTexture, noiseCanvasTexture, contactShadows
 } from './kit.js';
 import {
   propMats, chandelier, memorialStele, gramophone,
@@ -715,6 +715,70 @@ export function build(ctx) {
       else if (placed.n === 7) ui.caption('碑前放满了花。', 3200);
     }
   });
+
+  // ============================================================
+  // v1.10 抛光 P14「开门第一眼」第四看：入口到碑座的丝绒长毯——
+  // 开门那一帧的最后一笔：一条深酒红的路把目光押到碑前，金双边
+  // 线接住吊灯的光，中线被走浅了一道（走的人只有一条路）。两端
+  // 织进流苏；献花落在毯端的弧上正好成画。纯场景件（与 C4 积水
+  // 洼同口径不设热点）；静态单 mesh 零带宽，低档无需回退。
+  // ============================================================
+  const runnerTex = canvasTexture(256, (g2, s) => {
+    // 绒底：纵向绒毛条纹（沿走向的明度微差）
+    for (let x = 0; x < s; x += 2) {
+      const v = 0.82 + Math.sin(x * 1.7) * 0.09 + Math.sin(x * 0.31) * 0.06;
+      g2.fillStyle = `rgb(${Math.round(74 * v)},${Math.round(16 * v)},${Math.round(24 * v)})`;
+      g2.fillRect(x, 0, 2, s);
+    }
+    // 中线磨浅的一道（软边长条——被脚底压平的绒）
+    const wear = g2.createRadialGradient(s / 2, s / 2, s * 0.02, s / 2, s / 2, s * 0.5);
+    wear.addColorStop(0, 'rgba(148,96,88,0.30)');
+    wear.addColorStop(0.45, 'rgba(148,96,88,0.16)');
+    wear.addColorStop(1, 'rgba(148,96,88,0)');
+    g2.save();
+    g2.translate(s / 2, s / 2);
+    g2.scale(0.34, 1.05);
+    g2.translate(-s / 2, -s / 2);
+    g2.fillStyle = wear;
+    g2.fillRect(0, 0, s, s);
+    g2.restore();
+    // 金双边线（左右各两道，内细外粗）
+    g2.fillStyle = 'rgba(196,158,88,0.92)';
+    for (const x of [0.055, 0.925]) g2.fillRect(s * x, s * 0.03, s * 0.02, s * 0.94);
+    g2.fillStyle = 'rgba(196,158,88,0.6)';
+    for (const x of [0.095, 0.895]) g2.fillRect(s * x, s * 0.03, s * 0.01, s * 0.94);
+    // 两端横档 + 流苏（短须错落，须根略深）
+    g2.fillStyle = 'rgba(196,158,88,0.8)';
+    for (const y of [0.028, 0.962]) g2.fillRect(s * 0.055, s * y, s * 0.89, s * 0.01);
+    for (let i = 0; i < 46; i++) {
+      const x = s * (0.06 + (i / 46) * 0.88);
+      const len = s * (0.014 + ((i * 7) % 5) * 0.0022);
+      g2.fillStyle = `rgba(172,132,70,${0.55 + ((i * 3) % 4) * 0.08})`;
+      g2.fillRect(x, 0, 1.6, len);
+      g2.fillRect(x, s - len, 1.6, len);
+    }
+    // 织物微斑（久踩的暗点）
+    for (let i = 0; i < 130; i++) {
+      const rx = (i * 97) % s, rz = (i * 61) % s;
+      g2.fillStyle = `rgba(20,8,10,${0.05 + (i % 3) * 0.03})`;
+      g2.fillRect(rx, rz, 1.4, 1.4);
+    }
+  });
+  const runnerRough = noiseCanvasTexture(128, 200, 42, 3);
+  const runner = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.6, 5.3),
+    new THREE.MeshPhysicalMaterial({
+      map: runnerTex, roughness: 0.9, metalness: 0,
+      roughnessMap: runnerRough, bumpMap: runnerRough, bumpScale: 0.4,
+      sheen: 1.0, sheenRoughness: 0.55,
+      sheenColor: new THREE.Color(0x8a3040).lerp(new THREE.Color(0xfff0e0), 0.35),
+      envMapIntensity: 0.35,
+      polygonOffset: true, polygonOffsetFactor: -2
+    })
+  );
+  runner.rotation.x = -Math.PI / 2;
+  runner.position.set(0, 0.01, 5.4);
+  group.add(runner);
 
   // ============================================================
   // v1.9 二级细节·lobby 件 1：碑前长明灯——与献花铜瓶左右对称，
