@@ -119,6 +119,22 @@ describe('v1.10 P10 远处的光（稀疏夜空事件，seeded 间隔）', () =>
   });
 });
 
+describe('v1.10 P17 无人剧场（bluevelvet 空舞台自演，seeded 稀疏）', () => {
+  it('三拍都在：聚光亮一口（乘法覆写）+ 幕布轻颤 + 话筒 breath', () => {
+    expect(SRC.bluevelvet).toContain('ghostShow');
+    expect(SRC.bluevelvet).toMatch(/ghostShow\.next = 120 \+ ghostRng\(\) \* 60/);
+    expect(SRC.bluevelvet).toMatch(/spot\.intensity \*= 1 \+ Math\.sin\(u \* Math\.PI\) \* 0\.42/);
+    expect(SRC.bluevelvet).toMatch(/ghostShow[\s\S]{0,500}curtainShudder\.e = Math\.max/);
+    expect(SRC.bluevelvet).toMatch(/ghostShow[\s\S]{0,700}sfxAt\('breath', 0, -D \/ 2 \+ 2\.3, 0\.16/);
+  });
+
+  it('无字幕无热点（观众自己撞见才算数）', () => {
+    const seg = SRC.bluevelvet.slice(SRC.bluevelvet.indexOf('无人剧场'));
+    expect(seg).not.toContain('ui.caption');
+    expect(seg).not.toContain('hotspots.add');
+  });
+});
+
 describe('v1.10 P14 入口长毯（开门第一眼第四看，纯场景件）', () => {
   it('lobby 丝绒长毯在源：金双边线 + 中线磨浅 + 两端流苏 + 天鹅绒 sheen', () => {
     expect(SRC.lobby).toContain('runnerTex');

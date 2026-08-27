@@ -1845,6 +1845,32 @@ export function build(ctx) {
   // v1.6：环境光压暗——桌与桌之间的地板允许真正黑下去
   group.add(new THREE.AmbientLight(0x0a0e22, 0.85));
 
+  // v1.10 抛光 P17「无人剧场」：每 120–180s（seeded）空舞台自己演
+  // 一小段——聚光缓缓亮一口又退回去（3.2s，像有人走进光里又退出
+  // 去）、幕布跟着极轻地颤一口、话筒那头一声几不可闻的 breath。
+  // 无字幕无热点（观众自己撞见才算数）。No hay banda——可台上有光。
+  const ghostRng = rng(43);
+  const ghostShow = { next: 70 + ghostRng() * 60, t: -1 };
+  updaters.push((dt) => {
+    if (ghostShow.t < 0) {
+      ghostShow.next -= dt;
+      if (ghostShow.next > 0) return;
+      ghostShow.t = 0;
+      later(() => { curtainShudder.t = 0; curtainShudder.e = Math.max(curtainShudder.e, 0.12); }, 900);
+      later(() => audio.sfxAt('breath', 0, -D / 2 + 2.3, 0.16, 3), 1600);
+      return;
+    }
+    ghostShow.t += dt;
+    const u = ghostShow.t / 3.2;
+    if (u >= 1) {
+      ghostShow.t = -1;
+      ghostShow.next = 120 + ghostRng() * 60;
+      return;
+    }
+    // 注册在乐队 lerp 之后：乘法覆写当帧生效（与 spotSwallow 同口径）
+    spot.intensity *= 1 + Math.sin(u * Math.PI) * 0.42;
+  });
+
   return {
     group,
     spawn: { x: 0, z: 5.4, yaw: 0 },
