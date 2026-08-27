@@ -1965,6 +1965,120 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.10 阶段 2d·mulholland：候场呼叫铃——右台口壁柱朝后台的
+  // 侧脸上，一只胶木按钮盒 + 黄铜铃盖 + 铃锤 + LLAMADA 珐琅小牌
+  // + 一根电线管钻进上面的黑。E → 两短一长（callbell 同拍铃锤
+  // 打颤、铃盖同震），2.1s 后**很远处一扇门应了一声**（连锁）——
+  // 应门的不在后台。
+  // ============================================================
+  {
+    const bellGrp = new THREE.Group();
+    // 胶木按钮盒（圆角）+ 黄铜按钮环 + 黑按芯
+    const bakelite = new THREE.MeshStandardMaterial({
+      color: 0x17120e, roughness: 0.42, metalness: 0.1, envMapIntensity: 0.8
+    });
+    const bellBox = roundedBoxMesh(0.13, 0.19, 0.042, 0.012, bakelite);
+    bellGrp.add(bellBox);
+    const bellBrassGeos = [
+      xform(new THREE.TorusGeometry(0.026, 0.007, 8, 16), 0, -0.03, 0.024),
+      // 珐琅小牌托边
+      xform(new THREE.BoxGeometry(0.104, 0.036, 0.006), 0, -0.128, 0.022),
+      // 电线管：盒顶起、直上钻进黑（两段 + 管卡）
+      xform(new THREE.CylinderGeometry(0.008, 0.008, 0.5, 8), 0, 0.345, -0.008),
+      xform(new THREE.CylinderGeometry(0.008, 0.008, 1.2, 8), 0, 1.2, -0.008),
+      xform(new THREE.BoxGeometry(0.03, 0.014, 0.02), 0, 0.5, -0.008),
+      xform(new THREE.BoxGeometry(0.03, 0.014, 0.02), 0, 1.32, -0.008)
+    ];
+    bellGrp.add(mergedMesh(bellBrassGeos, M.brass));
+    const bellBtn = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.017, 0.017, 0.02, 12),
+      new THREE.MeshStandardMaterial({ color: 0x090909, roughness: 0.3 })
+    );
+    bellBtn.rotation.x = Math.PI / 2;
+    bellBtn.position.set(0, -0.03, 0.026);
+    bellGrp.add(bellBtn);
+    // LLAMADA 珐琅小牌（接住 SALIDA/CERRADO 的西语系统）
+    const llamadaTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#dfd8c8';
+      g.fillRect(0, 0, s, s);
+      g.save();
+      g.scale(1, 3.1); // 补偿 0.096×0.03 面板压缩
+      g.font = '700 21px Georgia, serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#3a3226';
+      g.fillText('LLAMADA', s / 2, s / 2 / 3.1);
+      g.restore();
+      g.strokeStyle = 'rgba(90,78,58,0.7)';
+      g.lineWidth = 3;
+      g.strokeRect(2, 2, s - 4, s - 4);
+    });
+    const llamada = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.096, 0.03),
+      new THREE.MeshStandardMaterial({ map: llamadaTex, roughness: 0.5 })
+    );
+    llamada.position.set(0, -0.128, 0.0265);
+    bellGrp.add(llamada);
+    // 黄铜铃盖（盒上方半球扣墙）+ 铃锤（细杆 + 锤珠，常态贴着盖缘）
+    const bellDome = new THREE.Mesh(
+      new THREE.SphereGeometry(0.062, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({
+        map: brushedMetalTexture(), color: 0x9a7c46, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.4
+      })
+    );
+    bellDome.rotation.x = Math.PI / 2;
+    bellDome.position.set(0, 0.165, 0.008);
+    bellGrp.add(bellDome);
+    const hammer = new THREE.Group();
+    const hamArm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.075, 6), M.brass);
+    hamArm.position.y = 0.038;
+    const hamBall = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), M.brass);
+    hamBall.position.y = 0.078;
+    hammer.add(hamArm, hamBall);
+    hammer.position.set(0.028, 0.075, 0.03);
+    hammer.rotation.z = -0.5;
+    bellGrp.add(hammer);
+    // 装在右台口壁柱朝后台的侧脸（面对衣镜——候场的人看得见它）
+    bellGrp.position.set(5.0, 1.42, -2.9);
+    bellGrp.rotation.y = Math.PI / 2;
+    inner.add(bellGrp);
+    const bellState = { t: -1 };
+    updaters.push((dt) => {
+      if (bellState.t < 0) return;
+      bellState.t += dt;
+      const T = bellState.t;
+      if (T > 3.2) {
+        bellState.t = -1;
+        hammer.rotation.z = -0.5;
+        bellDome.position.z = 0.008;
+        bellBtn.position.z = 0.026;
+        return;
+      }
+      bellBtn.position.z = T < 0.25 ? 0.02 : 0.026;
+      // 与 callbell 包络同拍：0–0.14 / 0.26–0.40 / 0.52–1.02 三段锤击
+      const ringing = (T >= 0 && T < 0.14) || (T >= 0.26 && T < 0.4) || (T >= 0.52 && T < 1.02);
+      if (ringing) {
+        hammer.rotation.z = -0.5 + Math.sin(T * 260) * 0.22;
+        bellDome.position.z = 0.008 + Math.sin(T * 260 + 1) * 0.0022;
+      } else {
+        hammer.rotation.z += (-0.5 - hammer.rotation.z) * Math.min(1, dt * 18);
+        bellDome.position.z += (0.008 - bellDome.position.z) * Math.min(1, dt * 18);
+      }
+    });
+    hotspots.add(bellBox, {
+      hint: 'E — 候场呼叫铃',
+      onActivate: () => {
+        if (bellState.t >= 0) return;
+        bellState.t = 0;
+        audio.sfxAt('callbell', 5.0, -22.9, 0.65, 4);
+        // 连锁：2.1s 后很远处一扇门应一声——不在后台的方向
+        later(() => audio.sfxAt('doorfar', -7.0, -26.0, 0.5, 2.2), 2100);
+        ui.caption('应声的门离得太远了。', 3800);
+      }
+    });
+  }
+
   // 折座排椅 v2（铸铁端架 + 皮面翻座 + 排灯；一把翻起的椅子可以坐下）
   const seats = theaterSeats({ rows: 3, cols: 6, dx: 0.86, dz: 1.05, mats: M });
   seats.position.set(0, 0, -0.6);
