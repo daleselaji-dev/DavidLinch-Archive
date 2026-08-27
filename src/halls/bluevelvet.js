@@ -1844,9 +1844,44 @@ export function build(ctx) {
     lidPivot.position.set(0, 0.076, -0.07);
     const lid = roundedBoxMesh(0.19, 0.022, 0.14, 0.008, lacquer);
     lid.position.set(0, 0.011, 0.07);
+    // v1.11 P15 负空间第二层：合盖时贴着衬垫的缎里上，也留着**极淡的
+    // 镜像耳形印**（缎面被压出的光泽差）——它在盒里躺了足够久，久到
+    // 两面都记得。开盖角度合适时才隐约读出，不看就不存在。
+    const satinTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#1a2c5e';
+      g.fillRect(0, 0, s, s);
+      const sg = rng(89);
+      for (let i = 0; i < 150; i++) { // 缎面横丝
+        g.strokeStyle = `rgba(${30 + sg() * 26 | 0},${52 + sg() * 30 | 0},${104 + sg() * 44 | 0},0.16)`;
+        g.lineWidth = 0.8;
+        const y = sg() * s;
+        g.beginPath();
+        g.moveTo(0, y);
+        g.lineTo(s, y + (sg() - 0.5) * 3);
+        g.stroke();
+      }
+      // 镜像耳形印（scale(-1,1) 水平翻转；比衬垫那只淡得多）
+      g.save();
+      g.translate(s * 0.52, s * 0.5);
+      g.scale(-1, 1);
+      g.rotate(0.25);
+      g.fillStyle = 'rgba(10,18,44,0.3)';
+      g.beginPath();
+      g.ellipse(0, -6, 15, 24, 0, -Math.PI * 0.75, Math.PI * 0.62);
+      g.quadraticCurveTo(10, 24, -2, 25);
+      g.quadraticCurveTo(-13, 24, -13, 8);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = 'rgba(120,146,210,0.2)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.ellipse(0, -6, 16.5, 25.5, 0, -Math.PI * 0.7, Math.PI * 0.58);
+      g.stroke();
+      g.restore();
+    });
     const lidSatin = new THREE.Mesh(
       new THREE.PlaneGeometry(0.165, 0.115),
-      new THREE.MeshStandardMaterial({ color: 0x1a2c5e, roughness: 0.45 })
+      new THREE.MeshStandardMaterial({ map: satinTex, roughness: 0.45 })
     );
     lidSatin.rotation.x = Math.PI / 2;
     lidSatin.position.set(0, -0.001, 0.07);
