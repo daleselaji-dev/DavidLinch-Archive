@@ -1571,8 +1571,32 @@ export function build(ctx) {
     mfGrp.rotation.y = 0.9;
     group.add(mfGrp);
     const mfState = { t: -1 };
+    // v1.10 抛光 P9 微动：停机的机器偶尔自己蠕一格走带——每 21–34s
+    // （seeded 抖动）双盘极缓爬 0.8s 共 ~0.12rad，无声。没人碰它，
+    // 它也在一点一点把空白往前倒。
+    const mfCreep = { t: 0, next: 24, run: -1 };
+    const mfRng = rng(53);
     updaters.push((dt) => {
-      if (mfState.t < 0) return;
+      if (mfState.t < 0) {
+        mfCreep.t += dt;
+        if (mfCreep.run < 0 && mfCreep.t >= mfCreep.next) {
+          mfCreep.run = 0;
+        }
+        if (mfCreep.run >= 0) {
+          mfCreep.run += dt;
+          const u = Math.min(1, mfCreep.run / 0.8);
+          const ease = Math.sin(u * Math.PI);
+          reelA.children[0].rotation.z -= dt * 0.24 * ease;
+          reelB.children[0].rotation.z -= dt * 0.4 * ease;
+          mfKnob.rotation.x += dt * 0.2 * ease;
+          if (u >= 1) {
+            mfCreep.run = -1;
+            mfCreep.t = 0;
+            mfCreep.next = 21 + mfRng() * 13;
+          }
+        }
+        return;
+      }
       mfState.t += dt;
       const T = mfState.t;
       // 转速包络：起转 0.8s 缓入 → 稳走 → 5.6s 起 1.4s 缓停

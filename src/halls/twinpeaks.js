@@ -1084,6 +1084,11 @@ export function build(ctx) {
         letter.position.set(0.01, sp.h + 0.08, 0.19);
         letter.rotation.set(-0.5 + 0.18, 0.06, 0.05);
         g.add(letter);
+        // v1.10 抛光 P9 微动：信角随夜风极缓翕动（0.5Hz 主拍 +
+        // 1.7Hz 碎颤——信在等风，风在等人）
+        updaters.push((dt, t) => {
+          letter.rotation.z = 0.05 + Math.sin(t * 0.5) * 0.05 + Math.sin(t * 1.7 + 1.2) * 0.018;
+        });
       }
       g.position.set(17.4 + (mbRng() - 0.5) * 0.06, 0, -0.6 - sp.x);
       g.rotation.y = Math.PI / 2 + sp.tilt; // 门朝街（+x）

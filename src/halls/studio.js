@@ -2463,6 +2463,10 @@ export function build(ctx) {
           tagPivot.rotation.z = Math.sin(caseState.swing * 7.5) * 0.5 * k;
           tagPivot.rotation.x = Math.sin(caseState.swing * 5.8 + 0.6) * 0.22 * k;
         }
+      } else {
+        // v1.10 抛光 P9 微动：屋里没有风，空白行李牌也在极缓地摆
+        // （±0.02，10s 一个来回——不该动的东西在动，越小越不对劲）
+        tagPivot.rotation.z = Math.sin(t * 0.63) * 0.02;
       }
     });
     hotspots.add(caseBody, {

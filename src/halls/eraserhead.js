@@ -2001,8 +2001,11 @@ export function build(ctx) {
         // 挂锁勾着摆：比柜体的嗡震慢半拍、衰得也慢（挂着的东西才这样）
         const pk = Math.exp(-lockerState.rattle * 2.2);
         padlock.rotation.z = 0.1 + Math.sin(lockerState.rattle * 13) * 0.3 * pk;
-      } else if (Math.abs(padlock.rotation.z - 0.1) > 0.001) {
-        padlock.rotation.z += (0.1 - padlock.rotation.z) * Math.min(1, dt * 3);
+      } else {
+        // v1.10 抛光 P9 微动：厂房常年的低频震让它静不下来——
+        // 归位后仍有 ±0.006 的怠速摆（0.8Hz，肉眼将将可察）
+        const idle = 0.1 + Math.sin(t * 0.8 * Math.PI * 2) * 0.006;
+        padlock.rotation.z += (idle - padlock.rotation.z) * Math.min(1, dt * 3);
       }
     });
     hotspots.add(ajarDoor, {

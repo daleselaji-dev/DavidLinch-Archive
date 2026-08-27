@@ -84,3 +84,22 @@ describe('v1.10 连锁交互 ≥2（A 动 → 半拍后 B 自己动）', () => {
     expect(5).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('v1.10 P9 微动遍：没有东西完全静止（怠速动画，零带宽标量）', () => {
+  it('twinpeaks 信箱里探出的信角随夜风翕动', () => {
+    expect(SRC.twinpeaks).toMatch(/letter\.rotation\.z = 0\.05 \+ Math\.sin/);
+  });
+
+  it('eraserhead 挂锁归位后仍有怠速摆（厂房低频震）', () => {
+    expect(SRC.eraserhead).toMatch(/idle = 0\.1 \+ Math\.sin/);
+  });
+
+  it('studio 空白行李牌没有风也在极缓地摆', () => {
+    expect(SRC.studio).toMatch(/tagPivot\.rotation\.z = Math\.sin\(t \* 0\.63\)/);
+  });
+
+  it('archive 停机的缩微机偶尔自己蠕一格走带（seeded 间隔）', () => {
+    expect(SRC.archive).toContain('mfCreep');
+    expect(SRC.archive).toMatch(/mfCreep\.next = 21 \+ mfRng\(\) \* 13/);
+  });
+});
