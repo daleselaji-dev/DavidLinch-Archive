@@ -877,10 +877,10 @@ DOCENT 配套）。✅ 全绿。
       **抽象非肖像**：无鼻无嘴无瞳无脸皮，compliance 词表复跑全绿。
 - [x] **冒烟自然触发稳定**：routeA 同步新几何（停 -24.6/进区 -27.2）+
       走测起步定点化（截屏机位残留位置解耦）；本轮自然触发连轮 15+
-      全绿；**A-P4/D-15 专项稳定性统计两批：mulholland 单厅连续硬断言
-      链 9/9 双惊吓全部自然触发 EXIT=0（第一批 6/6 + 第二批 3/3，另有
-      巡查轮 +2 累计 11/11）**；转身第二扳机保持；cornerscare.test
-      34→37 断言全绿。
+      全绿；**A-P4/D-15/RC 专项稳定性统计三批：连续硬断言链 12/12 双
+      惊吓全部自然触发 EXIT=0（单厅 6/6 + 单厅 3/3 + 发布候选全冒烟
+      3/3，另有巡查轮 +2 累计 14/14）**；转身第二扳机保持；cornerscare.test
+      34→41 用例全绿（vitest 实测复核——此前文档记 37 为漏计 it.each 展开项，审计轮修正）。
 - [x] **视觉证据**：魅影 v3 定妆照六拍四轮修正（正脸位「发帘框脸 +
       两粒红眼窝环」清晰读出，/tmp/shots-v112-wraith）+ 低档惊吓连拍
       14 帧 13 帧独立（灯闪/留白/错位收尾成像；如实注记：顿挪扑近窗
@@ -963,11 +963,13 @@ DOCENT 配套）。✅ 全绿。
 **验证方式**：`--smoke` 逐厅断言 + v111-eggs/captions 全绿 + 截屏。
 
 ### 62. Release 1.12.0（v1.12 新增）
-- [ ] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
-      三连全绿（打包构建产物上复跑，两重惊吓自然触发保持）。
+- [x] `npm test` / `npm run smoke` / `xvfb-run npx electron . --smoke`
+      三连全绿（1.12.0 构建产物上复跑：399 全绿 / 冒烟 5/5 / 运行时
+      EXIT=0 两重惊吓保持；另加**发布候选浸泡三连跑 3/3**——连续三轮
+      全冒烟 EXIT=0、每轮双惊吓自然触发）。
 - [ ] WORKLOG v1.12 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）。
-- [ ] 版本 bump 1.12.0（package.json + `__SV__.version` 一致，dist 产物
-      内核对）；CHANGELOG v1.12.0。
+- [x] 版本 bump 1.12.0（package.json + `__SV__.version` 一致，dist 产物
+      内 rg 常量核对在包）；CHANGELOG v1.12.0 全节。
 - [ ] `release/*-1.12.0.exe` 双目标 + `SHA256SUMS.txt` 重写；旧版 exe
       从本分支移除防混淆。
 - [ ] `DOWNLOAD.md` raw 直链醒目标注「请下本轮 Portable-1.12.0」。
