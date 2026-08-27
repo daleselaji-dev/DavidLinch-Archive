@@ -312,6 +312,39 @@ export function build(ctx) {
   desk.rotation.y = Math.PI / 2;
   group.add(desk);
 
+  // v1.10 抛光 P5·件 1：桌旁的字纸篓——车削铁皮篓（内壁回折），
+  // 两团揉掉的纸落在篓外的地板上，一团卡在篓沿。写了又不要的
+  // 比留下的多；扔也没扔准。
+  const bin = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.1, 0), new THREE.Vector2(0.105, 0.005), new THREE.Vector2(0.132, 0.27),
+      new THREE.Vector2(0.138, 0.28), new THREE.Vector2(0.128, 0.275), new THREE.Vector2(0.102, 0.02)
+    ], 16),
+    new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(64, 90, 24), color: 0x3c3e40,
+      roughness: 0.5, metalness: 0.7, envMapIntensity: 0.8, side: THREE.DoubleSide
+    })
+  );
+  bin.position.set(-7.15, 0, -0.62);
+  group.add(bin);
+  const crumpleGeo = () => {
+    const geo = new THREE.IcosahedronGeometry(0.034, 1);
+    const cpp = geo.attributes.position;
+    const cr2 = rng(29);
+    for (let i = 0; i < cpp.count; i++) {
+      const k2 = 0.72 + cr2() * 0.5;
+      cpp.setXYZ(i, cpp.getX(i) * k2, cpp.getY(i) * (0.62 + cr2() * 0.5), cpp.getZ(i) * k2);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const paperBallMat = new THREE.MeshStandardMaterial({ color: 0xcfc7b2, roughness: 0.95 });
+  group.add(mergedMesh([
+    xform(crumpleGeo(), -6.72, 0.026, -0.18, 0.5, 1.2, 0),
+    xform(crumpleGeo(), -7.42, 0.026, -0.12, 1.7, 0.4, 2.2),
+    xform(crumpleGeo(), -7.09, 0.292, -0.53, 2.6, 2.0, 0.8)
+  ], paperBallMat));
+
   // 打字机（桌上；E → 敲一行）
   const tw = typewriter({ mats: M });
   tw.position.set(-6.45, 0.905, -1.6);
@@ -2360,6 +2393,39 @@ export function build(ctx) {
     caseGrp.position.set(1.42, 0, D / 2 - 0.62);
     caseGrp.rotation.set(-0.055, Math.PI - 0.12, 0);
     group.add(caseGrp);
+    // v1.10 抛光 P5·件 2：箱边靠墙立着一把收拢的黑伞——尖头拄地、
+    // 弯把朝上，伞面拢出八道竖褶。随时能走的另一半，也没走成。
+    const brollyFabric = new THREE.MeshStandardMaterial({
+      color: 0x101414, roughness: 0.62, envMapIntensity: 0.7
+    });
+    const canopyGeo = new THREE.LatheGeometry([
+      new THREE.Vector2(0.004, 0.05), new THREE.Vector2(0.05, 0.16),
+      new THREE.Vector2(0.056, 0.3), new THREE.Vector2(0.038, 0.5),
+      new THREE.Vector2(0.014, 0.62)
+    ], 16);
+    // 八道竖褶：把偶数经线往里收一点
+    const cp2 = canopyGeo.attributes.position;
+    for (let i = 0; i < cp2.count; i++) {
+      const ang = Math.atan2(cp2.getZ(i), cp2.getX(i));
+      const rad2 = Math.hypot(cp2.getX(i), cp2.getZ(i));
+      const pinch = 1 - Math.max(0, Math.cos(ang * 8)) * 0.16;
+      cp2.setX(i, Math.cos(ang) * rad2 * pinch);
+      cp2.setZ(i, Math.sin(ang) * rad2 * pinch);
+    }
+    canopyGeo.computeVertexNormals();
+    const brolly = new THREE.Group();
+    brolly.add(new THREE.Mesh(canopyGeo, brollyFabric));
+    brolly.add(mergedMesh([
+      // 尖头铁箍 + 中杆 + 顶端弯把（半环）
+      xform(new THREE.CylinderGeometry(0.006, 0.003, 0.055, 8), 0, 0.025, 0),
+      xform(new THREE.CylinderGeometry(0.0055, 0.0055, 0.34, 8), 0, 0.76, 0),
+      xform(new THREE.TorusGeometry(0.042, 0.0055, 6, 12, Math.PI), 0.042, 0.93, 0)
+    ], new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0x5c4a30, roughness: 0.4, metalness: 0.85, envMapIntensity: 0.9
+    })));
+    brolly.position.set(0.88, 0, D / 2 - 0.4);
+    brolly.rotation.set(-0.1, 0.3, 0.045);
+    group.add(brolly);
     const caseState = { t: -1, swing: -1 };
     updaters.push((dt, t) => {
       if (caseState.t >= 0) {

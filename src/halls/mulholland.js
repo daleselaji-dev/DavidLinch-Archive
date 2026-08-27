@@ -593,6 +593,50 @@ export function build(ctx) {
       refl.scale.x = 1 + Math.sin(t * 1.3) * 0.014;
       reflTex.offset.x = Math.sin(t * 0.7) * 0.003;
     });
+    // v1.10 抛光 P5：积水边一册被雨泡皱的场刊——PROGRAMA 刊头
+    // （接住西语系统），日期栏空着；下半浸在水色里、纸面泡起波楞。
+    const playbillGeo = new THREE.PlaneGeometry(0.21, 0.29, 8, 10);
+    const pb = playbillGeo.attributes.position;
+    for (let i = 0; i < pb.count; i++) {
+      const px2 = pb.getX(i);
+      const py2 = pb.getY(i);
+      pb.setZ(i, Math.sin(px2 * 34 + py2 * 12) * 0.008 + Math.sin(py2 * 46) * 0.006 * (0.5 - py2 / 0.29));
+    }
+    playbillGeo.computeVertexNormals();
+    const playbill = new THREE.Mesh(
+      playbillGeo,
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(128, (g, s) => {
+          g.fillStyle = '#b8b0a0';
+          g.fillRect(0, 0, s, s);
+          g.strokeStyle = 'rgba(60,52,44,0.85)';
+          g.lineWidth = 3;
+          g.strokeRect(10, 10, s - 20, s - 20);
+          g.textAlign = 'center';
+          g.save();
+          g.scale(1, 1.38); // 0.21×0.29 面板纵向预拉伸补偿
+          g.font = '700 17px Georgia, serif';
+          g.fillStyle = '#3c3228';
+          g.fillText('PROGRAMA', s / 2, 34 / 1.38);
+          g.restore();
+          g.strokeStyle = 'rgba(60,52,44,0.6)';
+          g.lineWidth = 1.6;
+          g.beginPath();
+          g.moveTo(s * 0.3, s * 0.42);
+          g.lineTo(s * 0.7, s * 0.42);
+          g.stroke();
+          // 水线以下：泡透的深渍从底往上洇
+          const soak = g.createLinearGradient(0, s, 0, s * 0.4);
+          soak.addColorStop(0, 'rgba(52,50,46,0.62)');
+          soak.addColorStop(1, 'rgba(52,50,46,0)');
+          g.fillStyle = soak;
+          g.fillRect(0, 0, s, s);
+        }), roughness: 0.92, side: THREE.DoubleSide
+      })
+    );
+    playbill.rotation.set(-Math.PI / 2, 0, 0.7);
+    playbill.position.set(-1.62, 0.012, -9.35);
+    group.add(playbill);
   }
   // 招牌追逐灯泡链（合并单 mesh，整体呼吸闪烁）
   const chaseGeos = [];
@@ -2043,6 +2087,39 @@ export function build(ctx) {
     bellGrp.position.set(5.0, 1.42, -2.9);
     bellGrp.rotation.y = Math.PI / 2;
     inner.add(bellGrp);
+    // v1.10 抛光 P5：铃下的粉笔正字——候场的人一场一道刻在壁柱上，
+    // 三组零两道，笔画深浅不一、越靠后越潦草。最后一组没刻完。
+    const tally = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.17, 0.1),
+      new THREE.MeshStandardMaterial({
+        map: canvasTexture(128, (g, s) => {
+          g.clearRect(0, 0, s, s);
+          const tr2 = rng(73);
+          let gx = 12;
+          for (let grp2 = 0; grp2 < 4; grp2++) {
+            const n = grp2 < 3 ? 5 : 2; // 最后一组只有两道
+            for (let k = 0; k < n; k++) {
+              g.strokeStyle = `rgba(224,218,204,${0.5 + tr2() * 0.35})`;
+              g.lineWidth = 2 + tr2() * 1.6;
+              g.beginPath();
+              if (k < 4) {
+                const x0 = gx + k * 7 + (tr2() - 0.5) * 2;
+                g.moveTo(x0, 46 + (tr2() - 0.5) * 5 + grp2 * 1.5);
+                g.lineTo(x0 + (tr2() - 0.5) * 4, 82 + (tr2() - 0.5) * 5);
+              } else {
+                g.moveTo(gx - 4, 76 + (tr2() - 0.5) * 4);
+                g.lineTo(gx + 25, 52 + (tr2() - 0.5) * 4);
+              }
+              g.stroke();
+            }
+            gx += 34;
+          }
+        }), transparent: true, roughness: 0.95, depthWrite: false
+      })
+    );
+    tally.position.set(4.985, 1.06, -2.9);
+    tally.rotation.y = Math.PI / 2;
+    inner.add(tally);
     const bellState = { t: -1 };
     updaters.push((dt) => {
       if (bellState.t < 0) return;
