@@ -986,17 +986,25 @@ export function veiledFigure(height = 2.25) {
 
 /**
  * 拐角魅影 —— v1.8 拐角惊吓主体（抽象无面目，比帷形人影更细一级）。
- * 车削主身之上做非对称后处理：肩背向后隆起一坨驼峰、头前倾埋进
- * 兜帽（任何角度都读不出脸，只有「一个佝偻的人形」）；裙裾下摆
- * 一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 + 收尖
- * 手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
+ * 车削主身之上做非对称后处理：肩背向后隆起一坨驼峰、头微前倾；
+ * 裙裾下摆一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 +
+ * 收尖手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
  * 极暗红内衬自发光：剪影光下只读出轮廓，闪光拍里读出体积。
- * v1.11（门禁 55）三处升级：① 兜帽内 hoodVoid 纯黑无光空腔——闪光
- * 拍里读出的不是「看不清脸」而是「没有脸」；② 第二层错相位破披
- * （下摆 seeded 撕口）——剪影从光滑钟形变成叠着残布的人形；
- * ③ 双手各三指过长收尖；setLurch 里身体冻住时**红光在呼吸**、
- * 且越挪越前倾（每顿定格在更近的一档——每停一次都更「看着你」）。
- * userData: { pivot, mat, setLurch(s,t) 顿挪体态, setRush(k,t) 扑近形变 }
+ * v1.12（门禁 59）v3 全面重做「长发与眼睛」：
+ * ① **hairVeil 披垂发帘**——局部车削（前脸留 ~70° 开口）从头顶披垂
+ *   过肩：角度双谐波绺条起伏 + 下摆 seeded 参差发梢，剪影从「兜帽
+ *   人形」变成「披垂长发的团块」；发帘外再挂九绺**成绺长发**（宽头
+ *   收尖、长短错落，前侧两绺垂过胸口）——团块感由绺与绺叠出来。
+ * ② **eyeSockets 深陷眼窝空洞**——发帘开口内、头前面上两粒空洞：
+ *   内芯纯黑无光（任何灯照不进去），外环极暗红 emissive 随呼吸
+ *   搏动/扑近烧亮。**无鼻无嘴无瞳无脸皮**：非写实人脸、非肖像——
+ *   恐怖感只来自「发帘后面两个洞在看你」。
+ * ③ **headPivot 顿挪抬头**——发帘与眼窝挂头枢轴：lurch 平台段头
+ *   一档一档抬起（每停一次抬头多一点，越停越「看着你」）；rush 拍
+ *   发帘迎风后甩、眼窝烧起来。
+ * 保留 v1.11：第二层错相位破披（下摆 seeded 撕口）/三指长手/身体
+ * 冻住时红光呼吸/越挪越前倾。
+ * userData: { pivot, headPivot, mat, eyeMat, setLurch(s,t), setRush(k,t) }
  */
 export function cornerWraith(height = 2.35) {
   const group = new THREE.Group();
@@ -1041,15 +1049,86 @@ export function cornerWraith(height = 2.35) {
   geo.computeVertexNormals();
   const body = new THREE.Mesh(geo, mat);
   pivot.add(body);
-  // v1.11 ①：兜帽内的纯黑空腔——无光材质，任何灯/闪帧都照不进去。
-  // 半嵌进兜帽前脸，只露一个洞口的弧面：读出「没有脸」。
-  const hoodVoid = new THREE.Mesh(
-    new THREE.SphereGeometry(0.1, 12, 10),
-    new THREE.MeshBasicMaterial({ color: 0x000000 })
-  );
-  hoodVoid.scale.set(0.9, 1.25, 0.6);
-  hoodVoid.position.set(0, H * 0.94, H * 0.088);
-  pivot.add(hoodVoid);
+  // ---- v1.12 ①②③：头枢轴 + 披垂发帘 + 成绺长发 + 眼窝空洞 ----
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, H * 0.84, 0);
+  pivot.add(headPivot);
+  // 发丝材质：比体表更暗、冷暗高光（头发的光），闪帧里读出绺条体积
+  const hairMat = new THREE.MeshPhysicalMaterial({
+    color: 0x030204, roughness: 0.62, metalness: 0,
+    sheen: 0.9, sheenColor: 0x11121e, sheenRoughness: 0.42,
+    side: THREE.DoubleSide
+  });
+  // 发帘：局部车削（前脸留 ~70° 开口——洞里是眼窝）
+  const OPEN_HALF = Math.PI * 0.195; // 开口半角 ~35°
+  const hairProf = [
+    [0.03, 0.165], [0.10, 0.12], [0.135, 0.06], [0.15, 0.0],
+    [0.165, -0.07], [0.19, -0.15], [0.21, -0.225]
+  ].map(([r, y]) => new THREE.Vector2(r * H * 0.5, y * H));
+  const hairGeo = new THREE.LatheGeometry(
+    hairProf, 40, OPEN_HALF, Math.PI * 2 - OPEN_HALF * 2);
+  const hp = hairGeo.attributes.position;
+  const hr = rng(211);
+  const hemTear = [];
+  for (let i = 0; i <= 40; i++) hemTear.push(hr() * 0.05 + (i % 4 === 0 ? hr() * 0.045 : 0));
+  for (let i = 0; i < hp.count; i++) {
+    const x = hp.getX(i);
+    const y = hp.getY(i);
+    const z = hp.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const a = Math.atan2(x, z); // phi=0 → +z（前脸开口中线）
+    // 绺条起伏：双谐波沿角度 + 随高度微扭（发是垂下来的，不是罩上去的）
+    const tw = a + (y / H) * 0.35;
+    const clump = 1 + 0.055 * Math.sin(tw * 9 + 1.3) + 0.028 * Math.sin(tw * 17 + 4.1);
+    hp.setX(i, x * clump);
+    hp.setZ(i, z * clump);
+    if (y < -H * 0.12) { // 下摆参差发梢（seeded 长短）
+      const idx = Math.min(40, Math.floor(((a + Math.PI) / (Math.PI * 2)) * 40));
+      hp.setY(i, y + hemTear[idx] * H);
+    }
+  }
+  hairGeo.computeVertexNormals();
+  // 成绺长发 ×9：宽头收尖、长短错落（前侧两绺垂过胸口），避开前脸开口
+  const strandGeos = [hairGeo];
+  const strandR = rng(223);
+  const strandAngles = [0.82, 1.35, 1.9, 2.5, 3.14, 3.8, 4.4, 4.95, 5.46];
+  for (const [si, sa0] of strandAngles.entries()) {
+    const sa = sa0 + (strandR() - 0.5) * 0.22;
+    const long = si === 0 || si === strandAngles.length - 1; // 前侧两绺垂过胸口
+    const sl = (long ? 0.46 : 0.24) * H + strandR() * 0.1 * H;
+    const sw = (0.016 + strandR() * 0.012) * H;
+    const sg = new THREE.ConeGeometry(sw, sl, 5);
+    sg.rotateX(Math.PI); // 宽头在上、发梢收尖朝下
+    sg.translate(0, -sl / 2, 0);
+    const rr = H * (0.072 + strandR() * 0.012);
+    strandGeos.push(xform(sg,
+      Math.sin(sa) * rr, H * (0.1 + strandR() * 0.04), Math.cos(sa) * rr,
+      Math.sin(sa) * 0.1 + (strandR() - 0.5) * 0.12, 0,
+      -Math.cos(sa) * 0.1 + (strandR() - 0.5) * 0.12));
+  }
+  const hair = mergedMesh(strandGeos, hairMat);
+  headPivot.add(hair);
+  // 眼窝空洞 ×2：外环极暗红 emissive（呼吸/烧亮由 eyeMat 控）+ 内芯
+  // 纯黑无光——深陷的洞，不是眼球（无瞳、无脸皮，非写实人脸）
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0304, roughness: 0.8, metalness: 0,
+    emissive: 0x2a0409, emissiveIntensity: 0.5
+  });
+  const voidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const mkRing = (sx) => {
+    const t = new THREE.TorusGeometry(0.0135 * H, 0.0042 * H, 6, 14);
+    t.scale(1, 1.28, 1); // 眼窝竖长——空洞更「陷」
+    return xform(t, sx * 0.024 * H, 0.036 * H, 0.079 * H, -0.12, 0, sx * 0.1);
+  };
+  const mkVoid = (sx) => {
+    const s = new THREE.SphereGeometry(0.0128 * H, 10, 8);
+    s.scale(1, 1.3, 0.5);
+    return xform(s, sx * 0.024 * H, 0.036 * H, 0.077 * H, -0.12, 0, sx * 0.1);
+  };
+  const eyeGeo = mergeGeometries([mkRing(-1), mkRing(1), mkVoid(-1), mkVoid(1)], true);
+  const eyes = new THREE.Mesh(eyeGeo, [eyeMat, eyeMat, voidMat, voidMat]);
+  headPivot.add(eyes);
   // v1.11 ②：第二层错相位破披——肩背披下的一层残布，褶相位与主身
   // 错开，下摆一圈 seeded 参差撕口（双面材质，撕口翻看得到里子）。
   const capeMat = new THREE.MeshPhysicalMaterial({
@@ -1131,34 +1210,45 @@ export function cornerWraith(height = 2.35) {
   const armR = mkArm(1);
   pivot.rotation.z = 0.06; // 常态就歪着——最不对劲的一度
   group.userData.pivot = pivot;
+  group.userData.headPivot = headPivot;
   group.userData.mat = mat;
+  group.userData.eyeMat = eyeMat;
   /** 顿挪体态：s 为 lurchEase 后的阶梯进度——挪的时候侧倾/沉肩/臂拖摆，
    *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。
-   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档，每停一次
-   *  都更「看着你」）；身体冻住时暗红内衬随呼吸搏动（红光在呼吸——
-   *  唯一还在动的东西）。 */
+   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档）；身体
+   *  冻住时暗红内衬随呼吸搏动（红光在呼吸——唯一还在动的东西）。
+   *  v1.12：**头一档一档抬起**（headPivot 随 s 后仰——每停一次抬头
+   *  多一点，发帘里的眼窝越停越正对你）；眼窝环与红光错半拍呼吸。 */
   group.userData.setLurch = (s, t = 0) => {
     const beat = Math.sin(s * Math.PI * 6);
     pivot.rotation.x = 0.12 + s * 0.14;
     pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
     pivot.position.y = Math.abs(beat) * 0.035;
+    headPivot.rotation.x = -(0.06 + s * 0.34);
+    headPivot.rotation.z = -0.06 * s + beat * 0.03;
     armL.rotation.x = -0.08 + beat * 0.1;
     armR.rotation.x = -0.08 - beat * 0.1;
     armL.rotation.z = 0.05 * beat;
     armR.rotation.z = 0.05 * beat;
     mat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
+    eyeMat.emissiveIntensity = 0.55 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2.4 + 1.2));
   };
   /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆；
-   *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。 */
+   *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。
+   *  v1.12：头死死昂着盯你 + 发帘迎风后甩 + 眼窝烧起来（1.2→2.8）。 */
   group.userData.setRush = (k, t = 0) => {
     pivot.rotation.x = 0.26 + 0.3 * k;
     pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
     pivot.position.y = 0;
+    headPivot.rotation.x = -0.4 - 0.22 * k;
+    headPivot.rotation.z = 0;
+    hair.rotation.x = -0.14 * k;
     armL.rotation.x = -0.08 - 0.55 * k;
     armR.rotation.x = -0.08 - 0.55 * k;
     body.scale.set(1 + k * 0.1, 1, 1 + k * 0.1);
     fringe.scale.set(1 + k * 0.22, 1, 1 + k * 0.22);
     mat.emissiveIntensity = 0.9 + k * 0.5;
+    eyeMat.emissiveIntensity = 1.2 + k * 1.6;
   };
   return group;
 }

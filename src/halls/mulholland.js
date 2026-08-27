@@ -53,21 +53,37 @@ const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后
 
 // 冒烟与单测用：通路矩形并集 / 惊吓武装区 / 出生点（纯数据，可在 node 侧仿真行走）
 export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
-// v1.11 门禁 55：拐角沿——剧场侧墙沿巷到 z=-26.8、后墙 z=-26.6，
-// 「拐角」在 z≈-26.7。触发区必须贴着它（北缘距拐角 ≤1.6m、不晚于
-// 拐角以南 0.3m——cornerscare.test 几何守卫钉死，防再漂）。
+// v1.11 门禁 55 / v1.12 门禁 59：拐角沿——剧场侧墙实体 x≈8.05 沿巷到
+// z=-26.8、后墙 z=-26.6，「拐角」在 z≈-26.7。触发区必须贴着它
+// （v1.12 收紧：北缘距拐角 ≤0.7m、不晚于拐角以南 0.3m——
+// cornerscare.test 几何守卫钉死，防再漂）。
 export const CORNER_EDGE = { x: 8.3, z: -26.7 };
+// 剧场墙体实体（藏点视线遮挡验算与单测守卫共用）：侧墙平面 x=8.05
+// 覆盖 z∈[-26.8,-13.6]；后墙平面 z=-26.6 覆盖 x∈[-8.2,8.2]。
+export const THEATER_WALL = { sideX: 8.05, sideZ0: -26.8, sideZ1: -13.6, backZ: -26.6, backX: 8.2 };
 // v1.8 拐角惊吓（主触发）：巷尾拐角触发区——垃圾箱·后门方向即将
 // 入画的那一步就是扳机。顺巷南行视线自然落进 ±fov/2 锥内即触发；
 // 背向北归穿区不触发；面朝墙进区的，转回那个方向的瞬间触发。
-// v1.11 修正：v1.8–v1.10 的触发区（圆心 z=-25.9 r2.3）北缘在 z=-23.6，
-// 离拐角还有 3 米的直巷中段就引爆——错位置。现移到拐角本体：
-// 北缘 z≈-25.3，「即将看见」的最后一步才是扳机。
+// v1.11 修正：触发区从直巷中段（北缘 z=-23.6，离拐角 3 米就引爆）
+// 移到拐角本体（北缘 z≈-25.3）。
+// v1.12 再收紧（门禁 59）：用户仍嫌不贴角——北缘再前移到 z≈-26.05，
+// 距拐角沿 0.65m：**转过拐角的那半步**才是扳机。
 export const CORNER_SCARE = {
-  zone: { x: 9.3, z: -26.9, r: 1.6 },    // 拐角本体（北缘 z≈-25.3）
+  zone: { x: 9.3, z: -27.2, r: 1.15 },   // 贴角本体（北缘 z≈-26.05）
   lookAt: { x: 4.2, z: -30.6 },          // 垃圾箱与后门所在的西南方向
   fov: 2.6,                              // ±74.5°：顺巷南行必然在锥内
   cooldown: 75
+};
+// v1.12 门禁 59：黑影挪出路径（三点贝塞尔，贴拐角沿绕出）。
+// hide 在侧墙正后方剧场体内（x<8.05 且 z>-26.6）——从巷/空地任何
+// 可达点看它，视线都要穿过侧墙或后墙（几何守卫入测）；corner 贴墙
+// 南端点外侧；out 贴拐角沿（离触发中的玩家约 1m）。三顿挪节奏由此
+// 变成：第一顿在墙后（只闻刮擦）→ 第二顿从拐角探出半身 → 第三顿
+// 全身出角——「黑影从拐角处挪出来」的字面呈现。
+export const LURK_PATH = {
+  hide: { x: 7.55, z: -26.1 },
+  corner: { x: 8.05, z: -27.25 },
+  out: { x: 8.6, z: -26.8 }
 };
 // v1.8 多幕节奏时间线（ms，实时钟）：灯闪/抽真空/刮擦/心跳 → 留白 →
 // 顿挪现身 → 加速扑近 → 闷击闪帧 → 黑幕 → 空间错位。单测断言节拍次序与留白。
@@ -1531,19 +1547,26 @@ export function build(ctx) {
   wraith.visible = false;
   group.add(wraith);
   // 剪影光：拐角后一盏冷背光——黑影挪出时只读出轮廓，读不出任何细节
+  // （v1.12 随新绕角路径同步移位：从 out 点身后西南方向打过来——
+  // 发帘团块剪影贴着拐角沿被背光切出来，眼窝空洞是剪影里仅有的两点）
   const rimLight = new THREE.PointLight(0x9fb7ff, 0, 11, 1.6);
-  rimLight.position.set(5.6, 2.4, -29.8);
+  rimLight.position.set(6.3, 2.5, -28.7);
   group.add(rimLight);
   const rimState = { on: 0 };
   updaters.push((dt) => {
     rimLight.intensity += (rimState.on * 6.5 - rimLight.intensity) * Math.min(1, dt * 7);
   });
-  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处。
-  // v1.11：触发点移到拐角本体后玩家离拐角更近——藏点压深到后墙以西
-  // （从触发区北缘任何视线都被后墙截断），现身点贴在拐角沿（离玩家
-  // 约 2 米——从拐角后探出来的那一步就在你脸前）。
-  const LURK_HIDE = new THREE.Vector3(5.6, 0, -28.8);
-  const LURK_OUT = new THREE.Vector3(8.55, 0, -27.15);
+  // 黑影挪出路径（v1.12 门禁 59）：LURK_PATH 三点贝塞尔——hide 在
+  // 侧墙正后方剧场体内（任何可达视线都被墙截断），绕过墙南端点、
+  // 贴着拐角沿滑到 out（离玩家约 1m）。见展厅导出注释与单测守卫。
+  const lurkBez = (s, out) => {
+    const u = 1 - s;
+    const { hide: A, corner: B, out: C } = LURK_PATH;
+    out.set(
+      u * u * A.x + 2 * u * s * B.x + s * s * C.x, 0,
+      u * u * A.z + 2 * u * s * B.z + s * s * C.z);
+    return out;
+  };
   const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
 
   // v1.11 P16：夜风偶尔推一下巷侧瓦楞围栏（fencewomp，seeded 稀发）——
@@ -1600,13 +1623,14 @@ export function build(ctx) {
     later(() => {
       scare.sub = 'lurch';
       scare.t = 0;
-      wraith.position.copy(LURK_HIDE);
+      lurkBez(0, wraith.position);
       wraith.visible = true;
       rimState.on = 1;
     }, B.lurch);
+    // 每顿一声刮擦+落定闷响——声源钉在拐角沿本体（它就贴着这个角挪）
     for (const [i, off] of [50, 750, 1450].entries()) {
-      later(() => audio.sfxAt('scrape', 8.5, -26.5, 0.5 + i * 0.12, 4), B.lurch + off);
-      later(() => audio.sfxAt('thud', 8.5, -26.5, 0.22 + i * 0.06, 4), B.lurch + off + 260);
+      later(() => audio.sfxAt('scrape', CORNER_EDGE.x, CORNER_EDGE.z, 0.5 + i * 0.12, 4), B.lurch + off);
+      later(() => audio.sfxAt('thud', CORNER_EDGE.x, CORNER_EDGE.z, 0.22 + i * 0.06, 4), B.lurch + off + 260);
     }
     // 心跳渐密——追着顿挪加速
     for (const [i, off] of [200, 800, 1330, 1780, 2140].entries()) {
@@ -1649,9 +1673,9 @@ export function build(ctx) {
       wraith.userData.setRush(k, t);
     } else if (scare.sub === 'lurch' && wraith.visible) {
       const s = lurchEase(Math.min(1, scare.t / 2.1), 3); // 名义 2.1s 三顿挪完
-      wraith.position.lerpVectors(LURK_HIDE, LURK_OUT, s);
+      lurkBez(s, wraith.position); // 贴拐角沿的贝塞尔弧线绕出（v1.12）
       wraith.lookAt(player.x, 1.5, player.z);
-      wraith.userData.setLurch(s, t); // 侧倾/沉肩/臂拖摆——平台段全身冻住
+      wraith.userData.setLurch(s, t); // 侧倾/沉肩/抬头/臂拖摆——平台段冻住
     }
   });
   const cornerTrig = cornerTrigger(CORNER_SCARE.zone, CORNER_SCARE.lookAt, doCornerScare,
