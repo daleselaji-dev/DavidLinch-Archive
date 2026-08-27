@@ -113,3 +113,18 @@
 | 2026-08-26 08:03 | 2026-08-26 08:11 | 阶段 8 | **Release 1.4.0**：版本 bump（package.json + src/main.js `__SV__.version`）；CHANGELOG v1.4.0 段（材质五通道/六遍抛光清单/122 交互/11 音色/预算 240）；README 特性与 PS5-tier 段换新、BUILD/TESTING 产物名 1.4.0；VM 无 wine → 按 BUILD.md 重装 wine64+wine32:i386（tmux 后台并行）；版本 bump 后三连复跑全绿（166 单测/静态冒烟/运行时冒烟）；`npm run dist:win` 双目标成功——Portable 100.0MB + Setup(NSIS) 100.2MB，`file` PE32 校验通过；SHA256SUMS.txt 重写（8a709a81…/dae05302…）；门禁 31 六项全勾 | commit `ca11f2e`（08:11:27Z） |
 
 **v1.4 时长合计：2026-08-26 00:08Z 开工 → 08:11Z 发布 commit ≈ 8 小时 03 分连续工作**（上表 30 段起止与 git commit 时钟逐条互证；发布后时间戳校对尾巴 commit 不计入）。
+
+---
+
+# WORKLOG — v1.6.0 制作时间记录（UTC）
+
+> 本轮目标：惊吓 v3「拐角即出 + 那张脸」/ 一体化松树 / 三层讲解 / 深水冥想五幕。
+> 所有时间为 UTC。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-27 05:1x | 2026-08-27 05:4x | 阶段 0/1 | 通读 QUALITY_GATES/WORKFLOW/PRODUCTION_PLAN + mulholland/studio/twinpeaks/kit 现状；建分支 `cursor/ps5-polish-scare-narration-d639`；盘点问题：惊吓 v2 铺垫 2.9s 违背「拐角即出」、lurker 是无面剪影、松树 canopy/trunk 双 InstancedMesh 缩放有缝、essays `studio` 旁白「东西可以碰」是被禁的元叙事、无博物馆讲解/物品旁白/名言轮播 | 问题清单 |
+| 2026-08-27 05:4x | 2026-08-27 06:2x | 阶段 2 | **lurkerFigure v3**：油灰垢斑皮（canvas albedo/bump 双用）+ 塌陷眼窝 + 不对称瓷白眼球（左低右高/针尖瞳/blink 状态机近距不眨）+ 暗缝嘴 + 缠结垂发（前脸留眼）+ 过膝双臂 + 四指长手 + 佝偻躯干；**惊吓时序 v3**：拐角当帧引爆（silencecut+全巷灯瞬灭 0s → 0.3s 滑出 → 对视 → 0.75s 处 0.22s 扑 + 佝偻下压 → 1.15s 黑幕 → 1.95s 错位传送），铺垫改为接近驱动 unease + dread 次声；**新连锁彩蛋 THE LATE CALL**（惊吓后 18s 电话亭自响）；**一体化松树**：pineGeometryMaterial 单几何合并 + 顶点色（sRGB→线性）+ 近/远 LOD，twinpeaks 340 棵双 InstancedMesh 半径 26m 分档 | kit.js/mulholland.js/twinpeaks.js |
+| 2026-08-27 06:2x | 2026-08-27 07:0x | 阶段 2/3 | **三层讲解**：essays.js 元叙事清零（studio 风格线改写）+ DOCENT ×7（≤34 字事实）+ ITEM_NOTES ×14（≤26 字）+ QUOTES 12→16 + HALL_QUOTES 每厅引语池；narration.js speakDocent/speakItem/speakQuote；main.js 进厅编排（风格线→7.5s 讲解→75s 起 90s 名言轮播）+ hallTimers 换厅清场；七厅 speakItem 接线 ×14；**冥想深水五幕 v3**（≈34s：下潜/鱼群+天光柱/大鱼逼近/金色点子+原创短念头轮换/上浮）；单测 187→200（eggs 时序断言/kit v3 细节/narration 三层预算与禁词/main 接线审计），修 3 处超预算文案 | essays/narration/main/studio + tests |
+| 2026-08-27 07:0x | 2026-08-27 08:1x | 阶段 7 | 视觉核验迭代 ×4（scripts/capture.cjs 摆拍截屏：poseEgg/activateByHint 调试钩子 + 软渲染合成器陈旧帧对策 6s 等待）：① 首拍发现皮肤太苍白像木乃伊 → 压暗；② 复拍发现压过头成纯黑剪影（反照率太低灯照不出五官）→ 定位 scareLight 是背后剪影红光、正面无光 → **新增迎面病白冷光**（故障日光灯抽搐闪，phase3/4/pose 三态接线）+ 皮肤回中暗油灰；③ 鱼群端面 8 段读成发光八边形盘 → 12 段 + 低自发光；④ 终拍：眼睛/垢斑皮/轮廓全部可读、树干树冠一体无缝、冥想四幕与「捞起的点子」字幕成立 | /tmp/sv-cap5 九图复核 |
+| 2026-08-27 08:1x | 2026-08-27 08:3x | 阶段 6/8 | 版本 bump 1.6.0（package.json + main.js）；CHANGELOG/QUALITY_GATES 门禁 33/TESTING/WORKLOG 同步；三连复跑（200 单测/静态冒烟/运行时冒烟）；打包 Windows 便携版 exe + SHA256SUMS；commit/push/PR | 本表 + release/ |
