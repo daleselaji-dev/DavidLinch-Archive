@@ -1774,6 +1774,124 @@ export function build(ctx) {
     });
   }
 
+  // ---------- v1.11 门禁 57：耳形凹痕首饰盒（负空间致敬） ----------
+  // 穿衣镜旁一只矮绒凳，凳上一只微开的首饰盒：深蓝丝绒衬垫上压着
+  // 一个**耳形凹痕**——东西已经不在了（不复刻实物，只留它的负空间）。
+  // E → 盒盖合上「咔」，停一拍又自己弹开一条缝 + 极近一声耳语；
+  // 之后一分钟里盖子极缓地爬回微开——像没人看的时候它自己开的。
+  {
+    const JB_X = 2.5;
+    const JB_Z = 6.45;
+    const stoolWood = woodMat({ base: [24, 15, 10], planks: 1, size: 128, seed: 71, gloss: 0.4 });
+    const stoolLegGeo = new THREE.CylinderGeometry(0.022, 0.028, 0.46, 8);
+    group.add(mergedMesh([
+      xform(new THREE.CylinderGeometry(0.15, 0.15, 0.045, 14), JB_X, 0.48, JB_Z),
+      xform(stoolLegGeo, JB_X - 0.09, 0.23, JB_Z - 0.07, 0, 0, 0.1),
+      xform(stoolLegGeo, JB_X + 0.09, 0.23, JB_Z - 0.07, 0, 0, -0.1),
+      xform(stoolLegGeo, JB_X, 0.23, JB_Z + 0.1, -0.1, 0, 0)
+    ], stoolWood));
+    const jbGrp = new THREE.Group();
+    const lacquer = new THREE.MeshPhysicalMaterial({
+      map: woodTexture({ base: [16, 9, 8], planks: 1, size: 128, seed: 73 }),
+      roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.3
+    });
+    const jbBody = roundedBoxMesh(0.19, 0.075, 0.14, 0.008, lacquer);
+    jbBody.position.y = 0.038;
+    jbGrp.add(jbBody);
+    // 衬垫：深蓝丝绒 + 耳形凹痕（压暗一圈 + 沿缘一线极窄的绒毛反光）
+    const earTex = canvasTexture(128, (g, s) => {
+      g.fillStyle = '#101c3e';
+      g.fillRect(0, 0, s, s);
+      const grain = rng(83);
+      for (let i = 0; i < 260; i++) { // 绒面颗粒
+        g.fillStyle = `rgba(${18 + grain() * 22 | 0},${30 + grain() * 26 | 0},${66 + grain() * 40 | 0},0.25)`;
+        g.fillRect(grain() * s, grain() * s, 1.5, 1.5);
+      }
+      // 耳形凹痕：外耳轮弧 + 耳垂圆，整体压暗（绒被压出的形状）
+      g.save();
+      g.translate(s * 0.52, s * 0.5);
+      g.rotate(0.25);
+      g.fillStyle = 'rgba(4,8,20,0.72)';
+      g.beginPath();
+      g.ellipse(0, -6, 15, 24, 0, -Math.PI * 0.75, Math.PI * 0.62);
+      g.quadraticCurveTo(10, 24, -2, 25);
+      g.quadraticCurveTo(-13, 24, -13, 8);
+      g.closePath();
+      g.fill();
+      // 耳廓内折影
+      g.strokeStyle = 'rgba(2,5,14,0.8)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.ellipse(1, -6, 8, 15, 0.1, -Math.PI * 0.6, Math.PI * 0.5);
+      g.stroke();
+      // 压痕沿缘一线被倒伏绒毛挑亮的边
+      g.strokeStyle = 'rgba(96,120,190,0.5)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.ellipse(0, -6, 16.5, 25.5, 0, -Math.PI * 0.7, Math.PI * 0.58);
+      g.stroke();
+      g.restore();
+    });
+    const lining = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.165, 0.115),
+      new THREE.MeshStandardMaterial({ map: earTex, roughness: 0.94, bumpMap: earTex, bumpScale: 0.12 })
+    );
+    lining.rotation.x = -Math.PI / 2;
+    lining.position.y = 0.078;
+    jbGrp.add(lining);
+    // 盒盖（后缘铰链枢轴）+ 盖内一面缎里
+    const lidPivot = new THREE.Group();
+    lidPivot.position.set(0, 0.076, -0.07);
+    const lid = roundedBoxMesh(0.19, 0.022, 0.14, 0.008, lacquer);
+    lid.position.set(0, 0.011, 0.07);
+    const lidSatin = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.165, 0.115),
+      new THREE.MeshStandardMaterial({ color: 0x1a2c5e, roughness: 0.45 })
+    );
+    lidSatin.rotation.x = Math.PI / 2;
+    lidSatin.position.set(0, -0.001, 0.07);
+    lidPivot.add(lid, lidSatin);
+    jbGrp.add(lidPivot);
+    jbGrp.position.set(JB_X, 0.5, JB_Z);
+    jbGrp.rotation.y = -0.6;
+    group.add(jbGrp);
+    // 盖子状态机：常态微开 -0.62；E → 合上(咔) → 停一拍 → 弹开一缝
+    // → 一分钟极缓爬回微开；怠速永不完全静止（±0.004 微颤）
+    const jbState = { pose: -0.62, anim: -1, t: 0 };
+    updaters.push((dt, t) => {
+      if (jbState.anim >= 0) {
+        jbState.t += dt;
+        if (jbState.anim === 0) { // 合上
+          jbState.pose += (-0.02 - jbState.pose) * Math.min(1, dt * 14);
+          if (jbState.t > 0.5) { jbState.anim = 1; jbState.t = 0; }
+        } else if (jbState.anim === 1) { // 停一拍（合死的一瞬）
+          if (jbState.t > 0.85) {
+            jbState.anim = 2;
+            jbState.t = 0;
+            audio.sfxAt('latchsnap', JB_X, JB_Z, 0.3);
+            audio.sfxAt('whisper', JB_X, JB_Z, 0.5, 2);
+          }
+        } else { // 弹开一条缝，然后交还慢爬
+          jbState.pose += (-0.2 - jbState.pose) * Math.min(1, dt * 10);
+          if (jbState.t > 1.2) jbState.anim = -1;
+        }
+      } else if (jbState.pose > -0.62) {
+        jbState.pose -= dt * 0.007; // 没人看的时候它自己慢慢开回去
+      }
+      lidPivot.rotation.x = jbState.pose + Math.sin(t * 1.7) * 0.004;
+    });
+    hotspots.add(jbBody, {
+      hint: 'E — 微开的首饰盒',
+      onActivate: () => {
+        if (jbState.anim >= 0) return;
+        jbState.anim = 0;
+        jbState.t = 0;
+        audio.sfxAt('latchsnap', JB_X, JB_Z, 0.55);
+        ui.caption('衬垫还记得它的形状。', 3600);
+      }
+    });
+  }
+
   // ---------- 彩蛋：衣柜的暗侧 ----------
   const closetMat = new THREE.MeshStandardMaterial({
     map: woodTexture({ base: [26, 18, 12], planks: 2, vertical: true, size: 256 }), roughness: 0.8

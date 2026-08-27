@@ -341,6 +341,27 @@ export class AudioEngine {
         tone('sine', 58, 34, 0.22, 0.3);
         tone('sine', 52, 30, 0.26, 0.34, 0.42);
         break;
+      case 'wetstir': { // v1.11 缠布之物: 湿性蠕鸣——布下有什么极小地挪了一下
+        const f = noise('pink', 0.9, 'bandpass', 300, 2.5, 0.14, 0, 0.3);
+        f.frequency.linearRampToValueAtTime(190, t + 0.8);
+        noise('pink', 0.11, 'bandpass', 920, 6, 0.08, 0.2);
+        noise('pink', 0.08, 'bandpass', 680, 6, 0.07, 0.46);
+        tone('sine', 132, 68, 0.55, 0.05, 0.12);
+        break;
+      }
+      case 'reversecup': { // v1.11 红房间咖啡: 逆放式凝固音——包络倒着走的一声
+        noise('pink', 0.7, 'bandpass', 760, 4, 0.12, 0, 0.62); // 攻击在尾端（倒放感）
+        tone('sine', 96, 320, 0.66, 0.09, 0.02);               // 频率上行（磁带倒转）
+        tone('sine', 640, 212, 0.3, 0.05, 0.62);               // 尾端反扣一口
+        break;
+      }
+      case 'deepdrip': { // v1.11 帘后小门: 很深的一声水滴——门后是一个大得多的空间
+        tone('sine', 1180, 340, 0.09, 0.12);
+        tone('sine', 660, 190, 0.5, 0.07, 0.1);
+        noise('brown', 1.6, 'lowpass', 220, 1, 0.1, 0.16, 0.4); // 空腔回声尾
+        tone('sine', 74, 52, 1.2, 0.05, 0.2);
+        break;
+      }
       case 'dreadswell': { // v1.11 拐角 dread 拍: 低频升压——次声般的空气变重（灯才开始不对）
         const f = noise('brown', 2.0, 'lowpass', 90, 1, 0.3, 0, 1.3);
         f.frequency.linearRampToValueAtTime(210, t + 1.9);
