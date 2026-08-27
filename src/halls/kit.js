@@ -735,8 +735,10 @@ export function nightmareFigure(height = 2.4) {
     grime(g, s, { stains: 20, scratches: 26, alpha: 0.14 });
   }, 2, 2);
   const ragMat = new THREE.MeshStandardMaterial({
-    map: ragTex, color: 0x37312c, roughness: 0.98, metalness: 0,
-    bumpMap: ragTex, bumpScale: 0.5, emissive: 0x0d0505, emissiveIntensity: 0.4
+    // 近黑煤垢袍（v1.7 调深：底光再亮袍身也不能洗成灰白，
+    // 「黑袍黑发惨白脸」的对比就是恐怖感的来源）
+    map: ragTex, color: 0x17110e, roughness: 0.98, metalness: 0,
+    bumpMap: ragTex, bumpScale: 0.5, emissive: 0x0a0404, emissiveIntensity: 0.3
   });
   // ---- 烟垢皮肤（脸与手共用）：惨白底 + 大块煤烟斑 + 皴裂 ----
   const skinTex = canvasTexture(256, (g, s) => {
@@ -864,7 +866,8 @@ export function nightmareFigure(height = 2.4) {
   // （眼睛留在发帘缝隙里）。左右绺独立成 mesh，update 里跟着
   // 歪头蠕变各自摆，扑时整头长发向后掀。 ----
   const hairMat = new THREE.MeshStandardMaterial({
-    color: 0x0b0806, roughness: 0.92, metalness: 0,
+    // 低粗糙度=油腻板结的反光：黑发在夜里靠底光/红边光的高光读出绺
+    color: 0x0b0806, roughness: 0.45, metalness: 0,
     bumpMap: noiseCanvasTexture(64, 100, 60, 5), bumpScale: 0.3
   });
   const hairGeo = new THREE.SphereGeometry(0.178, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.66);
@@ -979,8 +982,9 @@ export function nightmareFigure(height = 2.4) {
     body.scale.y = 1 + Math.sin(t * 2.6) * 0.012 + Math.sin(t * 21) * 0.008 * k;
     armL.rotation.x = 0.34 + Math.sin(t * 1.4) * 0.05 + Math.sin(t * 27) * 0.05 * k;
     armR.rotation.x = 0.34 + Math.sin(t * 1.2 + 2) * 0.05 + Math.cos(t * 24) * 0.05 * k;
-    eyeMat.emissiveIntensity = 0.7 + k * 3.4 + Math.sin(t * 43) * 0.5 * k;
-    faceMat.emissiveIntensity = 0.45 + k * 0.75;
+    // 眼睛亮但不烧成光晕（v1.7 调参：让瞳孔与眼白读成「眼睛」而不是车灯）
+    eyeMat.emissiveIntensity = 0.55 + k * 1.7 + Math.sin(t * 43) * 0.3 * k;
+    faceMat.emissiveIntensity = 0.5 + k * 0.9;
     // 长发跟着头动：两鬓绺反相轻摆，扑（k→1）时整头长发向后掀
     const hs = Math.sin(t * 1.1) * 0.03 + Math.sin(t * 17) * 0.02 * k;
     hairL.rotation.z = 0.02 + hs;

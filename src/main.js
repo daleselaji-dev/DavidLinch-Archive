@@ -352,5 +352,10 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
+  /** 验证工具：读取当前展厅某彩蛋的内部状态（若彩蛋暴露了 state 探针） */
+  eggState: (name) => {
+    const egg = current && current.built.eggs && current.built.eggs[name];
+    return egg && egg.state ? egg.state() : null;
+  },
   version: '1.6.0'
 };

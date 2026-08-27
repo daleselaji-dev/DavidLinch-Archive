@@ -1091,8 +1091,10 @@ export function build(ctx) {
     new THREE.Vector3(6.3, 0, -27.95),
     new THREE.Vector3(8.55, 0, -27.05)
   );
-  // 惨白底光（打在脸上的那盏）+ 背后剪影红光
-  const scareFace = new THREE.PointLight(0xd8e2ee, 0, 6, 1.5);
+  // 惨白底光（打在脸上的那盏）：小范围 + decay 2 + 固定贴在下巴前——
+  // 光只喂给脸、眼窝与框脸长发，袍身留在黑里（黑袍白脸的对比就是恐怖感）
+  // + 背后剪影红光（勾出长发与肩线的轮廓）
+  const scareFace = new THREE.PointLight(0xd8e2ee, 0, 3, 2.0);
   const scareLight = new THREE.PointLight(0x8a1408, 0, 9, 1.6);
   scareLight.position.set(6.9, 2.3, -28.7);
   group.add(scareFace, scareLight);
@@ -1104,15 +1106,23 @@ export function build(ctx) {
     mid: new THREE.Vector3(), to: new THREE.Vector3()
   };
   const faceAt = () => {
-    figure.lookAt(player.x, 1.35, player.z);
-    // 下巴高度的仰打光：照亮脸与眼窝，而不是把地面打出一滩泛光
+    // 目标点取形体自身原点高度 → 纯水平转身。
+    // （若目标点高过原点，lookAt 会把整个形体向后仰倒——
+    // v1.6 的黑影因此一直仰面朝天、脸和底光全错位，务必保持水平）
+    figure.lookAt(player.x, figure.position.y, player.z);
+    // 下巴正前 0.34m 的仰打光（固定偏移，不随玩家距离跑位）：
+    // 离脸 ~0.3m、离袍胸 ~0.9m，decay 2 之下脸比袍亮一个量级
+    const fdx = player.x - figure.position.x;
+    const fdz = player.z - figure.position.z;
+    const fd = Math.hypot(fdx, fdz) || 1;
+    const hy = figure.position.y + 2.06; // 头心世界高度
     scareFace.position.set(
-      figure.position.x + (player.x - figure.position.x) * 0.22, 1.15,
-      figure.position.z + (player.z - figure.position.z) * 0.22
+      figure.position.x + (fdx / fd) * 0.34, hy - 0.28,
+      figure.position.z + (fdz / fd) * 0.34
     );
     scareLight.position.set(
-      figure.position.x - (player.x - figure.position.x) * 0.3, 2.3,
-      figure.position.z - (player.z - figure.position.z) * 0.3
+      figure.position.x - (fdx / fd) * 0.5, hy + 0.4,
+      figure.position.z - (fdz / fd) * 0.5
     );
   };
 
@@ -1176,28 +1186,30 @@ export function build(ctx) {
         const u = Math.min(1, scare.t / BEATS.emerge);
         const k = 1 - (1 - u) ** 1.6;
         reveal.at(k, figure.position);
-        scareFace.intensity = u * 7;
-        scareLight.intensity = u * 2.2;
+        scareFace.intensity = u * 1.7;
+        scareLight.intensity = u * 2.6;
         figure.userData.update(dt, t, 0.55);
       } else {
-        // 凝视：向你倾过来半步，头歪向一侧，眼睛越来越亮
+        // 凝视：向你倾过来半步，头歪向一侧、微微下沉，眼睛越来越亮
         const u = Math.min(1, (scare.t - BEATS.emerge) / (BEATS.lunge - BEATS.emerge));
         const d3 = new THREE.Vector3(player.x - scare.mid.x, 0, player.z - scare.mid.z).normalize();
         figure.position.set(
-          scare.mid.x + d3.x * u * 0.35, 0,
+          scare.mid.x + d3.x * u * 0.35, -0.1 * u,
           scare.mid.z + d3.z * u * 0.35
         );
         figure.userData.update(dt, t, 0.6 + u * 0.4);
-        scareFace.intensity = 7 + u * 3 + Math.sin(t * 37) * 0.8;
-        scareLight.intensity = 2.2 + u * 1.6;
+        scareFace.intensity = 1.7 + u * 0.6 + Math.sin(t * 37) * 0.18;
+        scareLight.intensity = 2.6 + u * 1.8;
       }
       faceAt();
     } else if (scare.phase === 4 && scare.t <= BEATS.blackout) {
       const k = Math.min(1, (scare.t - BEATS.lunge) / (BEATS.hit - BEATS.lunge));
       figure.position.lerpVectors(scare.mid, scare.to, k * k);
+      // 俯冲：整个形体往下潜，那张脸正好冲到你眼睛的高度
+      figure.position.y = -0.1 - 0.5 * k * k;
       figure.userData.update(dt, t, 1);
       figure.rotation.z += Math.sin(scare.t * 74) * 0.1; // 高频痉挛
-      scareFace.intensity = 12;
+      scareFace.intensity = 2.4;
       scareLight.intensity = 6;
       faceAt();
     }
@@ -1746,8 +1758,12 @@ export function build(ctx) {
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: {
-      // 冒烟核验：force 直接快进到凝视拍（低帧率无头环境下时间轴确定可截）
-      'corner-scare': { force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); } },
+      // 冒烟核验：force 直接快进到凝视拍（低帧率无头环境下时间轴确定可截）；
+      // state 探针给 scripts/scare-verify.cjs 读相位/时间轴/黑影坐标
+      'corner-scare': {
+        force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); },
+        state: () => `phase=${scare.phase} t=${scare.t.toFixed(2)} fig=${figure.position.x.toFixed(2)},${figure.position.z.toFixed(2)} vis=${figure.visible ? 1 : 0}`
+      },
       'no-band': noBandTrig
     },
     onLeave: () => {

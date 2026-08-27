@@ -90,9 +90,10 @@ describe('穆赫兰道「拐角那个东西」惊吓 v4', () => {
     }
   });
 
-  it('可重复触发且有冷却；彩蛋以 corner-scare 暴露给冒烟测试（force 快进到凝视拍）', () => {
+  it('可重复触发且有冷却；彩蛋以 corner-scare 暴露给冒烟测试（force 快进 + state 探针）', () => {
     expect(mul).toMatch(/doScare, \{ cooldown: \d+ \}/);
-    expect(mul).toContain("'corner-scare': { force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); } }");
+    expect(mul).toContain('force: () => { scareTrig.force(); scare.t = Math.max(scare.t, 1.05); }');
+    expect(mul).toMatch(/state: \(\) => `phase=\$\{scare\.phase\}/);
   });
 });
 
