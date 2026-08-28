@@ -35,6 +35,14 @@
   `__SV__.teleport(9.3, -25.5, 0)` 直达显形线（z≈−26.506）前
   1m 面南，走 ~1m 即触发；`__SV__.scareProbe()` 状态位对照
   TESTING.md 耳机验收清单。
+- **魅影目检件已入库**（第 9 轮后验收辅助微轮，文档+png only、
+  版本维持 1.27.0）：Blender 4.1.1 离线渲 corner_wraith 四机位
+  `assets/acceptance/v127/wraith-{front,side,three,top}.png`
+  （common.py 同棚 Cycles 96 采样；front/side 与 render_views.py
+  机位逐位一致，three/top 为验收加拍）+ DOWNLOAD.md「v1.27 验收
+  走查」加「魅影形体目检」小节（直链 + v1.22 三条线出题：发帘/
+  垂臂/眼窝）——(B) 项不跑游戏也能审；零 mulholland.js/惊吓
+  逻辑改动，817 复跑全绿，仍等用户证词。
 
 ---
 
