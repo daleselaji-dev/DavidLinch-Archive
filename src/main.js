@@ -325,6 +325,24 @@ window.__SV__ = {
   /** 冒烟测试：当前展厅非导航可交互物件数（门禁 20：nav 门户不计入） */
   countInteractives: () =>
     hotspots.items.filter((m) => !(m.userData.hotspot && m.userData.hotspot.nav)).length,
+  /**
+   * 冒烟（v1.16 门禁 77）：热点场景归属普查——每个已登记热点的网格
+   * 沿 parent 链上溯必须落在 engine.scene 上。防「幽灵交互」：登记了
+   * 热点但网格没挂进场景树，玩家永远摸不到，交互计数却照常通过
+   * （v1.15 studio 工作桌误删事故的制度化补漏——交互审计从此验归属）。
+   * 返回孤儿热点的 hint 列表（空数组 = 全部在场）。
+   */
+  auditHotspots: () => {
+    const orphans = [];
+    for (const m of hotspots.items) {
+      let node = m;
+      while (node.parent) node = node.parent;
+      if (node !== engine.scene) {
+        orphans.push((m.userData.hotspot && m.userData.hotspot.hint) || m.name || '(unnamed)');
+      }
+    }
+    return orphans;
+  },
   /** 冒烟/截屏：瞬移到指定位置（视觉复核各分区用） */
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
   /** 冒烟/截屏：当前展厅 id（SV_SHOT_PRE 按厅分机位用） */
@@ -398,5 +416,5 @@ window.__SV__ = {
     }
     return false;
   },
-  version: '1.15.0'
+  version: '1.16.0'
 };

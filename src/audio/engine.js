@@ -857,6 +857,73 @@ export class AudioEngine {
         noise('brown', 0.5, 'lowpass', 150, 1, 0.02, 0.15, 0.2);
         break;
       }
+      // ---------- v1.16 新音色（门禁 77/78：调速器落厅 + 彩蛋第四批换轴） ----------
+      // 换轴纪律：光的应答走 kit.ANSWER_BREATH（无声或极轻）；温度对
+      // （coldhiss/icecrack 高薄、warmhum/chinatick 低软）不入 REPLY_DYAD
+      // ——「另一边」的音高谱系留给远声，温度和时间各说各的话
+      case 'govwhirr': { // 调速器超速一口（era）：轴承嗡鸣爬升 + 飞球风切 + 皮带微滑 + 回落
+        tone('sawtooth', 40, 92, 1.6, 0.05);
+        tone('sawtooth', 80, 184, 1.6, 0.022, 0.05);
+        noise('pink', 1.9, 'bandpass', 460, 1.6, 0.05, 0.15, 0.5);
+        noise('white', 0.5, 'highpass', 3000, 1, 0.014, 0.3, 0.2);
+        tone('sine', 92, 58, 0.9, 0.03, 1.7);
+        break;
+      }
+      case 'brasstap': { // 指背碰一下黄铜小件：亮短双分音 + 极轻腔鸣（这头的动作声，不调音）
+        tone('sine', 1240, 1180, 0.14, 0.05);
+        tone('sine', 1980, 1930, 0.07, 0.02, 0.004);
+        noise('white', 0.02, 'highpass', 4200, 2, 0.02, 0, 0.002);
+        tone('sine', 620, 600, 0.22, 0.012, 0.02);
+        break;
+      }
+      case 'clocktick': { // 停摆钟的擒纵单格：干瘦一嗒（走字的那种，不是敲出来的）
+        tone('square', 2100, 1900, 0.012, 0.022);
+        tone('sine', 760, 720, 0.05, 0.028, 0.002);
+        noise('white', 0.015, 'bandpass', 3600, 6, 0.016, 0, 0.002);
+        break;
+      }
+      case 'micthump': { // 手背碰话筒（bv）：PA 低闷一坨 + 将啸未啸的反授影 + 房间过一遍
+        tone('sine', 78, 44, 0.3, 0.2);
+        noise('brown', 0.22, 'lowpass', 240, 1, 0.1);
+        tone('sine', 1470, 1500, 0.12, 0.012, 0.06);
+        noise('pink', 0.5, 'bandpass', 300, 2, 0.03, 0.12, 0.2);
+        break;
+      }
+      case 'coldhiss': { // 掌心贴上冷管（era）：高位薄嘶收着走 + 失谐拍频微光——冷是往里吸的声
+        noise('white', 1.3, 'highpass', 5200, 1, 0.035, 0, 0.5);
+        tone('sine', 6200, 5800, 0.9, 0.008, 0.1);
+        tone('sine', 6270, 5860, 0.9, 0.007, 0.14);
+        noise('pink', 0.7, 'bandpass', 1900, 3, 0.014, 0.3, 0.3);
+        break;
+      }
+      case 'icecrack': { // 管子更深处冰裂一声：脆劈 + 低腔坠 + 碎晶尾（答的是温度，不是音高）
+        noise('white', 0.05, 'highpass', 3200, 1, 0.07, 0, 0.003);
+        tone('square', 420, 180, 0.09, 0.05);
+        tone('sine', 96, 52, 0.4, 0.09, 0.03);
+        for (let i = 0; i < 5; i++) {
+          noise('white', 0.02, 'bandpass', 4600 - i * 500, 7, 0.02 - i * 0.003, 0.09 + i * 0.06);
+        }
+        break;
+      }
+      case 'warmhum': { // 掌心贴上还温的瓷（tp）：极低软哼浮起一口就退——温度用听的
+        noise('brown', 1.4, 'lowpass', 130, 1, 0.09, 0, 0.55);
+        tone('sine', 88, 92, 1.1, 0.026, 0.1);
+        tone('sine', 176, 180, 0.9, 0.01, 0.2);
+        break;
+      }
+      case 'chinatick': { // 瓷杯降温收缩的一记轻嗒：比 porcelain 更小更干（杯子自己出的声）
+        tone('sine', 2350, 2280, 0.05, 0.022);
+        tone('sine', 3520, 3470, 0.03, 0.01, 0.003);
+        noise('white', 0.012, 'highpass', 5200, 3, 0.012, 0, 0.002);
+        break;
+      }
+      case 'poletap': { // 拍一下路灯杆（mull）：铁管空腔双鸣下坠 + 杆内驻波余振——时间错位会原样再放一遍
+        tone('sine', 340, 322, 0.3, 0.08);
+        tone('sine', 512, 488, 0.2, 0.04, 0.004);
+        noise('brown', 0.12, 'lowpass', 380, 1, 0.07);
+        tone('sine', 168, 160, 0.8, 0.03, 0.05);
+        break;
+      }
       // ---------- 脚步（六种地面材质；每步微抖动防机械感） ----------
       case 'step-wood': { // 木地板：低频闷响 + 板材短鸣
         const j = 0.92 + Math.random() * 0.16;
