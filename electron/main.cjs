@@ -118,8 +118,11 @@ function createWindow() {
         // v1.16 彩蛋四批 + 调速器落厅重锁：七厅换轴彩蛋各 +1（烛剪/
         // 上弦钥匙/结霜支管/空话筒/保温座/路灯铁杆/白瓷小碟）+ era
         // 蒸汽调速器 → 普查 22/36/30/24/27/25/30 = 194，阈值 = 普查 -1
+        // v1.17 问第二遍零新增件：194 持平（五轮连涨惯性刹车，逐厅相等入单测）
+        // v1.18 GLB 收官件落 archive 带一件交互（卡死的抽屉）：archive
+        // 36→37 → 普查 195，其余六厅继续持平（刹车纪律只为收官件开一格）
         const INTERACTIVE_MIN = {
-          lobby: 21, archive: 35, eraserhead: 29, bluevelvet: 23,
+          lobby: 21, archive: 36, eraserhead: 29, bluevelvet: 23,
           twinpeaks: 26, mulholland: 24, studio: 29
         };
         const interactiveCheck = win.webContents.executeJavaScript(

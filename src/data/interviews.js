@@ -13,6 +13,8 @@
 // v1.15：28 条全部归入四个主题（点子/电影/心境/此生），面板可筛选。
 // v1.16：28 → 32，补「点子」主题（5 → 9 条，四主题分布 9/9/8/6）。
 // v1.17：32 → 34，补「此生」主题（6 → 8 条，四主题分布 9/9/8/8）。
+// v1.18：34 → 38，四主题齐涨（10/10/9/9——单主题 ≥10 前先扩别的
+//        的口径本轮起改为整排推进）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -334,6 +336,46 @@ export const INTERVIEWS = [
     zh: '我心里满是幸福，而且我永远不会退休。',
     source: '公开播报 · 2024',
     context: '公开确认肺气肿诊断时，他用这句话向公众收尾。'
+  },
+  // ---------- v1.18 扩容（34 → 38）：四主题齐涨（9/9/8/8 → 10/10/9/9） ----------
+  // 防撞记录：候选「五五开的声画」（sound5050）/「直觉是钥匙」
+  // （intuition）/「越来越像你自己」（you）三句均已是 QUOTES 立牌
+  // 语录，本轮弃用换句；四条与既有 34 条及 QUOTES 逐句比对零重复。
+  {
+    id: 'ideasdictate',
+    topic: '点子说了算',
+    theme: '点子',
+    en: 'Ideas dictate everything. You have to be true to that or you\u2019re dead.',
+    zh: '一切都由点子说了算。你必须忠于它，不然你就完了。',
+    source: '公开访谈',
+    context: '他谈创作决策时，把最终决定权交还给点子本身。'
+  },
+  {
+    id: 'telephone',
+    topic: '在电话上看电影',
+    theme: '电影',
+    en: 'If you\u2019re playing the movie on a telephone, you will never in a trillion years experience the film. You\u2019ll think you have experienced it, but you\u2019ll be cheated.',
+    zh: '在电话那么大的屏幕上放电影，一万亿年也体验不到那部片子——你以为你看过了，其实你被骗了。',
+    source: '公开访谈',
+    context: '他坚持电影要在大银幕和好声音里看完，这段话后来广为流传。'
+  },
+  {
+    id: 'abstractions',
+    topic: '生活的抽象',
+    theme: '心境',
+    en: 'Life is filled with abstractions, and the only way we make heads or tails of it is through intuition.',
+    zh: '生活里满是抽象的东西，我们唯一能理出头绪的办法，是靠直觉。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '与立牌上那句「直觉」互为上下文：这里说的是生活，不是创作。'
+  },
+  {
+    id: 'milkman',
+    topic: '五十年代的小城',
+    theme: '此生',
+    en: 'My childhood was elegant homes, tree-lined streets, the milkman, building forts, droning airplanes, blue skies, picket fences, green grass, cherry trees.',
+    zh: '我的童年是雅致的屋子、成排的绿树、送奶人、搭堡垒、嗡嗡掠过的飞机、蓝天、白篱笆、绿草、樱桃树。',
+    source: '《Lynch on Lynch》访谈录 · 1997',
+    context: '他常这样一口气罗列自己的小城童年；那之后的话才是转折。'
   }
 ];
 

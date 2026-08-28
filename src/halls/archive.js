@@ -4,6 +4,10 @@
 // 尽头纪念墙。解读文字为零：只有事实与他自己的话。
 // ============================================================
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// v1.18 门禁 86：卡片柜抽屉阵 GLB（gen_card_catalog.py 五拍精修定稿，
+// 146KB）——GLB 落厅第五批·收官件（第六处 glb-landed）
+import cardCatalogUri from '../assets/card_catalog.glb?inline';
 import { filmsSorted } from '../data/filmography.js';
 import { QUOTES } from '../data/essays.js';
 import {
@@ -302,7 +306,13 @@ export function build(ctx) {
       new THREE.MeshStandardMaterial({ map: cardWadTex, roughness: 0.92 })
     );
     wad.rotation.y = 0.04;
-    wad.position.y = 0.015;
+    // v1.18 陈年病灶修正（GLB 精修阵落厅截屏暴露）：卡沓自 v1.4 起
+    // 停在 drawer 局部 z=0——0.2m 深的卡沓横跨脸板平面、探出柜面
+    // 9cm，白纸盒常年悬在关严的抽屉外（暗角里没人看清过；哑光
+    // GLB 阵一落地它就成了「刷白的一格」）。退进屉体：关严时全部
+    // 在柜内，拉开 0.26m 时卡沓前缘刚好探出槽口——「卡片都空着」
+    // 这才是拉开才看得见的事实
+    wad.position.set(0, 0.015, -0.15);
     cab.userData.drawer.add(wad);
     const state = { open: 0, target: 0 };
     const closedZ = cab.userData.drawer.position.z;
@@ -319,6 +329,114 @@ export function build(ctx) {
       }
     });
     return cab;
+  });
+  // ---------- v1.18 门禁 86：卡片柜抽屉阵 GLB（Blender 管线第 7 件·收官落厅） ----------
+  // 落厅红线（GOAL_HANDOFF 第 6 轮）：红线内只剩 archive(212)/studio(227)
+  // 两个空位——本件落 archive 第一座目录柜（第二座留给「没关严的抽屉」
+  // 彩蛋，原件一行不动）；tp/mull 244/250 贴顶禁入、era 每厅 ≤1 照旧。
+  // **仅换网格保留程序化动画**（第四次执行）：可拉抽屉是程序化原件
+  // （GLB 洞位 (3,1) 预留），拉开/塞卡动画不动；三张静态阵网格
+  // （脸板/铜件/磨亮件）GLB 就位后原位退场（几何释放、共享材质留任），
+  // 磨亮光晕贴花留任——手汗不随网格走。材质由运行时整套重设
+  // （GLB 只带几何/命名/COLOR_0——GLB 无 UV，重设走纯色+顶点色）。
+  // 变换口径：GLB 正面经 Y-up 换算在局部 -z，pivot rotation.y=π 转回
+  // 柜面 +z；π 转身带 x 镜像——生成侧已预镜像（gen_card_catalog.py），
+  // 落厅后 19 格与程序化版逐位对齐。
+  // 新交互「卡死的抽屉」：顶排斜探 14mm、拉手断得只剩座盘、标签框
+  // 空着——按 E 它挣一下又咬死（drawerstuck 即时），2.2s 后西墙那头
+  // 「没有房间的房间」里，同一只抽屉滑轨到底关上了（drawerfar 错拍
+  // ——v1.10 远处的声接进来：这只在这里永远关不上的抽屉，在那头
+  // 是能关上的）。零字幕：柜子不解释自己。
+  const mainCab = catalogs[0];
+  const glbPivot = new THREE.Group();
+  glbPivot.rotation.y = Math.PI;
+  mainCab.add(glbPivot);
+  const stuckState = { t: -1, far: -1 };
+  let stuckParts = null;
+  const cardArrayReady = new Promise((resolve) => {
+    const b64 = cardCatalogUri.slice(cardCatalogUri.indexOf(',') + 1);
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    new GLTFLoader().parse(buf.buffer, '', (gltf) => {
+      const setMat = (name, opts) => {
+        const mesh = gltf.scene.getObjectByName(name);
+        if (!mesh) return null;
+        mesh.material = new THREE.MeshStandardMaterial({
+          ...opts, vertexColors: !!mesh.geometry.getAttribute('color')
+        });
+        return mesh;
+      };
+      setMat('catFaces', { color: 0x4e3018, roughness: 0.62, metalness: 0 });
+      setMat('catBrass', { color: 0xb28a48, roughness: 0.38, metalness: 0.9 });
+      // 磨亮三只与程序化 polished 同参数（0xd8b878 / 0.18）
+      setMat('catBrassWorn', { color: 0xd8b878, roughness: 0.18, metalness: 0.9 });
+      setMat('catCards', { color: 0xcfc5aa, roughness: 0.9, metalness: 0 });
+      // 照不亮的黑（空框衬 + 卡死抽屉槽口）
+      setMat('catDark', { color: 0x040406, roughness: 1, metalness: 0 });
+      const stuck = setMat('catStuck', { color: 0x38220f, roughness: 0.7, metalness: 0 });
+      const trim = setMat('catStuckTrim', { color: 0x9a7538, roughness: 0.45, metalness: 0.9 });
+      glbPivot.add(gltf.scene);
+      // 三张静态阵网格原位退场（几何释放；warmWood/brass 共享材质留任，
+      // 磨亮件的克隆材质随之弃引用）——程序化版整柜即兜底
+      const fa = mainCab.userData.faceArray;
+      for (const key of ['faces', 'brass', 'worn']) {
+        mainCab.remove(fa[key]);
+        fa[key].geometry.dispose();
+      }
+      // 换接缝抹平（截屏实证病灶：洞位程序化可拉抽屉的高光木纹脸板
+      // 在哑光 GLB 阵里读成「刷白的一格」）——网格与拉开动画原封
+      // 不动，只把脸板/拉手换上与阵同参数的材质
+      mainCab.userData.drawerFace.material = new THREE.MeshStandardMaterial({
+        color: 0x4e3018, roughness: 0.62, metalness: 0
+      });
+      mainCab.userData.drawerPull.material = new THREE.MeshStandardMaterial({
+        color: 0xb28a48, roughness: 0.38, metalness: 0.9
+      });
+      if (stuck && trim) {
+        // 卡死抽屉整组（木件 + 断座盘 + 空框）挂进同一只抖动组——
+        // 挣扎时座盘跟着木件走，单写者：只有 stuckState 驱它
+        const grp = new THREE.Group();
+        gltf.scene.add(grp);
+        grp.add(stuck, trim);
+        stuckParts = grp;
+        stuck.name = 'catStuck';
+        hotspots.add(stuck, {
+          hint: 'E — 卡死的抽屉',
+          onActivate: () => {
+            if (stuckState.t >= 0 || stuckState.far > 0) return; // 还在挣/那头还没答
+            stuckState.t = 0;
+            audio.sfxAt('drawerstuck', mainCab.position.x, mainCab.position.z, 0.7, 4);
+            stuckState.far = 2.2; // 游戏时钟错拍：2.2s 后那头替它关上
+          }
+        });
+      }
+      console.log('[sv] glb-landed archive catalog');
+      resolve(gltf.scene);
+    }, (err) => {
+      // 兜底：程序化抽屉阵原地留任——可拉抽屉/没关严的抽屉不因资产缺席
+      console.warn('[sv] glb-failed archive catalog', err);
+      resolve(null);
+    });
+  });
+  updaters.push((dt) => {
+    if (stuckState.far > 0) {
+      stuckState.far -= dt;
+      if (stuckState.far <= 0) {
+        stuckState.far = -1;
+        // 答在西墙那头：这只在这里卡死的抽屉，在没有房间的房间里关上了
+        audio.sfxAt('drawerfar', -W / 2 - 1.5, mainCab.position.z, 0.85, 5);
+      }
+    }
+    if (stuckState.t < 0 || !stuckParts) return;
+    stuckState.t += dt;
+    if (stuckState.t >= 0.55) {
+      stuckState.t = -1;
+      stuckParts.position.z = 0;
+      return;
+    }
+    // 挣一下又咬死：1.6mm 衰减抖动（沿 glTF z——柜面进出向）
+    stuckParts.position.z = Math.sin(stuckState.t * 46) * 0.0016 * (1 - stuckState.t / 0.55);
   });
   // v1.14 彩蛋二批（门禁 69）：第二座目录柜上一格**没关严的抽屉**——
   // 推严（木滑一声即时），2.6s 后它自己又滑开一条缝（错拍，声音来自
@@ -2213,6 +2331,7 @@ export function build(ctx) {
     spawn: { x: 0, z: L / 2 - 4, yaw: 0 },
     bounds: multiRectBounds([HALL, NICHE]),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    ready: cardArrayReady, // v1.18：等 GLB 抽屉阵就位再宣布装载完成
     eggs: { 'ghost-plaque': ghostTrig }
   };
 }

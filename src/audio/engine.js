@@ -851,6 +851,16 @@ export class AudioEngine {
         tone('sine', 400, 380, 0.06, 0.012, 0.54);
         break;
       }
+      case 'drawerstuck': { // archive 卡死的抽屉（v1.18 第 98 种）：滑轨咬死短挫两口 +
+        //                    断座盘铜散响 + 柜腔闷止——它挣了一下，又咬死了。
+        //                    「这头」的动作声纪律：刻意不入 REPLY_DYAD 调音
+        noise('pink', 0.14, 'bandpass', 640, 2.4, 0.024, 0, 0.5);
+        noise('pink', 0.1, 'bandpass', 1050, 3.2, 0.014, 0.06, 0.4);
+        tone('triangle', 1240, 1150, 0.045, 0.009, 0.085);
+        tone('sine', 92, 66, 0.17, 0.028, 0.12);
+        noise('brown', 0.26, 'lowpass', 230, 1, 0.045, 0.13, 0.25);
+        break;
+      }
       case 'liftbell': { // lobby 电梯到站的一声叮——这栋楼没有电梯
         tone('sine', 932, 926, 1.4, 0.028);
         tone('sine', 1397, 1388, 0.9, 0.014, 0.01);

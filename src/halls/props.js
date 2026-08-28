@@ -221,12 +221,14 @@ export function cardCatalog({ cols = 4, rows = 5, mats, skip = [] } = {}) {
     }
   }
   faceGeo.dispose(); pullGeo.dispose(); frameGeo.dispose(); haloGeo.dispose();
-  g.add(mergedMesh(faceGeos, M.warmWood));
-  g.add(mergedMesh(brassGeos, M.brass));
+  const facesMesh = mergedMesh(faceGeos, M.warmWood);
+  const brassMesh = mergedMesh(brassGeos, M.brass);
+  g.add(facesMesh, brassMesh);
   const polished = M.brass.clone();
   polished.color = new THREE.Color(0xd8b878);
   polished.roughness = 0.18;
-  g.add(mergedMesh(wornBrassGeos, polished));
+  const wornMesh = mergedMesh(wornBrassGeos, polished);
+  g.add(wornMesh);
   const haloTex = canvasTexture(64, (g2, s) => {
     const rad = g2.createRadialGradient(s / 2, s / 2, 2, s / 2, s / 2, s / 2);
     rad.addColorStop(0, 'rgba(224,198,150,0.5)');
@@ -238,6 +240,11 @@ export function cardCatalog({ cols = 4, rows = 5, mats, skip = [] } = {}) {
   g.add(mergedMesh(wornHaloGeos, new THREE.MeshStandardMaterial({
     map: haloTex, transparent: true, depthWrite: false, roughness: 0.45
   })));
+  // v1.18 门禁 86：抽屉阵换接句柄——GLB 精修件落厅时三张静态阵网格
+  // 原位退场（脸板/铜件/磨亮件），磨亮光晕贴花**留任**（手汗磨出的
+  // 软边不随网格走：GLB 惯用屉深浅零抖动、光晕仍贴在原平面上）。
+  // 程序化版不拆件即兜底；共享材质（warmWood/brass）退场时不释放。
+  g.userData.faceArray = { faces: facesMesh, brass: brassMesh, worn: wornMesh };
   // 可拉抽屉（独立部件：面板 + 屉体 + 卡片）
   const drawer = new THREE.Group();
   const dFace = roundedBoxMesh(0.205, 0.155, 0.02, 0.008, M.warmWood);
@@ -259,6 +266,7 @@ export function cardCatalog({ cols = 4, rows = 5, mats, skip = [] } = {}) {
   g.add(drawer);
   g.userData.drawer = drawer;
   g.userData.drawerFace = dFace;
+  g.userData.drawerPull = dPull; // v1.18：GLB 落厅换接缝抹平用（材质对齐句柄）
   return g;
 }
 
