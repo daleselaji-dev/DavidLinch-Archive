@@ -291,8 +291,9 @@ export function build(ctx) {
   const catalogs = [
     { x: W / 2 - 0.55, z: -2.2, ry: -Math.PI / 2 },
     { x: -W / 2 + 0.55, z: 13.6, ry: Math.PI / 2 }
-  ].map(({ x, z, ry }) => {
-    const cab = cardCatalog({ cols: 4, rows: 5, mats: M });
+  ].map(({ x, z, ry }, cabIdx) => {
+    // 第二座柜 r=1,c=2 格位留空——v1.14「没关严的抽屉」自备活动面板
+    const cab = cardCatalog({ cols: 4, rows: 5, mats: M, skip: cabIdx === 1 ? ['1,2'] : [] });
     cab.position.set(x, 0, z);
     cab.rotation.y = ry;
     group.add(cab);
@@ -319,7 +320,44 @@ export function build(ctx) {
     });
     return cab;
   });
-  void catalogs;
+  // v1.14 彩蛋二批（门禁 69）：第二座目录柜上一格**没关严的抽屉**——
+  // 推严（木滑一声即时），2.6s 后它自己又滑开一条缝（错拍，声音来自
+  // 你已经转身离开的方向）。与趴地书相对：那件事是永久的，这件事
+  // 你永远改变不了。零字幕——柜子不解释自己。
+  const ajarCab = catalogs[1];
+  const ajarState = { out: 1, target: 1, cool: 0 };
+  const ajarFace = new THREE.Group();
+  ajarFace.add(
+    roundedBoxMesh(0.205, 0.155, 0.02, 0.008, M.warmWood),
+    mergedMesh([
+      xform(new THREE.CylinderGeometry(0.008, 0.014, 0.05, 8), 0, -0.03, 0.02, Math.PI / 2, 0, 0),
+      xform(new THREE.BoxGeometry(0.09, 0.035, 0.006), 0, 0.035, 0.011)
+    ], M.brass)
+  );
+  // 格位 r=1,c=2（可拉抽屉斜下方两格）：x=0.12, y=0.38；ajar 时探出 5cm
+  ajarFace.position.set(0.12, 0.38, 0.235);
+  ajarCab.add(ajarFace);
+  updaters.push((dt) => {
+    if (ajarState.cool > 0) {
+      ajarState.cool -= dt;
+      if (ajarState.cool <= 0) {
+        ajarState.target = 1; // 它自己滑开——错拍通道
+        audio.sfxAt('drawerfar', ajarCab.position.x, ajarCab.position.z, 0.65, 5);
+      }
+    }
+    ajarState.out += (ajarState.target - ajarState.out) * Math.min(1, dt * 7);
+    ajarFace.position.z = 0.235 + 0.012 + ajarState.out * 0.05;
+  });
+  hotspots.add(ajarFace.children[0], {
+    hint: 'E — 没关严的抽屉',
+    onActivate: () => {
+      if (ajarState.target < 1 || ajarState.cool > 0) return; // 正关着/等着弹开
+      ajarState.target = 0; // 推严（即时通道：木滑 + 轻磕）
+      audio.sfxAt('page', ajarCab.position.x, ajarCab.position.z, 0.3, 3);
+      setTimeout(() => audio.sfxAt('thud', ajarCab.position.x, ajarCab.position.z, 0.3, 3), 260);
+      ajarState.cool = 2.6;
+    }
+  });
 
   // v1.4 三遍：停摆的站钟（西墙高处）——黄铜圈 + 奶面刻度盘（狐斑老化）+
   // 真三维指针（秒针垂死在 6 点位）；E → 分针挣一下又垂回去（棘轮声）

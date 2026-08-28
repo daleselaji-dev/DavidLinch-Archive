@@ -669,6 +669,25 @@ export class AudioEngine {
         noise('pink', 2.2, 'bandpass', 1500, 4, 0.018, 0.05, 0.5);
         break;
       }
+      // ---------- v1.14 新音色（门禁 69：彩蛋第二批配套） ----------
+      case 'papertear': { // 旧海报撕角：纤维嘶裂由高滑低 + 断裂颗粒串 + 纸片离墙的一口软风
+        const tr = noise('white', 0.34, 'bandpass', 3200, 1.6, 0.06, 0, 0.006);
+        tr.frequency.exponentialRampToValueAtTime(900, t + 0.3);
+        for (let i = 0; i < 5; i++) {
+          noise('white', 0.016, 'highpass', 4400 - i * 420, 3, 0.034 - i * 0.004, 0.03 + i * 0.055);
+        }
+        noise('pink', 0.22, 'bandpass', 640, 1.2, 0.024, 0.24, 0.06);
+        break;
+      }
+      case 'clapslap': { // 场记板合拍：两板硬木宽带瞬态 + 木腔短鸣 + 棚壁一次回弹
+        noise('white', 0.03, 'highpass', 2400, 1, 0.11, 0, 0.002);
+        tone('sine', 620, 240, 0.07, 0.1);
+        tone('sine', 1180, 860, 0.05, 0.05, 0.004);
+        noise('pink', 0.1, 'bandpass', 480, 2, 0.05, 0.008, 0.004);
+        // 棚壁回弹（一间大房间在答应）：迟 90ms 的低短影
+        noise('pink', 0.07, 'bandpass', 700, 2, 0.022, 0.09, 0.01);
+        break;
+      }
       case 'glasswipe': { // 指腹擦过凝雾玻璃：湿滑黏滞双短鸣 + 底下一层软擦 + 收尾高频珠
         noise('pink', 0.34, 'bandpass', 920, 1.4, 0.042, 0, 0.08);
         tone('sine', 1180, 1430, 0.16, 0.028, 0.05);

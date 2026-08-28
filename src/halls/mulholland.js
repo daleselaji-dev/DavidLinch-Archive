@@ -1315,6 +1315,97 @@ export function build(ctx) {
     chalk.rotation.y = -Math.PI / 2;
     group.add(chalk);
   }
+  // v1.14 彩蛋二批（门禁 69）：巷墙上一张揭了一半的旧戏报——撕下
+  // 翘着的那只角（papertear 即时），纸片飘落墙脚（1.4s），底下露出
+  // 更早一层的残纸；1.8s 后夜风又把地上的纸片掀了一下（flutter 错拍）。
+  // 永久态：角撕掉就撕掉了，纸片从此躺在墙脚。零字幕。
+  const oldBillTex = canvasTexture(128, (g, s) => {
+    // 褪色戏报：纸底 + 边框 + 两行铅字 + 水渍；右下角是「更早一层」
+    // 的残纸（被翘角盖住，撕开才看见）
+    g.fillStyle = '#8f8571';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#7c7361';
+    g.fillRect(s * 0.62, s * 0.58, s * 0.38, s * 0.42); // 更早一层（更暗更旧）
+    g.strokeStyle = 'rgba(40,32,24,0.55)';
+    g.lineWidth = 3;
+    g.strokeRect(6, 6, s - 12, s - 12);
+    g.fillStyle = 'rgba(38,30,22,0.78)';
+    g.textAlign = 'center';
+    g.font = '700 19px Georgia, serif';
+    g.fillText('ÚLTIMA FUNCIÓN', s / 2, s * 0.3);
+    g.font = '12px Georgia, serif';
+    g.fillText('DESDE MEDIANOCHE', s / 2, s * 0.44);
+    // 更早一层上只剩半个词（残纸的语气——更早一场的 MEDIANOCHE）
+    g.fillStyle = 'rgba(30,24,18,0.5)';
+    g.font = '700 15px Georgia, serif';
+    g.fillText('…CHE', s * 0.8, s * 0.82);
+    const pr = rng(58);
+    for (let i = 0; i < 26; i++) { // 水渍与晒斑
+      g.fillStyle = `rgba(60,50,38,${0.04 + pr() * 0.08})`;
+      g.beginPath();
+      g.arc(pr() * s, pr() * s, 3 + pr() * 10, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+  const oldBill = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.56, 0.78),
+    new THREE.MeshStandardMaterial({ map: oldBillTex, roughness: 0.94 })
+  );
+  oldBill.position.set(11.575, 1.62, -17.4);
+  oldBill.rotation.y = -Math.PI / 2;
+  group.add(oldBill);
+  // 翘着的角：盖住右下（面向巷内看是左下）那块残纸层
+  const billFlap = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.215, 0.33),
+    new THREE.MeshStandardMaterial({ color: 0x99907c, roughness: 0.94, side: THREE.DoubleSide })
+  );
+  const flapPivot = new THREE.Group();
+  // 撕缝在角块上缘：pivot 挂在缝上，角块垂在 pivot 下方
+  billFlap.position.set(0, -0.165, 0);
+  flapPivot.add(billFlap);
+  flapPivot.position.set(11.57, 1.62 - 0.062, -17.4 - 0.173);
+  flapPivot.rotation.y = -Math.PI / 2;
+  flapPivot.rotation.x = -0.38; // 翘离墙面（风吃进来的那只角）
+  group.add(flapPivot);
+  const flapState = { t: -1, torn: false };
+  updaters.push((dt, t) => {
+    if (flapState.t < 0) {
+      // 没撕之前：角在夜风里极轻地翕动
+      if (!flapState.torn) flapPivot.rotation.x = -0.38 + Math.sin(t * 1.7) * 0.05;
+      return;
+    }
+    flapState.t += dt;
+    const u = flapState.t / 1.4;
+    if (u >= 1) {
+      flapState.t = -1; // 落定墙脚——从此躺在这里
+      flapPivot.position.set(11.32, 0.022, -17.22);
+      flapPivot.rotation.set(-Math.PI / 2, 0.7, 0);
+      billFlap.position.set(0, 0, 0.001);
+      return;
+    }
+    // 飘落：离墙 + 下坠 + 打旋
+    flapPivot.position.x = 11.57 - u * 0.25;
+    flapPivot.position.y = (1.62 - 0.062) * (1 - u * u) + 0.022 * u * u;
+    flapPivot.position.z = -17.4 - 0.173 + Math.sin(u * Math.PI * 2) * 0.1 + u * 0.18;
+    flapPivot.rotation.x = -0.38 - u * 1.2;
+    flapPivot.rotation.z = Math.sin(u * Math.PI * 3) * 0.5;
+  });
+  hotspots.add(billFlap, {
+    hint: 'E — 翘起的海报角',
+    onActivate: () => {
+      if (flapState.torn) {
+        // 已经躺在墙脚——夜风替你掀它（挪 1cm，不再有下文）
+        audio.sfxAt('page', 11.32, -17.22, 0.14, 3);
+        flapPivot.position.z += 0.01;
+        return;
+      }
+      flapState.torn = true; // 永久：撕掉的角回不去
+      flapState.t = 0;
+      audio.sfxAt('papertear', 11.57, -17.4, 0.7, 4);
+      // 错拍：1.8s 后夜风把地上的纸片又掀了一下
+      setTimeout(() => audio.sfxAt('flutter', 11.32, -17.22, 0.3, 5), 1800);
+    }
+  });
   // v1.9 抛光第 5 遍：巷侧穿线管——沿剧场东墙一条黑铁管走完暗巷，
   // 两只接线盒，中段一截电缆从管卡上松脱垂成弧（走巷时的近景视差层）
   {

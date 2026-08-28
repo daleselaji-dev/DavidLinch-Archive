@@ -2585,6 +2585,49 @@ export function build(ctx) {
   overlook.add(mist);
   updaters.push(mist.userData.update);
 
+  // v1.14 彩蛋二批（门禁 69）：北栏杆手板上一枚硬币——弹起旋两圈
+  // （coin 轻响即时），闷一拍，0.8s 后才听见它落定（woodknock 错拍——
+  // 比物理该落的时刻晚半口气）。永久态：它落回来是**立着的**，从此
+  // 立在手板上（发生过一次不可能的事）。零字幕。
+  const railCoin = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.021, 0.021, 0.0028, 16),
+    new THREE.MeshStandardMaterial({
+      map: brushedMetalTexture(), color: 0xb9a26a, roughness: 0.38, metalness: 0.85, envMapIntensity: 0.9
+    })
+  );
+  railCoin.position.set(9.2, 1.184, -28.8); // rail1 手板顶（0.16+1.0+0.0225+半厚）
+  overlook.add(railCoin);
+  const coinState = { t: -1, stood: false };
+  updaters.push((dt) => {
+    if (coinState.t < 0) return;
+    coinState.t += dt;
+    const u = coinState.t / 0.9;
+    if (u >= 1) {
+      coinState.t = -1;
+      // 落定：立着（轴向水平），比躺着高出一枚半径
+      railCoin.rotation.set(Math.PI / 2, 0, 0.35);
+      railCoin.position.y = 1.2035;
+      return;
+    }
+    railCoin.position.y = 1.184 + Math.sin(u * Math.PI) * 0.14; // 抛物线
+    railCoin.rotation.x = u * Math.PI * 4.5;                    // 空中翻
+  });
+  hotspots.add(railCoin, {
+    hint: 'E — 手板上的硬币',
+    onActivate: () => {
+      if (coinState.stood) {
+        // 它立住了——立住的东西不再赌第二次（只轻轻一颤）
+        audio.sfxAt('coin', 9.2, -28.8, 0.12, 3);
+        return;
+      }
+      coinState.stood = true; // 永久：这一掷只有一次
+      coinState.t = 0;
+      audio.sfxAt('coin', 9.2, -28.8, 0.4, 4);
+      // 错拍：0.8s 后才落定的那声木磕（你以为它掉下瀑布了）
+      setTimeout(() => audio.sfxAt('woodknock', 9.2, -28.8, 0.3, 4), 1700);
+    }
+  });
+
   // 彩蛋：眺望台守望 —— 在栏杆前站定八秒不动，水雾与水幕会短暂应答
   const vigil = { t: 0, cool: 0, surge: -1 };
   const vigilFire = () => {
