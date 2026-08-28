@@ -677,3 +677,22 @@
 | 2026-08-28 18:57 | 2026-08-28 19:05 | 2 | **魅影 Blender 重渲对账**（核心交付二）：gen 脚本重生成 fine 级 → INSPECT 与库内 blend 逐项一致（12 mesh / 4060 verts / 7388 tris / 5 材质 / 高 2.458——gen 脚本与定稿资产零漂移）；库内 blend 重渲四机位（Cycles CPU 96 采样，71s）→ 与库内 png 哈希不同（采样噪声预期内）、front/closeup 目检形体逐像素级一致——**库内四机位仍是当前形体忠实存档，不换 png 防无意义二进制翻动**，用户对比直接看 assets/blender/renders/corner-wraith-* | /tmp/r5-renders 四帧 + 目检对照 |
 | 2026-08-28 19:05 | 2026-08-28 19:20 | 3 | **鸮定向机位三帧**（核心交付三，SV_SHOT_PRE 带 tp 厅守卫 IIFE + 瞬移与压俯仰全放 PRE 内防 SV_SHOT_POS 清俯仰）：①怠速全景（-2.9,8.9 yaw0.727 pitch0.387——枯树桩全高 + 顶端眼微光 + hint 在框）②激活近景（-4.0,4.07 yaw2.36 pitch0.62 + activateByHint("树梢")——眼焰亮起 + 头对准镜头）③月晕轴尝试（月 (-60,52,-110)→鸮延长线 t=5 机位 (-3.56,10.3)）**被行走边界钳回 (-3.1,9.1)——月晕逆光剪影位在可行走区外，诚实留账**：剪影读感对玩家来自空地树线背景，冒烟证机位与眼组机制、形体读感交真机；三帧落库 assets/acceptance/v125/ | owl-{idle,lit,moon-context}.png |
 | 2026-08-28 19:20 | 2026-08-28 19:40 | 6/8 | **验收包文档收口（门禁 104）**：TESTING「状态位时间线对照表」/ DOWNLOAD「v1.25 验收走查」（路线 + 清单链接 + 直链沿用 + **填空式反馈模板**——拍位/听到什么/原因三空 + 鸮五条线指认）/ 内容侧**零替换留账**（DOCENT 上轮已换唯一违纪条、访谈替换句可查证关无新候选——宁持平不换弱，无「违背既有纪律」的条目就不换）/ 维护巡检全过（gen_*.py 恰七件 blender:check 实证 + 六 glb-landed 冒烟实证 + 封口轴五条随 774 复钉 + 195/98/40 三数持平）/ CHANGELOG 补录节 + 门禁 104 + GOAL_HANDOFF 第 5→6 轮 + **父 Goal 四目标对照表**（无用户真机证词不建议 complete）；774 复跑全绿收口 | 本条 commit |
+
+## v1.25 第 6 轮 —— 拐角走查·逐帧几何取证（零代码改动，版本维持 1.25.0）
+
+> 本轮主题：**无证词时的纪律——不造第二个验收包，做一次半自动
+> 走查回答两个问题：①触发是否在「快要看见墙后」的几何瞬间？
+> ②镜头特写是否到位？** 只有走查翻出与账目矛盾或明显体感病灶
+> 才允许改代码——结论是零矛盾零病灶，零改动。基线 v1.25.0 第 5
+> 轮 tip（4196ead，origin/cursor/acceptance-evidence-round5-
+> v1251-a993，非 main）。范围：门禁 105。**版本决策**：运行时零
+> 字节变化（改动全在文档 + `assets/acceptance/`）——维持 1.25.0，
+> 版本钉三方一致，exe 直链沿用。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 19:13 | 2026-08-28 19:25 | 0 | fetch 第 5 轮 tip（4196ead）建分支 `cursor/walkthrough-probe-round6-v1260-a993`；通读 GOAL_HANDOFF 第 6 轮优先项 + electron 冒烟工装（SV_SHOT_PRE/SV_SMOKE_QUEUE/`[sv] glb-` 回显通道）+ mulholland 惊吓段（cornerTrigger 显形线叉积/SCARE_BEATS/CLOSEUP/scareProbe 快照）+ kit.cornerTrigger 纯几何判定。**走查方案设计**：第 5 轮 500ms executeJavaScript 轮询对 3.3s 序列必缺拍——本轮页面内探针两跑取证：A 断言跑（被动实录）+ B 细步仪器跑（逐渲染帧 0.06m 步进跨线，直接量触发滞后几厘米/几帧）；探针经 SV_SHOT_PRE 注入（tp 厅守卫 IIFE），记录借 `[sv] glb-r6` 前缀走既有回显通道进冒烟 stdout——**零工装改动零代码改动** | 方案 + 探针 /tmp/r6/probe{A,B}.js |
+| 2026-08-28 19:25 | 2026-08-28 19:28 | 1 | **A 跑**（SV_SMOKE_QUEUE=mulholland + 50ms setInterval 探针）：EXIT=0（走通性/双惊吓双朝向档/普查 25/mull 244 全过）；跨线前后 cross +1.839→-0.244、触发在跨线后下一渲染帧。**方法论发现**：软渲染大帧把页面 setInterval 饿死（50ms 实际 ~5s），惊吓中段只采到 1 帧（yaw 0.291 / aim 67.7° / sub=reveal clk=0）——50ms 轮询不是软渲染可用手段，逐渲染帧 onUpdate 才是分辨率上限。**B 跑重写为 onUpdate 探针** + SV_WIN_SIZE=480x300 提帧率 + SV_SHOT_DELAY=60000 把工装走测推出实验窗（仪器跑非断言跑，证据收齐即杀进程） | /tmp/r6/runA.log |
+| 2026-08-28 19:28 | 2026-08-28 19:32 | 2 | **B 跑细步跨线**：探针每渲染帧沿巷轴 x=9.3 南移 0.06m（≈真机 60fps × 4.2m/s 单帧步长），z=-26.46（cross+0.039，差 3.9cm）不触发 → z=-26.52（cross-0.012，过线 1.4cm）**同帧引爆**——**触发滞后 1.4cm/零帧，「快要看见墙后」的几何瞬间成立**（显形线理论跨点 -26.506）。触发后逐帧实录 16 帧全链：aim 61.9°→19.7°→0.8°→**stare 起点 0.0° 死锁跟焦**；FOV smoothstep 69.8→63.1（CLOSEUP.fovPush=15 曲线吻合，clk0.607 时实测 64.6 vs 算 64.7）；pitch 0.027→0.295 仰角跟焦；拍点实时钟 stare+0.82s / rush+1.54s / uShock 0.82 亮起衰减 / blackout ~+2.4s（魅影隐+rim 归零+FOV 归还）/ wake+3.3s (9.7,9.5) yaw0 pitch-0.36；rim 按 RIM_BEATS 打火 4.83→呼吸→涌光 8.2→归零。软渲染两钟错配复认（游戏钟 0.28 倍速，真机不存在）——**与 v124/v125-eggs 账目零矛盾 → 零病灶零改动** | /tmp/r6/runB.log + assets/acceptance/v125/r6-corner-walkthrough-probe.txt |
+| 2026-08-28 19:28 | 2026-08-28 19:35 | V | **四连维护巡检**：`npm test` **774/774**（30 文件，1.8s）→ `npm run smoke` 5/5 → `xvfb-run electron --smoke` 全队列 **EXIT=0**（92s：七厅全过·六 glb-landed（relief/catalog/governor/bottlewall/pine/wraith）·普查 195=22/37/30/24/30/27/25·tp 243 / mull 244 / studio 224·双惊吓自然触发双朝向档全过）→ `npm run blender:check` 七件全过（Blender 4.1.1 在环境）；封口轴五条随 774 复钉、195/98/40 三数持平、gen_*.py 恰七件、studio 零 GLB | /tmp/r6/full-smoke.log |
+| 2026-08-28 19:35 | 2026-08-28 19:50 | 6/8 | **文档收口（门禁 105）**：走查证据+探针源码+复现命令落 `assets/acceptance/v125/r6-corner-walkthrough-probe.txt`（非重复文档——第 5 轮摘录是 500ms 轮询状态位，本件是逐帧几何+镜头参数，新证据种类）；内容侧**零替换留账**（无新语料源、无过硬可查证候选——宁持平不换弱复认）；lobby 207 余量最大但走查未及 lobby、无「明显空洞」证词锚点——INTERACTIVE_MIN 与 195 纪律不动；CHANGELOG 补录节 + 门禁 105 + 本段 + GOAL_HANDOFF 第 6→7 轮（仍等用户证词，不建议无靶改造；无证词不建议 UpdateGoal complete）；774 复跑全绿收口 | 本条 commit |

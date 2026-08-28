@@ -1,0 +1,192 @@
+r6-corner-walkthrough-probe.txt — 第 6 轮拐角惊吓半自动走查实录（2026-08-28）
+=====================================================================
+
+口径：本文件是第 6 轮「一次实机/半自动走查」的证据留档，不是第二个
+验收包。回答两个问题：①触发是否在「快要看见墙后」的几何瞬间？
+②镜头特写是否到位？两跑取证，与 v124/v125-eggs 账目对照零矛盾。
+
+环境：dist 构建产物 + electron --smoke（swiftshader 软渲染，xvfb）。
+第 5 轮已留账：swiftshader 无音频、capturePage 陈旧帧不可信——本轮
+证据全部取自状态位/几何/镜头参数的逐帧数值实录，不靠截图不靠音频。
+
+---------------------------------------------------------------------
+A 跑（断言跑）：SV_SMOKE_QUEUE=mulholland + 页面内 50ms setInterval
+采样探针。EXIT=0（走通性/双惊吓双朝向档/普查 25/244 mesh 全过）。
+发现：软渲染大帧会把页面 setInterval 饿死（实际采样间隔被拉到
+~5s），惊吓中段只采到 1 帧——50ms 轮询不是软渲染盒子的可用手段，
+逐渲染帧记录（onUpdate）才是时间分辨率上限。A 跑关键行：
+
+  跨线前一步 {"T":5500,"p":[9.3,-24.34],"cross":1.839,"ph":0}
+  跨线落点   {"T":5550,"p":[9.3,-26.79],"cross":-0.244,"ph":0}   ← walkPath 单步 2.45m（工装粒度）
+  惊吓中段   {"T":11313,"p":[9.3,-26.79],"yaw":0.291,"fov":69.8,"sub":"reveal","clk":0,"w":[7.2,-27],"aim":67.7,"dist":2.11}
+  醒来       {"T":11350,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"shock":0.8}
+
+---------------------------------------------------------------------
+B 跑（细步仪器跑，非断言跑——证据收齐后终止进程）：
+SV_SMOKE_QUEUE=mulholland SV_WIN_SIZE=480x300（小窗提帧率）
+SV_SHOT_DELAY=60000（把工装走测推出实验窗口外）。探针注册
+engine.onUpdate：每渲染帧沿巷轴 x=9.3 南移 0.06m（≈真机 60fps ×
+4.2m/s 的单帧步长），逐帧记录 cross（显形线叉积，≤0 即 R 入画）
+与 phase；触发后转为逐渲染帧实录整条单拍链。逐帧记录全文：
+
+STEP {"prev":[0,15.5],"prevCross":37.565,"ph":0,"to":-25.8}
+STEP {"prev":[9.3,-25.8],"prevCross":0.6,"ph":0,"to":-25.86}
+STEP {"prev":[9.3,-25.86],"prevCross":0.549,"ph":0,"to":-25.92}
+STEP {"prev":[9.3,-25.92],"prevCross":0.498,"ph":0,"to":-25.98}
+STEP {"prev":[9.3,-25.98],"prevCross":0.447,"ph":0,"to":-26.04}
+STEP {"prev":[9.3,-26.04],"prevCross":0.396,"ph":0,"to":-26.1}
+STEP {"prev":[9.3,-26.1],"prevCross":0.345,"ph":0,"to":-26.16}
+STEP {"prev":[9.3,-26.16],"prevCross":0.294,"ph":0,"to":-26.22}
+STEP {"prev":[9.3,-26.22],"prevCross":0.243,"ph":0,"to":-26.28}
+STEP {"prev":[9.3,-26.28],"prevCross":0.192,"ph":0,"to":-26.34}
+STEP {"prev":[9.3,-26.34],"prevCross":0.141,"ph":0,"to":-26.4}
+STEP {"prev":[9.3,-26.4],"prevCross":0.09,"ph":0,"to":-26.46}
+STEP {"prev":[9.3,-26.46],"prevCross":0.039,"ph":0,"to":-26.52}
+STEP-TRIGGER {"at":[9.3,-26.52],"cross":-0.012,"yaw":0.267,"sub":"reveal","clk":0}
+FRAME {"F":14,"T":4681,"dt":0.1,"p":[9.3,-26.52],"yaw":0.267,"pitch":0.027,"fov":69.8,"ph":2,"sub":"reveal","clk":0,"w":[7.2,-27],"aim":61.9,"dist":2.15,"rim":0,"shock":0}
+FRAME {"F":15,"T":4860,"dt":0.1,"p":[9.3,-26.52],"yaw":0.792,"pitch":0.134,"fov":69.3,"ph":2,"sub":"reveal","clk":0.1,"w":[8.03,-27.11],"aim":19.7,"dist":1.4,"rim":4.83,"shock":0}
+FRAME {"F":16,"T":5494,"dt":0.1,"p":[9.3,-26.52],"yaw":1.005,"pitch":0.254,"fov":68.4,"ph":2,"sub":"reveal","clk":0.2,"w":[8.38,-27.09],"aim":0.8,"dist":1.09,"rim":2.51,"shock":0}
+FRAME {"F":17,"T":5502,"dt":0.007,"p":[9.3,-26.52],"yaw":1.017,"pitch":0.261,"fov":68.4,"ph":2,"sub":"stare","clk":0.207,"w":[8.38,-27.09],"aim":0,"dist":1.09,"rim":2.96,"shock":0}
+FRAME {"F":18,"T":5877,"dt":0.1,"p":[9.3,-26.52],"yaw":1.018,"pitch":0.261,"fov":67.3,"ph":2,"sub":"stare","clk":0.307,"w":[8.38,-27.09],"aim":0,"dist":1.09,"rim":6.9,"shock":0}
+FRAME {"F":19,"T":6218,"dt":0.1,"p":[9.3,-26.52],"yaw":1.018,"pitch":0.265,"fov":66,"ph":2,"sub":"rush","clk":0.407,"w":[8.39,-27.08],"aim":0,"dist":1.07,"rim":6.5,"shock":0}
+FRAME {"F":20,"T":6548,"dt":0.1,"p":[9.3,-26.52],"yaw":1.018,"pitch":0.275,"fov":64.6,"ph":2,"sub":"rush","clk":0.507,"w":[8.43,-27.06],"aim":0,"dist":1.03,"rim":7.35,"shock":0}
+FRAME {"F":21,"T":6884,"dt":0.1,"p":[9.3,-26.52],"yaw":1.018,"pitch":0.295,"fov":63.1,"ph":2,"sub":"rush","clk":0.607,"w":[8.49,-27.02],"aim":0,"dist":0.95,"rim":8.2,"shock":0.82}
+FRAME {"F":22,"T":7238,"dt":0.1,"p":[9.3,-26.52],"yaw":1.018,"pitch":0.295,"fov":70,"ph":2,"sub":"rush","clk":0.707,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.67}
+FRAME {"F":23,"T":7601,"dt":0.1,"p":[9.3,-26.52],"yaw":1.018,"pitch":0.295,"fov":70,"ph":2,"sub":"rush","clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.55}
+FRAME {"F":24,"T":7985,"dt":0.1,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"fov":70,"ph":0,"sub":null,"clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.45}
+FRAME {"F":25,"T":8161,"dt":0.1,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"fov":70,"ph":0,"sub":null,"clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.37}
+FRAME {"F":26,"T":8353,"dt":0.1,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"fov":70,"ph":0,"sub":null,"clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.3}
+FRAME {"F":27,"T":8813,"dt":0.1,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"fov":70,"ph":0,"sub":null,"clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.25}
+FRAME {"F":28,"T":9251,"dt":0.1,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"fov":70,"ph":0,"sub":null,"clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.2}
+FRAME {"F":29,"T":9695,"dt":0.1,"p":[9.7,9.5],"yaw":0,"pitch":-0.36,"fov":70,"ph":0,"sub":null,"clk":0.807,"w":0,"aim":null,"dist":null,"rim":0,"shock":0.17}
+DONE frames=29
+
+字段：T=实时毫秒（探针装载起）；p=玩家 (x,z)；cross=显形线叉积
+（≤0 即藏身点 R 入画）；ph/sub/clk=scareProbe 状态位；w=魅影 (x,z)
+（0=不可见）；aim=镜头前向与魅影头部（y1.97）夹角（度）；dist=玩家
+到魅影平距；rim=剪影灯强度；shock=uShock 后处理冲击值。
+
+---------------------------------------------------------------------
+逐条解读（与账目对照）：
+
+① 触发几何——**在「快要看见墙后」的几何瞬间，滞后 1.4cm/零帧**。
+   显形线（K(8.05,-26.8)–R(7.2,-27.0) 连线）在巷轴 x=9.3 的理论跨点
+   z=-26.506。细步实录：z=-26.46 时 cross=+0.039（差 3.9cm 未跨），
+   下一帧步进到 z=-26.52（过线 1.4cm，cross=-0.012）**同一渲染帧
+   引爆**（STEP-TRIGGER 即 sub=reveal clk=0）。真机 60fps × 4.2m/s
+   单帧步长 7cm——触发粒度就是一帧脚步，不提前不拖延。与
+   cornerscare.test 显形线几何账零矛盾。
+
+② 镜头特写——**错拍开始前已死锁对准，全程跟焦**。触发帧 aim
+   61.9°（玩家行走朝向与魅影夹角）→ 0.1 游戏秒后 19.7° → 0.2
+   游戏秒后 0.8° → stare 拍起点 **0.0°**（每帧 lookAt 跟焦，直到
+   blackout 归还）。FOV 慢推 69.8→69.3→68.4→67.3→66→64.6→63.1
+   （smoothstep：clk0.607 时 pRaw=0.4→push≈0.35→70−15×0.35≈64.7≈
+   实测 64.6，CLOSEUP.fovPush=15 账目吻合）；pitch 0.027→0.295
+   仰角跟焦（它 1.97m 高、最近 0.95m）。双脚全程钉死 (9.3,-26.52)。
+
+③ 拍点实时钟——later 链逐拍吻合 SCARE_BEATS：stare 实测 +0.82s
+   （账 550ms+帧界）/ rush +1.54s（账 1500ms）/ shock 的 uShock
+   在 rush 中段亮起 0.82 并指数衰减（账 1900ms 后）/ blackout
+   +2.4~2.6s 魅影隐藏+rim 归零+FOV 归还 70（账 2400ms）/ wake
+   +3.3s 移回 (9.7,9.5) yaw 0 pitch −0.36 俯冲醒（账 3300ms +
+   WAKE_DAZE）。rim 灯语按拍走：reveal 打火 4.83 → stare 呼吸
+   2.5~6.9 → rush 涌光 7.35→8.2 → blackout 归零（RIM_BEATS 吻合）。
+
+④ 软渲染已知错配（非病灶，真机不存在）：later 链走实时钟、滑出/
+   扑近/入锁动画走游戏钟——本跑游戏钟约 0.28 倍速（clk 0.807 /
+   2.9 实秒），故 rush 拍魅影只从 dist 1.09 逼近到 0.95 就到黑幕。
+   真机 60fps 两钟同速：0.55s 滑出全程、0.4s 冲到脸前 0.85m、
+   0.35s 入锁全部按账走。第 5 轮 0.065 倍速互证口径复认。
+
+结论：**零矛盾、零病灶——拐角惊吓四层零改动维持**。「吓不吓人」
+的体感命题仍等用户真机证词（触发时机与镜头机械层本轮已证到位）。
+
+---------------------------------------------------------------------
+附录：B 跑探针源码（SV_SHOT_PRE 注入，复现用；A 跑探针即本探针去掉
+细步块、换 50ms setInterval——已证不可用，留此为口径）：
+
+(() => {
+  const S = window.__SV__;
+  if (!S || !S.hall || S.hall() !== 'mulholland') return 'r6:skip-hall';
+  if (window.__R6__) return 'r6:dup';
+  window.__R6__ = true;
+  const K = { x: 8.05, z: -26.8 }, R = { x: 7.2, z: -27.0 };
+  const lx = K.x - R.x, lz = K.z - R.z;
+  const cam = S.engine.camera;
+  const pitchObj = cam.parent;
+  let wraith = null, rim = null;
+  S.engine.scene.traverse((o) => {
+    if (!wraith && o.userData && o.userData.setLurch && o.userData.setRush) wraith = o;
+    if (!rim && o.isPointLight && Math.abs(o.position.x - 6.3) < 0.01 && Math.abs(o.position.z + 28.7) < 0.01) rim = o;
+  });
+  const crossOf = (p) => +(lx * (p.z - K.z) - lz * (p.x - K.x)).toFixed(4);
+  const va = wraith.position.clone(), vb = wraith.position.clone(), vc = wraith.position.clone();
+  const t0 = Date.now();
+  let frame = 0;
+  const st = { z: -25.8, stepping: true, fired: false, postWake: 0, done: false };
+  S.engine.onUpdate((dt) => {
+    frame++;
+    if (st.done) return;
+    const s = S.scareProbe();
+    const p = S.player();
+    const cross = crossOf(p);
+    if (st.stepping) {
+      if (s && s.phase === 2) {
+        st.stepping = false;
+        st.fired = true;
+        console.log('[sv] glb-r6 STEP-TRIGGER ' + JSON.stringify({
+          at: [+p.x.toFixed(3), +p.z.toFixed(3)], cross, yaw: +p.yaw.toFixed(3), sub: s.sub, clk: s.clock
+        }));
+      } else if (st.z < -27.4) {
+        st.stepping = false;
+        st.done = true;
+        console.log('[sv] glb-r6 STEP-EXHAUSTED phase=' + (s ? s.phase : -1));
+        return;
+      } else {
+        console.log('[sv] glb-r6 STEP ' + JSON.stringify({
+          prev: [+p.x.toFixed(3), +p.z.toFixed(3)], prevCross: cross, ph: s ? s.phase : -1, to: +st.z.toFixed(3)
+        }));
+        S.teleport(9.3, st.z, 0);
+        st.z -= 0.06;
+        return;
+      }
+    }
+    if (!st.fired) return;
+    cam.getWorldPosition(va);
+    cam.getWorldDirection(vb);
+    let aim = null, dist = null;
+    if (wraith.visible) {
+      vc.set(wraith.position.x - va.x, 1.97 - va.y, wraith.position.z - va.z);
+      dist = +Math.hypot(wraith.position.x - p.x, wraith.position.z - p.z).toFixed(2);
+      aim = +(Math.acos(Math.max(-1, Math.min(1, vb.dot(vc) / (vb.length() * vc.length())))) * 180 / Math.PI).toFixed(1);
+    }
+    console.log('[sv] glb-r6 FRAME ' + JSON.stringify({
+      F: frame, T: Date.now() - t0, dt: +dt.toFixed(3),
+      p: [+p.x.toFixed(2), +p.z.toFixed(2)], yaw: +p.yaw.toFixed(3),
+      pitch: +pitchObj.rotation.x.toFixed(3), fov: +cam.fov.toFixed(1),
+      ph: s ? s.phase : -1, sub: s ? s.sub : null, clk: s ? s.clock : null,
+      w: wraith.visible ? [+wraith.position.x.toFixed(2), +wraith.position.z.toFixed(2)] : 0,
+      aim, dist,
+      rim: rim ? +rim.intensity.toFixed(2) : null,
+      shock: +S.engine.lynchPass.uniforms.uShock.value.toFixed(2)
+    }));
+    if (s && s.phase === 0 && Math.abs(p.x - 9.7) < 0.05 && Math.abs(p.z - 9.5) < 0.05) {
+      st.postWake++;
+      if (st.postWake >= 6) {
+        st.done = true;
+        console.log('[sv] glb-r6 DONE frames=' + frame);
+      }
+    }
+  });
+  return 'r6:probeB-armed wraith=' + (wraith ? 'found' : 'MISS') + ' rim=' + (rim ? 'found' : 'MISS');
+})()
+
+复现命令（B 跑）：
+  npm run build
+  mkdir -p /tmp/r6/shotsB
+  SV_SMOKE_QUEUE=mulholland SV_WIN_SIZE=480x300 SV_SHOT_DIR=/tmp/r6/shotsB \
+  SV_SHOT_DELAY=60000 SV_SHOT_PRE="$(cat probeB.js)" \
+  xvfb-run -a npx electron . --smoke
+  # 日志出现 "glb-r6 DONE" 后终止进程（仪器跑非断言跑）；
+  # 记录经 [sv] glb- 回显通道进冒烟 stdout（零工装改动）。

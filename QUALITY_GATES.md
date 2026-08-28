@@ -1846,6 +1846,42 @@ rim 分拍/回访门/变奏账）+ DOWNLOAD.md 直链下载校验。
 `assets/acceptance/v125/` 四件（三帧截屏 + 冒烟日志摘录）+
 `assets/blender/renders/corner-wraith-*` 四机位对照。
 
+### 105. 拐角走查·逐帧几何取证（v1.25 第 6 轮，零代码改动·版本维持 1.25.0）
+- [x] **一次半自动走查（不造第二个验收包）**：SV_SMOKE_QUEUE=
+      mulholland 双跑——A 断言跑（EXIT=0，双惊吓双朝向档全过）+
+      B 细步仪器跑（onUpdate 探针每渲染帧沿巷轴南移 0.06m≈真机
+      60fps 单帧步长，逐帧记录显形线叉积与状态位/镜头参数）
+- [x] **触发几何证到位**：显形线理论跨点 z=-26.506（x=9.3），
+      实测 z=-26.46（差 3.9cm）不触发、z=-26.52（过线 1.4cm）
+      **同一渲染帧引爆**——触发滞后 1.4cm/零帧，粒度即一帧脚步；
+      「快要看见墙后之物」的几何瞬间成立
+- [x] **镜头特写证到位**：触发帧 aim 61.9° → 0.2 游戏秒 0.8° →
+      **stare 拍起点 0.0° 死锁跟焦**；FOV smoothstep 慢推 69.8→
+      63.1（与 CLOSEUP.fovPush=15 曲线吻合）；pitch 仰角跟焦
+      0.027→0.295；双脚全程钉死跨线点
+- [x] **拍点实时钟逐拍吻合 SCARE_BEATS**：stare +0.82s / rush
+      +1.54s / uShock 亮 0.82 后指数衰减 / blackout ~+2.4s（魅影
+      隐藏+rim 归零+FOV 归还）/ wake +3.3s (9.7,9.5) yaw 0
+      pitch −0.36；rim 灯语按 RIM_BEATS 走（打火→呼吸→涌光→归零）
+- [x] **探针方法论留账**：软渲染大帧饿死页面 setInterval（50ms
+      轮询实际被拉到 ~5s）——逐渲染帧 onUpdate 是软渲染盒子的
+      时间分辨率上限；记录经 `[sv] glb-` 回显通道进冒烟 stdout
+      （零工装改动）；证据+探针源码入
+      `assets/acceptance/v125/r6-corner-walkthrough-probe.txt`
+- [x] **四连维护巡检全绿**：`npm test` 774/774（30 文件）/
+      `npm run smoke` 5/5 / electron `--smoke` 全队列 EXIT=0
+      （七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25·
+      tp 243 / mull 244 / studio 224·双惊吓双朝向档）/
+      `npm run blender:check` 七件全过
+- [x] **结论零病灶 → 零代码改动**：与 v124/v125-eggs 账目零矛盾，
+      拐角惊吓四层零改动维持；内容侧零替换（无过硬可查证候选）；
+      封口轴五条 / 195 交互 / 98 音色 / 40 访谈全持平；维持
+      1.25.0（运行时零字节变化，版本钉三方一致），exe 直链沿用
+
+**验证方式**：四连命令 + `assets/acceptance/v125/
+r6-corner-walkthrough-probe.txt`（逐帧实录全文 + 逐条账目对照 +
+探针源码与复现命令）。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
