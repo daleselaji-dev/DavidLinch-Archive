@@ -97,12 +97,15 @@ class MeshBuilder:
         bpy.data.meshes.remove(tmp)
         self.shades.append((n, shade))
 
-    def object(self, name, mat, smooth=True, with_colors=True):
+    def object(self, name, mat, smooth=True, with_colors=True,
+               color_type='FLOAT_COLOR'):
+        """color_type='BYTE_COLOR' 时 GLB 按 u8 归一导出（每顶点省 12B）——
+        大网格灰度分层用它守 ≤300KB 体积纪律（v1.15 浮雕实测 349→264KB）。"""
         mesh = bpy.data.meshes.new(name)
         self.bm.to_mesh(mesh)
         self.bm.free()
         if with_colors:
-            col = mesh.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
+            col = mesh.color_attributes.new(name='Col', type=color_type, domain='POINT')
             i = 0
             for n, shade in self.shades:
                 for j in range(n):
