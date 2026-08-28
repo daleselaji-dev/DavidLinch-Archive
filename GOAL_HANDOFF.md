@@ -113,8 +113,10 @@ exe**。
   - 打包 winCodeSign/NSIS 缓存 VM 轮换后会丢，dist:win 时现场下载
     （连通性已验证可达）；**必须完整 dist:win 一次成型**，单独重跑
     nsis 会在被签名污染的 win-unpacked 上重压 app-64.7z 超限；
-    asar extract-file 校验版本时**输出到 /tmp**，勿覆盖根
-    package.json。
+    asar extract-file 校验版本时**先 cd /tmp 再跑**（extract-file
+    没有 --output 参数、总是写进 CWD——在仓库根跑必覆盖根
+    package.json，v1.19/v1.21 两轮实踩；覆盖后 git checkout
+    package.json 恢复）。
   - lathe 几何做顶点扰动时**只用整数角频率**（sin(n·a)，n∈ℤ）
     ——接缝两侧 ±π 重复顶点才会算出同一位移，不裂缝。
 
