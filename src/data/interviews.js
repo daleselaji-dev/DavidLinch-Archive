@@ -11,6 +11,7 @@
 //   4. 不谈本馆制作方法（元叙述禁词扫描）；
 //   5. 与 QUOTES 零重复（id 与英文原句都不重，单测扫描）。
 // v1.15：28 条全部归入四个主题（点子/电影/心境/此生），面板可筛选。
+// v1.16：28 → 32，补「点子」主题（5 → 9 条，四主题分布 9/9/8/6）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -270,6 +271,46 @@ export const INTERVIEWS = [
     zh: '一路蓝天，一路金色的阳光。',
     source: '每日天气播报 · 2020-2022',
     context: '他晚年每天早晨向公众播报天气，这是他的收尾语。'
+  },
+  // ---------- v1.16 扩容（28 → 32）：补「点子」主题，同一纪律 ----------
+  // 防撞记录：doughnut（甜甜圈）与 beneath the surface（表面之下）
+  // 两句候选均已是 QUOTES 立牌语录，本轮弃用；四条全部取自
+  // 《钓大鱼》可查证原文，与 bigfish 立牌句零重复（逐句比对）。
+  {
+    id: 'baitpatience',
+    topic: '钓点子要等',
+    theme: '点子',
+    en: 'Desire for an idea is like bait. When you\u2019re fishing, you have to have patience. You bait your hook, and then you wait.',
+    zh: '对点子的渴望就像鱼饵。钓鱼这件事要有耐心——把饵挂好，然后等。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '他把「等」当成钓点子的基本功，急不来。'
+  },
+  {
+    id: 'ideaspark',
+    topic: '接住的一瞬',
+    theme: '点子',
+    en: 'An idea is a thought. It\u2019s a thought that holds more than you think it does when you receive it.',
+    zh: '点子是一个念头——在你接住它的那一刻，它装着的东西比你以为的多。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '书中「点子」一章的开头几句。'
+  },
+  {
+    id: 'puzzleroom',
+    topic: '隔壁的拼图',
+    theme: '点子',
+    en: 'In the other room, the puzzle is all put together. But they keep flipping in just one piece at a time.',
+    zh: '在隔壁房间里，拼图早已拼好；只是他们一次只肯扔进来一片。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '与「碎片与罗塞塔石碑」一说同章，讲等点子的耐心。'
+  },
+  {
+    id: 'littlefish',
+    topic: '小鱼与大鱼',
+    theme: '点子',
+    en: 'Little fish swim on the surface, but the big ones swim down below.',
+    zh: '小鱼游在水面，大鱼沉在深处。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '书名的出处段落，与立牌上那句大鱼互为上下句。'
   }
 ];
 

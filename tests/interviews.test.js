@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { INTERVIEWS, INTERVIEW_THEMES, interviewById } from '../src/data/interviews.js';
 import { QUOTES, DOCENT } from '../src/data/essays.js';
 
-describe('访谈摘录册（v1.13 门禁 64 / v1.14 门禁 68 / v1.15 门禁 74：扩容至 ≥28 条）', () => {
-  it('条目 ≥28，id 唯一，四要素齐全（topic/zh/en/source）', () => {
-    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(28);
+describe('访谈摘录册（v1.13 门禁 64 / v1.14 门禁 68 / v1.15 门禁 74 / v1.16 门禁 79：扩容至 ≥32 条）', () => {
+  it('条目 ≥32，id 唯一，四要素齐全（topic/zh/en/source）', () => {
+    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(32);
     const ids = INTERVIEWS.map((v) => v.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const v of INTERVIEWS) {
@@ -26,6 +26,8 @@ describe('访谈摘录册（v1.13 门禁 64 / v1.14 门禁 68 / v1.15 门禁 74�
       const n = INTERVIEWS.filter((v) => v.theme === t).length;
       expect(n, `主题「${t}」条目过少`).toBeGreaterThanOrEqual(5);
     }
+    // v1.16 门禁 79：本轮补的是「点子」主题（5 → 9）
+    expect(INTERVIEWS.filter((v) => v.theme === '点子').length).toBeGreaterThanOrEqual(9);
   });
 
   it('短引语合理使用尺度：英文 ≤200 字符、中文 ≤120', () => {
