@@ -416,5 +416,5 @@ window.__SV__ = {
     }
     return false;
   },
-  version: '1.22.0'
+  version: '1.23.0'
 };

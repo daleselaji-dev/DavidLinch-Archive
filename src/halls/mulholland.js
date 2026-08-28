@@ -95,19 +95,41 @@ export const APPROACH_DREAD = { z0: -18.5, z1: -26.4, swellAt: 0.6, rearmBelow: 
 // v1.22 单拍节奏时间线（ms，实时钟）：贴角那一帧灯灭+剪影光起，它
 // 从拐角后**闪出**（0.55s 减速滑，带三口急抽搐）→ 错拍：全身出角
 // 死死站住看你（红光与眼窝在呼吸）→ 扑近 → 闷击闪帧 → 黑幕 →
-// 空间错位。全程 ~3.2s——比 v1.12 的 6.5s 砍半，凌厉不拖过场。
+// 空间错位。全程 ~3.3s——比 v1.12 的 6.5s 砍半，凌厉不拖过场。
+// v1.23 手感抛光（机制不换，只调拍长）：错拍 800→950ms——它看你
+// 的那口气再长一拍半（原片的怕长在「它不动」里，不在「它动多快」），
+// 后续三拍整体顺延 150ms，全程仍 ≤4.5s 守卫内。
 export const SCARE_BEATS = {
   reveal: 0,       // 跨线那一帧：灯一口气全灭 + 剪影光起 + 滑出开始
   stare: 550,      // 全身出角，站住，盯着你（错拍——它先看你）
-  rush: 1350,      // 加速扑近（0.4s 冲到脸前）
-  shock: 1750,     // 闷击 + uShock 后处理冲击 + 暗红闪帧
-  blackout: 2250,  // 黑幕
-  wake: 3150       // 空间错位：醒来已被移回巷口
+  rush: 1500,      // 加速扑近（0.4s 冲到脸前）
+  shock: 1900,     // 闷击 + uShock 后处理冲击 + 暗红闪帧
+  blackout: 2400,  // 黑幕
+  wake: 3300       // 空间错位：醒来已被移回巷口
 };
 // v1.22 镜头特写接管（原片语义：看见的人钉在原地，镜头推向那张脸）：
 // 触发帧起接管视线——yaw/pitch 平滑锁向魅影头部并全程跟焦，FOV 从
-// 基值推近 13°（林奇式慢推），双脚钉死在跨线点；黑幕帧归还镜头与 FOV。
-export const CLOSEUP = { grabIn: 0.45, fovPush: 13, headY: 1.97 };
+// 基值推近（林奇式慢推），双脚钉死在跨线点；黑幕帧归还镜头与 FOV。
+// v1.23 手感抛光：入锁 0.45→0.35s——滑出窗 0.55s，入锁快一步才能
+// 看着它「滑完最后半程」（原来锁到位时它几乎已站定，闪出被甩在
+// 镜头摆动里）；FOV 推量 13→15° 且改 smoothstep（起步几乎不动、
+// 错拍段持续逼近——它站着不动，镜头替它往前走）。
+export const CLOSEUP = { grabIn: 0.35, fovPush: 15, headY: 1.97 };
+// v1.23 错拍中段歪头（STARE_TILT，运行时姿态零网格）：站住盯你到
+// 第 at 拍起，用 span 窗把整个身位向侧里缓缓歪 rad 弧度——「不对劲」
+// 的语言：它不是在打量你，是在核对你。at/span 按错拍窗归一。
+export const STARE_TILT = { at: 0.32, span: 0.38, rad: 0.075 };
+// v1.23 魅影自发光相位钟（确定化——不再看全局钟的脸色）：惊吓期
+// 的 emissive 呼吸曲线 sin(τ·2.4±φ) 改走 scare 局部时钟 τ = T0 + 惊吓
+// 秒数。T0 取 1.568：眼焰相位 (τ·2.4+1.2) 恰在错拍开始（0.55s）时
+// 过零上行、在错拍 ~69% 处烧到峰值——每一次惊吓，眼睛都在它看你
+// 看得最狠的那一拍最亮（此前用全局 t，赶上波谷则整个错拍眼是暗的）。
+export const WRAITH_T0 = (Math.PI * 2 - 1.2) / 2.4 - SCARE_BEATS.stare / 1000;
+// v1.23 剪影光灯语（rim 分拍——棚渲好看≠巷子里那 3.2s 好看）：
+// reveal 随滑出进度涨光 + 前 90ms 一记打火过冲（这个世界的灯从来
+// 不好好亮）；stare 与眼焰**错半拍**呼吸（光弱那一瞬眼最亮——
+// 剪影让位给两点红）；rush 涌光（扑近的剪影烧起来）；黑幕归零。
+export const RIM_BEATS = { base: 6.5, strike: 3.2, breath: 0.55, surge: 3.4 };
 // 惊吓后的空间错位落点（巷口，背对来路；在一切触发区之外）
 export const WAKE_POINT = { x: 9.7, z: 9.5 };
 // v1.7 转身惊吓（保留为第二重扳机）：武装区 = 暗巷深段 + 剧场背后空地。
@@ -1959,12 +1981,31 @@ export function build(ctx) {
   // 剪影光：拐角后一盏冷背光——黑影闪出时只读出轮廓，读不出任何细节
   // （从 out 点身后西南方向打过来——发帘团块剪影贴着拐角沿被背光
   // 切出来，眼窝空洞是剪影里仅有的两点）
-  const rimLight = new THREE.PointLight(0x9fb7ff, 0, 11, 1.6);
-  rimLight.position.set(6.3, 2.5, -28.7);
+  // v1.23 灯光抛光（几何不动）：色温再压冷一档（0x9fb7ff→0x93aeff，
+  // 巷灯是钠橙、这盏必须是它的反义词）；灯位抬高 2.5→2.9m——背顶光
+  // 把发帘冠顶与肩线剪出来（正后平打只剪出躯干侧沿，头顶轮廓糊黑）。
+  const rimLight = new THREE.PointLight(0x93aeff, 0, 11, 1.6);
+  rimLight.position.set(6.3, 2.9, -28.7);
   group.add(rimLight);
   const rimState = { on: 0 };
+  // v1.23 rim 分拍时序（RIM_BEATS）：不再是「开=6.5 关=0」的单档——
+  // reveal 随滑出进度涨光（剪影跟着它出角的进度显影）+ 起辉打火；
+  // stare 与眼焰错半拍呼吸；rush 涌光；blackout 归零（rimState.on 闸）。
   updaters.push((dt) => {
-    rimLight.intensity += (rimState.on * 6.5 - rimLight.intensity) * Math.min(1, dt * 7);
+    let want = 0;
+    if (rimState.on) {
+      if (scare.sub === 'reveal') {
+        const k = Math.min(1, scare.t / (SCARE_BEATS.stare / 1000));
+        want = RIM_BEATS.base * (0.25 + 0.75 * k) + (scare.t < 0.09 ? RIM_BEATS.strike : 0);
+      } else if (scare.sub === 'stare') {
+        want = RIM_BEATS.base + Math.sin((WRAITH_T0 + scare.clock) * 2.4 + 1.2 + Math.PI) * RIM_BEATS.breath;
+      } else if (scare.sub === 'rush') {
+        want = RIM_BEATS.base + RIM_BEATS.surge * Math.min(1, scare.t / 0.4);
+      } else {
+        want = RIM_BEATS.base;
+      }
+    }
+    rimLight.intensity += (want - rimLight.intensity) * Math.min(1, dt * 14);
   });
   // 黑影闪出路径（v1.22）：REVEAL_PATH 三点贝塞尔——poise 是显形线
   // 另一端（跨线前从巷内任何点看都被侧墙截断，触发帧恰好半身入画），
@@ -1978,7 +2019,9 @@ export function build(ctx) {
     return out;
   };
   // seen：拐角惊吓是否已发生过（v1.22 彩蛋——刮痕墙的错拍变奏认它）
-  const scare = { phase: 0, sub: null, t: 0, seen: false, from: new THREE.Vector3(), to: new THREE.Vector3() };
+  // clock：v1.23 惊吓局部时钟（跨线帧起累加，不随 sub 换拍清零）——
+  // 魅影 emissive 呼吸与 rim 错半拍呼吸都走它（相位确定化，见 WRAITH_T0）
+  const scare = { phase: 0, sub: null, t: 0, clock: 0, seen: false, from: new THREE.Vector3(), to: new THREE.Vector3() };
   // v1.22 镜头特写接管：pitchObject 是 camera 的父节点、yawObject 是
   // 祖父节点（controls 装配约定，WORKLOG v1.21 转盘取证同口径）。
   // 接管期间双脚钉死在跨线点、yaw/pitch 平滑锁向魅影头部并全程跟焦、
@@ -2026,6 +2069,7 @@ export function build(ctx) {
     scare.phase = 2;
     scare.sub = 'reveal';
     scare.t = 0;
+    scare.clock = 0;
     scare.seen = true;
     const B = SCARE_BEATS;
     // 跨线那一帧（reveal）：世界的灯一口气全灭（狂闪前奏退役——原片
@@ -2056,6 +2100,9 @@ export function build(ctx) {
     }, B.stare);
     later(() => audio.sfx('heartbeat', 0.5), B.stare + 120);
     later(() => audio.sfx('heartbeat', 0.62), B.stare + 520);
+    // v1.23 错拍加长后的第三口心跳：间隔 400→350ms 收紧——它不动，
+    // 你的心先替你往前跑
+    later(() => audio.sfx('heartbeat', 0.72), B.stare + 870);
     // 扑近（从现身定点直线冲到脸前）
     later(() => {
       scare.sub = 'rush';
@@ -2087,17 +2134,24 @@ export function build(ctx) {
   updaters.push((dt, t) => {
     if (scare.phase !== 2) return;
     scare.t += dt;
+    scare.clock += dt;
+    // v1.23 相位确定化：本更新器内 t 即惊吓局部钟（WRAITH_T0 起表）——
+    // setLurch/setRush 的 emissive 呼吸 sin(t·2.4±φ) 从此每次惊吓走
+    // 同一条相位轨（眼焰总在错拍中段烧到峰值，不再看全局钟的脸色）
+    t = WRAITH_T0 + scare.clock;
     if (scare.sub === 'rush') {
       const k = Math.min(1, scare.t / 0.4); // 0.4s 加速冲到脸前（闷击同帧到）
       wraith.position.lerpVectors(scare.from, scare.to, k * k);
       wraith.lookAt(player.x, 1.5, player.z);
       wraith.userData.setRush(k, t);
     } else if (scare.sub === 'reveal' && wraith.visible) {
-      // 闪出：0.55s 立方减速滑（快出角、减速站定）；体态复用 setLurch
+      // 闪出：0.55s 减速滑（快出角、减速站定）；体态复用 setLurch
       // 曲线（s 快扫 0→1 → 三口急抽搐——它不是走出来的，是抽搐着
-      // 滑出来的），s=1 恰好落在冻结平台上
+      // 滑出来的），s=1 恰好落在冻结平台上。
+      // v1.23 滑出曲线立方→四次方：前 0.2s 完成 ~84% 行程（立方是
+      // ~74%——更「闪」），减速尾拉长——出角是一瞬，站定是一口慢气
       const k = Math.min(1, scare.t / (SCARE_BEATS.stare / 1000));
-      const s = 1 - (1 - k) ** 3;
+      const s = 1 - (1 - k) ** 4;
       revealBez(s, wraith.position);
       wraith.lookAt(player.x, 1.5, player.z);
       wraith.userData.setLurch(s, t);
@@ -2105,6 +2159,12 @@ export function build(ctx) {
       // 错拍：死死站住（s=1 冻结位），只有红光呼吸与发帘慢摆还活着
       wraith.lookAt(player.x, 1.5, player.z);
       wraith.userData.setLurch(1, t);
+      // v1.23 错拍中段歪头（STARE_TILT）：lookAt 每帧重置朝向后绕
+      // 视线轴缓缓侧倾——盯到一半它把整个身位歪过去一点，像在核对
+      // 你是不是它等的那个（smoothstep 进、进了就不回）
+      const sd = (SCARE_BEATS.rush - SCARE_BEATS.stare) / 1000;
+      const u = Math.max(0, Math.min(1, (scare.t / sd - STARE_TILT.at) / STARE_TILT.span));
+      wraith.rotateZ(STARE_TILT.rad * u * u * (3 - 2 * u));
     }
   });
   const cornerTrig = cornerTrigger(CORNER_SCARE, doCornerScare,
@@ -2135,7 +2195,11 @@ export function build(ctx) {
     const wantPitch = Math.atan2(CLOSEUP.headY - 1.68, dist);
     pitchObj.rotation.x += (wantPitch - pitchObj.rotation.x) * k;
     if (engine.camera) {
-      const push = Math.min(1, grab.t / (SCARE_BEATS.rush / 1000));
+      // v1.23 慢推曲线：线性→smoothstep——起步几乎不动（黑与剪影先
+      // 说话），错拍段推速最快（它站定了，镜头替它往前走），扑近前
+      // 收尾。原片的推是「感觉不到开始」的推，线性推第一帧就露拍。
+      const pRaw = Math.min(1, grab.t / (SCARE_BEATS.rush / 1000));
+      const push = pRaw * pRaw * (3 - 2 * pRaw);
       engine.camera.fov = baseFov - CLOSEUP.fovPush * push;
       engine.camera.updateProjectionMatrix();
     }
@@ -2165,6 +2229,9 @@ export function build(ctx) {
     if (dread.beatT >= interval) {
       dread.beatT = 0;
       audio.sfx('heartbeat', 0.16 + 0.3 * q);
+      // v1.23 接近段末程双拍：q 过 0.7 后心跳变「咚-咚」——收缩压
+      // 跟上来了（190ms 后半拍轻回声，音量压低不抢主拍）
+      if (q >= 0.7) later(() => audio.sfx('heartbeat', 0.1 + 0.18 * q), 190);
     }
   });
 
@@ -2867,6 +2934,16 @@ export function build(ctx) {
         if (bellState.t >= 0) return;
         bellState.t = 0;
         audio.sfxAt('callbell', 5.0, -22.9, 0.65, 4);
+        // v1.23 变奏彩蛋（零网格零新热点，刮痕墙错拍变奏的姊妹拍）：
+        // 那一夜之后，应铃的换了位置——不再是远处的门，是拐角那头，
+        // 快了一步（2.1→1.4s）近了一截。同一层连锁应答只换方位与
+        // 迟延，不叠第三层（封口轴判死红线不碰）；首访原拍原样保留
+        // ——变奏要有原拍才成立。
+        if (scare.seen) {
+          later(() => audio.sfxAt('doorfar', CORNER_EDGE.x, CORNER_EDGE.z, 0.4, 2.6), 1400);
+          ui.caption('这次是拐角那头应的。', 3800);
+          return;
+        }
         // 连锁：2.1s 后很远处一扇门应一声——不在后台的方向
         later(() => audio.sfxAt('doorfar', -7.0, -26.0, 0.5, 2.2), 2100);
         ui.caption('应声的门离得太远了。', 3800);
@@ -3134,7 +3211,7 @@ export function build(ctx) {
   q1.rotation.y = 0.55;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration: ctx.narration, docent: DOCENT.sense
+    narration: ctx.narration, docent: DOCENT.sense, docent2: DOCENT.sense2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

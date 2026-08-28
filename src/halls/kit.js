@@ -820,13 +820,18 @@ export function quoteStand(quote, accent = '#c9a35c') {
 /**
  * 立牌接近驱动器：加入展厅 updaters —— 玩家走进 radius 内，
  * 板上文字显影 + HUD 侧卡浮现；走出（带迟滞）即收回。
+ * v1.23 回访补注（docent2）：首段讲完、你走开又折回来驻足时，
+ * 讲解员想起一件小事再低声补一段——同样每次进厅只讲一遍；
+ * 站着不走的人听不到它（回访是它唯一的钥匙）。
  */
-export function quoteStandUpdater(stand, player, ui, { radius = 3.0, narration = null, docent = null } = {}) {
+export function quoteStandUpdater(stand, player, ui, { radius = 3.0, narration = null, docent = null, docent2 = null } = {}) {
   const wp = new THREE.Vector3();
   let ready = false;
   let k = 0;
   let shown = false;
   let spoke = false;
+  let spoke2 = false;
+  let awayAfterSpoke = false;
   let dwell = 0;
   return (dt) => {
     if (!ready) {
@@ -853,8 +858,15 @@ export function quoteStandUpdater(stand, player, ui, { radius = 3.0, narration =
         spoke = true;
         narration.speak(docent);
       }
+    } else if (near && docent2 && narration && spoke && awayAfterSpoke && !spoke2) {
+      dwell += dt || 0.016;
+      if (dwell > 1.6 && !narration.letters.active) {
+        spoke2 = true;
+        narration.speak(docent2);
+      }
     } else if (!near) {
       dwell = 0;
+      if (spoke) awayAfterSpoke = true;
     }
   };
 }
