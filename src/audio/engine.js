@@ -657,6 +657,18 @@ export class AudioEngine {
         tone('sine', 1430, 1418, 0.2, 0.018, 0.24);
         break;
       }
+      case 'mutetrumpet': { // v1.13 台侧弱音小号：鼻音短句两粒（A4→F4），气声垫底
+        // 弱音器的鼻腔感=基频压弱、2/3 次分音反重（哇音靠分音配比近似）；
+        // 总时长 ~2.3s，比抬落动画多活半拍——这个厅的规矩：声音不跟人走
+        for (const [f0, f1, at, dur] of [[440, 434, 0, 0.72], [349, 344, 0.78, 1.5]]) {
+          tone('sawtooth', f0, f1, dur, 0.014, at);
+          tone('sine', f0 * 2, f1 * 2, dur, 0.045, at);
+          tone('sine', f0 * 3.02, f1 * 3.02, dur * 0.9, 0.034, at + 0.02);
+          tone('sine', f0, f1, dur, 0.028, at);
+        }
+        noise('pink', 2.2, 'bandpass', 1500, 4, 0.018, 0.05, 0.5);
+        break;
+      }
       case 'glasswipe': { // 指腹擦过凝雾玻璃：湿滑黏滞双短鸣 + 底下一层软擦 + 收尾高频珠
         noise('pink', 0.34, 'bandpass', 920, 1.4, 0.042, 0, 0.08);
         tone('sine', 1180, 1430, 0.16, 0.028, 0.05);

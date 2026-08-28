@@ -2240,6 +2240,66 @@ export function build(ctx) {
     }
   });
 
+  // v1.13 彩蛋：台口左侧支架上的一支弱音小号——没有乐队，可乐器
+  // 都还在。E → 号身自己抬到吹奏位，鼻音短句响起；号身在乐句结束
+  // **之前**就放回支架，声音又独自活了半拍才停——跟这个厅台口那句
+  // 话是同一件事：声音不跟人走。三通道：动画 + 新音色 + 一次性短句。
+  const tptGrp = new THREE.Group();
+  const tptBrassMat = new THREE.MeshStandardMaterial({
+    color: 0xc79a3e, roughness: 0.28, metalness: 0.9, envMapIntensity: 1.2
+  });
+  // 支架：斜杆 + 底盘 + 托口（不动的部分）
+  tptGrp.add(mergedMesh([
+    xform(new THREE.CylinderGeometry(0.09, 0.11, 0.016, 12), 0, 0.008, 0),
+    xform(new THREE.CylinderGeometry(0.011, 0.013, 0.24, 8), 0, 0.13, 0, 0.18, 0, 0),
+    xform(new THREE.TorusGeometry(0.028, 0.007, 6, 12), 0, 0.25, 0.02, Math.PI / 2 - 0.3, 0, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.6, metalness: 0.4 })));
+  // 摆动组：号身（主管/回管/喇叭口/三只活塞帽）+ 塞在喇叭里的弱音器
+  const tptSwing = new THREE.Group();
+  const tptHorn = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.3, 10), 0, 0, -0.04, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.009, 0.009, 0.24, 8), 0, -0.03, -0.05, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.05, 0.013, 0.15, 14, 1, true), 0, 0, 0.18, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 8), 0, 0.028, 0.02),
+    xform(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 8), 0, 0.028, 0.055),
+    xform(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 8), 0, 0.028, 0.09)
+  ], tptBrassMat);
+  const tptMute = new THREE.Mesh(
+    new THREE.ConeGeometry(0.036, 0.09, 12),
+    new THREE.MeshStandardMaterial({ color: 0x8a4a3a, roughness: 0.5, metalness: 0.6 })
+  );
+  tptMute.rotation.x = -Math.PI / 2;
+  tptMute.position.set(0, 0, 0.24);
+  tptSwing.add(tptHorn, tptMute);
+  tptSwing.position.set(0, 0.25, 0.02);
+  tptGrp.add(tptSwing);
+  tptGrp.position.set(-2.7, 0.6, -3.05);
+  tptGrp.rotation.y = 0.5; // 喇叭口斜朝观众席
+  inner.add(tptGrp);
+  const tptState = { t: -1, said: false };
+  updaters.push((dt) => {
+    if (tptState.t < 0) return;
+    tptState.t += dt;
+    const u = tptState.t / 1.75;
+    if (u >= 1) { tptState.t = -1; tptSwing.rotation.x = 0; return; }
+    // 抬到吹奏位（0–0.2）→ 悬着（0.2–0.8）→ 放回（0.8–1）；
+    // 音色 2.3s > 动画 1.75s——收拍后声音还独自活半拍
+    const up = u < 0.2 ? u / 0.2 : u > 0.8 ? 1 - (u - 0.8) / 0.2 : 1;
+    tptSwing.rotation.x = -0.55 * up;
+  });
+  hotspots.add(tptHorn, {
+    hint: 'E — 一支带弱音器的小号',
+    onActivate: () => {
+      if (tptState.t >= 0) return;
+      tptState.t = 0;
+      audio.sfxAt('mutetrumpet', -2.7, -23.05, 0.55, 4);
+      if (!tptState.said) {
+        tptState.said = true;
+        ui.caption('声音比它晚走半拍。', 3400);
+      }
+    }
+  });
+
   // 后台衣镜（推到台侧的化妆间道具）：E → 框边灯泡 A/B 追逐几秒再暗下
   const mirror = dressingMirror({ mats: M });
   mirror.position.set(6.6, 0, -3.2);

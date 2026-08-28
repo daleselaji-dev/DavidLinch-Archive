@@ -1966,6 +1966,53 @@ export function build(ctx) {
     });
   }
 
+  // v1.13 彩蛋：阅览桌旁的地上趴着一本书——面朝下摊开扣着，像有人
+  // 读到一半突然起身。E → 两半封面慢慢塌平、书自己合上（纸声 + 一记
+  // 轻响 + 一次性短句）。合上就不再撑起：这条长廊里被你改变的一件小事。
+  const tentBook = new THREE.Group();
+  const tentCloth = new THREE.MeshStandardMaterial({ color: 0x46342c, roughness: 0.88 });
+  const tentPage = new THREE.MeshStandardMaterial({ color: 0xd6cbb2, roughness: 0.95 });
+  const tentHalves = [];
+  for (const sgn of [-1, 1]) {
+    const half = new THREE.Group();
+    const cover = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.012, 0.24), tentCloth);
+    cover.position.set(0.08, 0.006, 0);
+    const pages = new THREE.Mesh(new THREE.BoxGeometry(0.148, 0.016, 0.226), tentPage);
+    pages.position.set(0.077, -0.008, 0); // 面朝下：纸页在封面底下
+    half.add(cover, pages);
+    if (sgn < 0) half.rotation.y = Math.PI;
+    half.rotation.z = -0.55; // 帐篷坡
+    tentBook.add(half);
+    tentHalves.push(half);
+  }
+  tentBook.position.set(-1.9, 0.085, -12.6);
+  tentBook.rotation.y = 0.7;
+  group.add(tentBook);
+  const tentState = { t: -1, closed: false };
+  updaters.push((dt) => {
+    if (tentState.t < 0) return;
+    tentState.t += dt;
+    const u = Math.min(1, tentState.t / 1.4);
+    const e = u * u * (3 - 2 * u);
+    for (const half of tentHalves) half.rotation.z = -0.55 + e * 0.52;
+    tentBook.position.y = 0.085 - e * 0.052;
+    if (u >= 1) { tentState.t = -1; tentState.closed = true; }
+  });
+  hotspots.add(tentBook.children[0].children[0], {
+    hint: 'E — 趴在地上的书',
+    onActivate: () => {
+      if (tentState.t >= 0) return;
+      if (!tentState.closed) {
+        tentState.t = 0;
+        audio.sfxAt('page', -1.9, -12.6, 0.5, 3);
+        setTimeout(() => audio.sfxAt('thud', -1.9, -12.6, 0.25, 3), 1250);
+        ui.caption('读到一半的人走了。', 3400);
+      } else {
+        audio.sfxAt('page', -1.9, -12.6, 0.3, 3); // 合上以后只剩纸声
+      }
+    }
+  });
+
   // 回大厅之门
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });
   back.position.set(0, 0, L / 2 - 0.6);

@@ -1968,6 +1968,53 @@ export function build(ctx) {
     }
   });
 
+  // v1.13 彩蛋：柜台末座前一只倒扣的杯——餐馆的老规矩，杯口朝下
+  // 是「不用给我倒」。E → 杯子自己抬起来欠一下身、看一眼碟子，
+  // 又扣回去 + 瓷釉两磕 + 一次性短句。底下什么都没有，这就是答案。
+  const flipCup = new THREE.Group();
+  const flipChina = new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: 0.35 });
+  const flipSaucer = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.05, 0.018, 16), flipChina);
+  flipSaucer.position.y = 0.009;
+  const flipLift = new THREE.Group(); // 只有杯抬，碟不动
+  // 杯身 + 杯柄合并单 mesh（twinpeaks 贴顶纪律：能合的都合）
+  const flipBody = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.042, 0.055, 0.075, 16), 0, 0.055, 0),
+    xform(new THREE.TorusGeometry(0.02, 0.007, 6, 12), 0.06, 0.052, 0)
+  ], flipChina);
+  flipLift.add(flipBody);
+  flipCup.add(flipSaucer, flipLift);
+  flipCup.position.set(30.7, 1.12, -5.15);
+  dinerInner.add(flipCup);
+  const flipState = { t: -1, said: false };
+  updaters.push((dt) => {
+    if (flipState.t < 0) return;
+    flipState.t += dt;
+    const u = flipState.t / 1.7;
+    if (u >= 1) {
+      flipState.t = -1;
+      flipLift.position.y = 0;
+      flipLift.rotation.z = 0;
+      return;
+    }
+    // 抬起（0–0.3）→ 悬着欠身（0.3–0.65）→ 扣回（0.65–1）
+    const up = u < 0.3 ? u / 0.3 : u > 0.65 ? 1 - (u - 0.65) / 0.35 : 1;
+    flipLift.position.y = up * 0.05;
+    flipLift.rotation.z = up * 0.14 * Math.sin(u * Math.PI * 2.2);
+  });
+  hotspots.add(flipBody, {
+    hint: 'E — 一只倒扣的杯',
+    onActivate: () => {
+      if (flipState.t >= 0) return;
+      flipState.t = 0;
+      audio.sfxAt('porcelain', 30.7, -5.15, 0.45, 3);
+      timers.push(setTimeout(() => audio.sfxAt('porcelain', 30.7, -5.15, 0.3, 3), 1500));
+      if (!flipState.said) {
+        flipState.said = true;
+        ui.caption('下面什么也没有。', 3200);
+      }
+    }
+  });
+
   // 靠窗卡座（对坐高背红皮长凳 + 铬柱层压桌 + 百叶暗窗 + 咖啡）
   const boothVinyl = new THREE.MeshPhysicalMaterial({
     color: 0x7e1220, roughness: 0.48, sheen: 0.6, sheenColor: new THREE.Color(0xff8090),
