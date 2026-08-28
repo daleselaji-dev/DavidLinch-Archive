@@ -46,6 +46,8 @@ def studio_rig(scene, subject_height=2.35, key_color=(0.62, 0.72, 1.0)):
     摄影棚：深黑世界 + 地台 + 三灯——
     冷背光（剪影主光，呼应厅内 0x9fb7ff 现身光）、
     侧补光（读出体积）、顶轮廓光（读出肩背轮廓）。
+    v1.14：灯位/灯距/地台随主体高度等比缩放（能量按面积平方补偿）——
+    2.35m 人形结果与旧棚逐位一致，7m 松树不再打成黑剪影贴脸。
     """
     world = bpy.data.worlds.new('void')
     world.use_nodes = True
@@ -54,11 +56,14 @@ def studio_rig(scene, subject_height=2.35, key_color=(0.62, 0.72, 1.0)):
     bg.inputs['Strength'].default_value = 1.0
     scene.world = world
 
+    h = subject_height
+    k = h / 2.35  # 相对基准人形（2.35m）的等比因子
+
     floor_mesh = bpy.data.meshes.new('floor')
     floor_obj = bpy.data.objects.new('floor', floor_mesh)
     import bmesh
     bm = bmesh.new()
-    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=8)
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=max(8, h * 3.5))
     bm.to_mesh(floor_mesh)
     bm.free()
     floor_obj.data.materials.append(
@@ -67,25 +72,24 @@ def studio_rig(scene, subject_height=2.35, key_color=(0.62, 0.72, 1.0)):
 
     def add_light(name, kind, loc, rot, energy, color, size=1.0):
         light = bpy.data.lights.new(name, kind)
-        light.energy = energy
+        light.energy = energy * k * k  # 灯距随 k 拉远，能量按平方补回
         light.color = color
         if kind == 'AREA':
-            light.size = size
+            light.size = size * k
         obj = bpy.data.objects.new(name, light)
         obj.location = loc
         obj.rotation_euler = rot
         bpy.context.collection.objects.link(obj)
         return obj
 
-    h = subject_height
     # 冷背光：从后上方打——正面读到的是轮廓
-    add_light('rim_back', 'AREA', (0, 3.2, h * 1.15),
+    add_light('rim_back', 'AREA', (0, 3.2 * k, h * 1.15),
               (math.radians(-118), 0, 0), 320, key_color, size=3.2)
     # 侧补光：很低的暖侧光，只把体积从黑里托出来一点
-    add_light('fill_side', 'AREA', (-3.0, -1.4, h * 0.55),
+    add_light('fill_side', 'AREA', (-3.0 * k, -1.4 * k, h * 0.55),
               (math.radians(72), math.radians(-38), 0), 60, (1.0, 0.82, 0.7), size=2.4)
-    # 顶轮廓光：窄条，读肩背驼峰
-    add_light('top_edge', 'AREA', (1.6, 0.6, h * 1.9),
+    # 顶轮廓光：窄条，读肩背轮廓
+    add_light('top_edge', 'AREA', (1.6 * k, 0.6 * k, h * 1.9),
               (math.radians(-12), math.radians(18), 0), 90, (0.8, 0.85, 1.0), size=0.8)
 
 
