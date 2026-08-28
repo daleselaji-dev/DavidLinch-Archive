@@ -542,6 +542,42 @@ corner-scare/no-band/walkie-duet 无异常 + 交互阈值全绿）。
 - [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
 - [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.9.0
 
+### 41. Blender 细模第三批 + 守夜/罐壁连锁 + 缩微阅读器 + 讲解扩容（v1.10 新增）
+- [x] **细模第三批入仓可复现**：`gen_owl.py` 双峰夜鸮（躯干横斑/折翼羽排/尾扇勾爪 +
+      **头件独立颈枢轴分件导出**供转头凝视，`owl/body` 848 + `owl/head` 640 tris）+
+      `gen_jukebox.py` 歌厅点唱机（瀑布拱双层壳/瀑布立柱 + 日出扇格栅/氖管座圈双弧/
+      窗梃键床黄铜档，`jukebox/wood` 424 + `jukebox/brass` 456 tris）——各自
+      `blender -b -P` HI→GAME→三机位渲染自检（多轮：胸斑/眼窝/喙位、立柱贴壳）→
+      `.blend` 入仓 → 量化烘焙；**旧 20 烘焙键逐字节一致**
+- [x] **接线换装**：`twinpeaks.js` 夜鸮双件档（身体不动**只有头无声拧过来** +
+      歪头蠕变，彩蛋 `owl-watch` 入 triggerEggs）；`props.js` 点唱机权威档
+      （`setOn`/`tubeMats`/`win` 动画契约保持 + 烘焙黄铜 `anisotropy=0` 保持）
+- [x] **连锁彩蛋 ×2 + 新交互 ×1**：大厅 `candle-vigil`（三烛逐点、第三支亮起
+      **六扇门依次应一拍光** + 帷幕换气、再按吹熄复位）；橡皮头 `boiler-knock`
+      （8 秒敲满三下 → 顿两拍**从内侧回敲三下更深更慢** + 余烬/蒸汽/压力表齐跳）；
+      档案**缩微胶片阅读器**（双卷盘对转 + 片窗两秒一格「年份 · 片名」轮播）——
+      全部 dt 节拍机 + ≥2 通道反馈
+- [x] **讲解/访谈扩容合规**：QUOTES +4（著作/公开访谈，库 27 条，单条 ≤200 字符审计）；
+      深夜访谈轮播 +2 频段；新物品旁白 ×4（8–28 字审计内）；零元叙事保持
+- [x] **七厅风格巡检**：默认机位 + 彩蛋后补拍逐张复核；点唱机/夜鸮近景机位专项
+      复核（瀑布拱氖弧、鸮眼追光珠成立）；大厅首帧全黑定位为软渲染合成器陈旧帧
+      （延时截屏复现规避），非场景回归
+- [x] 交互普查 134 → **137**（v1.9 文档 133 系清点误差，基线重测 134）；
+      INTERACTIVE_MIN 14/25/18（lobby/archive/eraserhead 各 +1）；mesh 门禁 240→**250**
+      （三烛合并单 mesh 控增量，tris/lights 不动）；实测峰值 lobby 245 mesh /
+      twinpeaks 235.7k tris / 27 灯全部门禁内；单测 220 → **230**
+
+**验证方式**：`tools/blender-4.1.1-linux-x64/blender -b -P assets/blender/scripts/gen_*.py`
+七连 + `build_blendmeshes.py` 重建（旧键字节级一致）+ `npm test`（230）+
+`xvfb-run npx electron . --smoke`（新阈值全绿）+ 渲染图/截屏（含近景机位）目视复核。
+
+### 42. Release 1.10.0（v1.10 新增）
+- [x] `npm test`（230）/ `npm run smoke` / `xvfb-run npx electron . --smoke` 三连全绿
+      （版本 bump 后复跑）
+- [x] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe`（Windows x64 便携版双击即运行）
+- [x] `SHA256SUMS.txt` 同步更新 + `file` PE32 结构校验
+- [x] 文档（CHANGELOG/TESTING/本文件/WORKLOG/BUILD/README）同步 1.10.0
+
 ---
 
 ## 补充说明：关于「PS5 级别」

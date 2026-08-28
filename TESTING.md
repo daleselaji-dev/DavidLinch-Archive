@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test        # vitest 单元测试（220 用例）
+npm test        # vitest 单元测试（230 用例）
 npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 ```
 
@@ -20,8 +20,11 @@ npm run smoke   # 构建冒烟：生产构建 + 产物结构(7分包) + Electron
 | `tests/kit.test.js`（v1.8 组） | `blendGeo` 解码器：全部 Blender 烘焙件解码（位置/法线/顶点色/索引）、未知名抛错、法线归一化、`cylUV`/`planarUV` 计数、松树/人物/梯子三角与包围盒预算 |
 | `tests/kit.test.js`（v1.9 组） | 细模第二批：柜塔（`cabinet/wood·brass·drawer*`）与收音机（`radio/body·brass`）全部烘焙件解码、包围盒尺寸、`archive.js`/`props.js` 接线与烘焙黄铜 `anisotropy=0` 源码审计 |
 | `tests/eggs.test.js`（v1.9 组） | `stage-seance` 三条件与视听通道、`night-frequency` 三连调台与全镇联动源码断言 |
+| `tests/kit.test.js`（v1.10 组） | 细模第三批：夜鸮（`owl/body·head`）与点唱机（`jukebox/wood·brass`）四烘焙件解码、三角预算与包围盒尺寸、`twinpeaks.js` 颈枢轴分件接线与 `props.js` 换装契约（`setOn`/`tubeMats`/`win`）、烘焙黄铜 `anisotropy=0` 审计 |
+| `tests/eggs.test.js`（v1.10 组） | `candle-vigil` 三步连锁与六门应光、`boiler-knock` 8 秒节拍窗口与内侧回敲、`owl-watch` 只转头凝视、缩微阅读器年表轮播——接线与 dt 节拍机源码断言 |
+| `tests/narration.test.js`（v1.10） | 新增 4 条引语在库可取（毒药/对立面/鱼饵/直觉）、长度与出处标注审计 |
 
-## Blender 权威细模管线（v1.8 起，v1.9 扩至五套，可复现验证）
+## Blender 权威细模管线（v1.8 起，v1.10 扩至七套，可复现验证）
 
 ```bash
 B=tools/blender-4.1.1-linux-x64/blender   # 官方 Linux 包，BUILD.md 有下载说明
@@ -31,14 +34,17 @@ $B -b -P assets/blender/scripts/gen_figure.py    # 梦魇人物：同上
 $B -b -P assets/blender/scripts/gen_ladder.py    # 图书梯：同上
 $B -b -P assets/blender/scripts/gen_cabinet.py   # 档案柜塔（v1.9）：同上 + 61 号抽屉拉开机位
 $B -b -P assets/blender/scripts/gen_radio.py     # 大教堂收音机（v1.9）：同上
+$B -b -P assets/blender/scripts/gen_owl.py       # 双峰夜鸮（v1.10）：同上 + 头件颈枢轴分件导出
+$B -b -P assets/blender/scripts/gen_jukebox.py   # 歌厅点唱机（v1.10）：同上 + 木壳/黄铜双件导出
 $B -b -P assets/blender/scripts/build_blendmeshes.py  # 量化烘焙 → src/data/blendmeshes.js
 sha256sum src/data/blendmeshes.js         # 与仓库版本字节级一致（管线确定性）
 ```
 
 渲染自检图输出到 `assets/blender/renders/`（gitignore，不入仓）：逐张目视复核
 松树层积剪影、人物长发/雕刻眼窝、梯子车削踏杆与铜箍、柜塔抽屉脸阵列与拉开的
-61 号抽屉（索引卡露头）、收音机拱顶与格栅。`.blend` 文件在
-`assets/blender/blends/`（入仓，权威源，v1.9 起共五件）。
+61 号抽屉（索引卡露头）、收音机拱顶与格栅、夜鸮胸腹横斑/折翼羽排/勾爪与
+独立头件、点唱机瀑布拱壳/日出扇格栅/氖管座圈。`.blend` 文件在
+`assets/blender/blends/`（入仓，权威源，v1.10 起共七件）。
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -114,6 +120,22 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
       61 号抽屉 E → 滑轨拉开 → 一沓索引卡露头（全部空着）+ 木滑轨声 + 短句；
       再按 E 推回
 
+### v1.10 新增彩蛋/交互复现步骤
+- [ ] **大厅「守夜烛台」（candle-vigil，三步连锁）**：中央碑石旁黄铜三烛台，
+      对托盘按 E 逐支点亮（火柴擦燃 + 火苗腾起 + 烛光池渐暖）；**第三支亮起时**
+      六扇门依次低低应一拍光、帷幕后有人换了口气 + 字幕；三支全亮再按 E
+      一口气吹熄复位（可重复）
+- [ ] **橡皮头「罐壁三敲」（boiler-knock，节奏触发）**：进锅炉房对铆钉罐壁按 E
+      敲一下（每敲有金属声 + 短句提示）；**8 秒内敲满三下** → 顿两拍 →
+      **罐子从内侧回敲三下（更深、更慢）**，随后余烬涨一口亮、蒸汽噗出一股、
+      三块压力表同时涌一格 + 字幕（冷却后可再触发）
+- [ ] **双峰「夜鸮凝视」（owl-watch，Blender 细模档）**：林间空地西南枯树桩顶
+      的夜鸮按 E → 两粒眼睛亮起、**身体一动不动、只有头无声拧过来对准你**，
+      凝视里带一点歪头蠕变 + 近似翅膀的耳语；几秒后头慢慢转回去
+- [ ] **档案「缩微胶片阅读器」**：阅览桌上的阅读器罩壳按 E → 屏幕亮起、
+      双卷盘对转、棘轮声；片窗每两秒翻一格**「年份 · 片名」**（年表公开事实
+      轮播）；再按 E 停格熄屏
+
 ### 林奇的房间（第 6 扇门）
 - [ ] 台灯可开关；墙上开关控制顶灯；只开台灯时氛围明显变化
 - [ ] 咖啡杯可喝（引语字幕）；烟灰缸可点燃/掐灭（烟头红点+细烟起落）
@@ -187,7 +209,7 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] 房间放唱片：爵士层起 + 间歇黑胶尘埃嘶声/爆点定位在唱机方向
 
 ### UI 与社交
-- [ ] T 年表：13 条目按年代排序 + 「他自己的话」原话摘录墙（23 条中英对照短引语，v1.9 扩容）可读
+- [ ] T 年表：13 条目按年代排序 + 「他自己的话」原话摘录墙（27 条中英对照短引语，v1.10 扩容）可读
 - [ ] G 留言墙：发帖（空内容拒绝）、点赞切换、回复；重启后数据保留（localStorage）
 - [ ] 输入 `<script>alert(1)</script>` 作为留言 → 仅显示为纯文本，不执行
 - [ ] C 合规页完整显示（含短引语合理使用条目）；M 静音立即生效；Q 切画质；F 显示 FPS ≥ 30
@@ -196,5 +218,5 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.9.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.10.0.exe` 双击直接运行（免安装）
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常
