@@ -8,6 +8,11 @@
 // ============================================================
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// Blender 管线英雄松树（scripts/blender/gen_pine_tree.py 四拍精修产物，
+// 脚本程序化生成非外来素材）。?inline data URI：electron sandbox 的
+// file:// 页面 fetch 不了本地文件，data URI 两端通吃
+import pineGlbUri from '../assets/pine_tree.glb?inline';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quoteStand, quoteStandUpdater, velvetMaterial,
@@ -258,8 +263,9 @@ export function build(ctx) {
   // （老版固定 1.6m 杆在大树上会与冠脱节露一段空档）。
   const { geo: pineGeo, mat: pineMat, trunkGeo, trunkMat } = pineGeometryMaterial();
   const COUNT = 340;
-  const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
+  // +1：孪生松 A/B 对照的运行时侧固定实例（见下——mesh 数零新增）
+  const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT + 1);
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT + 1);
   const dummy = new THREE.Object3D();
   let placed = 0;
   let guard = 0;
@@ -284,9 +290,98 @@ export function build(ctx) {
     trunks.setMatrixAt(placed, dummy.matrix);
     placed++;
   }
+  // ---------- 孪生松（v1.14 门禁 67：Blender GLB 落厅 + A/B 对照） ----------
+  // 林中岔路北缘外并肩两棵同高松（s=1.6 档，与 GLB 设计尺一致）：
+  // 西边这棵是 DCC 管线松（gen_pine_tree.py 四拍精修 → GLB 经
+  // GLTFLoader 进厅），东边那棵是运行时 kit.pineGeometryMaterial v3
+  // 固定实例——站在石阵北望，同帧读两棵的差距。
+  const AB_GLB = { x: 11.5, z: 15.6 };
+  const AB_KIT = { x: 15.5, z: 15.8 };
+  dummy.position.set(AB_KIT.x, 2.1 * 1.6 + 1.05, AB_KIT.z);
+  dummy.scale.setScalar(1.6);
+  dummy.rotation.y = 0.7;
+  dummy.updateMatrix();
+  pines.setMatrixAt(placed, dummy.matrix);
+  dummy.position.y = 0;
+  dummy.scale.set(1.6 * 1.05, 0.55 * 1.6 + 1.5, 1.6 * 1.05);
+  dummy.updateMatrix();
+  trunks.setMatrixAt(placed, dummy.matrix);
+  placed++;
   pines.count = placed;
   trunks.count = placed;
   group.add(pines, trunks);
+  // GLB 侧：材质克制按 STYLE_AUDIT v1.13 交接条目执行——哑光
+  // roughness≥0.92 / envMapIntensity 0.25 / 零自发光 / metalness 0
+  // （顶点色分层明暗是几何数据，保留）。摆动枢轴包住 GLB 根节点
+  // （不碰导出器烘进根上的 Y-up 变换）。
+  const pinePivot = new THREE.Group();
+  pinePivot.position.set(AB_GLB.x, 0, AB_GLB.z);
+  pinePivot.rotation.y = -0.35;
+  group.add(pinePivot);
+  const boughState = { t: -1 };
+  const glbReady = new Promise((resolve) => {
+    // electron sandbox 的 file:// 页面连 data: URI 的 fetch 都拦
+    // （实测 TypeError: Failed to fetch）——绕开网络层：手动 base64
+    // 解码成 ArrayBuffer 直接 parse
+    const b64 = pineGlbUri.slice(pineGlbUri.indexOf(',') + 1);
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    new GLTFLoader().parse(buf.buffer, '', (gltf) => {
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && o.material) {
+          o.material.roughness = Math.max(o.material.roughness ?? 1, 0.92);
+          o.material.metalness = 0;
+          o.material.envMapIntensity = 0.25;
+          if (o.material.emissive) o.material.emissive.setScalar(0);
+        }
+      });
+      pinePivot.add(gltf.scene);
+      const trunkMesh = gltf.scene.getObjectByName('pineTrunk');
+      if (trunkMesh) {
+        // 零字幕交互（STYLE_AUDIT：新交互默认零字幕）：针叶簌簌即时、
+        // 枝腰吱呀迟到一拍（错拍默认）——树不解释自己
+        hotspots.add(trunkMesh, {
+          hint: 'E — 孪生松',
+          onActivate: () => {
+            if (boughState.t >= 0) return;
+            boughState.t = 0;
+            audio.sfxAt('flutter', AB_GLB.x, AB_GLB.z, 0.5, 7);
+            timers.push(setTimeout(() => audio.sfxAt('creak', AB_GLB.x, AB_GLB.z, 0.45, 9), 1300));
+          }
+        });
+      }
+      console.log('[sv] glb-landed twinpeaks pine');
+      resolve(gltf.scene);
+    }, (err) => {
+      console.warn('[sv] glb-failed twinpeaks pine', err);
+      resolve(null);
+    });
+  });
+  updaters.push((dt) => {
+    if (boughState.t < 0) return;
+    boughState.t += dt;
+    const u = boughState.t / 2.6;
+    if (u >= 1) {
+      boughState.t = -1;
+      pinePivot.rotation.z = 0;
+      pinePivot.rotation.x = 0;
+      return;
+    }
+    const k = Math.sin(u * Math.PI * 3) * (1 - u) * 0.012;
+    pinePivot.rotation.z = k;
+    pinePivot.rotation.x = k * 0.6;
+  });
+  // 声先于形（STYLE_AUDIT 交接条目）：先给它一个远处的声音——
+  // 每 40–75s 从孪生松方向传来一声枝腰吱呀，走近之前它已经在那里了
+  const pineCreak = { next: 14 + Math.random() * 20 };
+  updaters.push((dt) => {
+    pineCreak.next -= dt;
+    if (pineCreak.next <= 0) {
+      pineCreak.next = 40 + Math.random() * 35;
+      audio.sfxAt('creak', AB_GLB.x, AB_GLB.z, 0.32, 15);
+    }
+  });
   // v1.12 门禁 60：林地散布件——三根倒木（路侧可见、离步道 2.5m+ 不挡路）。
   // 每根：渐细主干斜卧微沉 + 厚端根盘（劈裂缘）+ 两根断枝残桩，
   // 复用树皮材质合并单 mesh（+1 mesh 零新材质）。
@@ -2723,6 +2818,8 @@ export function build(ctx) {
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'stone-circle': groveTrig, 'falls-vigil': vigilTrig },
+    // GLB 松树解析就位信号——main.js 等它再宣布 hall-loaded（普查完整）
+    ready: glbReady,
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
 }

@@ -56,6 +56,14 @@ function createWindow() {
           "document.getElementById('boot-enter').click()", true
         ).catch(() => {});
       }
+      // v1.14 门禁 67：GLB 资产落厅信号回显（成功/失败都要在冒烟日志可见）
+      if (message.includes('[sv] glb-')) {
+        console.log(`[smoke] ${message}`);
+        if (message.includes('[sv] glb-failed')) {
+          console.error('[smoke] GLB 资产解析失败');
+          app.exit(1);
+        }
+      }
       if (message.includes('[sv] hall-loaded')) {
         const hall = message.split(' ').pop();
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
@@ -369,7 +377,7 @@ function createWindow() {
             setTimeout(async () => {
               try {
                 const at = await win.webContents.executeJavaScript(
-                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1) + " yaw=" + (p.yaw ?? 0).toFixed(2); })()', true
                 ).catch(() => '?');
                 console.log(`[smoke] 截屏机位 ${hall}: ${at}`);
                 const img = await win.webContents.capturePage();
