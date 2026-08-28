@@ -1,4 +1,4 @@
-# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 1 轮 → 第 2 轮）
+# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 2 轮 → 第 3 轮）
 
 > 本文件由每轮子代理更新：本轮完成了什么 / 下一轮优先做什么 /
 > 当前分支与阻塞项。父代理不改代码，只据此派生下一轮 Task。
@@ -7,105 +7,98 @@
 
 ---
 
-## 本轮（新 Goal 第 1 轮，v1.22.0）完成了什么
+## 本轮（新 Goal 第 2 轮，v1.23.0）完成了什么
 
-**分支**：`cursor/corner-beat-lock-round1-v1220-a993`（基线
-v1.21.0 tip `ea9e657`，origin/cursor/maintenance-finale-round9-
-v1210-a993，非 main）。门禁 100 全绿，单测 669→**686**（27 文件），
-四连测试（test/smoke/electron/blender:check）全过。
+**分支**：`cursor/corner-feel-polish-round2-v1230-a993`（基线
+v1.22.0 tip，origin/cursor/corner-beat-lock-round1-v1220-a993，
+非 main）。门禁 101 全绿，单测 686→**717**（28 文件），四连
+测试（test/smoke/electron/blender:check）全过。**机制零改动**：
+显形线/贝塞尔滑出/双扳机原封，cornerscare 47 用例几何守卫
+一字未动。
 
-### 1) 拐角惊吓触发时机与镜头换代（用户诉求一）✅
+### 1) 惊吓手感抛光（交接口径第 1 条）✅
 
-- **病灶判定**：v1.8–v1.12 四轮调圆形触发区半径仍被判「时机
-  不对」——圆量的是「离拐角多远」，用户要的是「快要看见墙后
-  之物」，两者只在特定走位重合。**病灶在机制不在参数**。
-- **显形线触发（cornerTrigger v2，kit.js 重写）**：触发线 =
-  拐角沿 K × 藏身点 R 连线——跨线瞬间恰是「视线越过拐角、
-  它即将入画」的几何瞬间；贴墙走的人在拐角沿本体触发，对侧
-  按几何提前一小步；armed()/revealed() 暴露。
-- **镜头特写接管（CLOSEUP）**：跨线帧双脚钉死 + yaw/pitch
-  smoothstep 0.45s 入锁跟焦那张脸 + FOV 慢推 13°（林奇式慢推）
-  ——黑幕帧归还（黑里换手看不见接缝）。
-- **单拍 3.2s（SCARE_BEATS 重写）**：灯一口气全灭（狂闪前奏
-  退役）→ 0.55s 立方减速抽搐滑出（REVEAL_PATH 贝塞尔）→ 错拍
-  站住盯你 → 0.4s 扑近 → 闷击黑幕 → 移回巷口。2.2s 前奏与
-  三顿挪退役。
-- **接近段恐惧（APPROACH_DREAD）**：心跳渐密 / 巷灯渐次不稳 /
-  半程一次低频升压，armed() 静音门。
-- **转身惊吓（turnTrigger）零改动**；cornerscare.test **47 用例
-  全量重钉**（含「跨显形线 ⟺ 藏身点视线通」逐点等价守卫）；
-  electron 冒烟双惊吓自然触发全过。
+- **CLOSEUP 入锁 0.45→0.35s**：滑出窗 0.55s，入锁快一步才能
+  看着它滑完最后半程（原来锁到位时它几乎已站定，闪出被甩在
+  镜头摆动里）。
+- **FOV 推量 13→15° + 线性换 smoothstep**：起步几乎不动（黑
+  与剪影先说话），错拍段推速最快——它站定了，镜头替它往前走。
+- **错拍 800→950ms**：它看你的那口气加长一拍半（原片的怕长
+  在「它不动」里）；后续三拍顺延 150ms，全程 3.3s（≤4.5s
+  冒烟守卫）；错拍第三口心跳间隔收紧 870ms。
+- **滑出曲线立方→四次方**：前 0.2s 完成 ~84% 行程，更「闪」。
+- **STARE_TILT 错拍中段歪头**：lookAt 每帧重置后绕视线轴
+  rotateZ 0.075rad（smoothstep 进、进了就不回）——它在核对你。
+- **接近段 q≥0.7 心跳双拍**：190ms 后半拍轻回声（收缩压跟
+  上来了）。
 
-### 2) corner_wraith 第二轮回炉（用户诉求二）✅
+### 2) rim 剪影光分拍 + emissive 相位确定化（交接口径第 2 条）✅
 
-- 用户口径「眼睛很好，其他都要改」：**眼组参数一字不动**
-  （环径/环管/亮度/竖长入 v122 测试钉），其余三档五拍重塑——
-  主身收瘦杀帽尖 / 驼峰双结 / 肩线歪斜 / 佝偻场（**拍 4 勘破：
-  推到头顶会把头冠从脸窗顶出把眼组全挡死——颈上淡出**）/
-  发帘罩改披 + 下段不对称合拢（右帘收 26% 左帘内侧越线补缝）/
-  前垂发绺 ×4 / 披领前侧后折 / 垂臂收拢左长右短 / 体色发色
-  全压进黑（湿发哑光 rough 0.82）。
-- **实渲驱动**：每拍四机位渲染对照；最后一处亮柱穿帮用
-  **ray_cast 逐像素排查**定案（真身是帘幕合拢沿——藏件对照
-  渲染三轮都误判，目检会骗人射线不会）。
-- 账目：12 mesh / 7388 tris / GLB **224960B ≤300KB**；对象名与
-  wraithPivot 全保——**落厅零改动**（仅换网格保留程序化动画，
-  setLurch/setRush 曲线原样）；四机位取证渲染重录
-  （assets/blender/renders/corner-wraith-*.png）；blender:check
-  七件全过。
+- **RIM_BEATS 灯语分拍**：reveal 随滑出进度涨光 + 前 90ms
+  打火过冲 / stare 与眼焰**错半拍**呼吸（光弱那一瞬眼最亮）/
+  rush 涌光 / 黑幕归零。色温压冷 0x9fb7ff→**0x93aeff**、灯位
+  抬高 2.5→**2.9m**（背顶剪冠顶肩线）。**零几何回炉**（12
+  mesh / 7388 tris / GLB 224960B 原封，blender:check 七件全过）。
+- **魅影 emissive 相位确定化**：惊吓期呼吸曲线从全局钟切到
+  **scare.clock 局部时钟**，WRAITH_T0=(2π−1.2)/2.4−0.55 让
+  眼焰恒在错拍 ~69% 处烧到峰值——此前赶上全局波谷则整个错拍
+  眼是暗的。数学账入 v123-eggs 测试。
 
-### 3) 林奇内容补充（用户诉求三）✅
+### 3) 内容出口双补（交接口径第 3 条）✅
 
-- 访谈册 **38 → 40 封顶收官**：lightbulbs（心境·灯泡与极乐
-  外溢）+ bigboy（此生·趣闻向：七年奶昔日课）双入册——四主题
-  **10/10/10/10** 齐平；防撞第六轮零撞车；**封顶后新增永久
-  关闸，只做质量替换**（v118/v120/v121 三处历史钉按新口径
-  改钉留账）。
-- **刮痕墙错拍变奏彩蛋**（零网格零新热点）：scare.seen 置位后
-  再摸刮痕墙，预期中的刮擦回应**不来**——空一拍只剩一记轻心跳
-  与「刮痕停在了那一夜」。交互普查 195 与 mull mesh 244 一格不动。
+- **DOCENT 回访补注 ×7**（kit.js quoteStandUpdater 加 docent2
+  + awayAfterSpoke 回访门）：首段听完**走开再折回**才补讲。
+  七厅七条全趣闻/事实向，防撞第七轮零命中（奥斯卡一分钟致辞/
+  影碟不设章节点/树木研究员父亲/米兰家具展/住进旧马厩片场/
+  传记片企划起点/晚年摇号）。
+- **呼叫铃 scare.seen 变奏（变奏第二例）**：那一夜之后应铃的
+  换到拐角那头（doorfar 从远门方位换 CORNER_EDGE、2.1→1.4s）
+  ——只换既有第二层的方位与迟延，**第三层判死红线不碰**；
+  首访原拍原样保留。零网格零新热点：交互普查 195、mull mesh
+  244 一格不动。
 
-### 4) Release 1.22.0 ✅
+### 4) Release 1.23.0 ✅
 
-- bump 1.22.0（package.json + `__SV__.version`，版本钉移交
-  v122-eggs.test）；CHANGELOG/WORKLOG/TESTING/README/STYLE_AUDIT
-  §13/门禁 100 入册；四连全绿（**686** / smoke 5/5 / electron
-  EXIT=0 / blender:check 七件）；dist:win 完整一次成型 + SHA256SUMS
-  + DOWNLOAD 直链（见 DOWNLOAD.md）。
+- bump 1.23.0（package.json + `__SV__.version`，版本钉移交
+  v123-eggs，v122 两处改钉留账）；新增 **v123-eggs 31 用例**
+  （手感边界/相位数学账/rim 分拍/回访门/变奏账/封顶复钉）；
+  CHANGELOG/WORKLOG/TESTING/README/STYLE_AUDIT §14/门禁 101
+  入册；四连全绿（**717** / smoke 5/5 / electron EXIT=0 /
+  blender:check 七件）；dist:win 完整一次成型 + SHA256SUMS +
+  DOWNLOAD 直链（见 DOWNLOAD.md）。
 
-## 下一轮（第 2 轮）优先
+## 下一轮（第 3 轮）优先
 
-1. **惊吓时机等真人验收**：显形线在几何上是对的（47 用例等价
-   守卫），但「时机对不对」最终裁判是用户手感——若再报时机
-   问题，先调 CLOSEUP.lock（0.45s 入锁）与 SCARE_BEATS.stare
-   （错拍长度）两个手感参数，**显形线机制本身不要再换**。
-2. **魅影若仍不够吓人，下一步在厅内灯光不在几何**：rim 剪影光
-   （0x9fb7ff 那盏）的角度/色温/强度优先——棚渲四机位好看
-   不等于巷子里那 3.2 秒好看；几何已收敛（12 mesh 7388 tris），
-   继续堆几何是回报最低的方向。
-3. **内容出口**：访谈 40 关闸 + 195 交互持平后，新内容的合规
-   出口只剩 DOCENT 低语（立牌背景层，现 7 条）与彩蛋变奏
-   （错拍变奏是首例）——两者零预算压力，适合小步补充。
-4. **维护纪律照旧**（上一 Goal 遗产全数生效）：封口轴五条零
-   触碰（回声窗窗长/drawerfar 三处/暗示预算/BACK IN 5/第三层
-   判死）；三数新口径 **195 交互 / 98 音色 / 40 访谈**；
-   gen_*.py 恰七件；studio 零 GLB；手作语言是台灯专利。
+1. **手感参数已到细调区**：本轮拍长/曲线改动都在 ±150ms/±2°
+   量级——若用户仍报「不够吓人」，剩余空间在**音频层**（闷击
+   音色、黑幕里的静默长度）与 **wake 错位感**（醒来位置/朝向
+   的不对劲），继续内卷拍长参数回报递减。机制照旧不换。
+2. **变奏彩蛋两例成型，警惕通胀**：刮痕墙（缺席语法）+ 呼叫
+   铃（换位语法）——后轮再加变奏必须有**第三种语法**，同语法
+   复制就是通胀。scare.seen 是现成状态位，可复用。
+3. **DOCENT 立牌出口已收满**：一层低语 + 回访补注两层到顶——
+   再加第三层触「第三层判死」精神。立牌内容后轮只做质量替换；
+   若还要新内容出口，需先论证新载体（且不增 INTERACTIVE_MIN）。
+4. **维护纪律照旧**：封口轴五条零触碰（回声窗窗长/drawerfar
+   三处/暗示预算/BACK IN 5/第三层判死）；三数口径 **195 交互 /
+   98 音色 / 40 访谈**；gen_*.py 恰七件；studio 零 GLB；手作
+   语言是台灯专利。
 5. **性能预算警戒照旧**：twinpeaks 244、mulholland 244（250
    预算）贴顶禁入；studio 224；lobby 207 余量最大。
 
 ## 当前分支与阻塞项
 
-- **分支**：`cursor/corner-beat-lock-round1-v1220-a993`
-  （已推送，基于 cursor/maintenance-finale-round9-v1210-a993）。
+- **分支**：`cursor/corner-feel-polish-round2-v1230-a993`
+  （已推送，基于 cursor/corner-beat-lock-round1-v1220-a993）。
 - **阻塞项**：无硬阻塞。环境注意（新 VM 必读）：
   - Blender 不随仓库分发——按 `scripts/blender/README.md` 重装
     （NLUUG 镜像 ~100s）；`blender:check` 缺 Blender 时跳过不红。
   - electron `--smoke` 断言跑在 **dist 构建产物**上——改厅代码后必须
     先 `npm run build` 再跑（先确认 build 成功再读冒烟数）。
   - **swiftshader 下 capturePage 会返回陈旧帧**（合成器滞后）——
-    短时程视效（惊吓 3.2s 序列）的视觉取证不要依赖 SV_SCARE_SHOT
+    短时程视效（惊吓 3.3s 序列）的视觉取证不要依赖 SV_SCARE_SHOT
     连拍；几何正确性交单测、功能触发交冒烟、模型视觉交 Blender
-    CLI 渲染（本轮实录）。
+    CLI 渲染。
   - **游戏时钟≠真钟**：软件渲染下 dt 封顶 0.1s、游戏时钟走
     0.08–0.42 倍速——凡计时敏感的 `SV_SHOT_PRE` 探针**别用
     setTimeout 数真秒**，注入 `S.engine.updaters` 累加 dt 记游戏秒；
@@ -113,10 +106,10 @@ v1210-a993，非 main）。门禁 100 全绿，单测 669→**686**（27 文件�
   - **teleport 会清俯仰**——俯拍取证俯仰必须写在 PRE 里瞬移之后
     （pitchObject 是 camera 父节点）。
   - **xvfb 显示锁**：并行跑过 electron 后 `:99` 可能被占——
-    `xvfb-run -a` 自动挑空闲显示号（本轮实踩）。
+    `xvfb-run -a` 自动挑空闲显示号。
   - Blender 渲染排查穿帮件时**别信藏件对照渲染的目检**——用
     `scene.ray_cast(depsgraph, origin, dir)` 逐像素问首命中对象
-    （本轮三轮误判后定案的方法，模板在 WORKLOG v1.22 段）。
+    （模板在 WORKLOG v1.22 段）。
   - 打包 winCodeSign/NSIS 缓存 VM 轮换后会丢，dist:win 现场下载；
     **必须完整 dist:win 一次成型**，单独重跑 nsis 会超限；asar
     extract-file 校验版本**先 cd /tmp 再跑**（无 --output 参数、
@@ -124,6 +117,10 @@ v1210-a993，非 main）。门禁 100 全绿，单测 669→**686**（27 文件�
   - lathe 顶点扰动只用整数角频率（接缝安全）；Blender `box()`
     参数序 (w,h,d)；bpy `create_cone` 的 radius1 在底面（-z）——
     「尖朝下」要翻 z（gen_corner_wraith.py add_cone 行注）。
-  - mulholland 已有 `scare.seen`（错拍变奏彩蛋在用）；studio 已有
-    `metro`/`saucer`/`chinaState`；archive 已有 `cardArrayReady`
-    ——新增状态字段先 rg 防撞名。
+  - mulholland 已有 `scare.seen`（刮痕墙 + 呼叫铃两处变奏在用）
+    与 `scare.clock`（emissive 局部时钟）；studio 已有 `metro`/
+    `saucer`/`chinaState`；archive 已有 `cardArrayReady`——新增
+    状态字段先 rg 防撞名。
+  - 惊吓拍改动注意两处联动：electron --smoke 的拐角惊吓 wake
+    守卫预算 40s（现全程 3.3s 余量大）；v123-eggs 钉了
+    SCARE_BEATS 各拍数值——改拍长要改钉留账。
