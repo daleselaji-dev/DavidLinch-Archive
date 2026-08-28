@@ -189,7 +189,10 @@ function createWindow() {
                 console.error(`[smoke] ${label} 未完成（机位 ${st.at} yaw ${st.yaw}，期望 9.7,9.5 yaw ${wantYaw.toFixed(2)}）`);
                 app.exit(1);
               } else {
-                if (onTick) onTick();
+                // onTick 带上状态位快照——转身测试的补甩头据此让位：
+                // 惊吓进行中/已在巷口时再甩会把 wake 落好的 yaw 抬走
+                // （朝向档上线后此竞态从位置断言的盲区里现形）
+                if (onTick) onTick(st);
                 setTimeout(poll, 500);
               }
             }).catch((err) => {
@@ -284,7 +287,14 @@ function createWindow() {
                 pollUntilWake('转身惊吓', 40000, Math.PI, () => {
                   console.log('[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)，背巷平视醒 (yaw π)');
                   setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
-                }, () => {
+                }, (st) => {
+                  // 惊吓已引爆（phase≠0）或已被移回巷口：补甩头让位——
+                  // wake 传送后再甩一记会把 yaw 从 π 抬到 2π，朝向断言
+                  // 永远追不上（v1.25 朝向档暴露的旧竞态）
+                  if ((st.scare && st.scare.phase !== 0) || st.at === '9.7,9.5') {
+                    lastSpin = Date.now();
+                    return;
+                  }
                   if (Date.now() - lastSpin > 3000) {
                     lastSpin = Date.now();
                     spin();
