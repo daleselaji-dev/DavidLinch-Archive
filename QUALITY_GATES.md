@@ -1882,6 +1882,46 @@ rim 分拍/回访门/变奏账）+ DOWNLOAD.md 直链下载校验。
 r6-corner-walkthrough-probe.txt`（逐帧实录全文 + 逐条账目对照 +
 探针源码与复现命令）。
 
+### 106. 体验层定向修补三刀 + Release 1.26.0（v1.26 新增，新 Goal 第 7 轮）
+- [x] **照靶不翻修**：三刀全部来自 r6 走查报告的三条改进建议
+      （接近压迫不足/滑出顿挪削弱流畅/醒来缺环境变化）——显形线
+      机制不换、gen_corner_wraith 几何不回炉、SCARE_BEATS 六拍
+      零改动（拍长不动 → VACUUM 派生账原封，不触发改钉条款）
+- [x] **靶一·接近压迫 FOV 渐窄（APPROACH_SQUEEZE）**：跨线前
+      ~2m（z0 −24.5 距中巷跨线点 2.0m；z1 = APPROACH_DREAD.z1
+      同步收满）70°→65° smoothstep；armed() 门 + 惊吓中不收 +
+      巷内限定；位置驱动收放（收直取/放缓释）；跨线帧 grab.fov0
+      交接 CLOSEUP 续推至同一终点 55°（推近终点数学账与交接帧
+      零跳变入 v126-eggs）；grab 接管期间压迫层让位 + epsilon 闸
+      防投影矩阵空转
+- [x] **靶二·滑出去抽搐拍**：beat=sin(s·6π)（三口急抽搐——摇
+      roll/沉浮/甩臂）从 GLB 版与 kit 兜底版 setLurch 双侧退役；
+      四次方滑出路径/调用形字面钉/错拍歪头/rush 高频扑动零改动；
+      s=1 体态逐位相同（sin(6π)=0 交接无缝数学账入钉）
+- [x] **靶三·wake 后巷灯缓慢重燃（WAKE_RELIGHT.dur=3）**：仅
+      拐角 daze 起燃（3s smoothstep，两盏壁灯 + 后门看护灯同一
+      口气），转身惊吓 else 分支瞬回原封——两重 wake 分家第四轴；
+      灯比环境音回得晚（3 > VACUUM.release 1.6）；新惊吓接管灯
+      时重燃让位；WAKE_POINT/WAKE_DAZE 原值复钉（挪位判死照旧）
+- [x] **v126-eggs 26 用例**：窗口账/收放不对称钉/交接账/双侧
+      退役钉/分家四轴钉/机制拍长几何零改动六表复钉/纪律三数
+      （scare.seen 恰三处·98 音色·40 访谈·普查 195）/版本钉
+      1.26.0；v125-eggs 版本精确钉移交（同值语义）——**800/800**
+- [x] **四连门禁全绿**：`npm test` 800/800（31 文件）/ `npm run
+      smoke` 5/5 / electron `--smoke` 全队列 EXIT=0（七厅全过·
+      六 glb-landed·普查 195=22/37/30/24/30/27/25·tp 243 /
+      mull 244 / studio 224·双惊吓双朝向档·scareProbe 逐拍实录）
+      / `npm run blender:check` 七件全过
+- [x] **Release 1.26.0**：dist:win 完整一次成型 EXIT=0（114s，
+      winCodeSign/NSIS 现场下载零事故）；PE32 ×2；asar 内版本
+      1.26.0 核对（先 cd /tmp）；双 exe 均 <100MiB raw 限；
+      SHA256SUMS 重写；DOWNLOAD 直链换轨 + 1.25.0 双产物同轮
+      移除；发布产物终版冒烟复跑 EXIT=0
+
+**验证方式**：`npm test`（v126-eggs 全绿）+ electron 冒烟日志 +
+`file release/*.exe` + asar extract-file 版本核对 + DOWNLOAD.md
+新直链三方一致（exe / `__SV__.version` / v126-eggs 版本钉）。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
