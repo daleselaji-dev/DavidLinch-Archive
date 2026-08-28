@@ -9,6 +9,7 @@ import { AudioEngine } from './audio/engine.js';
 import { UI } from './ui/overlay.js';
 import { Narration } from './ui/narration.js';
 import { GuestbookStore } from './ui/guestbook-store.js';
+import { DOCENT, QUOTES } from './data/essays.js';
 
 const HALLS = {
   lobby: () => import('./halls/lobby.js'),
@@ -146,14 +147,37 @@ async function goTo(id) {
   ui.fade(false);
   console.log(`[sv] hall-loaded ${id}`);
 
+  // 博物馆讲解卡：每次进厅左下角浮现两行背景讲解（首访满时长，回访减半）
+  const firstVisit = !visited.has(id);
+  setTimeout(() => ui.showDocent(DOCENT[id], firstVisit ? 12000 : 6500), 1400);
+  thoughtState.next = 24 + Math.random() * 18; // 讲解卡先说话，引语过会儿再淌
+  thoughtState.t = 0;
+
   // 留白：只在首访、且等你先看一会儿之后，才低声说一句短话
-  if (!visited.has(id)) {
+  if (firstVisit) {
     visited.add(id);
     const key = id === 'lobby' && visited.size === 1 ? 'welcome' : mod.meta.narration;
     setTimeout(() => narration.speakKey(key), 2600);
   }
   busy = false;
 }
+
+// 名言/想法漂浮层：驻厅期间每 50–85s 让一段他的话轻轻淌过右上角
+// （无面板打开时才出现；不与讲解卡抢同一拍）
+const thoughtState = { t: 0, next: 40, order: [], i: 0 };
+engine.onUpdate((dt) => {
+  if (!entered || !current) return;
+  thoughtState.t += dt;
+  if (thoughtState.t < thoughtState.next || ui.anyOpen) return;
+  thoughtState.t = 0;
+  thoughtState.next = 50 + Math.random() * 35;
+  if (!thoughtState.order.length) {
+    thoughtState.order = QUOTES.map((q) => q.id).sort(() => Math.random() - 0.5);
+  }
+  const q = QUOTES.find((x) => x.id === thoughtState.order[thoughtState.i % thoughtState.order.length]);
+  thoughtState.i += 1;
+  if (q) ui.driftThought(q.zh, q.source);
+});
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -328,5 +352,10 @@ window.__SV__ = {
     ui.closeAll();
     return n;
   },
-  version: '1.4.0'
+  /** 验证工具：读取当前展厅某彩蛋的内部状态（若彩蛋暴露了 state 探针） */
+  eggState: (name) => {
+    const egg = current && current.built.eggs && current.built.eggs[name];
+    return egg && egg.state ? egg.state() : null;
+  },
+  version: '1.10.0'
 };

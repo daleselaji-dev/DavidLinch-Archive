@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
 import * as kit from '../src/halls/kit.js';
 import * as props from '../src/halls/props.js';
 
@@ -93,12 +94,198 @@ describe('v1.4 PS5-tier 材质系统（P1/P2/P7）', () => {
   });
 });
 
-describe('v1.5 拐角惊吓 / 对讲机资产', () => {
+describe('v1.5/v1.6 拐角惊吓 / 对讲机资产', () => {
   const src = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
 
-  it('lurkerFigure 潜行黑影 v2 已导出，且带 userData.update 痉挛驱动', () => {
-    expect(typeof kit.lurkerFigure).toBe('function');
-    expect(src).toMatch(/lurkerFigure[\s\S]{0,2400}userData\.update = \(dt, t, k/);
+  it('nightmareFigure 梦魇形体 v3 已导出，且带 userData.update 痉挛驱动', () => {
+    expect(typeof kit.nightmareFigure).toBe('function');
+    expect(src).toMatch(/nightmareFigure[\s\S]{0,13000}userData\.update = \(dt, t, k/);
+  });
+
+  it('梦魇形体 v1.8：Blender 细模档（颅骨壳/连体破袍/双臂长手）+ 程序化眼球嘴缝', () => {
+    const seg = src.slice(src.indexOf('export function nightmareFigure'));
+    // 形体几何来自 Blender 权威细模档（gen_figure.py 烘焙）
+    expect(seg).toContain("blendGeo('figure/body')");
+    expect(seg).toContain("blendGeo('figure/head')");
+    for (const part of ['figure/armL', 'figure/armR', 'figure/handL', 'figure/handR']) {
+      expect(seg, `nightmareFigure 缺 Blender 细模件: ${part}`).toContain(`'${part}'`);
+    }
+    // 眼球/瞳孔/眼圈/嘴缝保持程序化（材质动画通道）
+    for (const k of ['socket', 'eyeMat', 'pupil', 'skinTex', 'mkEye', 'faceMat', 'ring', 'mouth.scale.y']) {
+      expect(seg, `nightmareFigure 缺细节: ${k}`).toContain(k);
+    }
+    // 双眼不对称（歪斜/大小差是「不对劲」的核心细节）
+    expect(seg).toContain('mkEye(-1');
+    expect(seg).toContain('mkEye(1');
+  });
+
+  it('v1.8 原作感长发（Blender 档）：三组长绺 mesh 独立摆动 + 脑后垂到胸口 + 扑时后掀', () => {
+    const seg = src.slice(src.indexOf('export function nightmareFigure'));
+    for (const part of ['figure/hairBack', 'figure/hairL', 'figure/hairR']) {
+      expect(seg, `nightmareFigure 缺长发件: ${part}`).toContain(`blendGeo('${part}')`);
+    }
+    // 脑后长绺解码后必须垂到胸口量级（≥0.9m 纵向跨度，2.4m 身高档）
+    const hb = kit.blendGeo('figure/hairBack');
+    hb.computeBoundingBox();
+    expect(hb.boundingBox.max.y - hb.boundingBox.min.y).toBeGreaterThanOrEqual(0.9);
+    // 两鬓绺反相轻摆 + 扑（k 驱动）时整头长发向后掀
+    expect(seg).toContain('hairL.rotation.z');
+    expect(seg).toContain('hairR.rotation.z');
+    expect(seg).toContain('hairBack.rotation.x');
+  });
+
+  it('cornerRevealPath 绕角路径：凸包性质 + 贴脸触发时站位收在枢轴', () => {
+    expect(typeof kit.cornerRevealPath).toBe('function');
+    const p = kit.cornerRevealPath(new THREE.Vector3(0, 0, -2), new THREE.Vector3(2, 0, -1));
+    p.aim(2, 5, 1.9); // 玩家在枢轴正北 6m
+    const out = new THREE.Vector3();
+    for (let i = 0; i <= 20; i++) {
+      p.at(i / 20, out);
+      // 二次贝塞尔凸包：任何采样点都在三控制点包围盒内
+      expect(out.x).toBeGreaterThanOrEqual(-1e-9);
+      expect(out.x).toBeLessThanOrEqual(2 + 1e-9);
+      expect(out.z).toBeGreaterThanOrEqual(-2 - 1e-9);
+    }
+    expect(Math.hypot(p.to.x - 2, p.to.z - 5)).toBeCloseTo(1.9, 6);
+    p.aim(2.3, -0.6, 1.9); // 玩家贴脸——站位收在枢轴本身
+    expect(p.to.x).toBeCloseTo(2, 6);
+    expect(p.to.z).toBeCloseTo(-1, 6);
+  });
+
+  it('一体化黑松 pineTree v1.8（Blender 档）：hero/far 双 LOD 单几何 + 顶点色 + 预算内三角数', () => {
+    expect(typeof kit.pineTree).toBe('function');
+    const seg = src.slice(src.indexOf('export function pineTree'));
+    expect(seg).toContain("blendGeo(detail ? 'pine/hero' : 'pine/far')");
+    expect(seg).toContain('vertexColors: true');
+    // 双 LOD 三角预算（双峰厅 72×hero + 215×far 必须压在 240k 内）
+    const hero = kit.blendGeo('pine/hero');
+    const far = kit.blendGeo('pine/far');
+    expect(hero.index.count / 3).toBeLessThanOrEqual(1000);
+    expect(far.index.count / 3).toBeLessThanOrEqual(450);
+    // 顶点色（针叶明暗/干皮色温）随几何一起烘焙
+    expect(hero.attributes.color).toBeTruthy();
+    expect(far.attributes.color).toBeTruthy();
+    // 树是立着的：纵向跨度按 1 单位规格化建模（scale 由调用方给）
+    hero.computeBoundingBox();
+    expect(hero.boundingBox.max.y).toBeGreaterThan(hero.boundingBox.max.x);
+  });
+
+  describe('v1.8 blendGeo 解码器（Blender 权威细模 → 运行时几何）', () => {
+    it('全部烘焙件可解码：位置/法线/顶点色/索引齐全且数量一致', () => {
+      const PARTS = [
+        'figure/body', 'figure/head', 'figure/hairBack', 'figure/hairL', 'figure/hairR',
+        'figure/armL', 'figure/armR', 'figure/handL', 'figure/handR',
+        'ladder/wood', 'ladder/brass', 'ladder/wheel', 'pine/hero', 'pine/far'
+      ];
+      for (const name of PARTS) {
+        const g = kit.blendGeo(name);
+        expect(g.attributes.position?.count, `${name} 缺位置`).toBeGreaterThan(0);
+        expect(g.attributes.normal?.count, `${name} 法线数不齐`).toBe(g.attributes.position.count);
+        expect(g.attributes.color?.count, `${name} 顶点色数不齐`).toBe(g.attributes.position.count);
+        expect(g.index?.count % 3, `${name} 索引非三角`).toBe(0);
+      }
+    });
+
+    it('未知资产名抛错（防拼写错误静默出空几何）', () => {
+      expect(() => kit.blendGeo('nope/nothing')).toThrow(/未知/);
+    });
+
+    it('法线解码后近单位长度（int8 量化误差 < 3%）', () => {
+      const g = kit.blendGeo('figure/head');
+      const n = g.attributes.normal;
+      for (let i = 0; i < n.count; i += 7) {
+        const len = Math.hypot(n.getX(i), n.getY(i), n.getZ(i));
+        expect(len).toBeGreaterThan(0.97);
+        expect(len).toBeLessThan(1.03);
+      }
+    });
+
+    it('cylUV/planarUV 给烘焙几何补 UV（canvas 纹理通道可用）', () => {
+      const g1 = kit.cylUV(kit.blendGeo('figure/body'), 2);
+      expect(g1.attributes.uv?.count).toBe(g1.attributes.position.count);
+      const g2 = kit.planarUV(kit.blendGeo('ladder/wood'), 0.8);
+      expect(g2.attributes.uv?.count).toBe(g2.attributes.position.count);
+    });
+  });
+
+  describe('v1.9 Blender 细模第二批（档案柜塔 / 大教堂收音机）', () => {
+    it('新烘焙件全部可解码：位置/法线/顶点色/索引齐全', () => {
+      for (const name of [
+        'cabinet/wood', 'cabinet/brass', 'cabinet/drawer', 'cabinet/drawerBrass',
+        'radio/body', 'radio/brass'
+      ]) {
+        const g = kit.blendGeo(name);
+        expect(g.attributes.position?.count, `${name} 缺位置`).toBeGreaterThan(0);
+        expect(g.attributes.normal?.count, `${name} 法线数不齐`).toBe(g.attributes.position.count);
+        expect(g.attributes.color?.count, `${name} 顶点色数不齐`).toBe(g.attributes.position.count);
+        expect(g.index?.count % 3, `${name} 索引非三角`).toBe(0);
+      }
+    });
+
+    it('柜塔尺寸与 v1.6 布局一致（宽≈3.2 / 高≈4.05 / 正面朝 +Z）', () => {
+      const g = kit.blendGeo('cabinet/wood');
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      expect(bb.max.x - bb.min.x).toBeGreaterThan(3.2);
+      expect(bb.max.x - bb.min.x).toBeLessThan(3.55);
+      expect(bb.max.y).toBeGreaterThan(3.95);
+      expect(bb.max.y).toBeLessThan(4.15);
+      expect(bb.min.y).toBeLessThan(0.02);
+      // 屉面/线脚都在 +Z 半侧（贴墙摆放时背板薄）
+      expect(bb.max.z).toBeGreaterThan(0.12);
+      expect(bb.max.z).toBeLessThan(0.30);
+    });
+
+    it('可动抽屉局部原点在关合位面板中心（屉体伸向 -Z，滑出动画零偏移补偿）', () => {
+      const g = kit.blendGeo('cabinet/drawer');
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      expect(Math.abs(bb.max.x + bb.min.x)).toBeLessThan(0.08); // x 居中
+      expect(bb.min.z).toBeLessThan(-0.2);                      // 屉体向柜内
+      expect(bb.max.z).toBeLessThan(0.05);                      // 面板贴原点
+      // 索引卡立插高出屉沿（bbox 上缘越过面板半高 0.1075）
+      expect(bb.max.y).toBeGreaterThan(0.1);
+    });
+
+    it('收音机壳档在货架足迹内（拱顶 ≈0.575 高、含底板 ≤0.7 宽）', () => {
+      const g = kit.blendGeo('radio/body');
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      expect(bb.max.y).toBeGreaterThan(0.5);
+      expect(bb.max.y).toBeLessThan(0.62);
+      expect(bb.max.x - bb.min.x).toBeLessThanOrEqual(0.7);
+      expect(bb.min.y).toBeLessThan(0.01); // 底面落在 y=0（直接坐上货架）
+    });
+
+    it('archive.js 已接线 Blender 柜塔 + 真抽屉热点（盒子拼柜退场）', () => {
+      const arc = readFileSync(new URL('../src/halls/archive.js', import.meta.url), 'utf8');
+      for (const k of ["blendGeo('cabinet/wood')", "blendGeo('cabinet/brass')",
+        "blendGeo('cabinet/drawer')", "blendGeo('cabinet/drawerBrass')", 'drawerState']) {
+        expect(arc, `archive 柜塔缺接线: ${k}`).toContain(k);
+      }
+    });
+
+    it('props.radioCabinet 已换 Blender 档且保留 dialMat/needle 动画契约', () => {
+      const pr = readFileSync(new URL('../src/halls/props.js', import.meta.url), 'utf8');
+      const seg = pr.slice(pr.indexOf('export function radioCabinet'));
+      expect(seg).toContain("blendGeo('radio/body')");
+      expect(seg).toContain("blendGeo('radio/brass')");
+      for (const k of ['userData.dialMat', 'userData.needle', 'userData.body']) {
+        expect(seg, `radioCabinet 契约缺挂点: ${k}`).toContain(k);
+      }
+    });
+  });
+
+  it('dreamFish 梦鱼已导出：一体车削鱼身 + 顶点色 + 鳞纹 + 发光侧线 + 眼 + 尾摆驱动', () => {
+    expect(typeof kit.dreamFish).toBe('function');
+    const seg = src.slice(src.indexOf('export function dreamFish'));
+    for (const k of [
+      'LatheGeometry', "setAttribute('color'", 'scaleTex', 'mkLateral',
+      'eyeMat', 'barbels', 'userData.setGlow', 'userData.update',
+      'tail.rotation.y', 'lineMat.emissiveIntensity'
+    ]) {
+      expect(seg.slice(0, 10000), `dreamFish 缺要素: ${k}`).toContain(k);
+    }
   });
 
   it('walkieTalkie 对讲机预制体已导出，暴露 body/ptt/ledMat/antenna 交互挂点', () => {
@@ -155,5 +342,66 @@ describe('纹理分辨率预算（PRODUCTION_PLAN §2.1 源码审计）', () => 
   it('kit.js 不再有超大 2048+ 纹理', () => {
     const src = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
     expect(src).not.toMatch(/canvas(?:Texture|Of)\(\s*(2048|4096)/);
+  });
+});
+
+describe('v1.10 Blender 细模第三批（林地夜鸮 / 歌厅点唱机）', () => {
+  it('新烘焙件全部可解码：位置/法线/顶点色/索引齐全', () => {
+    for (const name of ['owl/body', 'owl/head', 'jukebox/wood', 'jukebox/brass']) {
+      const g = kit.blendGeo(name);
+      expect(g.attributes.position?.count, `${name} 缺位置`).toBeGreaterThan(0);
+      expect(g.attributes.normal?.count, `${name} 法线数不齐`).toBe(g.attributes.position.count);
+      expect(g.attributes.color?.count, `${name} 顶点色数不齐`).toBe(g.attributes.position.count);
+      expect(g.index?.count % 3, `${name} 索引非三角`).toBe(0);
+    }
+  });
+
+  it('夜鸮三角预算与姿态：body ≤1500 / head ≤1000，爪下 y=0、头件原点在颈枢轴', () => {
+    const body = kit.blendGeo('owl/body');
+    const head = kit.blendGeo('owl/head');
+    expect(body.index.count / 3).toBeLessThanOrEqual(1500);
+    expect(head.index.count / 3).toBeLessThanOrEqual(1000);
+    body.computeBoundingBox();
+    head.computeBoundingBox();
+    // 躯干立在枝面上（y≈0 起步，顶到颈口 ≈0.34）
+    expect(body.boundingBox.min.y).toBeGreaterThan(-0.05);
+    expect(body.boundingBox.max.y).toBeGreaterThan(0.30);
+    expect(body.boundingBox.max.y).toBeLessThan(0.40);
+    // 头件局部原点=颈枢轴：包围盒跨过 y=0（下颌在枢轴下、耳簇在上）
+    expect(head.boundingBox.min.y).toBeLessThan(0.0);
+    expect(head.boundingBox.max.y).toBeGreaterThan(0.15);
+  });
+
+  it('twinpeaks 夜鸮已接线：Blender 双件 + 只转头凝视（owlHead.rotation.y）+ 眼球程序化', () => {
+    const tp = readFileSync(new URL('../src/halls/twinpeaks.js', import.meta.url), 'utf8');
+    for (const k of ["blendGeo('owl/body')", "blendGeo('owl/head')",
+      'owlHead.rotation.y', 'owlHead.rotation.z', 'eyeMat']) {
+      expect(tp, `twinpeaks 夜鸮缺接线: ${k}`).toContain(k);
+    }
+    // 旧的 12 段 Lathe 猫头鹰退场
+    expect(tp).not.toContain('Vector2(0.115, 0.12)');
+  });
+
+  it('点唱机壳档在原货架足迹内（瀑布拱 ≈1.36 高 / 含底板 ≤1.1 宽 / 地面 y=0）', () => {
+    const g = kit.blendGeo('jukebox/wood');
+    g.computeBoundingBox();
+    const bb = g.boundingBox;
+    expect(bb.max.y).toBeGreaterThan(1.28);
+    expect(bb.max.y).toBeLessThan(1.42);
+    expect(bb.max.x - bb.min.x).toBeLessThanOrEqual(1.1);
+    expect(bb.min.y).toBeLessThan(0.06);
+  });
+
+  it('props.jukebox 已换 Blender 档且保留 setOn/tubeMats/win 动画契约（烘焙黄铜关各向异性）', () => {
+    const pr = readFileSync(new URL('../src/halls/props.js', import.meta.url), 'utf8');
+    const seg = pr.slice(pr.indexOf('export function jukebox'), pr.indexOf('export function sedanCar'));
+    expect(seg).toContain("blendGeo('jukebox/wood')");
+    expect(seg).toContain("blendGeo('jukebox/brass')");
+    for (const k of ['userData.setOn', 'userData.tubeMats', 'userData.win', 'anisotropy = 0']) {
+      expect(seg, `jukebox 契约缺挂点: ${k}`).toContain(k);
+    }
+    // 旧的九根盒条格栅退场（换日出扇烘焙档 + 程序格栅布）
+    expect(seg).not.toContain('for (let i = 0; i < 9; i++)');
+    expect(seg).toContain('CircleGeometry(0.38');
   });
 });

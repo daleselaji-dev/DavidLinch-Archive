@@ -11,14 +11,15 @@ import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
-  zoneTrigger, zonesBounds, pineGeometryMaterial,
+  zoneTrigger, zonesBounds, pineTree, blendGeo, cylUV,
   roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
   chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
 } from './kit.js';
 import {
   propMats, sedanCar, streetLampV2, trafficLight, pieCase,
-  counterClutter, ceilingFan, viewScope, clubChair, overlookRail, walkieTalkie
+  counterClutter, ceilingFan, viewScope, clubChair, overlookRail, walkieTalkie,
+  radioCabinet
 } from './props.js';
 import { quoteById } from '../data/essays.js';
 
@@ -76,10 +77,13 @@ export function build(ctx) {
   const groundTex = canvasTexture(512, (g, s) => {
     g.fillStyle = '#0a0f08';
     g.fillRect(0, 0, s, s);
+    // v1.6：苔斑改单色相亮度抖动——旧版三通道独立随机会在月光下
+    // 显出偏红/偏蓝的彩色圆斑（同穆赫兰砖墙彩虹问题），林地读成碎彩纸
     for (let i = 0; i < 620; i++) {
-      g.fillStyle = `rgba(${8 + Math.random() * 24},${14 + Math.random() * 26},${8 + Math.random() * 16},0.5)`;
+      const v = 0.55 + Math.random() * 0.85;
+      g.fillStyle = `rgba(${Math.round(11 * v)},${Math.round(21 * v)},${Math.round(12 * v)},0.4)`;
       g.beginPath();
-      g.arc(Math.random() * s, Math.random() * s, Math.random() * 12, 0, 7);
+      g.arc(Math.random() * s, Math.random() * s, 1.5 + Math.random() * 9, 0, 7);
       g.fill();
     }
     // 针叶落层
@@ -146,47 +150,59 @@ export function build(ctx) {
   ], new THREE.MeshBasicMaterial({ color: 0x03060d, fog: false }));
   group.add(peaks);
 
-  // ---------- 松林（实例化，避开可逛分区 + 视线走廊） ----------
-  // v1.4 修正：树的散布是非种子随机——瀑布盆地里偶尔会长出一棵巨松
-  // 把整面水幕挡死（撞见与否全凭运气）。眺望台的「望」必须成立：
-  // 瀑布盆地与观景镜→锯木厂的视线走廊内不落树
+  // ---------- 松林（v1.6 一体化资产重做） ----------
+  // 树干+根盘+针叶冠是同一几何体（kit.pineTree），整树等比实例缩放：
+  // 无论多大的树，干与冠永远长在一起。近景走廊内用英雄树（裙缘参差/
+  // 垂梢/枝桩细节），远景用简化树控制三角形预算；散布改 seeded 确定性
+  // （同一份构建同一片森林），逐棵 instanceColor 冷暖微差打破复制感。
+  // 瀑布盆地与观景镜→锯木厂的视线走廊内不落树。
   const TREE_EXCL = [
     { minX: 3.5, maxX: 20.5, minZ: -49, maxZ: -28.4 },
     { minX: 17, maxX: 36, minZ: -44, maxZ: -30 }
   ];
   const inTreeExcl = (x, z) =>
     TREE_EXCL.some((r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
-  const { geo: pineGeo, mat: pineMat } = pineGeometryMaterial();
-  const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 1.6, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.95 });
-  const COUNT = 340;
-  const pines = new THREE.InstancedMesh(pineGeo, pineMat, COUNT);
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, COUNT);
+  // v1.8：pineTree 换 Blender 权威细模档（gen_pine.py 烘焙），
+  // hero 档 933 tris / far 档 427 tris——实例数按预算重配
+  // （72×933 + 215×427 ≈ 159k，全厅 ≈226k，卡在 240k 硬门禁内）
+  const heroPine = pineTree({ detail: 1 });
+  const farPine = pineTree({ detail: 0 });
+  const HERO_MAX = 72;
+  const FAR_MAX = 215;
+  const pinesHero = new THREE.InstancedMesh(heroPine.geo, heroPine.mat, HERO_MAX);
+  const pinesFar = new THREE.InstancedMesh(farPine.geo, farPine.mat, FAR_MAX);
   const dummy = new THREE.Object3D();
-  let placed = 0;
+  const tint = new THREE.Color();
+  const trng = rng(53);
+  let nHero = 0;
+  let nFar = 0;
   let guard = 0;
-  while (placed < COUNT && guard++ < 9000) {
-    const a = Math.random() * Math.PI * 2;
-    const r = 6 + Math.pow(Math.random(), 0.72) * 46;
+  while ((nHero < HERO_MAX || nFar < FAR_MAX) && guard++ < 14000) {
+    const a = trng() * Math.PI * 2;
+    const r = 6 + Math.pow(trng(), 0.72) * 46;
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
+    const s = 0.85 + trng() * 2.1;
+    const ry = trng() * Math.PI * 2;
+    const tv = 0.8 + trng() * 0.34;
     if (insideWalkable(x, z) || inTreeExcl(x, z)) continue;
-    const s = 0.8 + Math.random() * 2.4;
-    dummy.position.set(x, 2.1 * s + 0.9, z);
+    const isHero = r < 24;
+    if (isHero ? nHero >= HERO_MAX : nFar >= FAR_MAX) continue;
+    const mesh = isHero ? pinesHero : pinesFar;
+    const idx = isHero ? nHero++ : nFar++;
+    dummy.position.set(x, -0.04, z);
     dummy.scale.setScalar(s);
-    dummy.rotation.y = Math.random() * Math.PI;
+    dummy.rotation.y = ry;
     dummy.updateMatrix();
-    pines.setMatrixAt(placed, dummy.matrix);
-    dummy.position.y = 0.8;
-    dummy.scale.set(s, 1, s);
-    dummy.rotation.y = 0;
-    dummy.updateMatrix();
-    trunks.setMatrixAt(placed, dummy.matrix);
-    placed++;
+    mesh.setMatrixAt(idx, dummy.matrix);
+    tint.setRGB(tv * 0.95, tv, tv * 0.97); // 冷月光下逐棵微差
+    mesh.setColorAt(idx, tint);
   }
-  pines.count = placed;
-  trunks.count = placed;
-  group.add(pines, trunks);
+  pinesHero.count = nHero;
+  pinesFar.count = nFar;
+  if (pinesHero.instanceColor) pinesHero.instanceColor.needsUpdate = true;
+  if (pinesFar.instanceColor) pinesFar.instanceColor.needsUpdate = true;
+  group.add(pinesHero, pinesFar);
 
   // ============================================================
   // ① 林间空地 —— 红帷幕之门
@@ -280,57 +296,62 @@ export function build(ctx) {
     xform(new THREE.CylinderGeometry(0.028, 0.045, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
     xform(new THREE.CylinderGeometry(0.02, 0.035, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05)
   ], barkMat));
+  // v1.10：夜鸮换 Blender 权威细模档（gen_owl.py 烘焙）——
+  // 躯干横斑/折翼羽排/尾扇勾爪 + 独立颈枢轴头件；E → 只有头
+  // 无声拧过来对准你（身体一动不动），凝视里带一点歪头蠕变
   const owl = new THREE.Group();
-  const owlBody = new THREE.Mesh(
-    new THREE.LatheGeometry([
-      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.09, 0.02), new THREE.Vector2(0.115, 0.12),
-      new THREE.Vector2(0.095, 0.24), new THREE.Vector2(0.07, 0.3), new THREE.Vector2(0.075, 0.34),
-      new THREE.Vector2(0.05, 0.38), new THREE.Vector2(0.001, 0.39)
-    ], 12),
-    new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 })
-  );
-  const tuftGeo = new THREE.ConeGeometry(0.018, 0.05, 6);
-  owl.add(owlBody, mergedMesh([
-    xform(tuftGeo, -0.045, 0.4, 0, 0, 0, 0.25),
-    xform(tuftGeo, 0.045, 0.4, 0, 0, 0, -0.25)
-  ], owlBody.material));
+  const featherMat = new THREE.MeshStandardMaterial({
+    color: 0x4d3826, roughness: 0.92, vertexColors: true
+  });
+  const owlBody = new THREE.Mesh(cylUV(blendGeo('owl/body'), 2), featherMat);
+  const owlHead = new THREE.Group();
+  owlHead.add(new THREE.Mesh(cylUV(blendGeo('owl/head'), 2), featherMat));
   const eyeMat = new THREE.MeshStandardMaterial({
     color: 0x050403, emissive: 0xffb45e, emissiveIntensity: 1.15
   });
-  const eyes = mergedMesh([
-    xform(new THREE.SphereGeometry(0.02, 8, 6), -0.035, 0.315, 0.075),
-    xform(new THREE.SphereGeometry(0.02, 8, 6), 0.035, 0.315, 0.075)
-  ], eyeMat);
-  owl.add(eyes);
+  // 眼球坐进烘焙眼窝暗腔（gen_owl.py 挂点 ±0.048, 0.065, 0.058）
+  owlHead.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.018, 8, 6), -0.048, 0.065, 0.058),
+    xform(new THREE.SphereGeometry(0.018, 8, 6), 0.048, 0.065, 0.058)
+  ], eyeMat));
+  owlHead.position.y = 0.335; // 颈枢轴（烘焙头件局部原点）
+  owl.add(owlBody, owlHead);
   owl.position.set(0.62, 3.12, 0.12);
   owl.rotation.y = 0.5;
   snag.add(owl);
   snag.position.set(-6.3, 0, 5.7);
   group.add(snag);
   const owlState = { t: -1, blink: 0 };
+  const headAim = Math.atan2(6.3 - 0.62, -5.7 - 0.12) - 0.5; // 头局部偏航：拧向空地中心
   updaters.push((dt, t) => {
     // 偶发眨眼（微光一灭一亮）
     owlState.blink = Math.random() < dt * 0.12 ? 0.18 : Math.max(0, owlState.blink - dt);
     if (owlState.t < 0) {
       eyeMat.emissiveIntensity = owlState.blink > 0 ? 0.06 : 1.15 + Math.sin(t * 1.3) * 0.18;
+      owlHead.rotation.y += (0 - owlHead.rotation.y) * Math.min(1, dt * 1.2);
+      owlHead.rotation.z += (0 - owlHead.rotation.z) * Math.min(1, dt * 1.2);
       return;
     }
     owlState.t += dt;
     const k = owlState.t;
-    if (k >= 3.2) { owlState.t = -1; return; }
-    eyeMat.emissiveIntensity = 1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.2));
-    // 头（整只）无声转过来对准空地中心，再缓缓转回去
-    const face = Math.atan2(6.3 - 0.62, -5.7 - 0.12);
-    const aim = k < 2.2 ? face : 0.5;
-    owl.rotation.y += (aim - owl.rotation.y) * Math.min(1, dt * (k < 0.6 ? 10 : 1.4));
+    if (k >= 3.4) { owlState.t = -1; return; }
+    eyeMat.emissiveIntensity = 1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.4));
+    // 只有头拧过来（身体纹丝不动），凝视时带一点缓慢歪头
+    const aim = k < 2.4 ? headAim : 0;
+    owlHead.rotation.y += (aim - owlHead.rotation.y) * Math.min(1, dt * (k < 0.6 ? 9 : 1.4));
+    owlHead.rotation.z = (k > 0.8 && k < 2.4) ? Math.sin((k - 0.8) * 1.9) * 0.16 : owlHead.rotation.z * (1 - Math.min(1, dt * 3));
   });
+  const owlStare = () => {
+    if (owlState.t < 0) owlState.t = 0;
+    audio.sfxAt('flutter', -6.3, 5.7, 0.7, 5);
+    setTimeout(() => audio.sfxAt('owl', -6.3, 5.7, 0.5, 6), 900);
+    ui.caption('它先看见你的。', 3200);
+  };
   hotspots.add(owlBody, {
     hint: 'E — 树梢上的一双眼睛',
     onActivate: () => {
-      if (owlState.t < 0) owlState.t = 0;
-      audio.sfxAt('flutter', -6.3, 5.7, 0.7, 5);
-      setTimeout(() => audio.sfxAt('owl', -6.3, 5.7, 0.5, 6), 900);
-      ui.caption('它先看见你的。', 3200);
+      owlStare();
+      ui.docentNote('他镜头里的鸮总在看，从不出声。');
     }
   });
   const cupSteam = smokeLayer(6, { x: 0.1, z: 0.1 }, { opacity: 0.06, size: 0.5, yBase: 0.9, ySpread: 0.5, color: 0xffffff });
@@ -342,6 +363,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('sip');
       ui.caption('热咖啡。趁热。', 3200);
+      ui.docentNote('他一天喝许多杯咖啡，说好点子常跟着咖啡一起来。');
     }
   });
   // v1.5：空地边缘的倒木 + 一台对讲机（谁留下的？频道还开着）
@@ -369,6 +391,35 @@ export function build(ctx) {
   const fogLayer = smokeLayer(120, { x: 70, z: 70 }, { opacity: 0.045, size: 17, yBase: 0.25, ySpread: 1.2, color: 0x8da4ad });
   group.add(fogLayer);
   updaters.push(fogLayer.userData.update);
+  // v1.9 巡检修正：地表雾不进 diner——雾毯 70×70 盖住全镇，落在
+  // diner 室内体积的雾片会把柜台罩成一片奶白（穿帮，柜台/吧凳全糊）。
+  // 初始位置重掷出室内；雾毯的慢自转还会把边缘雾片再送进来，
+  // 故呼吸更新器旁加一道世界坐标守卫（120 片/帧，代价可忽略）。
+  const FOG_EXCL = { minX: 26.6, maxX: 32.2, minZ: -12.8, maxZ: -2.8 };
+  const inFogExcl = (x, z) => x > FOG_EXCL.minX && x < FOG_EXCL.maxX && z > FOG_EXCL.minZ && z < FOG_EXCL.maxZ;
+  {
+    const p = fogLayer.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      while (inFogExcl(p.array[i * 3], p.array[i * 3 + 2])) {
+        p.array[i * 3] = (Math.random() - 0.5) * 70;
+        p.array[i * 3 + 2] = (Math.random() - 0.5) * 70;
+      }
+    }
+  }
+  updaters.push(() => {
+    const c = Math.cos(fogLayer.rotation.y);
+    const s = Math.sin(fogLayer.rotation.y);
+    const p = fogLayer.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const lx = p.array[i * 3];
+      const lz = p.array[i * 3 + 2];
+      if (inFogExcl(lx * c + lz * s, -lx * s + lz * c)) {
+        p.array[i * 3] = -lx;   // 镜像到雾毯对侧：远离视野，软雾片无感知
+        p.array[i * 3 + 2] = -lz;
+        p.needsUpdate = true;
+      }
+    }
+  });
   // v1.4 六遍：萤火虫 v2——从「发光的灰」升级成真萤火：每只有自己的闪烁相位
   // （sin^8 尖脉冲、几秒一亮）+ 低空慢游走（不再像灰尘那样往下落）
   const ffCount = 44;
@@ -474,6 +525,7 @@ export function build(ctx) {
     onActivate: () => {
       rrState.warm = rrState.warm ? 0 : 1;
       audio.sfx(rrState.warm ? 'lampon' : 'lampoff');
+      ui.docentNote('红房间的台词先倒着念、再倒放，语调因此漂浮。');
     }
   });
   // 两椅之间的独脚小圆桌 + 一杯没主的咖啡
@@ -672,10 +724,12 @@ export function build(ctx) {
     townLamps.push({ bulbMat: lamp.userData.bulbMat, light: lamp.userData.light });
   }
   updaters.push((dt, t) => {
+    // nightFreq.town：夜频事件的街口收暗拍（diner 先、街口滞后一拍）
+    const dim = 1 - nightFreq.town * 0.85;
     for (const [i, L] of townLamps.entries()) {
       const f = Math.sin(t * 14 + i * 5) > 0.94 ? 0.3 : 1;
-      L.light.intensity = 8 * f;
-      L.bulbMat.emissiveIntensity = 3 * f;
+      L.light.intensity = 8 * f * dim;
+      L.bulbMat.emissiveIntensity = 3 * f * dim;
     }
   });
 
@@ -947,7 +1001,9 @@ export function build(ctx) {
     xform(new THREE.BoxGeometry(0.1, 0.06, 3.36), 27.22, 3.0, -10.6)
   ];
   facade.add(mergedMesh(trimGeos, new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.8 })));
-  const windowLight = new THREE.PointLight(0xffca7a, 6, 9, 1.8);
+  // v1.9 巡检修正：窗光只管街面暖溢（range 9 会隔墙灌进 diner 室内，
+  // 与柜台吊灯叠成奶白过曝——探针逐盏关灯定位）
+  const windowLight = new THREE.PointLight(0xffca7a, 6, 4.5, 1.8);
   windowLight.position.set(26.4, 2.0, -10.6);
   facade.add(windowLight);
   // 右半立面：拉了百叶的暗窗（打破整面空砖墙）
@@ -1045,16 +1101,19 @@ export function build(ctx) {
     color: 0x201408, emissive: 0xffd9a0, emissiveIntensity: 2.6
   });
   dinerInner.add(mergedMesh(bulbGeos, dinerBulbMat));
-  const pendantA = new THREE.PointLight(0xffce8e, 3.4, 6, 1.8);
+  // v1.9 巡检修正：吊灯压回暖光小池（3.4→2.1 / 射程 6→5）——层压板
+  // 台面奶油色反照率高，叠灯后整条柜台越过 bloom 阈值糊成奶白
+  const pendantA = new THREE.PointLight(0xffce8e, 2.1, 5, 1.8);
   pendantA.position.set(30.4, 2.3, -6.3);
-  const pendantB = new THREE.PointLight(0xffce8e, 3.4, 6, 1.8);
+  const pendantB = new THREE.PointLight(0xffce8e, 2.1, 5, 1.8);
   pendantB.position.set(30.4, 2.3, -9.3);
   dinerInner.add(pendantA, pendantB);
   updaters.push((dt, t) => {
     const w = 1 + Math.sin(t * 3.1) * 0.04 + Math.sin(t * 12.7) * 0.02;
-    dinerBulbMat.emissiveIntensity = 2.6 * w;
-    pendantA.intensity = 3.4 * w;
-    pendantB.intensity = 3.4 * w;
+    const dim = 1 - nightFreq.diner * 0.85; // 夜频事件：diner 先收暗
+    dinerBulbMat.emissiveIntensity = 2.6 * w * dim;
+    pendantA.intensity = 2.1 * w * dim;
+    pendantB.intensity = 2.1 * w * dim;
   });
   // 东墙字排菜单板（黑底白字条：通用小食与价目，零商标）
   const menuBoardTex = canvasTexture(256, (g, s) => {
@@ -1200,6 +1259,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('chime', 0.6);
       ui.caption('今天的派还没卖完。', 3200);
+      ui.docentNote('取景的华盛顿州小镇餐馆，如今仍在卖樱桃派。');
     }
   });
   // 咖啡壶（保温座 + 玻璃壶）
@@ -1320,6 +1380,77 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.9 讲解层 + 彩蛋：柜台收音机（Blender 大教堂细模档 gen_radio.py）
+  // E → 调台：指针滑向新频点、表盘泛暖，静电里浮出一段深夜访谈
+  // 重播（林奇公开访谈短引语轮播——收音机是本厅的「访谈触发器」）。
+  // 45s 内连调三次 → 夜频事件 night-frequency：整座镇的灯分两拍
+  // 收暗（diner 先、街口滞后一拍再一起亮回）、电话亭应了一声铃、
+  // 远处一记鸮鸣——深夜广播传得比想象远。冒烟名 night-frequency。
+  // ============================================================
+  const NIGHT_AIR = [
+    '「谜越是不可知，就越美。」——他在著作里写',
+    '「我们都像生活里的侦探。」——公开访谈',
+    '「就在表面底下，还有另一个世界。」——公开访谈',
+    '「我爱看人从黑暗里走出来。」——公开访谈',
+    // v1.10 深夜档补两条
+    '「对点子的渴望就像鱼饵。」——他在著作里写',
+    '「把世界理出头绪的只有直觉。」——公开访谈'
+  ];
+  const dinerRadio = radioCabinet({ mats: M });
+  dinerRadio.position.set(31.02, 1.11, -4.98);
+  dinerRadio.rotation.y = -Math.PI / 2 + 0.12; // 面朝吧凳，微微偏向柜台纵深
+  dinerInner.add(dinerRadio);
+  const radioAir = { warm: 0, needleTo: 0.14, idx: 0, presses: [], clock: 0 };
+  const nightFreq = { t: -1, cool: 0, town: 0, diner: 0 };
+  const runNightFreq = () => {
+    if (nightFreq.t >= 0 || nightFreq.cool > 0) return;
+    nightFreq.t = 0;
+    nightFreq.cool = 90;
+    audio.duck(2.4, 0.12, 3.2);
+    audio.sfxAt('radio', 31.0, -5.0, 0.9, 9);
+    later(() => ui.caption('整座镇都在听。', 4000), 1300);
+    later(() => audio.sfxAt('phonering', 26.5, 1.1, 0.5, 14), 3000);
+    later(() => audio.sfxAt('owl', -18, 22, 0.55, 32), 5200);
+  };
+  updaters.push((dt, t) => {
+    radioAir.clock = t;
+    if (radioAir.warm > 0) radioAir.warm -= dt;
+    const lit = radioAir.warm > 0 || nightFreq.t >= 0;
+    dinerRadio.userData.dialMat.emissiveIntensity = lit ? 0.9 + Math.sin(t * 3.1) * 0.18 : 0.2;
+    dinerRadio.userData.needle.position.x +=
+      (radioAir.needleTo - dinerRadio.userData.needle.position.x) * Math.min(1, dt * 2.4);
+    if (nightFreq.cool > 0) nightFreq.cool -= dt;
+    if (nightFreq.t < 0) return;
+    nightFreq.t += dt;
+    const u = nightFreq.t;
+    // 两拍波包络：起拍 t0 → 1.2s 内压满 → 5.2s 起 2.2s 内一起亮回
+    const envAt = (t0) => u < t0 ? 0
+      : u < t0 + 1.2 ? (u - t0) / 1.2
+        : u < 5.2 ? 1 : Math.max(0, 1 - (u - 5.2) / 2.2);
+    nightFreq.diner = envAt(0.4);
+    nightFreq.town = envAt(1.6);
+    if (u > 8) { nightFreq.t = -1; nightFreq.diner = 0; nightFreq.town = 0; }
+  });
+  hotspots.add(dinerRadio.userData.body, {
+    hint: 'E — 柜台收音机（深夜档）',
+    onActivate: () => {
+      radioAir.warm = 7;
+      radioAir.needleTo = 0.075 + Math.random() * 0.13;
+      audio.sfxAt('radio', 31.0, -5.0, 0.7, 5);
+      const line = NIGHT_AIR[radioAir.idx % NIGHT_AIR.length];
+      radioAir.idx += 1;
+      later(() => ui.caption('📻 ' + line, 5200), 1000);
+      if (radioAir.idx === 1) ui.docentNote('归来季里，他亲自演了一位联邦调查局副局长。');
+      radioAir.presses.push(radioAir.clock);
+      if (radioAir.presses.length > 3) radioAir.presses.shift();
+      if (radioAir.presses.length === 3 &&
+        radioAir.presses[2] - radioAir.presses[0] < 45 && nightFreq.cool <= 0) {
+        later(runNightFreq, 1800);
+      }
+    }
+  });
+
   // 靠窗卡座（对坐高背红皮长凳 + 铬柱层压桌 + 百叶暗窗 + 咖啡）
   const boothVinyl = new THREE.MeshPhysicalMaterial({
     color: 0x7e1220, roughness: 0.48, sheen: 0.6, sheenColor: new THREE.Color(0xff8090),
@@ -1399,12 +1530,10 @@ export function build(ctx) {
     }
   });
 
-  // 吊灯 ×2
-  for (const z of [-9.5, -6.1]) {
-    const dl = new THREE.PointLight(0xffca7a, 4.5, 6, 1.8);
-    dl.position.set(30.2, 3.2, z);
-    dinerInner.add(dl);
-  }
+  // v1.9 巡检修正：删遗留「吊灯 ×2」补光对（4.5×2，与 pendantA/B 重复
+  // 照明同一段柜台）——六盏点光叠在奶油色层压板上把整条柜台/白纹
+  // 地砖灌成奶白过曝，红皮吧凳顶面全被洗白。珐琅罩吊灯 pendantA/B
+  // 才是光的来处（有灯具、有颤动），补光对无灯具凭空发光，一并退场。
   town.add(dinerInner);
   group.add(town);
 
@@ -1697,6 +1826,64 @@ export function build(ctx) {
   millSmoke.position.set(32.5, 0, -37);
   overlook.add(millSmoke);
   updaters.push(millSmoke.userData.update);
+
+  // ============================================================
+  // v1.8 彩蛋：厂笛拉杆——栏杆头上一支黄铜信号拉杆（旧厂区遗物，
+  // 线还通着）。E → 拉杆压下：远处锯木厂应一声汽笛、烟囱猛吐一大口，
+  // 值夜室的窗亮了几秒又灭（有人被吵醒看了一眼）。冒烟名 mill-whistle。
+  // ============================================================
+  const millWin = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.85, 0.6),
+    new THREE.MeshBasicMaterial({ color: 0xffb45e, transparent: true, opacity: 0, fog: false })
+  );
+  millWin.position.set(27.4, 2.3, -34.96);
+  overlook.add(millWin);
+  const wPost = new THREE.Group();
+  wPost.add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.0, 0.09),
+    new THREE.MeshStandardMaterial({ color: 0x1b120a, roughness: 0.85 })));
+  wPost.children[0].position.y = 0.5;
+  const wLever = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.02, 0.4, 8), M.brass);
+  wLever.geometry.translate(0, 0.2, 0);
+  wLever.position.set(0, 0.98, 0);
+  wLever.rotation.x = -0.7;
+  const wKnob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x5c1010, roughness: 0.4 }));
+  wKnob.position.set(0, 1.36, 0.26);
+  wPost.add(wLever, wKnob);
+  wPost.position.set(15.6, 0.16, -28.1);
+  overlook.add(wPost);
+  const millCall = { t: -1 };
+  const runMillWhistle = () => {
+    if (millCall.t >= 0) return;
+    millCall.t = 0;
+    audio.sfx('switch', 0.4);
+    setTimeout(() => audio.sfxAt('steamfar', 30, -38, 0.9, 30), 420);
+    setTimeout(() => ui.caption('锯木厂醒了一秒。', 3200), 1400);
+    ui.docentNote('外景取自华盛顿州的小瀑布镇。');
+  };
+  updaters.push((dt) => {
+    if (millCall.t < 0) return;
+    millCall.t += dt;
+    const u = millCall.t;
+    // 拉杆压下回弹；烟囱吐一大口；值夜室窗 1.4s 亮起 → 5s 后熄
+    const press = u < 0.5 ? u / 0.5 : Math.max(0, 1 - (u - 0.5) / 0.8);
+    wLever.rotation.x = -0.7 + press * 1.1;
+    wKnob.position.z = 0.26 - press * 0.24;
+    wKnob.position.y = 1.36 - press * 0.1;
+    millSmoke.material.opacity = 0.05 + Math.exp(-((u - 1.2) ** 2) / 0.8) * 0.14;
+    millWin.material.opacity = u > 1.4 && u < 5 ? Math.min(0.8, (u - 1.4) * 2) : Math.max(0, 0.8 - (u - 5) * 1.6);
+    if (u > 6.2) {
+      millCall.t = -1;
+      millWin.material.opacity = 0;
+      millSmoke.material.opacity = 0.05;
+      wLever.rotation.x = -0.7;
+      wKnob.position.set(0, 1.36, 0.26);
+    }
+  });
+  hotspots.add(wKnob, {
+    hint: 'E — 厂笛拉杆',
+    onActivate: runMillWhistle
+  });
   group.add(overlook);
 
   // ============================================================
@@ -1791,7 +1978,11 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'stone-circle': groveTrig, 'falls-vigil': vigilTrig, 'walkie-duet': { force: runDuet } },
+    eggs: {
+      'stone-circle': groveTrig, 'falls-vigil': vigilTrig,
+      'walkie-duet': { force: runDuet }, 'mill-whistle': { force: runMillWhistle },
+      'night-frequency': { force: runNightFreq }, 'owl-watch': { force: owlStare }
+    },
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
 }

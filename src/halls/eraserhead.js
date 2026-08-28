@@ -488,6 +488,7 @@ export function build(ctx) {
       audio.sfx('clank');
       setTimeout(() => audio.sfx('steam'), 260);
       lever.rotation.z = lever.rotation.z < 0 ? 0.4 : -0.4;
+      ui.docentNote('片中的工业声景，是他和音效师斯普莱特逐层做出来的。');
     }
   });
 
@@ -572,6 +573,59 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.8 彩蛋：工厂对讲机——北墙管道之间一只铸铁话箱（格栅 +
+  // 呼叫钮 + 红指示灯）。E → 咔哒 + 静电床；1.3s 后「楼下」应了
+  // 一声远门闷响，锅炉房三块压力表同时乱跳（这栋楼真的有人值班）。
+  // 冒烟名 intercom-reply。
+  // ============================================================
+  const intercom = new THREE.Group();
+  intercom.add(roundedBoxMesh(0.3, 0.42, 0.1, 0.02, pipeMat));
+  const grilleGeos = [];
+  for (let gy = -1; gy <= 1; gy++) {
+    grilleGeos.push(xform(new THREE.BoxGeometry(0.2, 0.018, 0.012), 0, 0.06 + gy * 0.045, 0.052));
+  }
+  intercom.add(mergedMesh(grilleGeos, new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.6, metalness: 0.5 })));
+  const callBtn = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.028, 0.032, 0.03, 10),
+    new THREE.MeshStandardMaterial({ color: 0x2c2620, roughness: 0.45, metalness: 0.6 }));
+  callBtn.rotation.x = Math.PI / 2;
+  callBtn.position.set(0, -0.12, 0.055);
+  intercom.add(callBtn);
+  const comPilotMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0505, emissive: 0xc42214, emissiveIntensity: 0.2, roughness: 0.5
+  });
+  const comPilot = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), comPilotMat);
+  comPilot.position.set(0.09, -0.12, 0.05);
+  intercom.add(comPilot);
+  intercom.position.set(1.9, 1.52, -S / 2 + 0.4);
+  group.add(intercom);
+  const comState = { t: -1 };
+  const callDown = () => {
+    if (comState.t >= 0 && comState.t < 2.4) return;
+    comState.t = 0;
+    audio.sfx('switch', 0.5);
+    audio.sfxAt('walkie', 1.9, -S / 2 + 0.5, 0.5, 4);
+    ui.caption('——咔。有人在听。', 2400);
+    setTimeout(() => {
+      audio.sfxAt('doorfar', -S / 2 - 4.5, 0, 0.85, 14);
+      pressure.surge = Math.max(pressure.surge, 2.6);
+      ui.caption('楼下应了一声。', 3000);
+      ui.docentNote('他在费城学画的年代住在工业区。');
+    }, 1300);
+  };
+  updaters.push((dt) => {
+    if (comState.t < 0) return;
+    comState.t += dt;
+    comPilotMat.emissiveIntensity = comState.t < 2.2 ? 1.8 + Math.sin(comState.t * 26) * 0.9 : 0.2;
+    callBtn.position.z = 0.055 - (comState.t < 0.25 ? 0.012 : 0);
+    if (comState.t > 6) comState.t = -1;
+  });
+  hotspots.add(intercom.children[0], {
+    hint: 'E — 工厂对讲机',
+    onActivate: callDown
+  });
+
   // 裸吊灯 —— 推一下就荡起来，光影跟着晃
   const swingBulb = hangingBulb(0xffe2b8, 2.5);
   swingBulb.position.set(1.9, H, -3.1);
@@ -622,6 +676,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('lullaby', 0.5);
       ui.caption('光的后面还有一层光。', 3600);
+      ui.docentNote('他称这是自己最有精神性的电影，谜底从未公布。');
     }
   });
 
@@ -907,6 +962,57 @@ export function build(ctx) {
   annexLamp.position.set(-S / 2 - 2.2, H - 1.4, 0);
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
+
+  // ============================================================
+  // v1.10 彩蛋：罐壁三敲——8 秒内敲三下罐壁，罐里那头顿了两拍，
+  // 从内侧回敲三下（更深更慢），随后余烬涨一口亮、蒸汽噗出一股、
+  // 三块压力表齐跳（这罐炉子听得见）。dt 节拍机，冒烟名 boiler-knock。
+  // ============================================================
+  const knock = { taps: [], t: -1, cool: 0, clock: 0, noted: false };
+  const runBoilerKnock = () => {
+    if (knock.t >= 0 || knock.cool > 0) return;
+    knock.t = 0;
+    knock.cool = 40;
+    audio.duck(1.6, 0.3, 2.2);
+  };
+  updaters.push((dt, t) => {
+    knock.clock = t;
+    if (knock.cool > 0) knock.cool -= dt;
+    if (knock.t < 0) return;
+    const prev = knock.t;
+    knock.t += dt;
+    const at = (m) => prev < m && knock.t >= m;
+    // 两拍死寂后，罐内回敲三下（错拍、一记比一记沉）
+    if (at(1.8)) audio.sfxAt('clank', -S / 2 - 4.6, 1.2, 0.42, 6);
+    if (at(2.75)) audio.sfxAt('clank', -S / 2 - 4.6, -0.9, 0.5, 6);
+    if (at(3.9)) audio.sfxAt('thud', -S / 2 - 4.6, 0, 0.95, 7);
+    if (at(4.2)) {
+      pressure.surge = Math.max(pressure.surge, 3.4);
+      audio.sfxAt('steam', -S / 2 - 3.6, 1.6, 0.65, 6);
+      ui.caption('里面回了三下。', 3600);
+    }
+    // 余烬涨一口亮再慢慢咽回去
+    emberMat.emissiveIntensity = 1.2 +
+      (knock.t > 3.9 ? Math.max(0, 1 - (knock.t - 3.9) / 2.6) * 1.7 : 0);
+    if (knock.t > 7.5) { knock.t = -1; emberMat.emissiveIntensity = 1.2; }
+  });
+  hotspots.add(boiler, {
+    hint: 'E — 敲一敲罐壁',
+    onActivate: () => {
+      audio.sfxAt('clank', -S / 2 - 4.2, 0.8, 0.7, 4);
+      if (!knock.noted) {
+        knock.noted = true;
+        ui.docentNote('这栋楼的底噪是他和音效师造出来的。');
+      }
+      knock.taps.push(knock.clock);
+      if (knock.taps.length > 3) knock.taps.shift();
+      if (knock.taps.length === 3 && knock.taps[2] - knock.taps[0] < 8 &&
+        knock.t < 0 && knock.cool <= 0) {
+        knock.taps.length = 0;
+        runBoilerKnock();
+      }
+    }
+  });
 
   // ---------- 煤角（v1.4 四遍）：炉子烧了五十年，煤终于进了场 ----------
   // 北墙投煤口 + 斜溜槽 → 锅炉腹侧煤堆（flatShading 晶面在余烬光里发亮）
@@ -1239,6 +1345,7 @@ export function build(ctx) {
       audio.sfxAt('stamp', S / 2 - 0.3, -3.05, 0.8, 3.5);
       setTimeout(() => audio.sfxAt('ratchet', S / 2 - 0.3, -3.05, 0.3, 3), 340);
       ui.caption('卡上打的都是同一分钟。', 4200);
+      ui.docentNote('《橡皮头》断续拍了五年，布景搭在废弃的马厩里。');
     }
   });
 
@@ -1478,6 +1585,9 @@ export function build(ctx) {
     // 脚步材质分区：锅炉房检修步道=钢格栅；其余=水泥
     surfaceAt: (x, z) => (x >= -S / 2 - 2.4 && x <= -S / 2 - 0.8 && z >= -2.5 && z <= 2.5 ? 'metal' : 'concrete'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'radiator-stage': radiatorTrig }
+    eggs: {
+      'radiator-stage': radiatorTrig, 'intercom-reply': { force: callDown },
+      'boiler-knock': { force: runBoilerKnock }
+    }
   };
 }

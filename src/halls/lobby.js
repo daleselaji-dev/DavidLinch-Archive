@@ -289,6 +289,7 @@ export function build(ctx) {
       if (first) {
         audio.sfxAt('crank', 4.6, 2.4, 0.9);
         narration.jazz.setEnabled(true);
+        ui.docentNote('他与作曲家巴达拉门蒂合作三十年，音乐总先于画面。');
         ui.caption('黄铜喇叭醒了。', 3200);
       }
     }
@@ -322,6 +323,7 @@ export function build(ctx) {
     onActivate: () => {
       audio.sfx('chime');
       ui.caption('一卷空白胶片。深水里还有没捞上来的鱼。', 4600);
+      ui.docentNote('晚年他仍在写剧本，许多构想只留在笔记与访谈里。');
     }
   });
 
@@ -429,6 +431,93 @@ export function build(ctx) {
       audio.sfx('chime', 0.28);
       if (placed.n === 1) ui.caption('给他留一支花。', 3200);
       else if (placed.n === 7) ui.caption('碑前放满了花。', 3200);
+    }
+  });
+
+  // ============================================================
+  // v1.10 彩蛋：守夜烛台——碑旁一座黄铜三烛台。E 逐支点亮
+  // （火柴声 + 火苗腾起 + 烛光池渐暖）；第三支亮起时，六扇门
+  // 依次低低应了一拍光、帷幕后有人换了口气（守夜连锁）。
+  // 三支全亮再按 E 吹熄复位。dt 节拍机，冒烟名 candle-vigil。
+  // ============================================================
+  const votive = new THREE.Group();
+  const votiveTray = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.19, 0), new THREE.Vector2(0.17, 0.03), new THREE.Vector2(0.05, 0.07),
+      new THREE.Vector2(0.045, 0.72), new THREE.Vector2(0.2, 0.8), new THREE.Vector2(0.22, 0.85),
+      new THREE.Vector2(0.205, 0.87)
+    ], 16), M.brass
+  );
+  votive.add(votiveTray);
+  const waxMat = new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.55 });
+  const flameMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0d04, emissive: 0xffb45e, emissiveIntensity: 3.2, toneMapped: false
+  });
+  const candleXZ = [[-0.1, 0.02], [0.02, -0.09], [0.1, 0.07]];
+  const flames = [];
+  const waxGeos = [];
+  candleXZ.forEach(([cx, cz], i) => {
+    const h = 0.16 - i * 0.03; // 三支高矮不齐（烧过的样子）
+    waxGeos.push(xform(new THREE.CylinderGeometry(0.018, 0.02, h, 8), cx, 0.87 + h / 2, cz));
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.05, 6), flameMat);
+    f.position.set(cx, 0.87 + h + 0.035, cz);
+    f.visible = false;
+    votive.add(f);
+    flames.push(f);
+  });
+  votive.add(mergedMesh(waxGeos, waxMat));
+  const candleGlow = new THREE.PointLight(0xffa04a, 0, 3.4, 2.0);
+  candleGlow.position.set(0, 1.15, 0);
+  votive.add(candleGlow);
+  votive.position.set(-2.6, 0, 1.7);
+  group.add(votive);
+  const candleState = { lit: 0 };
+  const vigil = { t: -1, cool: 0 };
+  const runVigil = () => {
+    if (vigil.t >= 0 || vigil.cool > 0) return;
+    vigil.t = 0;
+    vigil.cool = 50;
+    audio.duck(1.4, 0.35, 2.0);
+  };
+  updaters.push((dt, t) => {
+    // 烛光池与火苗呼吸
+    candleGlow.intensity += (candleState.lit * 1.15 - candleGlow.intensity) * Math.min(1, dt * 5);
+    if (candleState.lit > 0) {
+      candleGlow.intensity *= 1 + Math.sin(t * 11.7) * 0.06;
+      for (const f of flames) if (f.visible) f.scale.y = 1 + Math.sin(t * 13 + f.position.x * 40) * 0.22;
+    }
+    if (vigil.cool > 0) vigil.cool -= dt;
+    if (vigil.t < 0) return;
+    const prev = vigil.t;
+    vigil.t += dt;
+    // 六扇门依次低低亮一拍，再一起退回去
+    const fade = Math.max(0, 1 - Math.max(0, vigil.t - 2.8) / 1.3);
+    doorPortals.forEach((p, i) => {
+      const k = Math.max(0, Math.min(1, (vigil.t - 0.35 - i * 0.24) * 3.2));
+      p.material.emissiveIntensity = 0.13 + k * 1.25 * fade;
+    });
+    if (prev < 1.2 && vigil.t >= 1.2) audio.sfxAt('whisper', 0, -7.5, 0.42, 11);
+    if (prev < 2.0 && vigil.t >= 2.0) ui.caption('门也在守夜。', 3000);
+    if (vigil.t > 4.4) vigil.t = -1;
+  });
+  hotspots.add(votiveTray, {
+    hint: 'E — 守夜烛台',
+    onActivate: () => {
+      if (candleState.lit < 3) {
+        flames[candleState.lit].visible = true;
+        candleState.lit += 1;
+        audio.sfxAt('strike', -2.6, 1.7, 0.6, 3);
+        if (candleState.lit === 1) {
+          ui.caption('给他点一支烛。', 3000);
+          ui.docentNote('他走后，各地影迷点了整夜的烛。');
+        }
+        if (candleState.lit === 3) setTimeout(runVigil, 650);
+      } else {
+        candleState.lit = 0;
+        for (const f of flames) f.visible = false;
+        audio.sfx('lampoff', 0.4);
+        ui.caption('三支一起吹熄。', 2600);
+      }
     }
   });
 
@@ -629,6 +718,7 @@ export function build(ctx) {
       audio.sfxAt('creak', 5.1, -3.1, 0.3, 3);
       setTimeout(() => audio.sfx('whisper', 0.35), 500);
       ui.caption('扣子系到最上面一颗。他总是这样。', 3800);
+      ui.docentNote('他多年只穿一种搭配：扣到领口的白衬衫和深色外套。');
     }
   });
 
@@ -812,11 +902,112 @@ export function build(ctx) {
     kn.rotation.z += (targetRz - kn.rotation.z) * Math.min(1, dt * 9);
   });
 
+  // ============================================================
+  // v1.8 博物馆导览架：车削立柱 + 斜面台 + 三支胶木听筒挂黄铜钩 +
+  // 琥珀指示灯。E → 摘听筒：咔哒 + 调谐静电 + 一段馆方讲解
+  // （三段轮换，全为公开事实）；三段听全 → 吊灯轻轻压暗又亮起 +
+  // 帷幕后一声耳语（这座馆自己应了一声）。冒烟名 audio-guide。
+  // ============================================================
+  const guideStand = new THREE.Group();
+  const guideWood = new THREE.MeshStandardMaterial({ color: 0x1c1009, roughness: 0.5 });
+  guideStand.add(new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.24, 0), new THREE.Vector2(0.22, 0.04), new THREE.Vector2(0.055, 0.1),
+      new THREE.Vector2(0.04, 0.95), new THREE.Vector2(0.07, 1.02)
+    ], 12), guideWood));
+  // 斜面台（讲解铭牌面板）+ 黄铜边条
+  const guideTop = mergedMesh([
+    xform(new THREE.BoxGeometry(0.52, 0.05, 0.36), 0, 1.08, 0, -0.32, 0, 0),
+    xform(new THREE.BoxGeometry(0.54, 0.012, 0.03), 0, 1.026, 0.164, -0.32, 0, 0)
+  ], guideWood);
+  guideStand.add(guideTop);
+  // 三支胶木听筒（听柄 + 双碗）挂在斜台前沿的黄铜钩上
+  const bakelite = new THREE.MeshStandardMaterial({ color: 0x121114, roughness: 0.35, envMapIntensity: 0.7 });
+  const hookGeosG = [];
+  const handsetMeshes = [];
+  for (let i = 0; i < 3; i++) {
+    const hx = (i - 1) * 0.17;
+    hookGeosG.push(xform(new THREE.TorusGeometry(0.02, 0.006, 6, 10), hx, 1.0, 0.19, Math.PI / 2, 0, 0));
+    const hs = mergedMesh([
+      xform(new THREE.CylinderGeometry(0.016, 0.016, 0.15, 8), 0, 0, 0, 0, 0, 0),
+      xform(new THREE.SphereGeometry(0.032, 10, 8), 0, 0.085, 0.008),
+      xform(new THREE.SphereGeometry(0.032, 10, 8), 0, -0.085, 0.008)
+    ], bakelite);
+    hs.position.set(hx, 0.9, 0.2);
+    hs.rotation.x = 0.1;
+    guideStand.add(hs);
+    handsetMeshes.push(hs);
+  }
+  guideStand.add(mergedMesh(hookGeosG, M.brass));
+  // 琥珀指示灯（讲解播放时呼吸）
+  const guidePilotMat = new THREE.MeshStandardMaterial({
+    color: 0x2a1602, emissive: 0xff9a2e, emissiveIntensity: 0.25, roughness: 0.4
+  });
+  const guidePilot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), guidePilotMat);
+  guidePilot.position.set(0.2, 1.13, -0.05);
+  guideStand.add(guidePilot);
+  guideStand.position.set(-1.9, 0, 7.7);
+  guideStand.rotation.y = Math.atan2(1.9, -7.7) + Math.PI;
+  group.add(guideStand);
+  // 讲解词（馆方口吻，全为公开事实；单条 ≤28 字防说教）
+  const guideState = { t: -1, idx: 0, heard: new Set(), dip: 1, handset: null };
+  const GUIDE_CAPS = ['——沙沙。一号讲解。', '——沙沙。二号讲解。', '——沙沙。三号讲解。'];
+  const playGuide = () => {
+    const i = guideState.idx;
+    guideState.idx = (guideState.idx + 1) % 3;
+    guideState.t = 0;
+    guideState.handset = handsetMeshes[i];
+    audio.sfx('click', 0.7);
+    audio.sfxAt('radio', -1.9, 7.7, 0.5, 3);
+    ui.caption(GUIDE_CAPS[i], 2600);
+    if (i === 0) ui.docentNote('他 1946 年生于蒙大拿州米苏拉。');
+    if (i === 1) ui.docentNote('拍电影之前，他在费城学画。');
+    if (i === 2) ui.docentNote('这座馆里没有一帧原作画面。');
+    guideState.heard.add(i);
+    if (guideState.heard.size === 3) {
+      guideState.heard.clear();
+      // 连锁：吊灯压暗又亮起 + 帷幕后一声耳语——馆自己应了一声
+      guideState.dip = 0.12;
+      setTimeout(() => audio.sfx('whisper', 0.5), 900);
+      setTimeout(() => ui.caption('帷幕后有人听完了。', 3600), 1300);
+    }
+  };
+  hotspots.add(guideTop, {
+    hint: 'E — 导览讲解架',
+    onActivate: playGuide
+  });
+  updaters.push((dt, t) => {
+    // 指示灯呼吸 + 被摘听筒轻晃；连锁压暗指数回弹
+    if (guideState.t >= 0) {
+      guideState.t += dt;
+      guidePilotMat.emissiveIntensity = 1.6 + Math.sin(t * 9) * 0.7;
+      if (guideState.handset) {
+        guideState.handset.rotation.z = Math.sin(guideState.t * 6.5) * 0.16 * Math.max(0, 1 - guideState.t * 0.35);
+      }
+      if (guideState.t > 3.4) {
+        guideState.t = -1;
+        guidePilotMat.emissiveIntensity = 0.25;
+        if (guideState.handset) { guideState.handset.rotation.z = 0; guideState.handset = null; }
+      }
+    }
+    guideState.dip += (1 - guideState.dip) * Math.min(1, dt * 1.6);
+    if (guideState.dip < 0.999) center.intensity *= guideState.dip;
+  });
+
   return {
     group,
     spawn: { x: 0, z: 8.6, yaw: 0 },
     bounds: circleBounds(R - 2.4),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'curtain-whisper': whisperTrig }
+    eggs: {
+      'curtain-whisper': whisperTrig, 'audio-guide': { force: playGuide },
+      'candle-vigil': {
+        force: () => {
+          candleState.lit = 3;
+          for (const f of flames) f.visible = true;
+          runVigil();
+        }
+      }
+    }
   };
 }

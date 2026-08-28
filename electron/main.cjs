@@ -61,8 +61,10 @@ function createWindow() {
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
         // 输出场景统计并校验性能预算（QUALITY_GATES 22 / v1.4 门禁 30：
         // PS5-tier 预算按 PRODUCTION_PLAN §6 上调至
-        // meshes ≤ 240 / tris ≤ 240k / 动态光源 ≤ 40，仍为硬门禁）
-        const MESH_BUDGET = 240;
+        // meshes ≤ 250 / tris ≤ 240k / 动态光源 ≤ 40，仍为硬门禁）
+        // v1.10：mesh 预算 240→250（大厅守夜烛台 + 档案缩微阅读器小件；
+        // tris / lights 预算不动）
+        const MESH_BUDGET = 250;
         const TRI_BUDGET = 240000;
         const LIGHT_BUDGET = 40;
         win.webContents.executeJavaScript(
@@ -93,9 +95,15 @@ function createWindow() {
         // v1.4 终版普查 -1（实测 12/23/14/14/16/14/16）
         // v1.4 五遍后普查：13/24/16/15/17/15/17（合计 117）——阈值锁普查-1
         // v1.5：twinpeaks 对讲机 ×2（18→20）——阈值 17→19；其余不变
+        // v1.8：七厅各 +1（导览架/年份巡礼/工厂对讲机/返听音箱/
+        //       厂笛拉杆/霓虹检修箱/松节油罐）——阈值全线 +1
+        // v1.9：bluevelvet 谱架歌单（stage-seance 连锁入口）+1、
+        //       twinpeaks 柜台收音机（深夜访谈档 / night-frequency）+1
+        // v1.10：lobby 守夜烛台（candle-vigil）+1、archive 缩微阅读器 +1、
+        //        eraserhead 罐壁三敲（boiler-knock）+1
         const INTERACTIVE_MIN = {
-          lobby: 12, archive: 23, eraserhead: 16, bluevelvet: 15,
-          twinpeaks: 19, mulholland: 15, studio: 17
+          lobby: 14, archive: 25, eraserhead: 18, bluevelvet: 17,
+          twinpeaks: 21, mulholland: 16, studio: 18
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -175,7 +183,7 @@ function createWindow() {
         const shotDir = process.env.SV_SHOT_DIR;
         // 首厅截屏额外加等：开场淡入 + 空闲预取 6 个分包在软渲染下会占满
         // 合成器数秒，3.5s 默认延迟会拍到全黑首帧（后续厅无预取压力不受影响）
-        const firstShotExtra = shotCount === 0 ? 5500 : 0;
+        const firstShotExtra = shotCount === 0 ? 9000 : 0;
         shotCount += 1;
         interactiveCheck.then(() => {
           if (shotDir) {
@@ -198,6 +206,23 @@ function createWindow() {
                 require('fs').mkdirSync(shotDir, { recursive: true });
                 require('fs').writeFileSync(require('path').join(shotDir, `${hall}.png`), img.toPNG());
                 console.log(`[smoke] 截屏: ${hall}.png`);
+                // SV_EGG_SHOT=1: 截屏后立即引爆彩蛋，延迟 SV_EGG_SHOT_DELAY 毫秒
+                // 再补拍一张（核验惊吓/幻象的实际画面，视觉自检用）
+                if (process.env.SV_EGG_SHOT === '1') {
+                  const r1 = await win.webContents.executeJavaScript('window.__SV__.triggerEggs().join(",")', true)
+                    .catch((e) => 'ERR:' + (e && e.message));
+                  console.log(`[smoke] 彩蛋引爆 ${hall}: ${r1}`);
+                  await new Promise((r) => setTimeout(r, Number(process.env.SV_EGG_SHOT_DELAY || 1200)));
+                  // 截屏前 JS 往返：把软渲染合成器的陈旧帧刷掉（同常规截屏），
+                  // 顺便读回机位（惊吓 wake 传送与否可从坐标判断）
+                  const at2 = await win.webContents.executeJavaScript(
+                    '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+                  ).catch(() => '?');
+                  console.log(`[smoke] 彩蛋机位 ${hall}: ${at2}`);
+                  const img2 = await win.webContents.capturePage();
+                  require('fs').writeFileSync(require('path').join(shotDir, `${hall}-egg.png`), img2.toPNG());
+                  console.log(`[smoke] 彩蛋截屏: ${hall}-egg.png`);
+                }
               } catch (err) {
                 console.error('[smoke] 截屏失败', err);
               }
