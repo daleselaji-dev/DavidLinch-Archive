@@ -67,6 +67,9 @@ const ui = new UI({
     return audio.muted;
   },
   onCycleNarration: () => narration.cycleMode(),
+  // v1.14：访谈摘录低语朗读——非人声 MurmurVoice「读」一条摘录
+  // （气声音节+静电碎语，永远听不清字）；text=null 即收声
+  onMurmurRead: (text) => (text ? narration.murmur.speak(text) : narration.murmur.stop()),
   onToggleQuality: () => {
     autoQ.locked = true; // 玩家手动选择后，自动降档退位
     engine.setQuality(engine.quality === 'high' ? 'low' : 'high');

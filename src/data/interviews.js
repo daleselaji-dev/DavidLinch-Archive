@@ -107,6 +107,71 @@ export const INTERVIEWS = [
     zh: '生活非常非常复杂，电影也应当被允许如此。',
     source: '公开访谈',
     context: '面对「看不懂」的追问，他把问题还给了生活。'
+  },
+  // ---------- v1.14 扩容（12 → 20）：同一纪律，八个新话题 ----------
+  {
+    id: 'eaglescout',
+    topic: '自我介绍',
+    en: 'Eagle Scout, Missoula, Montana.',
+    zh: '鹰级童子军，蒙大拿州米苏拉。',
+    source: '公开访谈',
+    context: '他最著名的个人简介只有这一行，此后反复沿用。'
+  },
+  {
+    id: 'differentthing',
+    topic: '每个观众',
+    en: 'Every viewer is going to get a different thing. That\u2019s the beauty of cinema.',
+    zh: '每个观众得到的东西都不一样——这正是电影的美妙之处。',
+    source: '公开访谈',
+    context: '他谢绝为作品给出标准答案时常这样回答。'
+  },
+  {
+    id: 'opposites',
+    topic: '对立面',
+    en: 'We live in a world of opposites. The trick is to reconcile those opposing things.',
+    zh: '我们住在一个满是对立面的世界里，诀窍是让相反的两端和解。',
+    source: '公开访谈',
+    context: '谈到明与暗为何总是同时出现时他说的。'
+  },
+  {
+    id: 'poison',
+    topic: '毒药',
+    en: 'Anger and depression and sorrow are beautiful things in a story, but they\u2019re like poison to the filmmaker or artist.',
+    zh: '愤怒、抑郁、悲伤放进故事里很美，但对拍电影的人和艺术家本人，它们是毒药。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '与「不必受苦」互为一体的另一半论证。'
+  },
+  {
+    id: 'darkplaces',
+    topic: '幽暗处',
+    en: 'I like things that go into hidden, mysterious places, places I want to explore that are very disturbing.',
+    zh: '我喜欢通往隐秘神秘之处的东西——那些令人不安、我却想去探索的地方。',
+    source: '公开访谈',
+    context: '被问到题材偏好时他给过的方向感。'
+  },
+  {
+    id: 'industry',
+    topic: '工业',
+    en: 'I love industry. Pipes. I love fluid and smoke. I love man-made things.',
+    zh: '我爱工业。管道。我爱流体和烟。我爱人造的东西。',
+    source: '《Lynch on Lynch》访谈录 · 1997',
+    context: '这份对管道与烟的偏爱始于费城年代。'
+  },
+  {
+    id: 'nevermissed',
+    topic: '从不缺席',
+    en: 'I have never missed a meditation in thirty-three years. I meditate once in the morning and again in the afternoon.',
+    zh: '三十三年来我没有漏掉过一次冥想。早晨一次，下午再一次。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '书出版时他已保持每日两次冥想三十余年。'
+  },
+  {
+    id: 'firstidea',
+    topic: '第一个点子',
+    en: 'You fall in love with the first idea, that little tiny piece. And once you\u2019ve got it, the rest will come in time.',
+    zh: '你会爱上第一个点子，那一小片。一旦抓住它，其余的会随时间到来。',
+    source: '公开访谈',
+    context: '与「碎片与罗塞塔石碑」一说互为注脚。'
   }
 ];
 

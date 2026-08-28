@@ -25,6 +25,7 @@ export class UI {
     this.fader = document.getElementById('fader');
     this._captionTimer = null;
     this._openCount = 0;
+    this._murmurBtn = null; // 访谈低语朗读的当前活动钮
     this._buildHud();
     this._buildPanels();
   }
@@ -212,6 +213,7 @@ export class UI {
 
   closeInfo() {
     if (this.infoPanel.classList.contains('open')) {
+      this._stopMurmur(); // 低语朗读随面板收声
       this.infoPanel.classList.remove('open');
       this.o.audio.sfx('page');
       this._close();
@@ -302,8 +304,36 @@ export class UI {
       card.append(el('p', 'fact', '「' + v.zh + '」'));
       card.append(el('p', 'quote-en', v.en));
       if (v.context) card.append(el('p', 'iv-ctx', v.context));
-      card.append(el('p', 'quiet', '— DAVID LYNCH · ' + v.source));
+      const foot = el('p', 'quiet', '— DAVID LYNCH · ' + v.source);
+      // v1.14：低语朗读——MurmurVoice 把这条摘录「读」成气声音节
+      // 与静电碎语（永远听不清字；清晰人声不回来）。同钮再按即收声。
+      if (this.o.onMurmurRead) {
+        const rd = el('button', 'iv-murmur', '◦ 低语');
+        rd.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const wasCur = this._murmurBtn === rd;
+          this._stopMurmur();
+          if (!wasCur) {
+            this.o.onMurmurRead(v.zh);
+            rd.textContent = '◦ 收声';
+            rd.classList.add('active');
+            this._murmurBtn = rd;
+          }
+        });
+        foot.append(rd);
+      }
+      card.append(foot);
       body.append(card);
+    }
+  }
+
+  /** 低语朗读收声（换条/关面板时） */
+  _stopMurmur() {
+    if (this._murmurBtn) {
+      this._murmurBtn.textContent = '◦ 低语';
+      this._murmurBtn.classList.remove('active');
+      this._murmurBtn = null;
+      if (this.o.onMurmurRead) this.o.onMurmurRead(null);
     }
   }
 

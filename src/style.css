@@ -285,6 +285,14 @@ body.touch .touch-ui { display: block; }
   padding: 2px 8px; margin-bottom: 8px;
 }
 .panel-body .iv-ctx { font-size: 11px; opacity: 0.6; margin: 4px 0 6px; }
+.panel-body .iv-murmur {
+  float: right; background: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+  color: var(--ivory-dim); border: 1px solid rgba(242,233,220,0.18);
+  padding: 2px 9px; transition: all 0.3s;
+}
+.panel-body .iv-murmur:hover { color: var(--neon-blue); border-color: rgba(122,203,229,0.5); }
+.panel-body .iv-murmur.active { color: var(--neon-blue); border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(122,203,229,0.25); }
 .panel-body button.link-hall {
   margin-top: 14px; width: 100%; padding: 12px; cursor: pointer;
   background: rgba(143,14,30,0.2); color: var(--ivory);
