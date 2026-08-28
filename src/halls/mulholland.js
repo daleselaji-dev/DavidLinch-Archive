@@ -92,8 +92,19 @@ export const CORNER_SCARE = {
 // 巷灯渐次不稳（lampDread 通道）、半程一次低频升压；退回去就退潮。
 // 只在扳机上膛时生效——冷却中的巷子是安静的巷子。
 export const APPROACH_DREAD = { z0: -18.5, z1: -26.4, swellAt: 0.6, rearmBelow: 0.15 };
+// v1.26 接近压迫 FOV 渐窄（r6 走查靶一：接近段「心跳渐密 + 巷灯不稳」
+// 都是听觉/环境层，视觉层没有压迫——原片 BOB 拐角前的窒息感是**视野
+// 本身在收**）：跨线前最后 ~2m（z0=-24.5 → z1=-26.4，中巷跨线点
+// z≈-26.51 前 0.1m 收满）FOV 从常态 70° smoothstep 渐窄 5° 到 65°，
+// 位置驱动（走多深收多少，退回去就还回来）；与 APPROACH_DREAD 同一
+// 道闸（armed() 门 + 惊吓进行中不收——冷却中的巷子不预支窒息）；
+// 跨线触发帧由 CLOSEUP 从**当前已收窄的 FOV** 接管续推（grab.fov0
+// 交接，无一帧回弹），黑幕帧 releaseGrab 归还常态 70°。
+// 显形线几何零改动——收的是镜头，不是触发账。
+export const APPROACH_SQUEEZE = { z0: -24.5, z1: -26.4, drop: 5 };
 // v1.22 单拍节奏时间线（ms，实时钟）：贴角那一帧灯灭+剪影光起，它
-// 从拐角后**闪出**（0.55s 减速滑，带三口急抽搐）→ 错拍：全身出角
+// 从拐角后**闪出**（0.55s 减速滑；v1.26 起一整口气滑到底，滑出段
+// 三口急抽搐退役——原片的闪没有顿）→ 错拍：全身出角
 // 死死站住看你（红光与眼窝在呼吸）→ 扑近 → 闷击闪帧 → 黑幕 →
 // 空间错位。全程 ~3.3s——比 v1.12 的 6.5s 砍半，凌厉不拖过场。
 // v1.23 手感抛光（机制不换，只调拍长）：错拍 800→950ms——它看你
@@ -161,6 +172,15 @@ export const VACUUM = {
 // 拐角惊吓——转身惊吓照旧 π 背巷（它的错位在时间轴，wake 保持安全
 // 复位语言）：两重 wake 的分家从此三轴（醒姿/字幕时机/朝向）。
 export const WAKE_DAZE = { pitch: -0.36, captionMs: 1150, yaw: 0 };
+// v1.26 wake 后巷灯缓慢重燃（r6 走查靶三：拐角惊吓醒来灯一瞬回满，
+// 「劫后余生」没有余韵）：拐角惊吓（daze）醒来后整巷壁灯 + 后门看护
+// 灯用 3s smoothstep 从黑里慢慢燃回来——俯冲醒抬头时巷子还压在半黑
+// 里，灯是一盏一盏「缓过来」的，和环境音迟归（VACUUM release 1.6s）
+// 同一句话的两个声部。**只给拐角惊吓**——转身惊吓照旧灯随醒瞬回
+// （它的错位在时间轴，wake 保持安全复位语言）：两重 wake 分家自此
+// 四轴（醒姿/字幕时机/朝向/灯的归来）。WAKE_POINT 挪位三案已否决
+// （STYLE_AUDIT §16）——本轮动的是灯，不是落点。
+export const WAKE_RELIGHT = { dur: 3 };
 // v1.7 转身惊吓（保留为第二重扳机）：武装区 = 暗巷深段 + 剧场背后空地。
 // 区内驻留 armTime 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发。
 export const SCARE_REGION = [
@@ -1917,7 +1937,7 @@ export function build(ctx) {
   // 之物**的那一帧就是扳机——不提前（走近的路交给 APPROACH_DREAD
   // 涨恐惧，不预支现身）、不延后（跨线即闪出，没有 2.2s 前奏）。
   // 单拍节奏（SCARE_BEATS 实时钟）：灯一口气全灭 + 剪影光起 + 它从
-  // 拐角后 0.55s 减速滑出（带三口急抽搐）→ 错拍：站住盯你 → 扑近 →
+  // 拐角后 0.55s 一口气减速滑出（v1.26 抽搐拍退役）→ 错拍：站住盯你 → 扑近 →
   // 闷击 + uShock 冲击 + 暗红闪帧 → 黑幕 → 空间错位移回巷口。
   // 全程镜头特写接管（CLOSEUP）：yaw/pitch 平滑锁向那张脸并跟焦、
   // FOV 慢推 13°、双脚钉死——看见它的人动不了。冷却后可重复。
@@ -1982,21 +2002,27 @@ export function build(ctx) {
       }
       const armL = gltf.scene.getObjectByName('arm_L');
       const armR = gltf.scene.getObjectByName('arm_R');
-      // kit.cornerWraith v3 同一套体态曲线（顿挪冻住/越挪越前倾/
-      // 头一档一档抬起/红光与眼窝错半拍呼吸/扑近烧亮）
+      // kit.cornerWraith 同一套体态曲线（越滑越前倾/头随行程抬起/
+      // 红光与眼窝错半拍呼吸/扑近烧亮）。
+      // v1.26 滑出去抽搐拍（r6 走查靶二）：v1.22 的三口急抽搐
+      // （beat=sin(s·6π) 摇 roll/沉浮/甩臂）叠在四次方滑出上，把「闪
+      // 出来」摇成了「顿挪出来」——用户原话要原片那种一整口气的闪。
+      // 抽搐拍退役：滑出段体态随 s 平滑加深（前倾/抬头/侧歪一路进、
+      // 不回头），发帘惯性慢摆（t 基）保留——它还是活的，只是不抖了。
+      // s=1 体态与旧账逐位相同（sin(6π)=0）——错拍站桩/歪头/rush 高频
+      // 扑动零改动，交接无缝。
       wraith.userData.setLurch = (s, t = 0) => {
-        const beat = Math.sin(s * Math.PI * 6);
         pivot.rotation.x = 0.12 + s * 0.14;
-        pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
-        pivot.position.y = Math.abs(beat) * 0.035;
+        pivot.rotation.z = 0.06 + s * 0.045;
+        pivot.position.y = 0;
         headPivot.rotation.x = -(0.06 + s * 0.34);
-        headPivot.rotation.z = -0.06 * s + beat * 0.03;
+        headPivot.rotation.z = -0.06 * s;
         if (veil) {
-          veil.rotation.z = Math.sin(t * 1.7) * 0.045 - beat * 0.03;
+          veil.rotation.z = Math.sin(t * 1.7) * 0.045;
           veil.rotation.x = Math.sin(t * 1.15 + 0.8) * 0.028;
         }
-        if (armL) { armL.rotation.x = -0.08 + beat * 0.1; armL.rotation.z = 0.05 * beat; }
-        if (armR) { armR.rotation.x = -0.08 - beat * 0.1; armR.rotation.z = 0.05 * beat; }
+        if (armL) { armL.rotation.x = -0.08; armL.rotation.z = 0; }
+        if (armR) { armR.rotation.x = -0.08; armR.rotation.z = 0; }
         if (bodyMat) bodyMat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
         if (eyeMat) eyeMat.emissiveIntensity = 0.55 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2.4 + 1.2));
       };
@@ -2079,7 +2105,12 @@ export function build(ctx) {
   const pitchObj = engine.camera ? engine.camera.parent : null;
   const yawObj = pitchObj ? pitchObj.parent : null;
   const baseFov = engine.camera ? engine.camera.fov : 70;
-  const grab = { on: false, t: 0, pin: { x: 0, z: 0 } };
+  // v1.26 fov0：跨线帧捕获当前 FOV（接近压迫可能已收窄到 65°）——
+  // CLOSEUP 慢推从这里起步续推到同一终点（baseFov−fovPush=55°），
+  // 压迫与特写之间无一帧回弹；releaseGrab 照旧归还常态 70°。
+  const grab = { on: false, t: 0, pin: { x: 0, z: 0 }, fov0: baseFov };
+  // v1.26 接近压迫账（k∈[0,1]——当前收窄比例；更新器在 APPROACH_DREAD 段后）
+  const squeeze = { k: 0 };
   const releaseGrab = () => {
     grab.on = false;
     if (engine.camera && engine.camera.fov !== baseFov) {
@@ -2101,6 +2132,21 @@ export function build(ctx) {
     audio.sfxAt('fencewomp', 11.55, -8 - fenceRng() * 18, 0.16, 4);
   });
 
+  // v1.26 wake 后巷灯缓慢重燃（WAKE_RELIGHT）：t≥0 即在燃——3s
+  // smoothstep 把 lampKill 松开、backLampState 抬回来（两盏壁灯 +
+  // 后门看护灯同一口气）。游戏时钟累加（软渲染纪律）；新惊吓接管灯
+  // 时重燃让位（phase≠0 中止——灯归惊吓管）。
+  const relight = { t: -1 };
+  updaters.push((dt) => {
+    if (relight.t < 0) return;
+    if (scare.phase !== 0) { relight.t = -1; return; }
+    relight.t += dt;
+    const k = Math.min(1, relight.t / WAKE_RELIGHT.dur);
+    const e = k * k * (3 - 2 * k);
+    lampKill.v = 1 - e;
+    backLampState.on = e;
+    if (k >= 1) relight.t = -1;
+  });
   // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还。
   // v1.24 wake 错位感：daze=true（拐角惊吓）加三重「不对劲」——俯冲醒
   // （teleport 清俯仰之后把 pitch 压到脚边地面，头要自己抬）+ 字幕迟到
@@ -2113,8 +2159,14 @@ export function build(ctx) {
     teleport(WAKE_POINT.x, WAKE_POINT.z, daze ? WAKE_DAZE.yaw : Math.PI);
     if (daze && pitchObj) pitchObj.rotation.x = WAKE_DAZE.pitch;
     ui.fade(false);
-    backLampState.on = 1;
-    lampKill.v = 0;
+    // v1.26 分家第四轴（灯的归来）：拐角惊吓醒进半黑的巷子，灯 3s
+    // 缓慢重燃（WAKE_RELIGHT 更新器接管）；转身惊吓照旧灯随醒瞬回
+    if (daze) {
+      relight.t = 0;
+    } else {
+      backLampState.on = 1;
+      lampKill.v = 0;
+    }
     audio.sfx('whisper', 0.7, 0, true);
     if (daze) later(() => ui.caption(caption, 5200), WAKE_DAZE.captionMs);
     else ui.caption(caption, 5200);
@@ -2138,6 +2190,11 @@ export function build(ctx) {
     grab.t = 0;
     grab.pin.x = pv0.x;
     grab.pin.z = pv0.z;
+    // v1.26 压迫→特写交接：从当前（可能已收窄的）FOV 起步续推；
+    // squeeze 账随即清零——黑幕帧 releaseGrab 归还的是常态 70°，
+    // 醒来后压迫层不得再补写一笔旧账
+    grab.fov0 = engine.camera ? engine.camera.fov : baseFov;
+    squeeze.k = 0;
     lampPanic.v = 0;
     lampDread.v = 0;
     lampKill.v = 1;
@@ -2209,10 +2266,11 @@ export function build(ctx) {
       wraith.userData.setRush(k, t);
     } else if (scare.sub === 'reveal' && wraith.visible) {
       // 闪出：0.55s 减速滑（快出角、减速站定）；体态复用 setLurch
-      // 曲线（s 快扫 0→1 → 三口急抽搐——它不是走出来的，是抽搐着
-      // 滑出来的），s=1 恰好落在冻结平台上。
+      // 曲线（s 快扫 0→1 平滑加深），s=1 恰好落在冻结位上。
       // v1.23 滑出曲线立方→四次方：前 0.2s 完成 ~84% 行程（立方是
-      // ~74%——更「闪」），减速尾拉长——出角是一瞬，站定是一口慢气
+      // ~74%——更「闪」），减速尾拉长——出角是一瞬，站定是一口慢气。
+      // v1.26 滑出段抽搐拍退役（改动在 setLurch 本体）：路径四次方
+      // 不动、体态不再抖——「闪出来」终于是一整口气
       const k = Math.min(1, scare.t / (SCARE_BEATS.stare / 1000));
       const s = 1 - (1 - k) ** 4;
       revealBez(s, wraith.position);
@@ -2263,7 +2321,9 @@ export function build(ctx) {
       // 收尾。原片的推是「感觉不到开始」的推，线性推第一帧就露拍。
       const pRaw = Math.min(1, grab.t / (SCARE_BEATS.rush / 1000));
       const push = pRaw * pRaw * (3 - 2 * pRaw);
-      engine.camera.fov = baseFov - CLOSEUP.fovPush * push;
+      // v1.26：起点换 grab.fov0（接近压迫已收到哪就从哪接着推），
+      // 终点不变（baseFov−fovPush）——压迫是慢推的首拍，不是另一台镜头
+      engine.camera.fov = grab.fov0 - (grab.fov0 - (baseFov - CLOSEUP.fovPush)) * push;
       engine.camera.updateProjectionMatrix();
     }
   });
@@ -2301,6 +2361,30 @@ export function build(ctx) {
       // 跟上来了（190ms 后半拍轻回声，音量压低不抢主拍）
       if (q >= 0.7) later(() => audio.sfx('heartbeat', 0.1 + 0.18 * q), 190);
     }
+  });
+  // v1.26 接近压迫 FOV 渐窄（APPROACH_SQUEEZE）：与上面的接近段恐惧
+  // 同一道闸（armed() 门 + 惊吓进行中不收 + 巷内），但只认最后 ~2m——
+  // 位置驱动的 smoothstep 收窄（走多深收多少、退回去就还回来，收放
+  // 都是脚下的账不是钟表的账）；收窄方向直取位置值（无时滞——跨线
+  // 帧压满 5°），松开方向按帧缓释（闸口翻脸不许一帧弹回）。触发帧
+  // grab 接管后本更新器让位（fov0 交接账在 doCornerScare）。
+  updaters.push((dt) => {
+    let want = 0;
+    if (scare.phase === 0 && cornerTrig.armed()) {
+      const pv = pose ? pose() : { x: player.x, z: player.z };
+      if (pv.x >= ALLEY.minX && pv.x <= ALLEY.maxX) {
+        const qf = Math.max(0, Math.min(1,
+          (APPROACH_SQUEEZE.z0 - pv.z) / (APPROACH_SQUEEZE.z0 - APPROACH_SQUEEZE.z1)));
+        want = qf * qf * (3 - 2 * qf);
+      }
+    }
+    squeeze.k = want >= squeeze.k ? want : squeeze.k + (want - squeeze.k) * Math.min(1, dt * 6);
+    if (squeeze.k < 0.001 && want === 0) squeeze.k = 0;
+    if (grab.on || !engine.camera) return; // 特写接管期间镜头归 CLOSEUP
+    const f = baseFov - APPROACH_SQUEEZE.drop * squeeze.k;
+    if (Math.abs(engine.camera.fov - f) < 0.0005) return;
+    engine.camera.fov = f;
+    engine.camera.updateProjectionMatrix();
   });
 
   // ---------- 惊吓 v1.7（保留第二扳机）：THE THING BEHIND YOU ----------

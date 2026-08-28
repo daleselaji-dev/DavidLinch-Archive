@@ -265,9 +265,8 @@ describe('v1.25 门禁 103：拐角惊吓四层零翻修复钉（全面翻修回
 });
 
 describe('v1.25 门禁 103：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.25.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v126-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.25.0');
-    expect(SRC.main).toContain("version: '1.25.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });

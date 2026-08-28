@@ -1272,27 +1272,27 @@ export function cornerWraith(height = 2.35) {
   group.userData.headPivot = headPivot;
   group.userData.mat = mat;
   group.userData.eyeMat = eyeMat;
-  /** 顿挪体态：s 为 lurchEase 后的阶梯进度——挪的时候侧倾/沉肩/臂拖摆，
-   *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。
-   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档）；身体
-   *  冻住时暗红内衬随呼吸搏动（红光在呼吸——唯一还在动的东西）。
-   *  v1.12：**头一档一档抬起**（headPivot 随 s 后仰——每停一次抬头
-   *  多一点，发帘里的眼窝越停越正对你）；眼窝环与红光错半拍呼吸；
-   *  **身体冻住时发帘还在极缓地摆**（t 基慢摆钟频率与身体拍无关——
-   *  惯性没停，它不是雕像）。 */
+  /** 滑出体态：s 为滑出进度 [0,1]——体态随 s 平滑加深。
+   *  v1.11：越滑越前倾（0.12→0.26）；身体站定时暗红内衬随呼吸搏动
+   *  （红光在呼吸——唯一还在动的东西）。
+   *  v1.12：**头随行程抬起**（headPivot 随 s 后仰——发帘里的眼窝越出
+   *  角越正对你）；眼窝环与红光错半拍呼吸；**身体站定时发帘还在极缓
+   *  地摆**（t 基慢摆钟频率与身体拍无关——惯性没停，它不是雕像）。
+   *  v1.26：滑出段三口急抽搐退役（beat=sin(s·6π) 摇 roll/沉浮/甩臂
+   *  ——把「闪出来」摇成「顿挪出来」，用户原话要原片一整口气的闪）；
+   *  s=1 体态与旧账逐位相同（sin(6π)=0），错拍/rush 零改动。 */
   group.userData.setLurch = (s, t = 0) => {
-    const beat = Math.sin(s * Math.PI * 6);
     pivot.rotation.x = 0.12 + s * 0.14;
-    pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
-    pivot.position.y = Math.abs(beat) * 0.035;
+    pivot.rotation.z = 0.06 + s * 0.045;
+    pivot.position.y = 0;
     headPivot.rotation.x = -(0.06 + s * 0.34);
-    headPivot.rotation.z = -0.06 * s + beat * 0.03;
-    hair.rotation.z = Math.sin(t * 1.7) * 0.045 - beat * 0.03;
+    headPivot.rotation.z = -0.06 * s;
+    hair.rotation.z = Math.sin(t * 1.7) * 0.045;
     hair.rotation.x = Math.sin(t * 1.15 + 0.8) * 0.028;
-    armL.rotation.x = -0.08 + beat * 0.1;
-    armR.rotation.x = -0.08 - beat * 0.1;
-    armL.rotation.z = 0.05 * beat;
-    armR.rotation.z = 0.05 * beat;
+    armL.rotation.x = -0.08;
+    armR.rotation.x = -0.08;
+    armL.rotation.z = 0;
+    armR.rotation.z = 0;
     mat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
     eyeMat.emissiveIntensity = 0.55 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2.4 + 1.2));
   };
