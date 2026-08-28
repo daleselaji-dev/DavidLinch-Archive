@@ -27,7 +27,8 @@ import bmesh
 from mathutils import Vector, Euler, noise
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import reset_scene, make_material, save_blend, args_after_dashes
+from common import (reset_scene, make_material, attr_material, seeded,
+                    MeshBuilder, open_cone, save_blend, args_after_dashes)
 
 # 世界尺度：运行时中景常见实例 s≈1.6（冠心 2.1s+1.05=4.41m）——
 # 英雄资产按这一档做实尺寸，总高（含顶梢）≈7.9m
@@ -40,81 +41,6 @@ TIERS = [
     (0.78, 0.88, 0.05), (0.65, 0.84, 0.48), (0.51, 0.8, 0.9),
     (0.37, 0.74, 1.3), (0.2, 0.66, 1.66)
 ]
-
-
-def seeded(seed):
-    """mulberry32 —— 与 kit.js rng 同族的确定性序列。"""
-    state = [seed >> 0]
-
-    def next_f():
-        state[0] = (state[0] + 0x6D2B79F5) & 0xFFFFFFFF
-        t = state[0]
-        t = ((t ^ (t >> 15)) * (t | 1)) & 0xFFFFFFFF
-        t ^= t + (((t ^ (t >> 7)) * (t | 61)) & 0xFFFFFFFF)
-        t &= 0xFFFFFFFF
-        return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296
-    return next_f
-
-
-def attr_material(name, base_color, roughness=0.95, specular=0.12):
-    """Principled + 顶点色相乘（Cycles 渲染与 GLB COLOR_0 同一份数据）。"""
-    mat = make_material(name, base_color, roughness=roughness, specular=specular)
-    nt = mat.node_tree
-    bsdf = nt.nodes['Principled BSDF']
-    attr = nt.nodes.new('ShaderNodeVertexColor')
-    attr.layer_name = 'Col'
-    mix = nt.nodes.new('ShaderNodeMix')
-    mix.data_type = 'RGBA'
-    mix.blend_type = 'MULTIPLY'
-    mix.inputs['Factor'].default_value = 1.0
-    mix.inputs[6].default_value = base_color   # A：基色
-    nt.links.new(attr.outputs['Color'], mix.inputs[7])  # B：顶点色
-    nt.links.new(mix.outputs[2], bsdf.inputs['Base Color'])
-    return mat
-
-
-class MeshBuilder:
-    """bmesh 累加器：逐段并入几何并记录每段的顶点色。"""
-
-    def __init__(self):
-        self.bm = bmesh.new()
-        self.shades = []  # [(vert_count, (r,g,b))]
-
-    def add(self, bm_part, shade=(1.0, 1.0, 1.0)):
-        tmp = bpy.data.meshes.new('_part_tmp')
-        bm_part.to_mesh(tmp)
-        bm_part.free()
-        n = len(tmp.vertices)
-        self.bm.from_mesh(tmp)
-        bpy.data.meshes.remove(tmp)
-        self.shades.append((n, shade))
-
-    def object(self, name, mat, smooth=True, with_colors=True):
-        mesh = bpy.data.meshes.new(name)
-        self.bm.to_mesh(mesh)
-        self.bm.free()
-        if with_colors:
-            col = mesh.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
-            i = 0
-            for n, (r, g, b) in self.shades:
-                for _ in range(n):
-                    col.data[i].color = (r, g, b, 1.0)
-                    i += 1
-        obj = bpy.data.objects.new(name, mesh)
-        bpy.context.collection.objects.link(obj)
-        for f in mesh.polygons:
-            f.use_smooth = smooth
-        mesh.materials.append(mat)
-        return obj
-
-
-def open_cone(radius_bottom, radius_top, depth, segments):
-    """无盖锥筒（枝轮/杆件基元），底缘在 -depth/2。"""
-    bm = bmesh.new()
-    bmesh.ops.create_cone(bm, cap_ends=False, segments=segments,
-                          radius1=radius_bottom, radius2=max(radius_top, 0.012),
-                          depth=depth)
-    return bm
 
 
 def tier_part(ti, rad, h, y, segments, fine, rnd):

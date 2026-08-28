@@ -23,7 +23,8 @@ def reset_scene():
 
 
 def make_material(name, base_color=(0.02, 0.02, 0.025, 1.0), roughness=0.85,
-                  sheen=0.0, emission=None, emission_strength=0.0, specular=None):
+                  sheen=0.0, emission=None, emission_strength=0.0, specular=None,
+                  metallic=0.0):
     """Principled BSDF 单节点材质（黑绒/哑光布料用高粗糙+sheen）。
     specular=0 可做「照不亮的黑」（面部空洞/眼窝内芯）。"""
     mat = bpy.data.materials.new(name)
@@ -31,6 +32,8 @@ def make_material(name, base_color=(0.02, 0.02, 0.025, 1.0), roughness=0.85,
     bsdf = mat.node_tree.nodes['Principled BSDF']
     bsdf.inputs['Base Color'].default_value = base_color
     bsdf.inputs['Roughness'].default_value = roughness
+    if metallic:
+        bsdf.inputs['Metallic'].default_value = metallic
     if specular is not None and 'Specular IOR Level' in bsdf.inputs:
         bsdf.inputs['Specular IOR Level'].default_value = specular
     if sheen and 'Sheen Weight' in bsdf.inputs:
@@ -39,6 +42,89 @@ def make_material(name, base_color=(0.02, 0.02, 0.025, 1.0), roughness=0.85,
         bsdf.inputs['Emission Color'].default_value = emission
         bsdf.inputs['Emission Strength'].default_value = emission_strength
     return mat
+
+
+def attr_material(name, base_color, roughness=0.95, specular=0.12, metallic=0.0):
+    """Principled + 顶点色相乘（Cycles 渲染与 GLB COLOR_0 同一份数据）。
+    v1.14 上移入 common：松树顶点色分层明暗 / 图书梯踏面磨浅共用。"""
+    mat = make_material(name, base_color, roughness=roughness,
+                        specular=specular, metallic=metallic)
+    nt = mat.node_tree
+    bsdf = nt.nodes['Principled BSDF']
+    attr = nt.nodes.new('ShaderNodeVertexColor')
+    attr.layer_name = 'Col'
+    mix = nt.nodes.new('ShaderNodeMix')
+    mix.data_type = 'RGBA'
+    mix.blend_type = 'MULTIPLY'
+    mix.inputs['Factor'].default_value = 1.0
+    mix.inputs[6].default_value = base_color   # A：基色
+    nt.links.new(attr.outputs['Color'], mix.inputs[7])  # B：顶点色
+    nt.links.new(mix.outputs[2], bsdf.inputs['Base Color'])
+    return mat
+
+
+def seeded(seed):
+    """mulberry32 —— 与 kit.js rng 同族的确定性序列。"""
+    state = [seed >> 0]
+
+    def next_f():
+        state[0] = (state[0] + 0x6D2B79F5) & 0xFFFFFFFF
+        t = state[0]
+        t = ((t ^ (t >> 15)) * (t | 1)) & 0xFFFFFFFF
+        t ^= t + (((t ^ (t >> 7)) * (t | 61)) & 0xFFFFFFFF)
+        t &= 0xFFFFFFFF
+        return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296
+    return next_f
+
+
+class MeshBuilder:
+    """bmesh 累加器：逐段并入几何并记录每段顶点色（常量或逐顶点函数）。"""
+
+    def __init__(self):
+        import bmesh as _bmesh
+        self._bmesh = _bmesh
+        self.bm = _bmesh.new()
+        self.shades = []  # [(vert_count, (r,g,b)) 或 (vert_count, [逐顶点 (r,g,b)])]
+
+    def add(self, bm_part, shade=(1.0, 1.0, 1.0)):
+        tmp = bpy.data.meshes.new('_part_tmp')
+        bm_part.to_mesh(tmp)
+        bm_part.free()
+        n = len(tmp.vertices)
+        if callable(shade):
+            shade = [shade(v.co) for v in tmp.vertices]
+        self.bm.from_mesh(tmp)
+        bpy.data.meshes.remove(tmp)
+        self.shades.append((n, shade))
+
+    def object(self, name, mat, smooth=True, with_colors=True):
+        mesh = bpy.data.meshes.new(name)
+        self.bm.to_mesh(mesh)
+        self.bm.free()
+        if with_colors:
+            col = mesh.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
+            i = 0
+            for n, shade in self.shades:
+                for j in range(n):
+                    r, g, b = shade[j] if isinstance(shade, list) else shade
+                    col.data[i].color = (r, g, b, 1.0)
+                    i += 1
+        obj = bpy.data.objects.new(name, mesh)
+        bpy.context.collection.objects.link(obj)
+        for f in mesh.polygons:
+            f.use_smooth = smooth
+        mesh.materials.append(mat)
+        return obj
+
+
+def open_cone(radius_bottom, radius_top, depth, segments):
+    """无盖锥筒（枝轮/杆件基元），底缘在 -depth/2。"""
+    import bmesh
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=False, segments=segments,
+                          radius1=radius_bottom, radius2=max(radius_top, 0.012),
+                          depth=depth)
+    return bm
 
 
 def studio_rig(scene, subject_height=2.35, key_color=(0.62, 0.72, 1.0)):
