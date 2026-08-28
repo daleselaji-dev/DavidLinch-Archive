@@ -1499,6 +1499,47 @@ export function build(ctx) {
   ], new THREE.MeshStandardMaterial({
     map: brushedMetalTexture(64, 110, 30), color: 0x8f9298, roughness: 0.4, metalness: 0.8
   })));
+
+  // v1.13 彩蛋：搁板罐子之间蹲着一只黏土小像——工作室的主人也捏
+  // 这种小东西。它脸朝墙站着。E → 头极慢地转过来看你一眼（湿黏土
+  // 的蠕鸣）；再按 E，又转回去。一次性短句。
+  const clayGrp = new THREE.Group();
+  const clayMat = new THREE.MeshStandardMaterial({ color: 0x6e5a48, roughness: 0.96 });
+  const clayBody = mergedMesh([
+    xform(new THREE.SphereGeometry(0.042, 10, 8), 0, 0.038, 0, 0, 0, 0, 1),
+    xform(new THREE.SphereGeometry(0.033, 10, 8), 0, 0.085, 0.004, 0.1, 0, 0.06),
+    xform(new THREE.CylinderGeometry(0.05, 0.056, 0.014, 10), 0, 0.007, 0)
+  ], clayMat);
+  const clayHead = new THREE.Group();
+  const claySkull = new THREE.Mesh(new THREE.SphereGeometry(0.027, 10, 8), clayMat);
+  const clayNose = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.02, 6), clayMat);
+  clayNose.rotation.x = Math.PI / 2;
+  clayNose.position.set(0, -0.002, 0.026);
+  clayHead.add(claySkull, clayNose);
+  clayHead.position.y = 0.128;
+  clayHead.rotation.y = -Math.PI / 2; // 初始脸朝墙
+  clayGrp.add(clayBody, clayHead);
+  clayGrp.position.set(-8.1, shelfY + 0.02, -4.6);
+  group.add(clayGrp);
+  const clayState = { facing: false, u: 0, said: false };
+  updaters.push((dt) => {
+    const target = clayState.facing ? 1 : 0;
+    if (Math.abs(clayState.u - target) < 0.001) return;
+    clayState.u += (target - clayState.u) * Math.min(1, dt * 1.1); // 极慢——像不情愿
+    clayHead.rotation.y = -Math.PI / 2 + clayState.u * Math.PI;
+    clayHead.rotation.z = Math.sin(clayState.u * Math.PI) * 0.14; // 转头途中微歪
+  });
+  hotspots.add(claySkull, {
+    hint: 'E — 一只没干的黏土小像',
+    onActivate: () => {
+      clayState.facing = !clayState.facing;
+      audio.sfxAt('wetstir', -8.1, -4.6, 0.35, 3);
+      if (!clayState.said) {
+        clayState.said = true;
+        ui.caption('它还没干。', 3000);
+      }
+    }
+  });
   // ③ 画架脚下的颜料滴溅贴花（透明平面；地板从「打扫过」变「用过」）
   const splatterTex = canvasTexture(128, (g, s) => {
     g.clearRect(0, 0, s, s);

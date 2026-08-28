@@ -2174,6 +2174,59 @@ export function build(ctx) {
     }
   });
 
+  // v1.13 彩蛋：展柜脚下的一块旧橡皮——玻璃罩里的铅笔是英雄，
+  // 地上这块被用过的才是本厅的谜。E → 自己立起来转半圈又躺回去
+  // + 木质轻磕 + 一次性短句。
+  const stubEraser = new THREE.Group();
+  const stubBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.026, 0.028, 0.06, 10),
+    new THREE.MeshStandardMaterial({ color: 0xc27882, roughness: 0.95 })
+  );
+  // 用秃的斜口：顶面一刀斜切的读感（压扁的小圆台盖在斜肩上）
+  const stubWorn = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.026, 0.014, 10),
+    new THREE.MeshStandardMaterial({ color: 0x9c5a64, roughness: 1.0 })
+  );
+  stubWorn.position.y = 0.036;
+  stubWorn.rotation.z = 0.18;
+  stubEraser.add(stubBody, stubWorn);
+  // 旁边一小撮橡皮屑（三粒小锥合并）
+  stubEraser.add(mergedMesh([
+    xform(new THREE.ConeGeometry(0.006, 0.01, 5), 0.06, 0.005, 0.01, 0, 0, 0.4),
+    xform(new THREE.ConeGeometry(0.005, 0.008, 5), 0.075, 0.004, -0.015, 0.3, 0, 0),
+    xform(new THREE.ConeGeometry(0.004, 0.007, 5), 0.045, 0.0035, -0.03, 0, 0, -0.3)
+  ], new THREE.MeshStandardMaterial({ color: 0xb06a74, roughness: 1.0 })));
+  stubEraser.position.set(3.95, 0.03, 5.75);
+  stubEraser.rotation.set(0, 1.1, Math.PI / 2); // 平时躺倒
+  group.add(stubEraser);
+  const stubState = { t: -1, said: false };
+  updaters.push((dt) => {
+    if (stubState.t < 0) return;
+    stubState.t += dt;
+    const u = stubState.t / 2.0;
+    if (u >= 1) {
+      stubState.t = -1;
+      stubEraser.rotation.set(0, 1.1, Math.PI / 2);
+      return;
+    }
+    // 立起（0–0.3）→ 原地转半圈（0.3–0.75）→ 躺回（0.75–1）
+    const rise = Math.min(1, u / 0.3);
+    const fall = u > 0.75 ? (u - 0.75) / 0.25 : 0;
+    stubEraser.rotation.z = (Math.PI / 2) * (1 - rise + fall * fall);
+    stubEraser.rotation.y = 1.1 + Math.max(0, Math.min(1, (u - 0.3) / 0.45)) * Math.PI;
+  });
+  hotspots.add(stubBody, {
+    hint: 'E — 用剩的橡皮',
+    onActivate: () => {
+      if (stubState.t < 0) stubState.t = 0;
+      audio.sfxAt('woodknock', 3.95, 5.75, 0.4, 3);
+      if (!stubState.said) {
+        stubState.said = true;
+        ui.caption('橡皮上没有字。', 3200);
+      }
+    }
+  });
+
   // 引语立牌（本厅唯一文字件：费城，走近才显影）
   const q1 = quoteStand(quoteById('philly'), '#9fb4c7');
   q1.position.set(-5.6, 0, 2.2);

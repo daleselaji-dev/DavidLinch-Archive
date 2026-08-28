@@ -982,6 +982,77 @@ DOCENT 配套）。✅ 全绿。
 - [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**（拐角+转身两重惊吓
       自然触发保持，/tmp/smoke-release-v112.log）。
 
+### 63. 七厅彩蛋齐加一遍 + 交互 ≥170（v1.13 新增）
+- [x] 七厅各 +1 件可发现彩蛋，全部 ≥2 通道反馈（动画/光 + 声 + 短句）：
+      lobby 碑背面一支放反了的白花（花头点动 + 光缝借亮 + 穗须声）/
+      era 展柜脚下用剩的橡皮（立起转半圈躺回 + 木磕）/
+      bv 吧台尽头小费罐（罐身晃 + 硬币脆响）/
+      tp 柜台一只倒扣的杯（抬起欠身扣回 + 瓷釉两磕 1.5s 错拍）/
+      mul 台口弱音小号（**声音比乐器晚收半拍**：音色 2.3s > 抬落 1.75s，
+      与台口「没有乐队」同题——这次不用字幕说）/
+      studio 搁板上没干的黏土小像（dt×1.1 极慢转头看你，可转回去）/
+      archive 趴在地上的书（**合上是永久的**——世界第一次记得你按过 E）。
+- [x] 短句全部 ≤22 字且**一次性锁存**（said/closed）——第二次按 E 只剩
+      声与动作，世界不复述自己。
+- [x] 新音色 `mutetrumpet`（引擎第 83 种 case）：鼻音分音配比（基频弱、
+      2/3 次分音反重）+ 气声垫。
+- [x] INTERACTIVE_MIN 重锁：运行时普查 19/33/26/21/23/22/27 = **171**
+      （阈值 = 普查 −1，七厅全部上调）。
+- [x] mesh 预算 **240→250**（twinpeaks/mulholland 此前贴顶 240/239；
+      新峰值双厅 242、留 8 余量；tris/lights 不动；「彩蛋能合的都合、
+      预算余量不许拿去加布景」纪律入 PLAN §6——杯身杯柄合并单 mesh 为例）。
+- [x] `tests/v113-eggs.test.js` 30 用例：机制字段 / 双通道 / 锁存 /
+      错拍 / 永久态 / 阈值全部源码级审计。
+
+**验证方式**：`npx vitest run tests/v113-eggs.test.js` + `--smoke` 逐厅断言。
+
+### 64. 访谈摘录层「更多他自己的话」（v1.13 新增）
+- [x] `src/data/interviews.js` 12 条结构化访谈/讲座/著作短引语（中英对照
+      + 出处类型 + 策展语境一句），en ≤220 / zh ≤120 字符、与 QUOTES 零重叠。
+- [x] 「访谈摘录册」面板（overlay.showInterviews）**收纳纪律**：不进空间、
+      主动翻开才读；三入口——原话墙底部按钮 / 年表尾行 / archive 阅览桌
+      剪报盒（E → 台灯闪两下 + page 声 + 面板）。
+- [x] archive 第 7 座立牌 doughnut（日常仪式主题）+ DOCENT 注解 +1
+      （essays.js narration.test USED 同步）。
+- [x] 合规口径：粉丝纪念、出处只标**类型**不编造刊物细节、非商业、
+      零 verbatim 台词；叙事禁词/元叙述扫描沿用门禁 13/19/33。
+- [x] `tests/interviews.test.js` 14 用例（配额/禁词/双语长度/接线审计）。
+
+**验证方式**：`npx vitest run tests/interviews.test.js` + 三入口手工翻页。
+
+### 65. Blender 4.1.1 headless 资产管线 + 首件英雄 loop（v1.13 新增）
+- [x] Blender **4.1.1** headless 安装口径入 `scripts/blender/README.md`
+      （NLUUG 镜像 tarball + `blender --version` 验证；官方站 Cloudflare
+      拦截勘破入册）。
+- [x] `scripts/blender/` bpy 管线五件：common.py（studio rig / Cycles CPU /
+      GLB 导出）/ gen_corner_wraith.py（block/mid/fine 三阶段生成）/
+      inspect_blend.py（INSPECT 网格统计）/ render_views.py（四机位样张）/
+      export_glb.py。
+- [x] 首件英雄资产**拐角魅影五拍精修 loop 实录**（README 开发日志：
+      锥向反置 / fringe 穿地 / 管风琴绺束 / 面部虚空 specular 病灶逐拍
+      勘破）；产物 `assets/blender/corner_wraith.{blend,glb}` +
+      `assets/blender/renders/` 样张入库。
+- [x] `npm run blender:check` 工具链冒烟（生成 block 阶段 + INSPECT；
+      未装 Blender 的环境跳过不红——CI 可选项文档化）。
+- [x] Three.js 接入规划入 README：GLB → GLTFLoader 后续轮次落厅
+      （本轮 toolchain + 1 件示范收口）。
+
+**验证方式**：`blender --version` + `npm run blender:check` + README 步骤复走。
+
+### 66. 林奇风审计 + Release 1.13.0（v1.13 新增）
+- [x] `STYLE_AUDIT.md`：现状清点（171 交互 / 约 133 字幕 / 7 立牌 /
+      13 DOCENT）+ 六病灶判断（字幕惯性 / 声画同拍 / 世界无记忆 /
+      光的礼貌 / 文字收纳 / 预算贴顶纪律）+ 本轮改动清单 + 下一轮观察点。
+- [x] 版本 bump 1.13.0（package.json + `__SV__.version` 一致）。
+- [x] CHANGELOG v1.13.0 全节 + WORKLOG 本轮逐段。
+- [x] `npm test`（443 全绿）/ `npm run smoke`（5/5）/ electron `--smoke`
+      （EXIT=0，双惊吓自然触发保持）三连全绿。
+- [x] Windows exe：**本轮不打包**（Blender 管线为本轮主投入，代码面
+      对打包链路零改动——v1.12 的 1.12.0 exe 仍可用）；打包交接给
+      下一轮，步骤 BUILD.md 不变（GOAL_HANDOFF 注明）。
+
+**验证方式**：三连命令 + STYLE_AUDIT/GOAL_HANDOFF 通读。
+
 ---
 
 ## 补充说明：关于「PS5 级别」

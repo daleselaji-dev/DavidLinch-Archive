@@ -1273,6 +1273,52 @@ export function build(ctx) {
       }, 500);
     }
   });
+
+  // v1.13 彩蛋：吧台最远端的小费罐——玻璃罐里几枚硬币，一张
+  // 对折的卡片斜倚着。歌厅的规矩：钱留下，名字不用。
+  // E → 罐身晃两下 + 硬币脆响 + 一次性短句。
+  const tipJar = new THREE.Group();
+  const tipGlassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xd8e8ff, transparent: true, opacity: 0.22, roughness: 0.08,
+    side: THREE.DoubleSide, envMapIntensity: 1.4
+  });
+  const tipGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.06, 0.13, 14, 1, true), tipGlassMat);
+  tipGlass.position.y = 0.065;
+  const tipBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.062, 0.012, 14), tipGlassMat);
+  tipBase.position.y = 0.006;
+  tipJar.add(tipGlass, tipBase, mergedMesh([
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.003, 10), 0.012, 0.016, 0.008, 0.3, 0, 0.1),
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.003, 10), -0.015, 0.014, -0.01, -0.2, 0.5, 0),
+    xform(new THREE.CylinderGeometry(0.014, 0.014, 0.003, 10), 0.002, 0.028, -0.014, 0.1, 0, -0.4)
+  ], new THREE.MeshStandardMaterial({ color: 0xc8a44a, roughness: 0.35, metalness: 0.9 })));
+  const tipCard = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.05, 0.06),
+    new THREE.MeshStandardMaterial({ color: 0xd8cfa8, roughness: 0.9, side: THREE.DoubleSide })
+  );
+  tipCard.position.set(-0.012, 0.052, 0.012);
+  tipCard.rotation.set(-0.5, 0.4, 0.1);
+  tipJar.add(tipCard);
+  tipJar.position.set(-W / 2 + 1.72, 1.125, 3.55);
+  bar.add(tipJar);
+  const tipState = { t: -1, said: false };
+  updaters.push((dt) => {
+    if (tipState.t < 0) return;
+    tipState.t += dt;
+    const u = tipState.t / 1.1;
+    if (u >= 1) { tipState.t = -1; tipJar.rotation.z = 0; return; }
+    tipJar.rotation.z = Math.sin(u * Math.PI * 4) * 0.1 * (1 - u);
+  });
+  hotspots.add(tipGlass, {
+    hint: 'E — 吧台尽头的小费罐',
+    onActivate: () => {
+      if (tipState.t < 0) tipState.t = 0;
+      audio.sfxAt('coin', -W / 2 + 1.72, 3.55, 0.5, 3);
+      if (!tipState.said) {
+        tipState.said = true;
+        ui.caption('都是留给歌手的。', 3200);
+      }
+    }
+  });
   group.add(bar);
 
   // 点唱机（西南角；开机 → 氖弧点亮 + 深夜爵士）

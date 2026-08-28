@@ -10,8 +10,10 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows, wallAO
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows, wallAO,
+  quoteStand, quoteStandUpdater
 } from './kit.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
 } from './props.js';
@@ -41,7 +43,7 @@ const HALL = { minX: -W / 2 + 1, maxX: W / 2 - 1, minZ: -L / 2 + 1.9, maxZ: L / 
 const NICHE = { minX: -W / 2 - 3.4, maxX: -W / 2 + 1.2, minZ: -2.4, maxZ: 2.4 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, engine, player } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -942,6 +944,83 @@ export function build(ctx) {
   pwSeed.scale.set(0.7, 1.25, 0.7);
   pwSeed.position.set(0.62, 0.812, 0.2);
   readTable.add(pwFelt, pwDome, pwSeed);
+
+  // ---------- 访谈剪报盒（v1.13）：E → 打开「访谈摘录」册 ----------
+  // 木浅盘里一沓泛黄剪报：顶张只有版头 INTERVIEWS、灰行线与一格
+  // 空照片框（不印可读句子——句子在打开的册页里）。三通道反馈：
+  // 翻纸声 + 台灯池借光一拍 + 摘录册滑入。
+  const clipTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#d8cdb2';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(46,38,30,0.9)';
+    g.font = '700 15px Georgia, serif';
+    g.fillText('INTERVIEWS', 8, 22);
+    g.strokeStyle = 'rgba(46,38,30,0.6)';
+    g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(8, 30); g.lineTo(s - 8, 30); g.stroke();
+    g.strokeStyle = 'rgba(70,58,44,0.4)';
+    g.lineWidth = 1;
+    for (let yy = 44; yy < s - 8; yy += 9) {
+      g.beginPath(); g.moveTo(10, yy); g.lineTo(s - 10 - (yy % 27), yy); g.stroke();
+    }
+    g.fillStyle = 'rgba(70,58,44,0.35)';
+    g.fillRect(s - 46, 40, 34, 26);
+    g.strokeStyle = 'rgba(46,38,30,0.55)';
+    g.strokeRect(s - 46, 40, 34, 26);
+  });
+  const clipTray = new THREE.Group();
+  clipTray.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.24, 0.01, 0.18), 0, 0.005, 0),
+    xform(new THREE.BoxGeometry(0.24, 0.035, 0.01), 0, 0.0175, -0.085),
+    xform(new THREE.BoxGeometry(0.24, 0.035, 0.01), 0, 0.0175, 0.085),
+    xform(new THREE.BoxGeometry(0.01, 0.035, 0.18), -0.115, 0.0175, 0),
+    xform(new THREE.BoxGeometry(0.01, 0.035, 0.18), 0.115, 0.0175, 0)
+  ], boxWood));
+  const clipStackMat = new THREE.MeshStandardMaterial({ color: 0xcfc4a8, roughness: 0.9 });
+  clipTray.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.19, 0.018, 0.13), 0, 0.014, 0, 0, 0.06, 0),
+    xform(new THREE.BoxGeometry(0.19, 0.008, 0.13), 0.006, 0.027, -0.004, 0, -0.09, 0)
+  ], clipStackMat));
+  const clipTop = new THREE.Mesh(new THREE.PlaneGeometry(0.185, 0.125),
+    new THREE.MeshStandardMaterial({ map: clipTex, roughness: 0.85 }));
+  clipTop.rotation.x = -Math.PI / 2;
+  clipTop.rotation.z = 0.1;
+  clipTop.position.set(0.004, 0.0325, -0.002);
+  clipTray.add(clipTop);
+  clipTray.position.set(-0.42, 0.78, 0.27);
+  clipTray.rotation.y = 0.22;
+  readTable.add(clipTray);
+  const clipFlash = { t: -1 };
+  updaters.push((dt) => {
+    if (clipFlash.t < 0) return;
+    clipFlash.t += dt;
+    const u = clipFlash.t / 1.4;
+    if (u >= 1) { clipFlash.t = -1; return; }
+    // 台灯池借一拍光（叠在台灯更新器之后）：读报的人把灯拨亮了一瞬
+    lampPool.intensity += Math.sin(u * Math.PI) * 2.2;
+  });
+  hotspots.add(clipTop, {
+    hint: 'E — 访谈剪报',
+    onActivate: () => {
+      clipFlash.t = 0;
+      audio.sfxAt('page', -2.4, -13.7, 0.7, 3);
+      ui.showInterviews();
+    }
+  });
+
+  // ---------- 引语立牌（v1.13：七厅唯独档案廊没有，补上第 7 座） ----------
+  // 壁龛口南肩，走近才显影；讲解员驻足 1.6s 后低声补上语境。
+  const q1 = quoteStand(quoteById('doughnut'), '#c9d0c2');
+  q1.position.set(-3.02, 0, 3.7);
+  q1.rotation.y = Math.atan2(3.02, -0.7);
+  group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.doughnut
+  }));
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showQuotes()
+  });
 
   // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
   const projector = filmProjector({ mats: M });
@@ -1886,6 +1965,53 @@ export function build(ctx) {
       }
     });
   }
+
+  // v1.13 彩蛋：阅览桌旁的地上趴着一本书——面朝下摊开扣着，像有人
+  // 读到一半突然起身。E → 两半封面慢慢塌平、书自己合上（纸声 + 一记
+  // 轻响 + 一次性短句）。合上就不再撑起：这条长廊里被你改变的一件小事。
+  const tentBook = new THREE.Group();
+  const tentCloth = new THREE.MeshStandardMaterial({ color: 0x46342c, roughness: 0.88 });
+  const tentPage = new THREE.MeshStandardMaterial({ color: 0xd6cbb2, roughness: 0.95 });
+  const tentHalves = [];
+  for (const sgn of [-1, 1]) {
+    const half = new THREE.Group();
+    const cover = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.012, 0.24), tentCloth);
+    cover.position.set(0.08, 0.006, 0);
+    const pages = new THREE.Mesh(new THREE.BoxGeometry(0.148, 0.016, 0.226), tentPage);
+    pages.position.set(0.077, -0.008, 0); // 面朝下：纸页在封面底下
+    half.add(cover, pages);
+    if (sgn < 0) half.rotation.y = Math.PI;
+    half.rotation.z = -0.55; // 帐篷坡
+    tentBook.add(half);
+    tentHalves.push(half);
+  }
+  tentBook.position.set(-1.9, 0.085, -12.6);
+  tentBook.rotation.y = 0.7;
+  group.add(tentBook);
+  const tentState = { t: -1, closed: false };
+  updaters.push((dt) => {
+    if (tentState.t < 0) return;
+    tentState.t += dt;
+    const u = Math.min(1, tentState.t / 1.4);
+    const e = u * u * (3 - 2 * u);
+    for (const half of tentHalves) half.rotation.z = -0.55 + e * 0.52;
+    tentBook.position.y = 0.085 - e * 0.052;
+    if (u >= 1) { tentState.t = -1; tentState.closed = true; }
+  });
+  hotspots.add(tentBook.children[0].children[0], {
+    hint: 'E — 趴在地上的书',
+    onActivate: () => {
+      if (tentState.t >= 0) return;
+      if (!tentState.closed) {
+        tentState.t = 0;
+        audio.sfxAt('page', -1.9, -12.6, 0.5, 3);
+        setTimeout(() => audio.sfxAt('thud', -1.9, -12.6, 0.25, 3), 1250);
+        ui.caption('读到一半的人走了。', 3400);
+      } else {
+        audio.sfxAt('page', -1.9, -12.6, 0.3, 3); // 合上以后只剩纸声
+      }
+    }
+  });
 
   // 回大厅之门
   const back = doorway({ label: 'THE FOYER', labelZh: '回 大 厅', color: '#d4243c', height: 3.2 });

@@ -124,7 +124,8 @@ describe('文案哲学：只用林奇自己的话，二手解读退场', () => {
 
 describe('立牌与导览层分工（v1.7 门禁 41：立牌只留名言）', () => {
   // 各厅立牌实际引用的引语——背景语境必须在 DOCENT 导览层，不进弹层
-  const USED = ['meaning', 'sense', 'home', 'you', 'philly', 'darkness'];
+  // v1.13：档案廊补上第 7 座立牌（doughnut）——七厅每厅恰 1 座
+  const USED = ['meaning', 'sense', 'home', 'you', 'philly', 'darkness', 'doughnut'];
 
   it.each(USED)('厅内引语 %s 有对应导览注解（24–96 字、≤3 短句）', (id) => {
     const d = DOCENT[id];

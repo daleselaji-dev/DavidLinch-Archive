@@ -1,6 +1,6 @@
 {
   "name": "smoke-and-velvet-lynch-archive",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "SMOKE & VELVET — 大卫·林奇数字纪念展览馆 (unofficial fan-art memorial exhibition, all visuals & audio procedurally generated)",
   "private": true,
   "main": "electron/main.cjs",
@@ -13,6 +13,7 @@
     "start": "electron .",
     "test": "vitest run",
     "smoke": "node scripts/smoke.js",
+    "blender:check": "node scripts/blender-check.js",
     "gen:icon": "node scripts/gen-icon.js",
     "dist:win": "npm run build && npm run gen:icon && electron-builder --win --x64",
     "dist:win:portable": "npm run build && npm run gen:icon && electron-builder --win portable --x64"

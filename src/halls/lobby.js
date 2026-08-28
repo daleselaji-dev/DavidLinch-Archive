@@ -857,6 +857,43 @@ export function build(ctx) {
   });
 
   // ============================================================
+  // v1.13 彩蛋：碑背面斜倚着一支白花——正面的花都是访客献的，
+  // 背面这支不知道是谁放的。绕到碑后才会看见（可发现性=位置，
+  // 无任何指引）。E → 花头点几下 + 光缝借亮一拍 + 很轻的穗须声。
+  // ============================================================
+  const backLily = callaLily(lilyShared);
+  backLily.position.set(-0.42, 0.27, -1.18);
+  backLily.rotation.set(-Math.PI / 2 + 0.14, -Math.PI / 2, 0.26);
+  group.add(backLily);
+  const backLilyHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.34, 0.3, 0.34),
+    new THREE.MeshStandardMaterial({ color: 0x000000 })
+  );
+  backLilyHit.visible = false;
+  backLilyHit.position.set(-0.42, 0.3, -1.34);
+  group.add(backLilyHit);
+  const backLilyNod = { t: -1, said: false };
+  updaters.push((dt) => {
+    if (backLilyNod.t < 0) return;
+    backLilyNod.t += dt;
+    const u = backLilyNod.t / 1.6;
+    if (u >= 1) { backLilyNod.t = -1; backLily.rotation.z = 0.26; return; }
+    backLily.rotation.z = 0.26 + Math.sin(u * Math.PI * 3) * 0.09 * (1 - u);
+  });
+  hotspots.add(backLilyHit, {
+    hint: 'E — 一支放反了的花',
+    onActivate: () => {
+      if (backLilyNod.t < 0) backLilyNod.t = 0;
+      seamPulse.t = 0; // 光缝替它应一声
+      audio.sfxAt('tassel', -0.4, -1.2, 0.5, 3);
+      if (!backLilyNod.said) {
+        backLilyNod.said = true;
+        ui.caption('有人先来过了。', 3400);
+      }
+    }
+  });
+
+  // ============================================================
   // v1.10 抛光 P14「开门第一眼」第四看：入口到碑座的丝绒长毯——
   // 开门那一帧的最后一笔：一条深酒红的路把目光押到碑前，金双边
   // 线接住吊灯的光，中线被走浅了一道（走的人只有一条路）。两端

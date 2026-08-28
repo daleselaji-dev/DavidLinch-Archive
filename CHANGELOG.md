@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## v1.13.0 — 2026-08-28「Blender 管线 · 访谈摘录册 · 七厅彩蛋」
+
+> **为什么是 1.13**：持续演进 Goal 第 1 轮——四大目标：①Blender 4.1.1
+> headless 资产管线（不用 MCP，纯 bpy + CLI）；②整体林奇风审计；
+> ③彩蛋与可互动性大幅增加；④更多林奇讲解/访谈。基线 v1.12.0 tip
+> （66353ed），拐角魅影 v3 / 松林图书梯精修 / 162 交互全部保留不回退。
+
+**Blender 4.1.1 headless 资产管线（门禁 65——全新工具链）**
+- Linux headless 安装口径（NLUUG 镜像 tarball；官方站 Cloudflare 拦截
+  勘破入册）+ `blender --version` 验证
+- `scripts/blender/` bpy 管线五件：common.py（三点 studio rig / Cycles
+  CPU / GLB 导出）、gen_corner_wraith.py（block→mid→fine 三阶段参数化
+  生成）、inspect_blend.py（INSPECT 网格统计）、render_views.py（前/侧/
+  背/近景四机位样张）、export_glb.py
+- **首件英雄资产：拐角魅影五拍精修 loop 完整实录**——生成→INSPECT→
+  渲染→目检→改参回环五轮，病灶逐拍勘破（锥体朝向反置 / fringe 穿地 /
+  发绺管风琴化 / 面部虚空 specular 吃光鼓包）；产物 corner_wraith
+  .blend + .glb + 渲染样张八张入库（assets/blender/）
+- `npm run blender:check` 工具链冒烟；Three.js GLB 落厅规划入 README
+  （后续轮次 GLTFLoader 接入）
+
+**访谈摘录层「更多他自己的话」（门禁 64——Goal D）**
+- `src/data/interviews.js` 12 条结构化访谈/讲座/著作短引语：中英对照 +
+  出处类型 + 策展语境一句；en ≤220 / zh ≤120、与 QUOTES 零重叠、
+  合规扫描沿用（出处只标类型、零 verbatim、非商业粉丝纪念口径）
+- 「访谈摘录册」面板收纳纪律：不进空间、主动翻开才读；三入口——
+  原话墙底部按钮 / 年表尾行 / archive 阅览桌**访谈剪报盒**（E → 台灯
+  闪两下 + 面板）
+- archive 第 7 座引语立牌 doughnut（日常仪式主题）+ DOCENT 注解 +1
+- interviews.test.js 14 用例（配额/禁词/双语长度/接线审计）
+
+**七厅彩蛋齐加一遍（门禁 63——Goal C，交互 162→171）**
+- 每厅 +1 件可发现彩蛋，全部 ≥2 通道反馈、短句 ≤22 字**一次性锁存**：
+  lobby 碑背面放反了的白花（光缝借亮）/ era 用剩的橡皮（立起转半圈）/
+  bv 吧台小费罐（硬币脆响）/ tp 倒扣的杯（1.5s 错拍第二磕）/
+  mul 弱音小号（**声音比乐器晚收半拍**——新音色 mutetrumpet，音色
+  2.3s > 抬落动画 1.75s）/ studio 没干的黏土小像（极慢转头看你）/
+  archive 趴地的书（**合上是永久的**——世界第一次记得你按过 E）
+- INTERACTIVE_MIN 重锁 171（普查 −1）；mesh 预算 240→250（两厅此前
+  贴顶，新峰值 242 留 8 余量；「能合的都合」纪律入 PLAN §6）
+- v113-eggs.test.js 30 用例（机制/双通道/锁存/错拍/永久态/阈值）
+
+**林奇风审计（门禁 66——Goal B）**
+- `STYLE_AUDIT.md`：现状清点 + 六病灶判断（字幕惯性 / 声画同拍 /
+  世界无记忆 / 光的礼貌 / 文字收纳 / 预算贴顶纪律）+ 本轮改动执行账 +
+  下一轮观察点（字幕总量冻结 / 错拍默认 / 永久态扩展 / Blender 资产
+  材质克制 / 声先于形）
+- 本轮三处「错拍」落地（小号迟收 / 瓷磕迟到 / 黏土慢转），一处
+  「永久态」开口子（趴地书）——审计不是文档作业，病灶当轮就修
+
+**版本与测试**
+- 版本 bump 1.13.0（package.json + `__SV__.version`）；单测 399 →
+  **443**（interviews 14 + v113-eggs 30）；`npm test` / `npm run smoke` /
+  electron `--smoke`（EXIT=0，拐角+转身双惊吓自然触发保持）三连全绿
+- Windows exe 本轮不打包（打包链路零改动，1.12.0 exe 仍可用），
+  交接下一轮（GOAL_HANDOFF）
+
 ## v1.12.0 — 2026-08-27「贴角 · 长发与眼窝 · 精修循环」
 
 > **为什么是 1.12**：v1.11 之后用户三条核心反馈的落地轮——①拐角惊吓

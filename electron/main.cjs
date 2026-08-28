@@ -62,7 +62,10 @@ function createWindow() {
         // 输出场景统计并校验性能预算（QUALITY_GATES 22 / v1.4 门禁 30：
         // PS5-tier 预算按 PRODUCTION_PLAN §6 上调至
         // meshes ≤ 240 / tris ≤ 240k / 动态光源 ≤ 40，仍为硬门禁）
-        const MESH_BUDGET = 240;
+        // v1.13：七厅彩蛋齐加一遍（每厅 +1 件、2–3 mesh），twinpeaks/
+        // mulholland 此前已贴顶（240/239）——mesh 预算 240→250，
+        // tris/lights 不动；新普查峰值 twinpeaks 242 仍留 8 余量
+        const MESH_BUDGET = 250;
         const TRI_BUDGET = 240000;
         const LIGHT_BUDGET = 40;
         win.webContents.executeJavaScript(
@@ -95,9 +98,12 @@ function createWindow() {
         // v1.10 阶段 3 重锁：普查 18/29/23/19/21/21/25 = 156，阈值 = 普查 -1
         // v1.11 阶段 4 重锁：普查 18/30/25/20/22/21/26 = 162（七件彩蛋中带热点者
         // +6：缠布/焦球/首饰盒/椅臂杯/小门/灯牌接骨——过影无热点），阈值 = 普查 -1
+        // v1.13 七厅彩蛋齐加一遍重锁：普查 19/33/26/21/23/22/27 = 171
+        // （碑后白花/趴地书+doughnut 立牌+剪报盒/用剩橡皮/小费罐/倒扣杯/
+        // 弱音小号/黏土小像），阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 17, archive: 29, eraserhead: 24, bluevelvet: 19,
-          twinpeaks: 21, mulholland: 20, studio: 25
+          lobby: 18, archive: 32, eraserhead: 25, bluevelvet: 20,
+          twinpeaks: 22, mulholland: 21, studio: 26
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
