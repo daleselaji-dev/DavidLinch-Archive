@@ -18,6 +18,16 @@ export function spatialParams(dx, dz, yaw, ref = 3) {
 }
 
 /**
+ * 「那头」的应答谱系 DNA（v1.15 门禁 73，供单测）：固定小三度双音
+ * D3→F3。v1.10 起的远声族（doorfar/pipeknock/drawerfar/liftbell）
+ * 各说各话；v1.14 检修口盖板回敲刻意与 pipeknock 同源之后，审计
+ * 立的纪律是——远声若再「应答」，给那头一条独立音色谱系：无论隔着
+ * 档案墙的风道哼鸣（replyhum）还是替你收掉最后一拍（replytap），
+ * 音高都是这同一副嗓子。七厅背后答话的，从来是同一个东西。
+ */
+export const REPLY_DYAD = [146.83, 174.61];
+
+/**
  * 空间混响预设（程序化脉冲响应参数，零采样；供单测）：
  * seconds 尾音长度 / damp 高频阻尼(0-1，越大越闷) / wet 湿度电平。
  */
@@ -686,6 +696,33 @@ export class AudioEngine {
         noise('pink', 0.1, 'bandpass', 480, 2, 0.05, 0.008, 0.004);
         // 棚壁回弹（一间大房间在答应）：迟 90ms 的低短影
         noise('pink', 0.07, 'bandpass', 700, 2, 0.022, 0.09, 0.01);
+        break;
+      }
+      // ---------- v1.15 新音色（门禁 73：彩蛋第三批 + 远声应答谱系） ----------
+      case 'replyhum': { // 那头的嗓子：D3→F3 两粒气声哼鸣——共振噪声成音（永远带着呼吸，不是干净正弦）
+        noise('pink', 0.9, 'bandpass', REPLY_DYAD[0], 26, 0.16, 0, 0.3);
+        noise('pink', 0.24, 'bandpass', REPLY_DYAD[0] * 2, 14, 0.03, 0.12, 0.1);
+        noise('pink', 1.1, 'bandpass', REPLY_DYAD[1], 26, 0.14, 0.72, 0.34);
+        noise('pink', 0.3, 'bandpass', REPLY_DYAD[1] * 2, 14, 0.026, 0.86, 0.12);
+        noise('brown', 1.9, 'lowpass', 190, 1, 0.05, 0, 0.5); // 墙那边的胸腔
+        break;
+      }
+      case 'replytap': { // 那头的指节：同一副音高落成两记叩点（调过音的敲击——它不是随手敲的）
+        for (const [i, f] of REPLY_DYAD.entries()) {
+          const at = i * 0.34;
+          tone('sine', f * 2, f, 0.16, 0.09, at);
+          tone('sine', f * 3.02, f * 2.98, 0.05, 0.022, at);
+          noise('white', 0.02, 'lowpass', 900, 1, 0.05, at, 0.002);
+        }
+        noise('brown', 0.5, 'lowpass', 220, 1, 0.028, 0.36, 0.1);
+        break;
+      }
+      case 'stonebrush': { // 指腹擦过石刻纹：矿物颗粒摩擦一拂（由细滑粗）+ 两粒石籽 + 掌根收尾软压
+        const sb = noise('pink', 0.5, 'bandpass', 1750, 2.2, 0.05, 0, 0.09);
+        sb.frequency.exponentialRampToValueAtTime(950, t + 0.42);
+        noise('white', 0.06, 'highpass', 5200, 2, 0.014, 0.1);
+        noise('white', 0.05, 'highpass', 4600, 2, 0.012, 0.3);
+        noise('brown', 0.16, 'lowpass', 380, 1, 0.035, 0.4, 0.05);
         break;
       }
       case 'glasswipe': { // 指腹擦过凝雾玻璃：湿滑黏滞双短鸣 + 底下一层软擦 + 收尾高频珠

@@ -367,6 +367,45 @@ export function build(ctx) {
     }
   });
 
+  // v1.15 彩蛋三批（门禁 73）：东北墙角一根铸铁立管——从地板通进天花，
+  // 这个房间唯一一截「楼里」的东西。敲一下（clank 轻声即时），1.4s 后
+  // 楼下顺着管子回两记 replytap（远声应答谱系：档案的风道、锅炉房的
+  // 对讲管、林子那头——每个厅的「另一边」都是同一个另一边，这根管
+  // 只是它路过这个房间的地方）。可重复、无永久态、零字幕：
+  // 这个厅的规矩是一切都会复原——它只应答，不留痕。
+  const riser = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.048, 0.048, 4.6, 12), 0, 2.3, 0),
+    // 套接法兰 ×2 + 墙装抱箍 ×2 + 地板口护圈
+    xform(new THREE.CylinderGeometry(0.062, 0.062, 0.05, 12), 0, 1.32, 0),
+    xform(new THREE.CylinderGeometry(0.062, 0.062, 0.05, 12), 0, 3.44, 0),
+    xform(new THREE.BoxGeometry(0.13, 0.035, 0.1), 0, 0.82, -0.06),
+    xform(new THREE.BoxGeometry(0.13, 0.035, 0.1), 0, 3.9, -0.06),
+    xform(new THREE.CylinderGeometry(0.085, 0.095, 0.03, 12), 0, 0.015, 0)
+  ], M.iron);
+  riser.position.set(7.85, 0, -6.05);
+  group.add(riser);
+  const riserState = { wait: 0 };
+  updaters.push((dt) => {
+    if (riserState.wait > 0) {
+      riserState.wait -= dt;
+      // 楼下的应答——同一点位、更低更闷（隔着一层地板）
+      if (riserState.wait <= 0) audio.sfxAt('replytap', 7.85, -6.05, 0.4, 7);
+    }
+  });
+  hotspots.add(riser, {
+    hint: 'E — 墙角的立管',
+    onActivate: () => {
+      if (riserState.wait > 0) return;
+      audio.sfxAt('clank', 7.85, -6.05, 0.32, 3.5);
+      riserState.wait = 1.4;
+    }
+  });
+  // v1.15 回归修复：门禁 69 插入场记板时误删了工作桌的挂载三行——
+  // 自 v1.14.0 起整张桌子（抽屉/笔记本/铅笔刀/场记板）不在场景里。
+  desk.position.set(-6.4, 0, -1.4);
+  desk.rotation.y = Math.PI / 2;
+  group.add(desk);
+
   // v1.10 抛光 P5·件 1：桌旁的字纸篓——车削铁皮篓（内壁回折），
   // 两团揉掉的纸落在篓外的地板上，一团卡在篓沿。写了又不要的
   // 比留下的多；扔也没扔准。

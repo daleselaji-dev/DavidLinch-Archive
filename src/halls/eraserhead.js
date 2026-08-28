@@ -1468,6 +1468,44 @@ export function build(ctx) {
     }
   });
 
+  // v1.15 彩蛋三批（门禁 73）：主房间北墙一根对讲管——立管从地沟通到
+  // 天花之上，半人高探出一只黄铜喇叭口。对着管口敲一下（clank 即时），
+  // 3.0s 后管子极远的那头凑近了哼两粒音（replyhum——远声应答谱系：
+  // 与检修口的回敲不同，这根管子那头的东西有嗓子）。可重复、无永久
+  // 态：它每次都接。零字幕——这栋楼的内线不翻译。
+  const tubeZ = -S / 2 + 0.52;
+  const speakTube = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.042, 0.042, 3.4, 10), 0, 1.9, -0.1),
+    // 墙装抱箍 ×2 + 肘弯 + 出口短管
+    xform(new THREE.BoxGeometry(0.13, 0.04, 0.1), 0, 0.9, -0.14),
+    xform(new THREE.BoxGeometry(0.13, 0.04, 0.1), 0, 2.9, -0.14),
+    xform(new THREE.CylinderGeometry(0.042, 0.042, 0.16, 10), 0, 1.46, -0.02, Math.PI / 2.6, 0, 0)
+  ], M.iron);
+  const tubeHorn = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.085, 0.034, 0.13, 12), 0, 1.52, 0.1, Math.PI / 2.6, 0, 0),
+    xform(new THREE.TorusGeometry(0.085, 0.011, 8, 14), 0, 1.552, 0.132, Math.PI / 2.6 + Math.PI / 2, 0, 0)
+  ], M.brass);
+  const tubeRig = new THREE.Group();
+  tubeRig.add(speakTube, tubeHorn);
+  tubeRig.position.set(1.6, 0, tubeZ);
+  group.add(tubeRig);
+  const tubeState = { wait: 0 };
+  updaters.push((dt) => {
+    if (tubeState.wait > 0) {
+      tubeState.wait -= dt;
+      // 管子的另一头不在这层楼——从东南极远处传回来
+      if (tubeState.wait <= 0) audio.sfxAt('replyhum', 12, 9, 0.5, 14);
+    }
+  });
+  hotspots.add(tubeHorn, {
+    hint: 'E — 对讲管',
+    onActivate: () => {
+      if (tubeState.wait > 0) return;
+      audio.sfxAt('clank', 1.6, tubeZ, 0.35, 3.5);
+      tubeState.wait = 3.0;
+    }
+  });
+
   // ---------- v1.11 门禁 57：缠布之物（工业畸胎感抽象存在） ----------
   // 南墙深处、炉门与阀门之间的一张检修桌：锌盆里躺着一团缠满绷带状
   // 布条的长形之物。**没有任何五官**，头端只是布条收拢（非肖像复刻，

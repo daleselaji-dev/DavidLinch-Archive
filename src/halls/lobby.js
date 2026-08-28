@@ -12,6 +12,7 @@
 // 显字的引语立牌。
 // ============================================================
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
   PALETTE, curtainRing, floorMesh, neonSign, doorway,
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
@@ -19,6 +20,10 @@ import {
   column, mergedMesh, xform, brushedMetalTexture,
   chevronMat, woodMat, marbleMat, rng, canvasTexture, noiseCanvasTexture, contactShadows
 } from './kit.js';
+// v1.15 门禁 72：大厅纪念浮雕 GLB（gen_memorial_relief.py 五拍精修）
+// ——?inline + 手动 base64 解码 + GLTFLoader.parse（electron sandbox
+// 勘破口径同 twinpeaks 孪生松）
+import reliefGlbUri from '../assets/memorial_relief.glb?inline';
 import {
   propMats, chandelier, memorialStele, gramophone,
   lectern, ushersBell, dimmerPlate, callaLily, lilyMats
@@ -301,6 +306,67 @@ export function build(ctx) {
         ui.caption('石头是温的。', 3200);
       }
     }
+  });
+
+  // ---------- 纪念浮雕 GLB（v1.15 门禁 72：Blender 第 4 件落厅） ----------
+  // 悼念角（衣帽架与花圈的东南柱间）再添一方石浮雕：下段幕布竖褶、
+  // 上段一缕烟升起分缕——馆名的两个字刻在石头上。GLB 经 GLTFLoader
+  // 落地即钳材质（石件哑光口径；鎏金内缘保留金属度——大厅的鎏金
+  // 语言本就是金属）。交互零字幕：指腹擦过刻纹即时一声石磨，2.1s 后
+  // 中央独石的光缝借亮一拍 + 碑向这边低低应一声石钟——浮雕答的是碑
+  // （错拍默认；新东西向旧光低头，零新增光源）。
+  const RELIEF_POS = { x: 2.75, z: -11.55 };
+  const reliefPivot = new THREE.Group();
+  reliefPivot.position.set(RELIEF_POS.x, 0, RELIEF_POS.z);
+  // GLB 正面在局部 -z（Blender +Y 前脸经 Y-up 换算）——yaw 转向厅心
+  reliefPivot.rotation.y = Math.atan2(RELIEF_POS.x, RELIEF_POS.z);
+  group.add(reliefPivot);
+  const reliefState = { t: -1 };
+  updaters.push((dt) => {
+    if (reliefState.t < 0) return;
+    reliefState.t += dt;
+    if (reliefState.t > 3.2) reliefState.t = -1;
+  });
+  const reliefReady = new Promise((resolve) => {
+    const b64 = reliefGlbUri.slice(reliefGlbUri.indexOf(',') + 1);
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    new GLTFLoader().parse(buf.buffer, '', (gltf) => {
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && o.material) {
+          if (o.material.name === 'reliefGilt') {
+            o.material.envMapIntensity = 0.6;
+          } else {
+            o.material.roughness = Math.max(o.material.roughness ?? 1, 0.92);
+            o.material.metalness = 0;
+            o.material.envMapIntensity = 0.25;
+          }
+          if (o.material.emissive) o.material.emissive.setScalar(0);
+        }
+      });
+      reliefPivot.add(gltf.scene);
+      const field = gltf.scene.getObjectByName('reliefField');
+      if (field) {
+        hotspots.add(field, {
+          hint: 'E — 石上的烟',
+          onActivate: () => {
+            if (reliefState.t >= 0) return;
+            reliefState.t = 0;
+            audio.sfxAt('stonebrush', RELIEF_POS.x, RELIEF_POS.z, 0.55, 5);
+            setTimeout(() => {
+              seamPulse.t = 0;
+              audio.sfxAt('stonechime', 0, 0, 0.26, 9);
+            }, 2100);
+          }
+        });
+      }
+      console.log('[sv] glb-landed lobby relief');
+      resolve(gltf.scene);
+    }, (err) => {
+      console.warn('[sv] glb-failed lobby relief', err);
+      resolve(null);
+    });
   });
 
   // 黄铜六臂吊灯（挂在天花线脚中心）；dim 为墙面调光旋钮的三档状态
@@ -1587,6 +1653,8 @@ export function build(ctx) {
     spawn: { x: 0, z: 8.6, yaw: 0 },
     bounds: circleBounds(R - 2.4),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    // GLB 浮雕解析就位信号——main.js 等它再宣布 hall-loaded（普查完整）
+    ready: reliefReady,
     eggs: { 'curtain-whisper': whisperTrig, 'dais-light': daisTrig }
   };
 }

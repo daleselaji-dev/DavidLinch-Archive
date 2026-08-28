@@ -212,6 +212,33 @@ export function build(ctx) {
   wedge.rotation.set(-0.55, -2.45, 0);
   wedge.position.set(1.18, 0.7, -D / 2 + 3.42);
   group.add(wedge);
+  // v1.15 彩蛋三批（门禁 73）：这只返听音箱没通电——敲箱面只有一声
+  // 死闷（thud 即时，喇叭不响）；1.9s 后监听从后幕那边回来了
+  // （replyhum——远声应答谱系：过亮的红后面有人替这只箱子出声）。
+  // 可重复、无永久态、零字幕：走线的事没人解释。零新增网格——
+  // 箱子 v1.4 就在台上，只是今天才有人敲它。
+  const wedgeState = { wait: 0, wob: -1 };
+  updaters.push((dt) => {
+    if (wedgeState.wob >= 0) { // 被敲后箱体一记闷震
+      wedgeState.wob += dt;
+      const d = Math.max(0, 1 - wedgeState.wob / 0.3);
+      wedge.rotation.x = -0.55 + Math.sin(wedgeState.wob * 44) * 0.014 * d;
+      if (d <= 0) wedgeState.wob = -1;
+    }
+    if (wedgeState.wait > 0) {
+      wedgeState.wait -= dt;
+      if (wedgeState.wait <= 0) audio.sfxAt('replyhum', 0, -D / 2 - 1.2, 0.5, 8);
+    }
+  });
+  hotspots.add(wedge.children[0], {
+    hint: 'E — 返听音箱',
+    onActivate: () => {
+      if (wedgeState.wait > 0) return;
+      wedgeState.wob = 0;
+      audio.sfxAt('thud', 1.18, -D / 2 + 3.42, 0.4, 3.5);
+      wedgeState.wait = 1.9;
+    }
+  });
   const cablePath = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0.07, 0.565, -D / 2 + 2.42),
     new THREE.Vector3(0.52, 0.565, -D / 2 + 2.88),
