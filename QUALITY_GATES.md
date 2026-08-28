@@ -967,13 +967,20 @@ DOCENT 配套）。✅ 全绿。
       三连全绿（1.12.0 构建产物上复跑：399 全绿 / 冒烟 5/5 / 运行时
       EXIT=0 两重惊吓保持；另加**发布候选浸泡三连跑 3/3**——连续三轮
       全冒烟 EXIT=0、每轮双惊吓自然触发）。
-- [ ] WORKLOG v1.12 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证）。
+- [x] WORKLOG v1.12 段显示本轮 ≥8 小时（UTC 逐段与 git 提交时间互证：
+      15:59 起 40 段无缝衔接至 23:59 合计 **8.00h**，另有打包轮在后；
+      三次时间戳校准均按提交时钟收紧不放松）。
 - [x] 版本 bump 1.12.0（package.json + `__SV__.version` 一致，dist 产物
       内 rg 常量核对在包）；CHANGELOG v1.12.0 全节。
-- [ ] `release/*-1.12.0.exe` 双目标 + `SHA256SUMS.txt` 重写；旧版 exe
-      从本分支移除防混淆。
-- [ ] `DOWNLOAD.md` raw 直链醒目标注「请下本轮 Portable-1.12.0」。
-- [ ] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.12.0。
+- [x] `release/*-1.12.0.exe` 双目标 + `SHA256SUMS.txt` 重写；旧版 exe
+      从本分支移除防混淆（Portable 95.44MB / Setup 95.61MB，PE32 校验
+      ×2、双双低于 GitHub 100MiB 硬限可走 raw 直链；asar 内 package.json
+      版本 1.12.0 提取到 /tmp 核对——不重蹈 v1.11 覆盖源文件之辙）。
+- [x] `DOWNLOAD.md` raw 直链醒目标注「请下本轮 Portable-1.12.0」
+      （直链两条指向本分支 + SHA256 实测值 + 本轮看点五条）。
+- [x] 文档（README/BUILD/TESTING/本文件/WORKLOG/DOWNLOAD）同步 1.12.0。
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**（拐角+转身两重惊吓
+      自然触发保持，/tmp/smoke-release-v112.log）。
 
 ---
 
