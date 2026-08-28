@@ -359,6 +359,51 @@ export function build(ctx) {
     }
   });
 
+  // v1.15 彩蛋三批（门禁 73）：东墙高处一面通风格栅——敲一下（clank
+  // 即时），2.4s 后风道极深处回两记 replytap（远声应答谱系：应答
+  // 永远是那副 D3-F3，敲的人换了它也不换）。但每次应答换一头——
+  // 上一次在长廊北端，这一次在南端。它在管道里走。零字幕，可重复：
+  // 这段对话没有尽头，也没有译文。
+  const grille = mergedMesh([
+    // 外框四边 + 六片斜百叶 + 对角双螺钉
+    xform(new THREE.BoxGeometry(0.56, 0.045, 0.03), 0, 0.24, 0),
+    xform(new THREE.BoxGeometry(0.56, 0.045, 0.03), 0, -0.24, 0),
+    xform(new THREE.BoxGeometry(0.045, 0.53, 0.03), -0.258, 0, 0),
+    xform(new THREE.BoxGeometry(0.045, 0.53, 0.03), 0.258, 0, 0),
+    ...[-0.155, -0.093, -0.031, 0.031, 0.093, 0.155].map((ly) =>
+      xform(new THREE.BoxGeometry(0.47, 0.05, 0.012), 0, ly, -0.004, 0.72, 0, 0)),
+    xform(new THREE.CylinderGeometry(0.013, 0.013, 0.014, 6), -0.225, 0.21, 0.014, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.013, 0.013, 0.014, 6), 0.225, -0.21, 0.014, Math.PI / 2, 0, 0)
+  ], M.iron);
+  grille.rotation.y = -Math.PI / 2; // 面朝长廊（-x）
+  grille.position.set(W / 2 - 0.03, 3.45, -6.5);
+  group.add(grille);
+  const grilleState = { wait: 0, side: 1, wob: -1 };
+  updaters.push((dt) => {
+    if (grilleState.wob >= 0) { // 被敲后的薄铁微震（0.35s 衰减）
+      grilleState.wob += dt;
+      const d = Math.max(0, 1 - grilleState.wob / 0.35);
+      grille.rotation.x = Math.sin(grilleState.wob * 52) * 0.01 * d;
+      if (d <= 0) grilleState.wob = -1;
+    }
+    if (grilleState.wait > 0) {
+      grilleState.wait -= dt;
+      if (grilleState.wait <= 0) {
+        grilleState.side = -grilleState.side; // 换一头应答——它在管道里走
+        audio.sfxAt('replytap', W / 2 - 0.1, grilleState.side > 0 ? 19 : -21, 0.55, 20);
+      }
+    }
+  });
+  hotspots.add(grille, {
+    hint: 'E — 通风格栅',
+    onActivate: () => {
+      if (grilleState.wait > 0) return;
+      grilleState.wob = 0;
+      audio.sfxAt('clank', W / 2 - 0.1, -6.5, 0.4, 4);
+      grilleState.wait = 2.4;
+    }
+  });
+
   // v1.4 三遍：停摆的站钟（西墙高处）——黄铜圈 + 奶面刻度盘（狐斑老化）+
   // 真三维指针（秒针垂死在 6 点位）；E → 分针挣一下又垂回去（棘轮声）
   const clockFaceTex = canvasTexture(256, (g, s) => {

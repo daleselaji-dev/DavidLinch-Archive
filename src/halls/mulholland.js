@@ -949,6 +949,64 @@ export function build(ctx) {
     }
   });
 
+  // v1.15 彩蛋三批（门禁 73）：亭窗左扇玻璃后挂一块「BACK IN 5」
+  // 小牌——拨一下（latchsnap 轻声即时），牌子转过去，背面还是
+  // BACK IN 5（这五分钟永远数不完）；1.6s 后亭子里面 replyhum
+  // （远声应答谱系：里面有人应了——可是窗没开过，灯也没多亮一格）。
+  // 可重复、无永久态、零字幕。
+  const backInTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#d8cfb8';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#3a2c20';
+    g.lineWidth = 5;
+    g.strokeRect(7, 7, s - 14, s - 14);
+    g.fillStyle = '#2c2018';
+    g.font = 'bold 30px Georgia';
+    g.textAlign = 'center';
+    g.fillText('BACK IN', s / 2, 52);
+    g.font = 'bold 56px Georgia';
+    g.fillText('5', s / 2, 108);
+  });
+  const backInPivot = new THREE.Group();
+  const backInSign = new THREE.Mesh(
+    new THREE.BoxGeometry(0.21, 0.21, 0.007),
+    new THREE.MeshStandardMaterial({ map: backInTex, roughness: 0.85 })
+  );
+  backInSign.position.y = -0.145;
+  backInPivot.add(backInSign, new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0022, 0.0022, 0.08, 5),
+    new THREE.MeshStandardMaterial({ color: 0x666055, roughness: 0.5, metalness: 0.6 })
+  ));
+  backInPivot.position.set(-0.25, 1.78, 0.42); // 亭局部系：左扇玻璃内侧
+  backInPivot.rotation.y = 0.12;
+  tbooth.add(backInPivot);
+  const backInState = { spin: -1, wait: 0, base: 0.12 };
+  updaters.push((dt) => {
+    if (backInState.spin >= 0) { // 绕挂绳转半圈（0.8s 带过冲回摆）
+      backInState.spin += dt;
+      const u = Math.min(1, backInState.spin / 0.8);
+      backInPivot.rotation.y = backInState.base + u * Math.PI +
+        Math.sin(u * Math.PI) * 0.35;
+      if (u >= 1) {
+        backInState.base += Math.PI; // 背面成为新的正面——内容一个字没换
+        backInState.spin = -1;
+      }
+    }
+    if (backInState.wait > 0) {
+      backInState.wait -= dt;
+      if (backInState.wait <= 0) audio.sfxAt('replyhum', 5.35, -12.8, 0.5, 5);
+    }
+  });
+  hotspots.add(backInSign, {
+    hint: 'E — BACK IN 5',
+    onActivate: () => {
+      if (backInState.spin >= 0 || backInState.wait > 0) return;
+      backInState.spin = 0.001;
+      audio.sfxAt('latchsnap', 5.05, -13.05, 0.3, 3);
+      backInState.wait = 1.6;
+    }
+  });
+
   // v1.4 阶段 4：路缘报箱 —— 洛杉矶街头的投币报箱；
   // E → 门盖弹开一条缝又被弹簧拽回（哐当 + 闷响），头版是空白的
   const newsBox = new THREE.Group();

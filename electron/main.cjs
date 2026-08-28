@@ -112,9 +112,12 @@ function createWindow() {
         // v1.14 彩蛋二批重锁：七厅又各 +1（中缝钢笔/没关严的抽屉/检修口
         // 盖板/火柴盒/手板硬币/海报角/场记板）+ twinpeaks GLB 孪生松 +1
         // → 普查 20/34/27/22/25/23/28 = 179，阈值 = 普查 -1
+        // v1.15 彩蛋三批重锁：lobby 纪念浮雕（门禁 71 落厅）+ 六厅远声
+        // 应答各 +1（通风格栅/对讲管/返听音箱/松果/BACK IN 5/节拍器）
+        // → 普查 21/35/28/23/26/24/29 = 186，阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 19, archive: 33, eraserhead: 26, bluevelvet: 21,
-          twinpeaks: 24, mulholland: 22, studio: 27
+          lobby: 20, archive: 34, eraserhead: 27, bluevelvet: 22,
+          twinpeaks: 25, mulholland: 23, studio: 28
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
