@@ -1,72 +1,83 @@
-# GOAL_HANDOFF — 持续演进 Goal 交接（第 1 轮 → 第 2 轮）
+# GOAL_HANDOFF — 持续演进 Goal 交接（第 2 轮 → 第 3 轮）
 
 > 本文件由每轮子代理更新：本轮完成了什么 / 下一轮优先做什么 /
 > 当前分支与阻塞项。父代理不改代码，只据此派生下一轮 Task。
 
 ---
 
-## 本轮（第 1 轮，v1.13.0）完成了什么
+## 本轮（第 2 轮，v1.14.0）完成了什么
 
-**分支**：`cursor/blender-loop-v1130-a993`（基线 v1.12.0 tip `66353ed`，
-非 main）。门禁 63–66 全绿，单测 399→**443**，三连测试全过。
+**分支**：`cursor/pine-ladder-glb-v1140-a993`（基线 v1.13.0 tip
+`6720511`，origin/cursor/blender-loop-v1130-a993，非 main）。
+门禁 67–70 全绿，单测 443→**470**，四连测试（test/smoke/electron/
+blender:check）全过，**已打包 1.14.0 exe**。
 
-### A) Blender 4.1.1 headless 资产管线（门禁 65）✅
-- Blender **4.1.1** 装在 `/opt/blender`（NLUUG 镜像；官方站 Cloudflare
-  拦 curl，README 有勘破记录）。`blender --version` 验证可复走。
-- `scripts/blender/` 五件：`common.py`（studio rig / Cycles CPU / GLB
-  导出）、`gen_corner_wraith.py`（block/mid/fine 三阶段参数化生成）、
-  `inspect_blend.py`、`render_views.py`（四机位）、`export_glb.py`。
-- 首件英雄资产**拐角魅影**五拍精修 loop 完整实录（README 开发日志：
-  病灶逐拍——锥向反置/穿地/管风琴绺束/faceVoid specular）。产物
-  `assets/blender/corner_wraith.{blend,glb}` + `renders/` 八张样张。
-- `npm run blender:check` 工具链冒烟（无 Blender 环境跳过不红）。
+### 1) Blender loop 第 2/3 件（门禁 67 前半）✅
+- **资产②双峰松树**：`gen_pine_tree.py` 四拍精修 loop（纸伞钣金锥面→
+  表面噪声+轴向切环 / 荷叶边→锯齿针梢裙边 / 草叉亮棍→垂须簇 /
+  顶部鼓包→幅度按层半径衰减）。产物 `pine_tree.{blend,glb}` + 样张。
+- **资产③档案图书梯**：`gen_library_ladder.py` 两拍 loop（后倾符号反 /
+  挂钩藏剪影 / 胶轮读成五金粒）。产物 `library_ladder.{blend,glb}`。
+- 基础设施：common.py 通用件上移（seeded/attr_material/MeshBuilder/
+  open_cone）；**studio rig/四机位随主体高度等比取景**（大件不裁头）；
+  `blender:check` 扩到三件资产比例架。
 
-### B) 林奇风审计（门禁 66）✅
-- `STYLE_AUDIT.md`：六病灶判断 + 当轮修复（三处**错拍**、一处
-  **永久态**）+ 下一轮观察点。审计不是文档作业——病灶当轮就修。
+### 2) GLB 经 GLTFLoader 落厅（门禁 67 后半）✅
+- 双峰厅岔路北缘**孪生松 A/B 对照**（西 GLB / 东 kit 同款实例）。
+- **electron sandbox 勘破**：data: URI 被 fetch 拦 → 手动 base64 解码
+  ArrayBuffer 直进 `GLTFLoader.parse`（`?inline` + parse，勿用 load）。
+- **普查竞态勘破**：厅返回 `ready` promise，main.js await 后才宣布
+  hall-loaded——electron 冒烟预算断言才能读到 GLB。
+- 材质克制钳制 + 零字幕交互 + 声先于形（40–75s 远处吱呀）。
+- 预算实测 twinpeaks **245/250 mesh**（贴顶注意）、144k/240k tris。
 
-### C) 七厅彩蛋齐加一遍（门禁 63）✅
-- 每厅 +1 件、≥2 通道、短句 ≤22 字一次性锁存：碑背白花 / 用剩橡皮 /
-  小费罐 / 倒扣杯 / 弱音小号（新音色 `mutetrumpet`，声比乐器晚收半拍）/
-  黏土小像 / 趴地书（合上永久）。
-- 交互 162→**171**（INTERACTIVE_MIN 重锁普查−1）；mesh 预算 240→**250**
-  （两厅贴顶实测勘破；「能合的都合」纪律入 PLAN §6）。
-- `tests/v113-eggs.test.js` 30 用例。
+### 3) 访谈 12→20 条 + 低语朗读（门禁 68）✅
+- +8 条（合规纪律不变，单测钉死）；每卡**低语钮**——MurmurVoice 读成
+  气声音节+静电碎语，同钮收声/换条互斥/关面板即收声；`onMurmurRead`
+  接线 main.js。
 
-### D) 访谈摘录层（门禁 64）✅
-- `src/data/interviews.js` **12 条**中英对照短引语（出处只标类型）；
-  「访谈摘录册」面板三入口（原话墙 / 年表 / archive 剪报盒）；
-  archive 第 7 座立牌 doughnut + DOCENT +1；`interviews.test.js` 14 用例。
+### 4) 彩蛋第二批·七厅又各 +1（门禁 69）✅
+- STYLE_AUDIT 观察点直接变纪律：**全部零字幕 + 错拍默认 + 每厅至多
+  一件永久态**（中缝钢笔/没关严的抽屉/检修口盖板/火柴盒/手板硬币/
+  海报角/场记板）。新音色 papertear+clapslap（84/85）。
+- 交互 171→**179**（INTERACTIVE_MIN 重锁普查−1 = 172）。
+- `tests/v114-eggs.test.js` 27 用例（**块级零字幕断言**——提取
+  onActivate 块尾，防邻域 caption 误伤，写新蛋测试沿用此口径）。
 
-### 版本与测试
-- bump **1.13.0**；CHANGELOG / QUALITY_GATES 63–66 / WORKLOG / PLAN §6
-  预算修订全部入册。
-- `npm test` 443 全绿 / `npm run smoke` 5/5 / electron `--smoke` EXIT=0
-  （双惊吓自然触发保持）。
-- **本轮不打包 exe**（打包链路零改动，1.12.0 exe 仍可用）。
+### 5) Release 1.14.0（门禁 70）✅
+- bump 1.14.0；CHANGELOG/WORKLOG/TESTING/README/STYLE_AUDIT §5
+  执行账全部入册。
+- 四连全绿；`npm run dist:win` 双 exe + SHA256SUMS + DOWNLOAD 直链
+  （指向本分支）+ 发布产物冒烟复跑。
 
-## 下一轮（第 2 轮）优先做什么
+## 下一轮（第 3 轮）优先做什么
 
-1. **Blender loop 第 2、3 件资产**：双峰松树（对照 kit.js
-   pineGeometryMaterial v3 找差距）与档案图书梯——沿用五拍 loop 口径
-   （gen 脚本 → INSPECT → 四机位 → 目检改参 → GLB）。
-2. **GLB 落厅打通**：GLTFLoader 接入一件资产进厅（建议 corner_wraith
-   替换或并置 kit.cornerWraith v3 做 A/B 对照），注意 STYLE_AUDIT
-   材质克制条目（哑光/低 env/黑影 specular=0）+ mesh/tris 预算断言。
-3. **更多访谈条目**：INTERVIEWS 12→20 条（配额单测同步放宽），可选
-   murmur 风格 WebAudio 合成朗读（非侵权采样、走低语层）。
-4. **彩蛋第二批**：沿 STYLE_AUDIT 观察点——新交互默认零字幕、错拍
-   默认、每厅至多一件永久态（趴地书模式）。
-5. **打包 1.13.0 exe**（若本轮 Goal 要发布）：BUILD.md 步骤不变；
-   注意 v1.12 的 winCodeSign/NSIS 缓存在 VM 轮换后会丢、需现场下载。
+1. **Blender loop 继续**：第 4 件起建议做「厅里还没有的东西」而非
+   对照复刻（对照件 A/B 已验证管线，继续复刻边际收益低）——候选：
+   mulholland 剧场吊灯 / lobby 纪念碑浮雕层 / era 大机器局部替换。
+   沿用五拍 loop 口径。
+2. **GLB 落厅第二批**：corner_wraith.glb 尚未落厅（v1.13 建议过
+   替换/并置惊吓魅影——动画骨架是新课题，GLTFLoader 后接 AnimationMixer
+   或维持程序化动画只换网格）；注意 twinpeaks mesh 已 245/250 贴顶，
+   新 GLB 优先放别的厅或先合并既有 mesh 腾预算。
+3. **彩蛋第三批**（若 Goal 继续加码）：沿 STYLE_AUDIT §5 新病灶
+   备忘——远声应答音色谱系 / GLB 体积纪律（单件 ≤300KB、每厅 ≤1）/
+   朗读一律走 MurmurVoice 不引入清晰 TTS。
+4. **访谈层可再扩**（20→28 或加主题筛选），但注意 D-5 收纳纪律：
+   文字只进面板不进空间。
+5. **性能预算警戒**：twinpeaks 245/250、archive/era 也在爬——下一轮
+   加东西前先跑 electron 冒烟看逐厅实测，贴顶厅走「先合并再新增」。
 
 ## 当前分支与阻塞项
 
-- **分支**：`cursor/blender-loop-v1130-a993`（已推送）。
-- **阻塞项**：无硬阻塞。两条环境注意：
-  - Blender 不随仓库分发——新 VM 需按 `scripts/blender/README.md`
-    重装（NLUUG 镜像 ~30s）；`npm run blender:check` 会在缺 Blender
-    时跳过（CI 不红）。
-  - electron `--smoke` 的预算/交互断言跑在 **dist 构建产物**上——改厅
-    代码后必须先 `npm run build` 再跑，否则拿旧数（本轮实测勘破，
-    WORKLOG C 段有记录）。
+- **分支**：`cursor/pine-ladder-glb-v1140-a993`（已推送，PR 开向
+  cursor/blender-loop-v1130-a993）。
+- **阻塞项**：无硬阻塞。环境注意（新 VM 必读）：
+  - Blender 不随仓库分发——按 `scripts/blender/README.md` 重装
+    （NLUUG 镜像 ~30s）；`blender:check` 缺 Blender 时跳过不红。
+  - electron `--smoke` 断言跑在 **dist 构建产物**上——改厅代码后必须
+    先 `npm run build` 再跑，否则拿旧数。
+  - GLB 截屏取证两坑：SwiftShader 陈旧帧（`SV_SHOT_DELAY=12000`）+
+    双峰岔路机位别踩 groveEgg 触发圈（会被传送走，机位用 6.7,6.2）。
+  - 打包 winCodeSign/NSIS 缓存 VM 轮换后会丢，dist:win 时现场下载
+    （连通性已验证可达）。

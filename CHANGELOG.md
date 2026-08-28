@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## v1.14.0 — 2026-08-28「松树与图书梯 · GLB 落厅 · 二十条访谈 · 彩蛋第二批」
+
+> **为什么是 1.14**：持续演进 Goal 第 2 轮——五大目标：①Blender loop
+> 第 2/3 件资产（双峰松树、档案图书梯）；②GLB 经 GLTFLoader 落厅
+> （A/B 对照）；③访谈 12→20 条 + 低语朗读；④彩蛋第二批（STYLE_AUDIT
+> 观察点直接变纪律）；⑤打包 1.14.0 exe。基线 v1.13.0 tip（6720511），
+> 拐角魅影 / 双惊吓 / 171 交互全部保留不回退。
+
+**Blender loop 第 2/3 件（门禁 67 前半）**
+- **资产②双峰松树四拍精修 loop**（`gen_pine_tree.py`，block/mid/fine，
+  与 kit.js pineGeometryMaterial v3 同源位移场）：病灶逐拍——纸伞钣金
+  锥面（表面噪声+轴向切环）/ 荷叶边（锯齿针梢裙边）/ 草叉亮棍
+  （垂须簇宽头藏裙内）/ 顶部噪声鼓包（幅度按层半径衰减）；产物
+  `pine_tree.{blend,glb}` + 四机位样张 + block/mid 递进对照
+- **资产③档案图书梯两拍精修 loop**（`gen_library_ladder.py`，archive
+  滚梯同源结构：双弦倒角 + 11 车削横档葫芦腰领圈 + 贯穿榫楔 + 双挂钩 +
+  轮叉胶轮 + 踏面磨浅顶点色）：病灶——后倾符号反 / 挂钩藏进弦木剪影 /
+  胶轮读成五金粒；产物 `library_ladder.{blend,glb}` + 样张
+- 管线升级：`common.py` 通用件上移（seeded / attr_material / MeshBuilder /
+  open_cone）；**摄影棚与四机位随主体高度等比取景**（大件不再裁头，
+  2.35m 人形逐位兼容）；`blender:check` 扩到三件资产比例架
+
+**GLB 经 GLTFLoader 落厅（门禁 67 后半——管线闭环）**
+- 双峰厅林中岔路北缘**孪生松 A/B 对照**：西棵 Blender GLB（Vite
+  `?inline` data URI + 手动 base64 解码绕 electron sandbox fetch 拦截）、
+  东棵 kit 程序化同款固定实例（InstancedMesh +1 槽零新增 mesh）
+- 材质克制落地（STYLE_AUDIT 条目）：roughness ≥0.92 / metalness 0 /
+  envMapIntensity 0.25 / 零自发光；**声先于形**：40–75s 稀发远处枝腰
+  吱呀，走近树身零字幕交互（针叶簌簌即时 + 吱呀迟半拍错拍）
+- 厅返回 `ready` promise——main.js 等 GLB 就位再宣布 hall-loaded
+  （预算普查读完整场景）；预算实测 twinpeaks 245/250 mesh、144k tris
+
+**访谈摘录 12→20 条 + 低语朗读（门禁 68）**
+- +8 条：鹰级童子军一行简介 / 每个观众 / 对立面 / 毒药 / 幽暗处 /
+  工业与烟 / 从不缺席 / 第一个点子；合规纪律不变（长度/出处只标类型/
+  与 QUOTES 零重叠/禁词扫描，单测钉死）
+- **每张卡片低语钮**：MurmurVoice 把摘录读成气声音节 + 静电碎语
+  （永远听不清字——清晰人声不回来）；同钮收声 / 换条互斥 / 关面板
+  即收声；interviews.test 阈值 ≥20 + 朗读闭环审计
+
+**彩蛋第二批·七厅又各 +1（门禁 69，交互 171→179）**
+- STYLE_AUDIT 观察点直接变纪律：**全部零字幕 + 错拍默认 + 每厅至多
+  一件永久态**——lobby 名册中缝钢笔（滚到唇边 / 1.7s 后没有人的翻页 /
+  永久不回中缝）/ archive 没关严的抽屉（推严 2.6s 自己滑开——你永远
+  改变不了）/ eraserhead 检修口盖板（楼那头回敲一次比一次少，第四次
+  起永久沉默）/ bluevelvet 火柴盒（磷头自发光零新光源 / 1.4s 被谁
+  吹灭 / 三根用尽永久空盒）/ twinpeaks 手板硬币（0.8s 迟到落定 /
+  永久立在手板上）/ mulholland 巷墙海报角（撕落墙脚露出更早一层
+  …CHE / 永久躺平）/ studio 场记板（合拍 1.2s 后顶灯自己暗一拍）
+- 新音色 `papertear` + `clapslap`（第 84/85 种）；INTERACTIVE_MIN
+  重锁 179（普查 −1）；v114-eggs.test 27 用例（块级零字幕断言）
+
+**版本与测试**
+- 版本 bump 1.14.0；单测 443 → **470**；`npm test` / `npm run smoke` /
+  electron `--smoke` / `npm run blender:check` 四连全绿
+- Windows exe 双目标打包 1.14.0 + SHA256 + DOWNLOAD 直链（门禁 70）
+
 ## v1.13.0 — 2026-08-28「Blender 管线 · 访谈摘录册 · 七厅彩蛋」
 
 > **为什么是 1.13**：持续演进 Goal 第 1 轮——四大目标：①Blender 4.1.1

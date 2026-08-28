@@ -1053,6 +1053,82 @@ DOCENT 配套）。✅ 全绿。
 
 **验证方式**：三连命令 + STYLE_AUDIT/GOAL_HANDOFF 通读。
 
+### 67. Blender loop 第 2/3 件 + GLB 经 GLTFLoader 落厅（v1.14 新增）
+- [x] **资产②双峰松树四拍精修 loop**：`gen_pine_tree.py`（block/mid/fine
+      三阶段，与 kit.js pineGeometryMaterial v3 同源位移场）；病灶实录
+      入 README 开发日志——纸伞钣金锥面（表面噪声+轴向切环）/ 荷叶边
+      （锯齿针梢裙边）/ 草叉亮棍（垂须簇宽头藏裙内）/ 顶部噪声鼓包
+      （幅度按层半径衰减）。产物 `pine_tree.{blend,glb}` + 四机位样张 +
+      block/mid 递进对照。
+- [x] **资产③档案图书梯两拍精修 loop**：`gen_library_ladder.py`
+      （archive.js 滚梯同源结构：双弦倒角 + 11 车削横档葫芦腰领圈 +
+      贯穿榫楔 + 双挂钩 + 轮叉胶轮 + 踏面磨浅顶点色）；病灶实录——
+      后倾符号反 / 挂钩藏进弦木剪影 / 胶轮读成五金粒。产物
+      `library_ladder.{blend,glb}` + 四机位样张 + 递进对照。
+- [x] 管线基础设施升级：`common.py` 通用件上移（seeded / attr_material /
+      MeshBuilder / open_cone、make_material +metallic）；**studio rig /
+      四机位随主体高度等比取景**（2.35m 人形逐位兼容——大件不再裁头）；
+      `npm run blender:check` 扩到三件资产比例架。
+- [x] **GLB 落厅（A/B 对照）**：双峰厅林中岔路北缘**孪生松**——西棵
+      gen_pine_tree.py GLB（Vite `?inline` data URI + 手动 base64 解码
+      绕 electron sandbox fetch 拦截，GLTFLoader.parse 直进）、东棵
+      kit pineGeometryMaterial v3 固定实例（InstancedMesh +1 槽零新增
+      mesh）。
+- [x] STYLE_AUDIT 材质克制条目落实：GLB 落地钳制 roughness ≥0.92 /
+      metalness 0 / envMapIntensity 0.25 / 零自发光。
+- [x] **声先于形**：40–75s 稀发远处枝腰吱呀（sfxAt 钉在孪生松坐标）；
+      树身零字幕交互（针叶簌簌即时 + 吱呀迟半拍错拍）。
+- [x] 厅返回 `ready` promise——main.js 等 GLB 就位再宣布 hall-loaded
+      （预算普查读完整场景，8s 兜底）；main.cjs 回显 `glb-*` 信号 +
+      `player()` 带 yaw。预算实测 twinpeaks 245/250 mesh、144k/240k tris。
+
+**验证方式**：`npm run blender:check` + electron 冒烟 glb-ok 信号 + A/B 机位截屏。
+
+### 68. 访谈摘录 12→20 条 + 低语朗读（v1.14 新增）
+- [x] `src/data/interviews.js` **20 条**（+8：鹰级童子军一行简介 / 每个
+      观众 / 对立面 / 毒药 / 幽暗处 / 工业与烟 / 从不缺席 / 第一个
+      点子）；同一合规纪律——en ≤220 / zh ≤120、context 两短句、
+      出处只标类型、与 QUOTES 零重叠、叙事禁词扫描。
+- [x] **每张卡片低语钮**：MurmurVoice 把摘录读成气声音节 + 静电碎语
+      （永远听不清字——清晰人声不回来）；同钮收声 / 换条互斥 /
+      关面板即收声；`onMurmurRead` 回调接线 main.js narration.murmur。
+- [x] `tests/interviews.test.js` 阈值提到 ≥20 并新增朗读闭环审计。
+
+**验证方式**：`npx vitest run tests/interviews.test.js` + 面板三入口手工翻页 + 低语钮切换。
+
+### 69. 彩蛋第二批·七厅又各 +1（v1.14 新增，STYLE_AUDIT 纪律升级）
+- [x] 七件全部**零字幕 + 错拍默认 + 每厅至多一件永久态**（观察点直接
+      变门禁）：lobby 名册中缝钢笔（滚到唇边磕一声 / 1.7s 后没有人的
+      翻页 / 永久不回中缝）/ archive 没关严的抽屉（推严 2.6s 自己滑开
+      ——你永远改变不了；cardCatalog +skip 格位）/ eraserhead 检修口
+      盖板（敲一下 3.5s 后楼那头回敲，一次比一次少，第四次起永久沉默）/
+      bluevelvet 吧台火柴盒（strike + 磷头自发光零新光源 / 1.4s 被谁
+      吹灭 / 三根用尽永久空盒）/ twinpeaks 手板硬币（弹旋 / 0.8s 迟到
+      落定声 / 永久立在手板上）/ mulholland 巷墙海报角（papertear 撕落
+      墙脚、底下露更早一层 …CHE / 1.8s 夜风再掀 / 永久躺平）/ studio
+      场记板（clapslap 合拍 / 1.2s 顶灯自己暗一拍再回来）。
+- [x] 新音色 `papertear` + `clapslap`（引擎第 84/85 种 case）。
+- [x] 光的礼貌保持：七件零新增光源（火柴磷头走自发光材质）。
+- [x] INTERACTIVE_MIN 重锁：运行时普查 20/34/27/22/25/23/28 = **179**
+      （阈值 = 普查 −1：19/33/26/21/24/22/27 = 172）。
+- [x] `tests/v114-eggs.test.js` 27 用例：onActivate 块级零字幕断言（精确
+      提取块尾防邻域误伤）/ 错拍延迟 / 永久态字段 / 新音色接线 / 阈值。
+
+**验证方式**：`npx vitest run tests/v114-eggs.test.js` + `--smoke` 逐厅激活。
+
+### 70. Release 1.14.0（v1.14 新增）
+- [x] 版本 bump 1.14.0（package.json + `__SV__.version` 一致）。
+- [x] CHANGELOG v1.14.0 全节 + WORKLOG v1.14 逐段 + TESTING/README/
+      STYLE_AUDIT/GOAL_HANDOFF 同步。
+- [x] `npm test`（470 全绿）/ `npm run smoke`（5/5）/ electron `--smoke`
+      （EXIT=0，双惊吓自然触发保持）/ `npm run blender:check`（三件
+      资产比例架）四连全绿。
+- [x] Windows exe 双目标打包（Portable + Setup）+ SHA256SUMS 重写 +
+      DOWNLOAD.md 直链与实测哈希 + 旧版 exe 移出分支防混用。
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**。
+
+**验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
