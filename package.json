@@ -13,6 +13,7 @@
     "start": "electron .",
     "test": "vitest run",
     "smoke": "node scripts/smoke.js",
+    "blender:check": "node scripts/blender-check.js",
     "gen:icon": "node scripts/gen-icon.js",
     "dist:win": "npm run build && npm run gen:icon && electron-builder --win --x64",
     "dist:win:portable": "npm run build && npm run gen:icon && electron-builder --win portable --x64"
