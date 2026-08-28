@@ -76,7 +76,9 @@
   答在意想不到的通道（火苗不动**流苏**齐晃 / 秒针不动**停摆钟分针**
   挣 / 冰不裂**大机器**沉半口 / 脚灯不亮**酒瓶墙**泛光 / 汽不旺
   **派柜**转格 / **光先声无**因果换位 / 瓷不嗒**节拍器摆针**点头；
-  **v1.18 起留言墙里有一条访客留言在不点破地讲这件事**）；
+  **v1.18 起留言墙里有一条访客留言在不点破地讲这件事**；
+  **v1.19 起窗长逐件不同**——落定快的余温长（保温座 7.7s）、落定慢
+  的余温短（上弦钥匙 5.6s），每件从按下到余温散尽都是约 9 秒）；
   **v1.18 卡死的抽屉（+1——刹车后只为收官件开一格）**：档案廊
   卡片柜顶排**斜探 14mm 的那只**——按 E 它挣一下又咬死（拉手断得
   只剩座盘），2.2s 后**西墙那头**同一只抽屉滑轨到底关严了（这面
@@ -189,12 +191,12 @@ npm run dist:win   # 打包 Windows x64 exe → release/
 
 ## 文档
 
-- [`CHANGELOG.md`](CHANGELOG.md) — 版本史（v1.0 → v1.18）
+- [`CHANGELOG.md`](CHANGELOG.md) — 版本史（v1.0 → v1.19）
 - [`QUALITY_GATES.md`](QUALITY_GATES.md) — 质量门禁与自检结果
 - [`BUILD.md`](BUILD.md) — Windows exe 一键构建说明
 - [`TESTING.md`](TESTING.md) — 自动化与手动测试清单
 - [`STYLE_AUDIT.md`](STYLE_AUDIT.md) — 林奇风审计（v1.13 病灶与克制口径 +
-  历轮观察点执行账，v1.18 至 §9）
+  历轮观察点执行账，v1.19 至 §10）
 - [`scripts/blender/README.md`](scripts/blender/README.md) — Blender 4.1.1
   headless 资产管线（bpy 生成 → INSPECT → 渲染 → GLB 精修循环）
 - [`GOAL_HANDOFF.md`](GOAL_HANDOFF.md) — 持续演进 Goal 轮次交接
