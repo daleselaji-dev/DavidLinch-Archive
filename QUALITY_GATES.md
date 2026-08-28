@@ -1499,6 +1499,56 @@ SV_SHOT_PRE 探针日志 + 手工按新窗长复测（TESTING v1.19 抽查段）
 
 **验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
 
+### 94. studio 台灯 v3·手作精修（v1.20 新增）
+- [x] **活轴盘点先行**（STYLE_AUDIT §11）：七轴过账两投两不投——
+      studio 程序化精修与访谈质量维护两条活轴投入；低密度厅
+      「第三层反应」**判死**（问第三遍同构，红线不许换厅名回流）
+- [x] **手作四件账**：车削木重底座（座肩车刀痕 + 手刻歪旋钮）/
+      手弯铁杆（CatmullRom 单管四弯 ±6mm 出平面 + 蝶形螺母）/
+      手锤黄铜罩（整数角频率定植锤痕，接缝安全；手刷绿漆横道
+      毛边）/ 布包余线盘桌面——v2 工厂 Anglepoise（珐琅座/镀铬
+      双节臂/拉簧/clearcoat 清漆）全部退役且单测禁回流
+- [x] **精修只动做工不动账**：热点（shade）/光路（3.4/5.5/1.8
+      D-11 三值）/hint/两句字幕/音色一字不动；精修函数区零
+      setTimeout/零 sfx/零 caption（单测钉死）；mesh 账 7→5
+      （studio 227→**225** 冒烟实证）；studio 零 GLB 导入复钉
+- [x] **定向机位双样张目检**：开灯全景 + 关灯特写（SV_SHOT_PRE
+      activateByHint 关灯、S.hall() 守卫）——手作语言成立
+
+**验证方式**：`npx vitest run tests/v120-eggs.test.js` +
+/tmp/shots-v120{,-off}/studio.png 目检。
+
+### 95. 访谈质量维护首轮——替换不追加（v1.20 新增）
+- [x] **弱条目退役有账**：absurdity（「满眼荒诞」）——与立牌
+      sense（「生活讲不通」）领地重叠、语义最薄；退役理由留账
+      进数据源注释，en 原句全库不回流
+- [x] **换血同格**：detectives（「我们在生活里都像侦探」）心境
+      主题原格换入——**38 条恰等 + 四主题 10/10/9/9 逐格相等**
+      双持平（涨一条都算破「替换不追加」口径）
+- [x] **防撞五轮口径照旧**：detective 语料在 QUOTES/DOCENT/既有
+      条目零出现；en ≤200 / zh ≤120 / 出处只标类型
+
+**验证方式**：`npx vitest run tests/v120-eggs.test.js tests/interviews.test.js`。
+
+### 96. GLB 维护巡检第 2 轮 + Release 1.20.0（v1.20 新增）
+- [x] **巡检更轻口径**（§10「零改动焦虑」承诺兑现）：落厅代码
+      零改动 → 免全量定向截屏；blender:check 七件全过（Blender
+      4.1.1 NLUUG 重装）+ 六 glb-landed 冒烟信号全在 + mull 魅影
+      拐角惊吓自然触发功能验证——**零病灶、零改动、零回炉**
+- [x] 版本 bump 1.20.0（package.json + `__SV__.version` 一致，
+      版本钉移交 v120-eggs.test；v119 版本钉改同值语义）
+- [x] CHANGELOG v1.20.0 全节 + WORKLOG v1.20 逐段 + TESTING/README/
+      STYLE_AUDIT §11/GOAL_HANDOFF 第 9 轮交接同步
+- [x] `npm test`（**649** 全绿）/ `npm run smoke`（5/5）/ electron
+      `--smoke`（EXIT=0，双惊吓保持 + 六 glb-landed + 普查 **195**
+      持平 + studio mesh 225）/ `npm run blender:check`（七件）
+      四连全绿
+- [x] Windows exe 双目标 `dist:win` **完整一次成型** EXIT=0 +
+      SHA256SUMS 重写 + DOWNLOAD.md 直链换轨
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**
+
+**验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
