@@ -61,8 +61,10 @@ function createWindow() {
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
         // 输出场景统计并校验性能预算（QUALITY_GATES 22 / v1.4 门禁 30：
         // PS5-tier 预算按 PRODUCTION_PLAN §6 上调至
-        // meshes ≤ 240 / tris ≤ 240k / 动态光源 ≤ 40，仍为硬门禁）
-        const MESH_BUDGET = 240;
+        // meshes ≤ 250 / tris ≤ 240k / 动态光源 ≤ 40，仍为硬门禁）
+        // v1.10：mesh 预算 240→250（大厅守夜烛台 + 档案缩微阅读器小件；
+        // tris / lights 预算不动）
+        const MESH_BUDGET = 250;
         const TRI_BUDGET = 240000;
         const LIGHT_BUDGET = 40;
         win.webContents.executeJavaScript(

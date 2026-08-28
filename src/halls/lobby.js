@@ -455,16 +455,17 @@ export function build(ctx) {
   });
   const candleXZ = [[-0.1, 0.02], [0.02, -0.09], [0.1, 0.07]];
   const flames = [];
+  const waxGeos = [];
   candleXZ.forEach(([cx, cz], i) => {
     const h = 0.16 - i * 0.03; // 三支高矮不齐（烧过的样子）
-    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, h, 8), waxMat);
-    c.position.set(cx, 0.87 + h / 2, cz);
+    waxGeos.push(xform(new THREE.CylinderGeometry(0.018, 0.02, h, 8), cx, 0.87 + h / 2, cz));
     const f = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.05, 6), flameMat);
     f.position.set(cx, 0.87 + h + 0.035, cz);
     f.visible = false;
-    votive.add(c, f);
+    votive.add(f);
     flames.push(f);
   });
+  votive.add(mergedMesh(waxGeos, waxMat));
   const candleGlow = new THREE.PointLight(0xffa04a, 0, 3.4, 2.0);
   candleGlow.position.set(0, 1.15, 0);
   votive.add(candleGlow);
