@@ -735,3 +735,9 @@
 | 2026-08-28 20:39 | 2026-08-28 20:41 | V | **改动后四连复跑**：`npm run smoke` 5/5 → `xvfb-run electron --smoke` 全队列 **EXIT=0**（97s：七厅全过·双惊吓自然触发双朝向档·彩蛋 corner-scare,turn-scare,alley-dread）→ `blender:check` 七件全过 | /tmp/electron-smoke-r8-patched.log |
 | 2026-08-28 20:41 | 2026-08-28 20:49 | 9 | **Release 1.27.0**：首跑 `dist:win` **EXIT=1**——nsis 载荷 `*-x64.nsis.7z` ENOENT + Portable 只 26MiB 残缺（7za 压缩步被 VM 瞬态进程孵化故障打断——同窗口 shell 也两次 spawn Aborted，资源余量充足排除 OOM）；**半成品全清（Portable/Setup/win-unpacked/latest.yml）后完整重跑一次成型 EXIT=0**（不拆目标单跑，~125s）：PE32 ×2 + asar 从 Portable 提取 `resources/app.asar` 内版本 **1.27.0** 核对（先 cd /tmp，portable 是直包 74 件非嵌套 7z）+ 双 exe Portable 95.82MiB / Setup 95.99MiB 均 <100MiB raw 限 + SHA256SUMS 重写 `sha256sum -c` 自校 + 1.26.0 双产物同轮 git rm 防混用 | release/ 双 exe + SHA256SUMS + /tmp/dist-win-r8b.log |
 | 2026-08-28 20:49 | 2026-08-28 21:10 | 6/8 | **文档收口（门禁 107）**：CHANGELOG v1.27.0 全节 + 门禁 107 + 本段 + TESTING（817 用例/v127-eggs 覆盖行/耳机验收清单加「劫后回声」拍——醒后 2.0s 正前方远关门、转身惊吓没有这一声）+ README v1.27 一句 + DOWNLOAD 直链换轨本分支 +「本轮一声」反馈模板加一空（到位/太响/太轻/方向不对/多余）+ GOAL_HANDOFF 第 8→9 轮交接；发布产物终版冒烟复跑 EXIT=0 + 817 复跑全绿收口 | 本条 commit |
+
+## v1.27 第 9 轮 —— 纯维护巡检（零代码改动，版本维持 1.27.0）
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 21:06 | 2026-08-28 21:15 | V | **四连巡检全绿零病灶（无证词轮零改动）**：同分支 tip `6078ce4`；`npm test` **817/817** → `npm run smoke` 5/5 → `npm run build` + `xvfb-run electron --smoke` **EXIT=0**（109s：七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25·mull 244 / tp 243 / studio 224·双惊吓自然触发双朝向档 + 彩蛋三连）→ `blender:check` 七件全过；封口轴 + 三数 195/98/40 随 817 复钉；途中复证 VM 瞬态 spawn Aborted ×2（拆步重跑即过）；版本维持 1.27.0，改动仅 GOAL_HANDOFF 第 9 轮节 + 本行 | /tmp/electron-smoke.log |
