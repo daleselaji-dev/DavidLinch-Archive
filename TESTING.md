@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test              # vitest 单元测试（649 用例）
+npm test              # vitest 单元测试（669 用例）
 npm run smoke         # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 npm run blender:check # Blender 工具链冒烟（七件资产 block 阶段生成+INSPECT；未装 Blender 跳过不红）
 ```
@@ -36,7 +36,8 @@ npm run blender:check # Blender 工具链冒烟（七件资产 block 阶段生�
 | `tests/v117-eggs.test.js` | **v1.17 酒瓶墙落厅 + 彩蛋第五批问第二遍 + 共用件盯防审计（门禁 81–84，37 用例）**：bottle_wall.glb 体积（≤300KB 实测）+ **落厅红线第四批**（只落 bv/archive/studio——era 每厅 ≤1 件、tp/mull 贴顶源码级禁入）+ bottleWallReady 承诺/glb-landed 信号/装载闭环 + **仅换网格保留程序化动画**（闪烁驱 bottleGlassMats 活登记表、程序化三件退场即兜底、材质运行时整套重设）+ blender:check 六件入列；**问第二遍七件表驱审计**（echo 回声窗字段/游戏时钟自复位/即答分支**不等不响不说**——零 setTimeout 零 sfx 零字幕）、**INTERACTIVE_MIN 逐厅相等**（五轮连涨惯性刹车）、第五批段落**零新增网格/光源/热点**、**零新增音色**（97 持平）、mull replay 不续窗（七件同口径答一次即消耗）、studio 摆针单基准写者（nudge 是 metro 之后的加法覆写）；**共用件盯防**：分针/秒针各只有一个写者、windState k≥3.4 全量归位才开窗、取证句柄（clockMinHand/clockSecHand）在源；访谈 34 条（「此生」≥8、新增两条与 QUOTES 零重复）——**v1.18 起计数钉移交**：INTERACTIVE_MIN/音色/件数/版本改「不回退」语义（≥），严格钉在 v118-eggs |
 | `tests/v118-eggs.test.js` | **v1.18 卡片柜收官落厅 + 卡死的抽屉 + 回声窗暗示 + GLB 轴收官审计（门禁 86–89，18 用例）**：card_catalog.glb 体积（≤300KB 实测 146KB）+ **落厅红线第五批**（只落 archive——studio/tp/mull/era 等六厅源码级无 catalog 导入）+ cardArrayReady 承诺/glb-landed 第六处/「仅换网格保留程序化动画」第四次（几何释放/共享材质留任/材质运行时重设）+ pivot rotation.y=π 对位 + **卡沓陈年病灶修复钉**（z=-0.15 退进屉体，v1.4 探出柜面 9cm 不回流）+ 换接缝抹平（洞位脸板/拉手同参材质）；**「卡死的抽屉」交互**（drawerstuck 即时 + 2.2s drawerfar 错拍、游戏时钟零 setTimeout、零字幕、re-entry 守卫、挣扎动画在源、**drawerstuck 第 98 种音色**不入 REPLY_DYAD）；**回声窗暗示**（留言簿第四条种子「回头客」访客口吻——不指名件/不讲机制/无 echo·秒数字面、store 层不进 UI）；访谈 **38 条钉死**（四主题 10/10/9/9 齐涨、新四条与 QUOTES 零重复）；**GLB 轴收官**（blender:check 七件、六 GLB 六厅名单钉死、studio 刻意留空、全件 ≤300KB）；INTERACTIVE_MIN archive 35→36 其余相等；版本钉 v1.19 起移交最新测试文件 |
 | `tests/v119-eggs.test.js` | **v1.19 回声窗窗长差异化·余温总账审计（门禁 91–93，25 用例）**：七件窗长逐件钉死（tp 7.7 / era 7.3 / mull·studio 6.0 / bv 5.7 / archive 5.6 / lobby 5.3）+ **余温总账**（每件 应答落定时长 + 窗长 = 9.0，源内算式注释在场）+ **反模板化**（≥5 种不同窗长、落定慢者窗必短的单调反比全序）+ archive 8s 特批退役（v1.17「共用件并发余量」注释随幅面收窄一并撤销）+ **机制零改动**（echo -= dt 游戏时钟自复位/即答消耗 echo=0/mull replay 不续窗 三者原样在源、零新 setTimeout）；**GLB 轴维护口径**（gen_*.py 七件不增减、六 GLB ≤300KB 实测、studio 维持零 GLB 导入）；**「墙那头」封口**（drawerfar 全库仅 archive 卡死抽屉一处接线、其余六厅零引用）；访谈 38 条四主题 10/10/9/9 持平；暗示预算持平（留言簿种子 4 条、「回头客」仅一条、店内 UI 零机制词）；版本口径一致（package.json 与 `__SV__.version` 均 1.19.0——v1.20 起移交同值语义） |
-| `tests/v120-eggs.test.js` | **v1.20 活轴盘点首轮审计（门禁 94–96，17 用例）**：studio 台灯 v3 手作四件账在源（woodMat 木底座 / CatmullRom 手弯单管 / atan2 定植锤痕 / 布包余线）+ v2 工厂件退役不回流（class Spring 拉簧、clearcoat 清漆——哑光是手刷漆的诚实）+ **光路原封**（函数区恰一盏 PointLight 且 3.4/5.5/1.8 三值不动，D-11 克制账不回退）+ userData 接线契约（shade/light/bulbMat）+ **精修不配新声不配新词**（函数区零 setTimeout/零 sfx/零 caption）+ studio 接线不动（hint/两句字幕/摆位原样——世界不宣布自己被精修过）+ studio 零 GLB 复钉 + 锤痕整数角频率接缝安全；**访谈质量维护**（38 恰等 + 四主题 10/10/9/9 逐格 + absurdity 退役不回流 + detectives 在册含长度/出处口径 + detective 语料 QUOTES/DOCENT 防撞）；**活轴盘点入册钉**（STYLE_AUDIT §11 在册 + 「第三层」判死留痕）+ INTERACTIVE_MIN 逐厅相等（195 口径不动）+ 音色恰 98 + 版本钉 1.20.0 |
+| `tests/v120-eggs.test.js` | **v1.20 活轴盘点首轮审计（门禁 94–96，17 用例）**：studio 台灯 v3 手作四件账在源（woodMat 木底座 / CatmullRom 手弯单管 / atan2 定植锤痕 / 布包余线）+ v2 工厂件退役不回流（class Spring 拉簧、clearcoat 清漆——哑光是手刷漆的诚实）+ **光路原封**（函数区恰一盏 PointLight 且 3.4/5.5/1.8 三值不动，D-11 克制账不回退）+ userData 接线契约（shade/light/bulbMat）+ **精修不配新声不配新词**（函数区零 setTimeout/零 sfx/零 caption）+ studio 接线不动（hint/两句字幕/摆位原样——世界不宣布自己被精修过）+ studio 零 GLB 复钉 + 锤痕整数角频率接缝安全；**访谈质量维护**（38 恰等 + 四主题 10/10/9/9 逐格 + absurdity 退役不回流 + detectives 在册含长度/出处口径 + detective 语料 QUOTES/DOCENT 防撞）；**活轴盘点入册钉**（STYLE_AUDIT §11 在册 + 「第三层」判死留痕）+ INTERACTIVE_MIN 逐厅相等（195 口径不动）+ 音色恰 98 + 版本钉 1.21.0 起移交同值语义 |
+| `tests/v121-eggs.test.js` | **v1.21 维护收官轮审计（门禁 97–99，20 用例）**：studio 转盘病灶修——病灶三件账在源（主轴/歇臂柱/针杆 + 针尖锥体几何）+ **唱臂重指向**（歇臂柱托槽坐标对齐静止落点 + 唱头壳沿 +z 出臂 + 旧 -x 悬空姿态不回流）+ userData 三挂点契约（record/arm/platter 原名原样）+ **网格账 7→6 合并纪律**（mergedMesh 恰 4 / 显式 Mesh 恰 1 / roundedBoxMesh 恰 1）+ 函数区零 setTimeout/零 sfx/零 caption/零光源 + **手作语言不扩散**（零 CatmullRom/零锤痕/零手弯——工厂件像工厂件）+ studio 接线一字不动（hint/「针尖落进沟槽」字幕/摆位/-0.5 rad 摆臂线）+ **问诊不动手两件零改动钉**（磁带机走带三段/收音机搜台针振幅原值在岗）；**访谈质量维护第二轮**（38 恰等 + 10/10/9/9 逐格 + negativity 退役不回流且 poison 留任对照 + setup 在册含长度/出处口径 + setup 语料 QUOTES/DOCENT 防撞 + **止损线留痕**——退役理由三要素在数据源注释）；**盘点增量账入册钉**（STYLE_AUDIT §12 在册 + 引用 §11 + 「哪件看着假」问诊账留痕）+ INTERACTIVE_MIN 逐厅相等（195 口径不动）+ 音色恰 98 + **gen_*.py 恰七件**（不产新资产红线）+ studio 零 GLB 复钉 + 版本钉 1.21.0 |
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -435,6 +436,24 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
       四主题计数仍是 10/10/9/9、总数仍 38
 - [ ] **studio 仍零 GLB**：录音间七件 Blender 资产一件也没落
       ——台灯是程序化精修不是导入（收官红线）
+
+### v1.21 新增抽查（转盘病灶修 + 访谈换血第二轮）
+- [ ] **转盘静止态**：studio 南墙唱机柜上——唱臂不再横在唱片
+      标签正上方，静止时**落在盘外的歇臂柱上**（柱顶有托槽）；
+      转盘中心立着一根主轴，唱片套在轴上不再是搁着的圆片
+- [ ] **转盘播放态**：E「放一张唱片」→ 唱臂从歇臂柱**摆入
+      沟槽带**（标签与盘沿之间），唱头壳下的针杆落到唱片面
+      ——「针尖落进沟槽。」第一次字幕与视觉互证；再按 E 收臂
+      回歇位（行为与 v1.20 无异——修病灶不改机制）
+- [ ] **问诊不动手的两件**：磁带机（E → 双盘转、走带路径绷直、
+      VU 呼吸）与收音机（E → 天气播报、搜台针慢摆）行为与
+      做工与 v1.20 完全无异
+- [ ] **访谈换血第二轮**：访谈摘录册筛「心境」主题——「工作
+      状态」（消极是敌人）不见了，多了「随时能动手」（现成的
+      家伙句）；四主题计数仍是 10/10/9/9、总数仍 38
+- [ ] **手作语言不扩散**：唱机通体是出厂做工（车削件规整、
+      铬件对称）——没有弯点出平面、没有锤痕、没有歪旋钮；
+      那些是台灯（也只是台灯）的语言
 
 ### 交互密度抽查（v1.8 普查共 123：+穆赫兰道 1「墙角刮痕」）
 - [ ] **大厅（12，v1.7 +2）**：碑文 / **独石光缝**（E→光缝涌亮+石钟低鸣）/ **摸帷幕**（波纹爬上绒面+帷头下坠回弹，两成概率带一声窃语）/

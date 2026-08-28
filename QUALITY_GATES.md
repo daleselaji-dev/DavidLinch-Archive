@@ -1549,6 +1549,67 @@ SV_SHOT_PRE 探针日志 + 手工按新窗长复测（TESTING v1.19 抽查段）
 
 **验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
 
+### 97. studio 转盘病灶修——问诊三件只修一件（v1.21 新增）
+- [x] **「先问哪件看着假」问诊制**（§11 观察点兑现）：磁带机
+      （v1.9+v1.12 两轮抛光）与收音机 v2 **零病灶不动手**——
+      两件不动件的关键做工（走带三段/搜台针振幅）原样在岗入测；
+      只修转盘四处实病灶（唱臂悬空 3.7cm 横在标签上方 / 唱头壳
+      下无唱头无针杆 / 转盘无主轴 / 臂无歇处）
+- [x] **修四件**：主轴（并进转盘合并件）+ 歇臂柱（托槽对齐静止
+      臂管）+ 唱头/针杆（播放时针尖落到唱片面沟槽带）+ 臂管
+      重指向（静止落歇臂柱、播放摆入沟槽——旧悬空姿态单测禁
+      回流）
+- [x] **修法是工厂做工**：函数区零 CatmullRom / 零锤痕 / 零歪
+      旋钮（手作语言是台灯专利，钉死不扩散）
+- [x] **只动做工不动账**：userData.record/arm/platter 三挂点、
+      -0.5 rad 摆臂线、hint、「针尖落进沟槽」字幕、爵士接线
+      一字不动；函数区零 setTimeout/零 sfx/零 caption/零光源；
+      网格账 **7→6**（studio 225→**224** 冒烟实证）
+- [x] **定向机位双样张目检**：静止歇臂全景 + 播放摆入沟槽特写
+      （SV_SHOT_PRE 瞬移后压 pitchObject 俯仰 + activateByHint，
+      S.hall() 守卫）——臂落歇位、针尖入沟成立
+
+**验证方式**：`npx vitest run tests/v121-eggs.test.js` +
+/tmp/shots-v121-tt{,-play}/studio.png 目检。
+
+### 98. 访谈质量维护第二轮——止损线内只换一条（v1.21 新增）
+- [x] **弱条目退役三要素齐备**：negativity（「消极是创造力的
+      敌人」）——与同主题 poison 领地重叠（两条都讲负面情绪
+      伤害创作者）+ 五词口号语义最薄 + 留任对照（poison 更具体
+      故留任）；退役理由留账进数据源注释，en 原句全库不回流
+- [x] **换血同格**：setup（「关键是手边要有一套现成的家伙……」
+      《钓大鱼》著作）心境主题原格换入——**38 条恰等 + 四主题
+      10/10/9/9 逐格相等**双持平
+- [x] **止损线 ≤2 兑现**：本轮恰一条即收手（一轮换三五条就成了
+      变相重写）；防撞第七轮（setup 语料在 QUOTES/DOCENT/既有
+      条目零出现）；en ≤200 / zh ≤120 / 出处只标类型
+
+**验证方式**：`npx vitest run tests/v121-eggs.test.js tests/interviews.test.js`。
+
+### 99. 盘点增量化 + GLB 维护第 3 轮 + Release 1.21.0（v1.21 新增）
+- [x] **盘点增量化**（§11 观察点第 4 条兑现）：STYLE_AUDIT §12
+      只盘状态变了的两轴（studio 精修：活→维护 / 访谈维护：
+      活→维护），五轴引用 §11 不重盘——**七轴全部处于维护/
+      封口态**，Goal 终态评估入 GOAL_HANDOFF
+- [x] **GLB 维护巡检第 3 轮**（更轻口径照旧）：blender:check
+      七件全过 + 六 glb-landed 冒烟信号全在 + 双惊吓自然触发
+      功能验证——零病灶零改动零回炉；落厅代码零改动 → 零定向
+      机位；gen_*.py 恰七件复钉
+- [x] 版本 bump 1.21.0（package.json + `__SV__.version` 一致，
+      版本钉移交 v121-eggs.test；v120 版本钉改同值语义）
+- [x] CHANGELOG v1.21.0 全节 + WORKLOG v1.21 逐段 + TESTING/README/
+      STYLE_AUDIT §12/GOAL_HANDOFF 第 10 轮交接（含 Goal 终态
+      评估）同步
+- [x] `npm test`（**669** 全绿）/ `npm run smoke`（5/5）/ electron
+      `--smoke`（EXIT=0，双惊吓保持 + 六 glb-landed + 普查 **195**
+      持平 + studio mesh 224 + 峰值 244）/ `npm run blender:check`
+      （七件）四连全绿
+- [x] Windows exe 双目标 `dist:win` **完整一次成型** EXIT=0 +
+      SHA256SUMS 重写 + DOWNLOAD.md 直链换轨
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**
+
+**验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
