@@ -1129,6 +1129,91 @@ DOCENT 配套）。✅ 全绿。
 
 **验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
 
+### 71. Blender loop 第 4 件·大厅纪念浮雕（v1.15 新增）
+- [x] **资产④纪念浮雕三阶段五拍精修 loop**：`gen_memorial_relief.py`
+      （block 比例架：基座/碑身/檐口 2.04m → mid：框缘 + 凹场位移
+      幕褶/下摆/单缕烟 → fine：烟分缕 + 凿痕只留已刻坡面 + 褶脊
+      pow 提脊压谷 + 顶点色深度分层 0.46–1.0 + 框缘错缝线脚 +
+      鎏金内缘）。五拍病灶实录：磨砂柱（褶幅+波形双修）/ 鎏金线
+      埋进框条盒体（移到开口内沿探出框脸 3mm）/ 凿痕成污渍斑
+      （只留已刻坡面 + 方向性）/ 褶半波 5 顶点欠采样（84×64 重采样）。
+- [x] **GLB 体积纪律确立**：导出器 COLOR_0 强转 float VEC3（BYTE_COLOR
+      不省）——网格账目 96×72→84×64 收到 **275KB ≤300KB**；单件
+      ≤300KB、每厅 ≤1 件 GLB 入 `tests/v115-eggs.test.js` 钉死。
+- [x] `npm run blender:check` 扩到**四件**资产比例架（浮雕 3 mesh /
+      高 1.9–2.2m）。
+
+**验证方式**：`npm run blender:check` + 四机位样张 + GLB json 账目核对。
+
+### 72. GLB 落厅第二批：corner_wraith + memorial_relief（v1.15 新增）
+- [x] **corner_wraith.glb 落穆赫兰道**（214KB）：评估后走「仅换网格、
+      保留程序化动画」——GLB 场景 Y 轴转 π 对齐 lookAt(+Z)，子件
+      （发帘/发丝/面部虚空/眼环/眼洞/双臂）重挂运行时 headPivot 与
+      arm 枢轴，setLurch/setRush 原逻辑直驱 + 眼环自发光脉冲保持；
+      材质钳制豁免 wraithEye/wraithBody（黑影类 specular=0 教训沿用）。
+- [x] **memorial_relief.glb 落大厅哀悼角**（东南柱间 atan2 朝室心）；
+      交互零字幕：stonebrush 即时 + 2.1s 错拍独石光缝借亮一拍 +
+      stonechime 低应（浮雕答的是碑；钳制豁免 reliefGilt）。
+- [x] **贴顶厅先合并再新增**：mulholland 七座远山合一（-6 mesh，
+      244→242 落 GLB 后仍低于基线）；twinpeaks 柴堆墩顶并入 cutGeos +
+      滚木双端盖合一（245→243）。
+- [x] wraithReady/reliefReady promise 挂厅返回值——main.js 等 GLB 就位
+      再宣布 hall-loaded；冒烟三信号 `glb-landed {lobby relief,
+      twinpeaks pine, mulholland wraith}` 齐全。
+
+**验证方式**：electron 冒烟三 glb-landed 信号 + 双惊吓自然触发保持 + 预算普查。
+
+### 73. 彩蛋第三批·远声应答音色谱系（v1.15 新增）
+- [x] **谱系确立**：`REPLY_DYAD = [146.83, 174.61]`（D3-F3 小三度）——
+      所有「另一边」的应答共享同一副音高（replyhum 有嗓子的那头 /
+      replytap 调过音的指节）；「这头」的动作声（clank/thud/woodknock/
+      latchsnap）不调音，对照关系单测钉死。
+- [x] 六厅各 +1，全部**可重复 / 零字幕 / 游戏时钟错拍 / 零新增光源 /
+      无永久态加码**（七厅各恰一件永久态是 v1.14 的账）：archive 通风
+      格栅（2.4s 后风道深处应答且每次换一头——它在管道里走）/
+      eraserhead 对讲管（3.0s 后极远那头 replyhum）/ bluevelvet 返听
+      音箱死敲（v1.4 就在台上的箱子零新增网格，1.9s 后监听从后幕
+      回来）/ twinpeaks 松果（磕柴垛 2.2s 后林海深处 replytap）/
+      mulholland 售票亭 BACK IN 5 小牌（拨转半圈背面还是 BACK IN 5，
+      1.6s 后亭子里面 replyhum）/ studio 墙角铸铁立管（1.4s 后楼下
+      回敲——每个厅的「另一边」是同一个另一边）。
+- [x] **回归修复**：门禁 69 插场记板时误删工作桌挂载三行——自
+      v1.14.0 起整张桌子（抽屉/笔记本/铅笔刀/场记板）不在场景里；
+      git 考古找回（studio 207→226 mesh），修复断言入 v115-eggs.test。
+- [x] 新音色 replyhum/replytap/stonebrush（引擎第 86/87/88 种 case）。
+- [x] INTERACTIVE_MIN 重锁：普查 21/35/28/23/26/24/29 = **186**
+      （阈值 = 普查 −1）。
+- [x] `tests/v115-eggs.test.js` 33 用例：谱系 / 块级零字幕 / 无锁存 /
+      零光源 / GLB 体积纪律 / 回归修复 / 阈值全审计。
+
+**验证方式**：`npx vitest run tests/v115-eggs.test.js` + `--smoke` 逐厅激活。
+
+### 74. 访谈摘录 20→28 条 + 主题筛选（v1.15 新增）
+- [x] `src/data/interviews.js` **28 条**（+8：忠于点子 / 谜 / 红帷幕 /
+      胶片之后 / 最终剪辑权 / 高尔夫球 / 自私的权利 / 天气播报）；
+      同一合规纪律 + 与 QUOTES 零重复（既有立牌语录全部避开）；
+      出处类型收「播报」一类。
+- [x] **主题筛选**：28 条全部归入四主题（点子 5 / 电影 9 / 心境 8 /
+      此生 6，`INTERVIEW_THEMES` 常量）；面板顶部筛选片（全部 +
+      四主题带计数）只重排面板内容——D-5 收纳纪律保持文字只进
+      面板；换筛即收声（murmur 不留残响）。
+- [x] `tests/interviews.test.js` 阈值提至 ≥28 + 主题口径与筛选片审计。
+
+**验证方式**：`npx vitest run tests/interviews.test.js` + 面板筛选片手工切换。
+
+### 75. Release 1.15.0（v1.15 新增）
+- [x] 版本 bump 1.15.0（package.json + `__SV__.version` 一致）。
+- [x] CHANGELOG v1.15.0 全节 + WORKLOG v1.15 逐段 + TESTING/README/
+      STYLE_AUDIT/GOAL_HANDOFF 同步。
+- [x] `npm test`（505 全绿）/ `npm run smoke`（5/5）/ electron `--smoke`
+      （EXIT=0，双惊吓自然触发保持）/ `npm run blender:check`（四件
+      资产比例架）四连全绿。
+- [x] Windows exe 双目标打包（Portable + Setup）+ SHA256SUMS 重写 +
+      DOWNLOAD.md 直链与实测哈希。
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**。
+
+**验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
+
 ---
 
 ## 补充说明：关于「PS5 级别」

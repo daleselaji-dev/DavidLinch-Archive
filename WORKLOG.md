@@ -441,3 +441,21 @@
 | 2026-08-28 03:38 | 2026-08-28 03:44 | D | **访谈 12→20 + 低语朗读**：八个新话题（鹰级童子军一行简介/每个观众/对立面/毒药/幽暗处/工业与烟/从不缺席/第一个点子），合规纪律不变；每张卡片**低语钮**——MurmurVoice 读成气声音节+静电碎语（永远听不清字），同钮收声/换条互斥/关面板即收声；onMurmurRead 回调接线 main.js；interviews.test ≥20 + 朗读闭环审计，444 全绿 | commit `56eb270` |
 | 2026-08-28 03:44 | 2026-08-28 04:07 | C | **彩蛋第二批·七厅又各 +1（STYLE_AUDIT 观察点变纪律）**：全部零字幕+错拍默认+永久态——lobby 名册中缝钢笔（滚到唇边磕一声/1.7s 后没有人的翻页/永久不回中缝）/ archive 没关严的抽屉（推严 2.6s 自己滑开；cardCatalog +skip 格位防与装饰抽屉 z-fight）/ era 检修口盖板（3.5s 楼那头回敲一次比一次少，第四次起永久沉默）/ bv 火柴盒（磷头自发光零新光源/1.4s 被谁吹灭/三根用尽永久空盒）/ tp 手板硬币（弹旋/0.8s 迟到落定/永久立在手板上）/ mul 巷墙海报角（papertear 撕落露 …CHE 底层/1.8s 夜风再掀/永久躺平）/ studio 场记板（clapslap/1.2s 顶灯自己暗一拍——updater 次序病灶勘破：暗拍因子并进 ceilBulbs 主更新器防被覆写）；新音色 papertear+clapslap（84/85）；INTERACTIVE_MIN 重锁 179（普查 20/34/27/22/25/23/28，阈值−1）；v114-eggs.test 27 用例（**块级零字幕断言**——精确提取 onActivate 块尾防邻域 caption 误伤）；470 全绿 + electron 七厅冒烟全绿（mesh 峰值 245/250） | commit `9644c12` + 冒烟日志 |
 | 2026-08-28 04:07 | 2026-08-28 04:40 | 6/8 | **文档收口 + Release 1.14.0**：bump 1.14.0（package.json + `__SV__.version`）；门禁 67–70 全节 + CHANGELOG v1.14.0 + WORKLOG 本段 + TESTING（470 用例/v114-eggs 覆盖行/GLB 抽查）+ README（179 交互/85 音色/20 条访谈+低语钮/GLB 孪生松）+ STYLE_AUDIT v1.14 执行账 + GOAL_HANDOFF 轮次交接；终版四连（npm test 470 / smoke 5·5 / electron EXIT=0 / blender:check 三件）复跑；`npm run dist:win` 双 exe + SHA256SUMS + DOWNLOAD 直链 + 发布产物冒烟复跑 | commit（本条）+ release/ 三件 |
+
+## v1.15 —— 纪念浮雕 · 魅影换骨 · 远声应答 · 二十八条访谈（持续 Goal 第 3 轮）
+
+> 本轮主题：**Blender loop 第 4 件（大厅纪念浮雕，三阶段五拍）· GLB
+> 落厅第二批（corner_wraith 换骨 + 浮雕落哀悼角）· 彩蛋第三批
+> （远声应答音色谱系 REPLY_DYAD）· 访谈 20→28 + 主题筛选 · 打包
+> 1.15.0 exe**。基线 v1.14.0 tip（8add537，origin/cursor/
+> pine-ladder-glb-v1140-a993）。范围：门禁 71–75。拐角魅影 / 双惊吓 /
+> 179 交互全部保留不回退。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 04:31 | 2026-08-28 04:45 | 0 | 从 v1.14.0 tip 建分支 `cursor/velvet-round3-v1150-a993`；通读 GOAL_HANDOFF / STYLE_AUDIT §5 新病灶 / blender README；新 VM 重装 Blender 4.1.1；基线四连全绿（470 / smoke 5·5 / electron EXIT=0 / blender:check 三件） | 分支 + /usr/local/bin/blender |
+| 2026-08-28 04:45 | 2026-08-28 05:05 | A4 | **Blender 资产④大厅纪念浮雕三阶段五拍精修**：gen_memorial_relief.py（block 比例架 2.04m → mid 框缘+凹场位移幕褶/下摆/单缕烟 → fine 烟分缕/凿痕只留已刻坡面/褶脊 pow 提脊压谷/顶点色 0.46–1.0/框缘错缝线脚/鎏金内缘）；五拍病灶实录：磨砂柱（褶幅+波形双修）/ 鎏金线埋进框条盒体（移到开口内沿探出框脸 3mm）/ 凿痕成污渍斑（只留已刻坡面+方向性）/ 褶半波 5 顶点欠采样（84×64 重采样）/ **GLB 349KB 超纪律勘破**——导出器 COLOR_0 强转 float VEC3（common.py 加 BYTE_COLOR 参数实测不省字节）→ 网格账目 96×72→84×64 收到 275KB；blender:check 扩到四件 | commit `afaec1c` + 四机位样张 |
+| 2026-08-28 05:05 | 2026-08-28 05:12 | G2 | **GLB 落厅第二批**：corner_wraith 换骨穆赫兰道——评估 AnimationMixer（GLB 无烘焙动画）后走「仅换网格保留程序化动画」：gltf 场景 Y 转 π 对齐 lookAt(+Z)、子件（发帘/发丝/面部虚空/眼环/眼洞/双臂）重挂运行时 headPivot+arm 枢轴、setLurch/setRush 直驱、眼环自发光脉冲保持、钳制豁免 wraithEye/wraithBody；**贴顶厅先合并**：七座远山合一（-6）+ tp 柴堆墩顶并 cutGeos+滚木端盖合一（-2）；浮雕落大厅哀悼角（atan2 朝室心，stonebrush 即时+2.1s 错拍光缝借亮+石钟低应，零字幕）；REPLY_DYAD+replyhum/replytap/stonebrush 三音色入引擎；wraithReady/reliefReady 承诺；冒烟三 glb-landed 信号 + 双惊吓保持（lobby206/mull242/tp243） | commit `3256f59` + 冒烟日志 |
+| 2026-08-28 05:12 | 2026-08-28 05:35 | C3 | **彩蛋第三批·远声应答谱系**：六厅各 +1 全部可重复/零字幕/游戏时钟错拍/零光源——archive 通风格栅（2.4s 应答每次换一头）/ era 对讲管（3.0s 极远 replyhum）/ bv 返听音箱死敲（v1.4 就在台上，零新增网格，1.9s 后幕回应）/ tp 松果（磕柴垛 2.2s 林海 replytap）/ mul BACK IN 5 小牌（转半圈背面还是 BACK IN 5，1.6s 亭内 replyhum）/ studio 墙角立管（1.4s 楼下回敲）；**回归修复**：门禁 69 误删工作桌挂载三行（v1.14.0 全程桌子不在场景，git 考古 `git show 9644c12` 勘破找回，207→226 mesh）；**撞名勘破**：studio 首版做节拍器彩蛋构建报 `metro` 重声明——v1.4 已有「停在半拍上」节拍器，撤回改立管；INTERACTIVE_MIN 重锁 186；v115-eggs.test 33 用例（谱系/块级零字幕/无锁存/零光源/GLB 体积纪律/回归修复）；503 全绿 + electron 全绿（244/250 峰值） | commit `1342bd5` + 冒烟日志 |
+| 2026-08-28 05:35 | 2026-08-28 05:42 | D2 | **访谈 20→28 + 主题筛选**：八个新话题（忠于点子/谜/红帷幕/胶片之后/最终剪辑权/高尔夫球/自私的权利/天气播报——收尾语与 studio 收音机天气成对照）；与 QUOTES 零重复（bigfish/sound5050/coffee/philly/intuition 等立牌语录全部避开）；四主题（点子5/电影9/心境8/此生6）+ 面板筛选片（带计数，换筛即收声）；出处类型收「播报」；interviews.test ≥28+主题审计；505 全绿 | commit `e6be4c2` |
+| 2026-08-28 05:42 | 2026-08-28 06:20 | 6/8 | **文档收口 + Release 1.15.0**：bump 1.15.0；门禁 71–75 全节 + CHANGELOG v1.15.0 + WORKLOG 本段 + TESTING（505 用例/v115-eggs 覆盖行/访谈 28 口径）+ README（186 交互/88 音色/28 条访谈+主题筛选/GLB 三件落厅）+ STYLE_AUDIT §6 执行账（三病灶清账+四条新备忘：冒烟盲区/远声密度/贴顶厅/字面预算）+ GOAL_HANDOFF 轮次交接；终版四连复跑；`npm run dist:win` 双 exe + SHA256SUMS + DOWNLOAD 直链 + 发布产物冒烟复跑 | commit（本条）+ release/ 三件 |
