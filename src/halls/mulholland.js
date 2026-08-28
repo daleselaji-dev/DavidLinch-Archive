@@ -132,6 +132,25 @@ export const WRAITH_T0 = (Math.PI * 2 - 1.2) / 2.4 - SCARE_BEATS.stare / 1000;
 export const RIM_BEATS = { base: 6.5, strike: 3.2, breath: 0.55, surge: 3.4 };
 // 惊吓后的空间错位落点（巷口，背对来路；在一切触发区之外）
 export const WAKE_POINT = { x: 9.7, z: 9.5 };
+// v1.24 真空罩拍长（门禁 102 音频层）：v1.23 的 duck(1.3, 0.06, 2.0)
+// 在 1.345s 就开始归还 master——黑幕段（2.4–3.3s）环境底噪已回到半血，
+// 「万籁俱寂」漏气；同时惊吓自己的声也挂 master，reveal 帧被一并压到
+// 6%（黑影最响的一嗓子实际是闷的——病灶修复走引擎直通总线 punch）。
+// 重钉账：罩底一路压到 wake 之后 0.3s（黑里醒来先是没有世界的声，
+// whisper 走直通独响），再花 release 把世界慢慢还给你——环境音比
+// 睁眼慢一步回来，是 wake 错位感的音频面。hold 账：wake + 0.3 −
+// 0.045（duck 固定进坑坡长）。转身惊吓同构，按自己的 wake 1.75s 裁。
+export const VACUUM = {
+  floor: 0.05, hold: 3.555, release: 1.6,           // 拐角：0.045+3.555 = 3.3+0.3
+  turnFloor: 0.03, turnHold: 2.005, turnRelease: 1.9 // 转身：0.045+2.005 = 1.75+0.3
+};
+// v1.24 wake 错位感（空间错位长进身体里）：拐角惊吓醒来不是站着醒
+// 的——俯冲醒（pitch 压到看着自己脚边的巷口地面，头要自己抬起来；
+// teleport 清俯仰，压拍必须写在瞬移之后）+ 字幕迟到 1.15s（先让你
+// 自己认出这是哪儿，那句话才补刀）。只给拐角惊吓——转身惊吓保持
+// 平视即醒即字：两重 wake 从此不只字幕不同，一个错的是空间（醒姿/
+// 声音都不对），一个错的是时间（转身与看见之间没有间隙）。
+export const WAKE_DAZE = { pitch: -0.36, captionMs: 1150 };
 // v1.7 转身惊吓（保留为第二重扳机）：武装区 = 暗巷深段 + 剧场背后空地。
 // 区内驻留 armTime 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发。
 export const SCARE_REGION = [
@@ -408,7 +427,7 @@ export function build(ctx) {
   // 纪律不破：零新增网格零音色（还是那盏灯、那条双沉包络）。
   // v1.19 余温总账 9s：2.4 错拍 + 0.6 双沉 = 3.0s 落定 → 窗 6.0s
   // （差异化是算出来的不是配出来的——这件的账恰好落在老值上）。
-  const poleEcho = { wait: -1, t: -1, echo: 0, replay: 0 };
+  const poleEcho = { wait: -1, t: -1, echo: 0, replay: 0, rev: -1 };
   updaters.push((dt, t) => {
     if (poleEcho.wait >= 0) {
       poleEcho.wait -= dt;
@@ -444,16 +463,37 @@ export function build(ctx) {
   hotspots.add(poleHit, {
     hint: 'E — 路灯铁杆',
     onActivate: () => {
-      if (poleEcho.wait >= 0 || poleEcho.t >= 0) return;
+      if (poleEcho.wait >= 0 || poleEcho.t >= 0 || poleEcho.rev >= 0) return;
       if (poleEcho.echo > 0) {
         poleEcho.echo = 0;
         poleEcho.replay = 1;
         poleEcho.t = 0; // 这回光先来，声永远没来
         return;
       }
+      // v1.24 变奏彩蛋第三例·时序反转语法（scare.seen——那一夜之后
+      // 这条路的因果彻底掉头）：敲下去手上没声，灯却在同一帧把双沉
+      // 答完；你自己那一记铁鸣要等 2.4s 才从杆里走出来——答在问前，
+      // 问迟到了。语法与前两例不同源：刮痕墙是缺席（答不来）、呼叫
+      // 铃是换位（答从别处来）、这件是反转（问答原班人马，播放次序
+      // 整个倒过来）。贴顶纪律照 v1.16 原封：零字幕零网格零新热点，
+      // 光复用双沉包络零新通道；迟到的那声在段外 rev 更新器（游戏
+      // 时钟）落地，本段远声密度钉不动。
+      if (scare.seen) {
+        poleEcho.t = 0;
+        poleEcho.rev = 2.4; // 与旧错拍同一笔账，方向相反
+        return;
+      }
       poleEcho.wait = 2.4;
       audio.sfxAt('poletap', -3.9, 14, 0.6, 4);
     }
+  });
+  // v1.24 变奏第三例的后半——迟到的问：rev 走游戏时钟（swiftshader
+  // 纪律，错拍不数真秒），到点把你那记铁鸣原样放出来。这不是新的
+  // 远场应答（应答仍只走光通道），是你自己的声音迟到了。
+  updaters.push((dt) => {
+    if (poleEcho.rev < 0) return;
+    poleEcho.rev -= dt;
+    if (poleEcho.rev < 0) audio.sfxAt('poletap', -3.9, 14, 0.6, 4);
   });
 
   // 路牌热点
@@ -2051,15 +2091,21 @@ export function build(ctx) {
     audio.sfxAt('fencewomp', 11.55, -8 - fenceRng() * 18, 0.16, 4);
   });
 
-  // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还
-  const wakeUp = (caption) => {
+  // 两重惊吓共用的收尾：黑幕里被移回巷口（背对来路），灯与声音归还。
+  // v1.24 wake 错位感：daze=true（拐角惊吓）加三重「不对劲」——俯冲醒
+  // （teleport 清俯仰之后把 pitch 压到脚边地面，头要自己抬）+ 字幕迟到
+  // （WAKE_DAZE.captionMs 后才补那句话）+ 环境音迟归（VACUUM 罩到
+  // wake 后 0.3s，whisper 走直通总线在无声的世界里独响）。
+  const wakeUp = (caption, daze = false) => {
     releaseGrab();
     teleport(WAKE_POINT.x, WAKE_POINT.z, Math.PI);
+    if (daze && pitchObj) pitchObj.rotation.x = WAKE_DAZE.pitch;
     ui.fade(false);
     backLampState.on = 1;
     lampKill.v = 0;
-    audio.sfx('whisper', 0.7);
-    ui.caption(caption, 5200);
+    audio.sfx('whisper', 0.7, 0, true);
+    if (daze) later(() => ui.caption(caption, 5200), WAKE_DAZE.captionMs);
+    else ui.caption(caption, 5200);
     scare.phase = 0;
     scare.sub = null;
   };
@@ -2085,9 +2131,12 @@ export function build(ctx) {
     lampKill.v = 1;
     backLampState.on = 0;
     audio.sfx('lampoff', 0.4);
-    audio.sfx('dreadswell', 0.75);
-    audio.duck(1.3, 0.06, 2.0);
-    audio.sfxAt('scrape', CORNER_EDGE.x, CORNER_EDGE.z, 0.9, 5);
+    // v1.24 音频层重接线：惊吓自己的声全部走直通总线（第 4 参 punch，
+    // 不吃 duck）——世界塌成真空，它的声原尺寸压过来；真空罩拍长
+    // 改钉 VACUUM（罩过黑幕、罩过醒来那一瞬，环境音迟一步归还）
+    audio.sfx('dreadswell', 0.75, 0, true);
+    audio.duck(VACUUM.hold, VACUUM.floor, VACUUM.release);
+    audio.sfxAt('scrape', CORNER_EDGE.x, CORNER_EDGE.z, 0.9, 5, true);
     revealBez(0, wraith.position);
     wraith.visible = true;
     rimState.on = 1;
@@ -2096,13 +2145,15 @@ export function build(ctx) {
     later(() => {
       scare.sub = 'stare';
       scare.t = 0;
-      audio.sfxAt('thud', CORNER_EDGE.x, CORNER_EDGE.z, 0.42, 4);
+      audio.sfxAt('thud', CORNER_EDGE.x, CORNER_EDGE.z, 0.42, 4, true);
     }, B.stare);
-    later(() => audio.sfx('heartbeat', 0.5), B.stare + 120);
-    later(() => audio.sfx('heartbeat', 0.62), B.stare + 520);
+    // v1.24：错拍三口心跳走直通——此前落在真空罩底（master 6%），
+    // 0.5–0.72 的推子实际只剩 0.03–0.04，错拍窗里几乎是哑的
+    later(() => audio.sfx('heartbeat', 0.5, 0, true), B.stare + 120);
+    later(() => audio.sfx('heartbeat', 0.62, 0, true), B.stare + 520);
     // v1.23 错拍加长后的第三口心跳：间隔 400→350ms 收紧——它不动，
     // 你的心先替你往前跑
-    later(() => audio.sfx('heartbeat', 0.72), B.stare + 870);
+    later(() => audio.sfx('heartbeat', 0.72, 0, true), B.stare + 870);
     // 扑近（从现身定点直线冲到脸前）
     later(() => {
       scare.sub = 'rush';
@@ -2113,14 +2164,14 @@ export function build(ctx) {
       const dz = pv.z - wraith.position.z;
       const d = Math.hypot(dx, dz) || 1;
       scare.to.set(pv.x - (dx / d) * 0.85, 0, pv.z - (dz / d) * 0.85);
-      audio.sfx('scare');
-      audio.sfx('breath', 0.85);
+      audio.sfx('scare', 1, 0, true);
+      audio.sfx('breath', 0.85, 0, true);
       // v1.10 P7：它扑近的同一拍，雾也收拢一口（世界跟着收紧，
       // 引擎瞬态 ~3s 自行退掉——横跨黑幕，醒来时雾还没完全松开）
       engine.fogSurge(0.9);
     }, B.rush);
     later(() => { // 扑到脸前：闷击 + 后处理冲击 + 暗红闪帧
-      audio.sfx('thud', 1.0);
+      audio.sfx('thud', 1.0, 0, true);
       engine.shock(1, 0.9, 0x1a0000);
     }, B.shock);
     later(() => { // 黑幕：归还镜头与 FOV（黑里换手，玩家看不见接缝）
@@ -2129,7 +2180,7 @@ export function build(ctx) {
       ui.fade(true);
       releaseGrab();
     }, B.blackout);
-    later(() => wakeUp('有些拐角，不该拐过去。'), B.wake);
+    later(() => wakeUp('有些拐角，不该拐过去。', true), B.wake);
   };
   updaters.push((dt, t) => {
     if (scare.phase !== 2) return;
@@ -2210,13 +2261,18 @@ export function build(ctx) {
   // 只在扳机上膛时生效——冷却中的巷子是安静的巷子（不预支恐惧）。
   const dread = { beatT: 0, swelled: false };
   updaters.push((dt) => {
-    if (scare.phase !== 0 || !cornerTrig.armed()) { lampDread.v = 0; return; }
+    if (scare.phase !== 0 || !cornerTrig.armed()) { lampDread.v = 0; audio.setDread(0); return; }
     const pv = pose ? pose() : { x: player.x, z: player.z };
     const inAlley = pv.x >= ALLEY.minX && pv.x <= ALLEY.maxX;
     const q = inAlley
       ? Math.max(0, Math.min(1, (APPROACH_DREAD.z0 - pv.z) / (APPROACH_DREAD.z0 - APPROACH_DREAD.z1)))
       : 0;
     lampDread.v = q;
+    // v1.24 接近段持续低压层（engine.setDread）：心跳是离散的拍，
+    // 恐惧的底该是持续的压——dreadswell 那副 27Hz 嗓子拉成 sustain，
+    // 增益跟 q²、与巷灯不稳/心跳渐密同一个 q 同一道 armed 闸（扳机
+    // 冷却中巷子照旧全静）。挂 master：跨线帧的抽真空把它一并抽走。
+    audio.setDread(q);
     if (dread.swelled && q <= APPROACH_DREAD.rearmBelow) dread.swelled = false;
     if (q <= 0) { dread.beatT = 0; return; }
     if (!dread.swelled && q >= APPROACH_DREAD.swellAt) {
@@ -2251,17 +2307,19 @@ export function build(ctx) {
     scare.to.set(pv.x + fx * 0.85, 0, pv.z + fz * 0.85);
     figure.position.copy(scare.from);
     figure.visible = true;
-    // 转身的同一帧：整巷壁灯 + 后门看护灯齐灭，世界的声音被抽走
+    // 转身的同一帧：整巷壁灯 + 后门看护灯齐灭，世界的声音被抽走。
+    // v1.24：真空罩换 VACUUM 转身账（罩到 wake 1.75s 后 0.3s 才归还），
+    // 惊吓自己的声走直通总线——同拐角惊吓一个口径
     lampKill.v = 1;
     backLampState.on = 0;
-    audio.duck(1.3, 0.02, 2.8);
-    audio.sfx('scare');
-    audio.sfx('breath', 0.85);
+    audio.duck(VACUUM.turnHold, VACUUM.turnFloor, VACUUM.turnRelease);
+    audio.sfx('scare', 1, 0, true);
+    audio.sfx('breath', 0.85, 0, true);
     // v1.10 P7：回头看见的同一帧雾收拢一口（与拐角惊吓同语言）
     engine.fogSurge(0.9);
     later(() => {
       // 扑到脸前的一拍：闷击 + 后处理冲击 + 暗红闪帧
-      audio.sfx('thud', 1.0);
+      audio.sfx('thud', 1.0, 0, true);
       engine.shock(1, 0.9, 0x1a0000);
     }, 400);
     later(() => {
