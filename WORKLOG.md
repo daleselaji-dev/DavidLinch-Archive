@@ -656,3 +656,24 @@
 | 2026-08-28 18:15 | 2026-08-28 18:26 | V | **四连验证 + 竞态修复**：`npm run smoke` 5/5 → electron 冒烟首跑 **EXIT=1 抓到真病灶**：拐角惊吓面南醒断言过（yaw 0 ✓ tp 243 ✓），转身惊吓位置到了 (9.7,9.5) 朝向永远不对——**补甩头旧竞态从位置断言盲区现形**（3s 补甩循环在 wake 传送后又执行一记 spinYaw(π)，yaw 从 π 抬到 2π；历轮位置断言不看朝向故全绿）。修法：onTick 带状态位快照，惊吓进行中（phase≠0）或已在巷口让位；复跑 **EXIT=0**（90s：七厅全过·六 glb-landed·**tp mesh 243 净账落地**·mull 244 持平·双惊吓自然触发双朝向档全过·状态位实录 phase=2 sub=reveal/rush→wake 在日志·普查 195 持平·UI/旁白过）→ `npm run blender:check` 七件全过 → 双机位截屏取证鸮落枝（扣枝+眼焰在，剪影小图可辨）；commit `3bdd5a4` + push | commit `3bdd5a4` + /tmp 冒烟日志 |
 | 2026-08-28 18:26 | 2026-08-28 18:45 | 6/8 | **文档收口（门禁 103 前半）**：CHANGELOG v1.25.0 全节 + 本段 + QUALITY_GATES 门禁 103 + STYLE_AUDIT §16（第 4 轮执行账）+ TESTING（774 用例/v125-eggs 覆盖行/v1.25 抽查段/**拐角惊吓耳机验收清单**）+ README + GOAL_HANDOFF 第 4→5 轮交接——774 复跑全绿 | 本条 commit |
 | 2026-08-28 18:45 | 2026-08-28 18:55 | 9 | **Release 1.25.0**：`npm run dist:win` 完整一次成型 + PE32 ×2 + asar 版本核对（先 cd /tmp）+ SHA256SUMS 重写 + DOWNLOAD.md 直链换轨（1.24.0 双产物同轮移除）+ 发布产物终版冒烟复跑 | release/ 双 exe + SHA256SUMS |
+
+## v1.25 第 5 轮 —— 全量验证 + 验收取证（零代码改动，版本维持 1.25.0）
+
+> 本轮主题：**默认零改动，有证据才动手——结论是零证据、零动手**。
+> 交付的不是新功能是**验收包**：四连全量复验 + scareProbe 逐拍
+> 实录解析成时间线对照表（TESTING 新节）+ 魅影 Blender 重渲对账
+> + 鸮定向机位三帧 + DOWNLOAD「验收走查」小节（填空式反馈模板）。
+> 基线 v1.25.0 tip（a4bde54，origin/cursor/owl-refine-acceptance-
+> round4-v1250-a993，非 main）。范围：门禁 104。**版本决策**：
+> 运行时零字节变化（改动全在文档 + `assets/acceptance/`，不进
+> dist 构建产物）——**维持 1.25.0 不 bump**：exe / `__SV__.version`
+> / v125-eggs 精确版本钉三方一致，bump 1.25.1 反而制造「文档版本
+> 超前发布产物」的混用风险（DOWNLOAD 版本自检口径是 1.25.0）。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 18:43 | 2026-08-28 18:50 | 0/V | fetch v1.25.0 tip（a4bde54）建分支 `cursor/acceptance-evidence-round5-v1251-a993`；四连全量：`npm test` **774/774**（30 文件，1.6s）→ `npm run smoke` 5/5（构建 53 模块）→ `xvfb-run electron --smoke` **EXIT=0**（83s：七厅全过·六 glb-landed（relief/catalog/governor/bottlewall/pine/wraith）·普查 195=22/37/30/24/30/27/25·tp 243 / mull 244 / studio 224·拐角惊吓自然触发面南醒 yaw 0 + 转身惊吓背巷醒 yaw π 双档全过·scareProbe 逐拍实录在日志）→ `npm run blender:check` 七件全过（Blender 4.1.1 在环境）| /tmp/electron-smoke-r5.log |
+| 2026-08-28 18:50 | 2026-08-28 18:57 | 1 | **scareProbe 逐拍实录解析**（本轮核心交付一）：拐角惊吓四拍实录逐拍对预期窗口——就位帧（phase=0 先于扳机）✓ / reveal（clock 起零 + seen 置位 + 机位钉死）✓ / rush（clock 0.1 游戏秒 ÷ 0.065 倍速 ≈ 1.5 实秒恰落 rush 窗下沿）✓ / wake（clock 冻结 0.216 = 3.3 实秒 × 0.065、WAKE_POINT + yaw 0 断言放行）✓；stare/shock/blackout 未采到判为**采样缺拍非状态机缺拍**（500ms 轮询对 3.3s 序列必缺，later 链不可跳变 + 三拍行为账在单测）；转身惊吓三次 spinYaw 是设计内重试（armTime 按游戏钟）、残留 clock 0.216 是拐角局部时钟冻结值（phase=1 不走它）——**与 v124/v125-eggs 账目零矛盾 → 四层零改动维持**；写入 TESTING「状态位时间线对照表」新节 | TESTING.md 新节 + assets/acceptance/v125/scareprobe-smoke-excerpt.txt |
+| 2026-08-28 18:57 | 2026-08-28 19:05 | 2 | **魅影 Blender 重渲对账**（核心交付二）：gen 脚本重生成 fine 级 → INSPECT 与库内 blend 逐项一致（12 mesh / 4060 verts / 7388 tris / 5 材质 / 高 2.458——gen 脚本与定稿资产零漂移）；库内 blend 重渲四机位（Cycles CPU 96 采样，71s）→ 与库内 png 哈希不同（采样噪声预期内）、front/closeup 目检形体逐像素级一致——**库内四机位仍是当前形体忠实存档，不换 png 防无意义二进制翻动**，用户对比直接看 assets/blender/renders/corner-wraith-* | /tmp/r5-renders 四帧 + 目检对照 |
+| 2026-08-28 19:05 | 2026-08-28 19:20 | 3 | **鸮定向机位三帧**（核心交付三，SV_SHOT_PRE 带 tp 厅守卫 IIFE + 瞬移与压俯仰全放 PRE 内防 SV_SHOT_POS 清俯仰）：①怠速全景（-2.9,8.9 yaw0.727 pitch0.387——枯树桩全高 + 顶端眼微光 + hint 在框）②激活近景（-4.0,4.07 yaw2.36 pitch0.62 + activateByHint("树梢")——眼焰亮起 + 头对准镜头）③月晕轴尝试（月 (-60,52,-110)→鸮延长线 t=5 机位 (-3.56,10.3)）**被行走边界钳回 (-3.1,9.1)——月晕逆光剪影位在可行走区外，诚实留账**：剪影读感对玩家来自空地树线背景，冒烟证机位与眼组机制、形体读感交真机；三帧落库 assets/acceptance/v125/ | owl-{idle,lit,moon-context}.png |
+| 2026-08-28 19:20 | 2026-08-28 19:40 | 6/8 | **验收包文档收口（门禁 104）**：TESTING「状态位时间线对照表」/ DOWNLOAD「v1.25 验收走查」（路线 + 清单链接 + 直链沿用 + **填空式反馈模板**——拍位/听到什么/原因三空 + 鸮五条线指认）/ 内容侧**零替换留账**（DOCENT 上轮已换唯一违纪条、访谈替换句可查证关无新候选——宁持平不换弱，无「违背既有纪律」的条目就不换）/ 维护巡检全过（gen_*.py 恰七件 blender:check 实证 + 六 glb-landed 冒烟实证 + 封口轴五条随 774 复钉 + 195/98/40 三数持平）/ CHANGELOG 补录节 + 门禁 104 + GOAL_HANDOFF 第 5→6 轮 + **父 Goal 四目标对照表**（无用户真机证词不建议 complete）；774 复跑全绿收口 | 本条 commit |

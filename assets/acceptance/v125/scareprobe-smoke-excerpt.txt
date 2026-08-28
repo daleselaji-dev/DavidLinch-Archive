@@ -1,0 +1,37 @@
+[smoke] [sv] glb-landed mulholland wraith
+[smoke] 展厅装载 OK: mulholland
+[smoke] 场景统计 mulholland: meshes=244 tris=109430 lights=22
+[smoke] 可交互物 mulholland: 25 (阈值 ≥24)
+[smoke] 热点场景归属 mulholland: 全部在场景树上
+[smoke] 后巷走通性（至拐角前）mulholland: {"ok":true,"x":9.3,"z":-24.34}
+[smoke] 已跨过显形线：等待拐角惊吓单拍序列自然触发…
+[smoke] 拐角惊吓 状态位: phase=0 sub=- clock=0 seen=false @ (9.3,-26.8)
+[smoke] 拐角惊吓 状态位: phase=2 sub=reveal clock=0 seen=true @ (9.3,-26.8)
+[smoke] 拐角惊吓 状态位: phase=2 sub=rush clock=0.1 seen=true @ (9.3,-26.8)
+[smoke] 拐角惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (9.7,9.5)
+[smoke] 拐角惊吓自然触发 OK：视线越过拐角那一帧 → 灯灭+闪出 → 特写盯人 → 扑近 → 空间错位移回巷口 (9.7,9.5)，面南朝巷醒 (yaw 0)
+[smoke] 后巷走通性（至空地站定点）mulholland: {"ok":true,"x":2.24,"z":-30.26}
+[smoke] 模拟猛回头 spinYaw(π)：等待转身惊吓自然触发…
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 模拟猛回头 spinYaw(π)：等待转身惊吓自然触发…
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 模拟猛回头 spinYaw(π)：等待转身惊吓自然触发…
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=1 sub=- clock=0.216 seen=true @ (2.2,-30.3)
+[smoke] 转身惊吓 状态位: phase=0 sub=- clock=0.216 seen=true @ (9.7,9.5)
+[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)，背巷平视醒 (yaw π)
+[smoke] 交互激活 mulholland: 25 个 onActivate 全部无异常
+[smoke] UI 交互冒烟: ui-ok narration-modes=murmur,jazz,off,letters
+[smoke] 运行时冒烟通过：启动 → 七厅装载 → 后巷走通+惊吓自然触发 → 彩蛋触发 → UI/旁白交互全部完成
+[smoke] 彩蛋触发 mulholland: corner-scare,turn-scare,alley-dread
