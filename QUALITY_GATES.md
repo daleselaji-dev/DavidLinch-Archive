@@ -1364,6 +1364,86 @@ tests/v117-eggs.test.js` + bv 单厅冒烟截屏。
 
 **验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
 
+### 86. Blender loop 第 7 件·卡片柜抽屉阵 + GLB 落厅第五批收官件（v1.18 新增）
+- [x] `gen_card_catalog.py` 三档五拍精修 loop（block 19+1 格阵立规
+      ——4 列 5 排与运行时 cardCatalog 逐位对齐、HOLE (3,1) 留给
+      程序化可拉抽屉 → mid 修木色/镂空标签框/断茬座盘 → fine 起线
+      门芯+滑出卡+逐屉顶点色+黑衬板）；第 4 拍 **box(w,h,d) 参数序
+      病灶**勘破实录入注（黑衬板 h/d 写反读成外探搁板）。
+- [x] 细节账：WORN 三只磨亮、顶排**卡死抽屉 14mm 斜探**带断茬座盘
+      与空标签框、两格滑出卡；生成侧 **x 预镜像**对齐落厅 pivot
+      rotation.y=π；定稿 **7 mesh / 5136 tris / GLB 146KB ≤300KB**；
+      `blender:check` 扩到**七件**。
+- [x] **落厅红线**：收官件落 **archive 第一座目录柜**（212 余量
+      最大；第二座连同「没关严的抽屉」彩蛋原件不动；tp/mull 贴顶
+      禁入、era 每厅 ≤1 照旧）。
+- [x] 「仅换网格保留程序化动画」第四次执行：可拉抽屉程序化原件
+      动画不动（GLB 洞位预留）、三张静态阵网格原位退场（几何释放/
+      共享材质留任/磨亮光晕贴花留任）、材质运行时整套重设；
+      **换接缝抹平**（洞位脸板/拉手换 GLB 阵同参材质）；
+      `cardArrayReady` 承诺 + glb-landed **第六处**（catalog）。
+- [x] **陈年病灶修正**：v1.4 卡沓停在 drawer 局部 z=0 探出柜面
+      9cm（场景包围盒探针勘破），退进屉体 -0.15——拉开才看得见
+      「卡片都空着」。
+
+**验证方式**：`npm run blender:check`（七件）+ `npx vitest run
+tests/v118-eggs.test.js` + archive 单厅冒烟截屏（修复前后对照）。
+
+### 87. 新交互「卡死的抽屉」+ 音色 98（v1.18 新增）
+- [x] 顶排斜探的那只：按 E **挣一下又咬死**（14mm 探出量上微弱
+      往复动画），`drawerstuck` 即时（**第 98 种音色**——木滑轨
+      憋住的一声，**不入 REPLY_DYAD**）；2.2s 后**西墙那头**
+      （v1.10「墙后没有房间」的那面墙）同一只抽屉滑轨到底关上
+      （drawerfar 错拍应答——这只在这里永远关不上，在那头关得上）。
+- [x] 克制口径：**游戏时钟**（零 setTimeout）、**零字幕**、可重复、
+      应答期再按无效（re-entry 守卫，防连按刷答）。
+- [x] INTERACTIVE_MIN archive 35→**36**（普查 **195**——五轮连涨
+      惯性刹车后只为收官件开一格，其余六厅相等语义保持）。
+
+**验证方式**：`npx vitest run tests/v118-eggs.test.js` + 冒烟探针
+（挣扎动画位移 + re-entry 守卫断言）实录。
+
+### 88. 回声窗一句暗示 + 访谈 34→38（v1.18 新增）
+- [x] **一句不点破的暗示**：留言簿第四条种子「回头客」——访客
+      口吻的传闻（不指名哪件、不讲窗口机制、不提秒数）；**禁 UI
+      提示**红线不破（单测钉死：无「回声窗/6 秒/echo」字面、
+      种子在 store 层不在 UI 层）。
+- [x] 访谈 +4 条**四主题齐涨**（10/10/9/9 = **38**）：点子说了算 /
+      在电话上看电影 / 生活的抽象（与立牌「直觉」句互为上下文）/
+      五十年代的小城（《Lynch on Lynch》访谈录）。
+- [x] 防撞纪律第四轮实战：三句候选与 essays.js QUOTES 撞句弃用；
+      新四条关键词逐句比对零重复；出处类型白名单口径沿用。
+
+**验证方式**：`npx vitest run tests/interviews.test.js
+tests/v118-eggs.test.js` + 面板四主题筛选片计数。
+
+### 89. GLB 轴收官转维护（v1.18 新增）
+- [x] 六件 GLB 落六厅收官：tp 松 / mull 魅影 / lobby 浮雕 / era
+      调速器 / bv 酒瓶墙 / **archive 卡片柜**；**studio 刻意留空**
+      （不为「每轮一件」松红线）。
+- [x] 收官红线入单测：七件资产全 ≤300KB 实测、六处落厅名单钉死、
+      studio 零 GLB 导入、tp/mull 贴顶禁入语义不回退、每厅 ≤1 件。
+- [x] `blender:check` 七件资产比例架全绿；GLB 轴自此**转维护**
+      ——后续轮次只修不添，除非红线内出现新余量。
+
+**验证方式**：`npm run blender:check` + `npx vitest run
+tests/v118-eggs.test.js` 门禁 89 段。
+
+### 90. Release 1.18.0（v1.18 新增）
+- [x] 版本 bump 1.18.0（package.json + `__SV__.version` 一致，版本钉
+      移交 v118-eggs.test；v117 计数钉改「不回退」语义）。
+- [x] CHANGELOG v1.18.0 全节 + WORKLOG v1.18 逐段 + TESTING/README/
+      STYLE_AUDIT §9/GOAL_HANDOFF 第 7 轮交接同步。
+- [x] `npm test`（**607** 全绿）/ `npm run smoke`（5/5）/ electron
+      `--smoke`（EXIT=0，双惊吓保持 + **六 glb-landed** + 七厅场景
+      归属普查全过 + 交互普查 **195**）/ `npm run blender:check`
+      （七件）四连全绿。
+- [x] Windows exe 双目标 `dist:win` **完整一次成型** EXIT=0 +
+      SHA256SUMS 重写 + DOWNLOAD.md 直链换轨。
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**。
+
+**验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
