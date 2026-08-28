@@ -10,8 +10,10 @@ import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway, archivePlaque,
   smokeLayer, dustField, zoneTrigger, multiRectBounds,
   mergedMesh, xform, roundedBoxMesh, woodTexture,
-  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows, wallAO
+  woodMat, fabricMat, marbleMat, roundedBoxGeo, lightCone, rng, contactShadows, wallAO,
+  quoteStand, quoteStandUpdater
 } from './kit.js';
+import { quoteById, DOCENT } from '../data/essays.js';
 import {
   propMats, fluorescentFixture, cardCatalog, filmProjector, bankersLamp, stanchionRope
 } from './props.js';
@@ -41,7 +43,7 @@ const HALL = { minX: -W / 2 + 1, maxX: W / 2 - 1, minZ: -L / 2 + 1.9, maxZ: L / 
 const NICHE = { minX: -W / 2 - 3.4, maxX: -W / 2 + 1.2, minZ: -2.4, maxZ: 2.4 };
 
 export function build(ctx) {
-  const { hotspots, ui, goTo, audio, engine, player } = ctx;
+  const { hotspots, ui, goTo, audio, engine, player, narration } = ctx;
   const group = new THREE.Group();
   const updaters = [];
 
@@ -942,6 +944,83 @@ export function build(ctx) {
   pwSeed.scale.set(0.7, 1.25, 0.7);
   pwSeed.position.set(0.62, 0.812, 0.2);
   readTable.add(pwFelt, pwDome, pwSeed);
+
+  // ---------- 访谈剪报盒（v1.13）：E → 打开「访谈摘录」册 ----------
+  // 木浅盘里一沓泛黄剪报：顶张只有版头 INTERVIEWS、灰行线与一格
+  // 空照片框（不印可读句子——句子在打开的册页里）。三通道反馈：
+  // 翻纸声 + 台灯池借光一拍 + 摘录册滑入。
+  const clipTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#d8cdb2';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(46,38,30,0.9)';
+    g.font = '700 15px Georgia, serif';
+    g.fillText('INTERVIEWS', 8, 22);
+    g.strokeStyle = 'rgba(46,38,30,0.6)';
+    g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(8, 30); g.lineTo(s - 8, 30); g.stroke();
+    g.strokeStyle = 'rgba(70,58,44,0.4)';
+    g.lineWidth = 1;
+    for (let yy = 44; yy < s - 8; yy += 9) {
+      g.beginPath(); g.moveTo(10, yy); g.lineTo(s - 10 - (yy % 27), yy); g.stroke();
+    }
+    g.fillStyle = 'rgba(70,58,44,0.35)';
+    g.fillRect(s - 46, 40, 34, 26);
+    g.strokeStyle = 'rgba(46,38,30,0.55)';
+    g.strokeRect(s - 46, 40, 34, 26);
+  });
+  const clipTray = new THREE.Group();
+  clipTray.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.24, 0.01, 0.18), 0, 0.005, 0),
+    xform(new THREE.BoxGeometry(0.24, 0.035, 0.01), 0, 0.0175, -0.085),
+    xform(new THREE.BoxGeometry(0.24, 0.035, 0.01), 0, 0.0175, 0.085),
+    xform(new THREE.BoxGeometry(0.01, 0.035, 0.18), -0.115, 0.0175, 0),
+    xform(new THREE.BoxGeometry(0.01, 0.035, 0.18), 0.115, 0.0175, 0)
+  ], boxWood));
+  const clipStackMat = new THREE.MeshStandardMaterial({ color: 0xcfc4a8, roughness: 0.9 });
+  clipTray.add(mergedMesh([
+    xform(new THREE.BoxGeometry(0.19, 0.018, 0.13), 0, 0.014, 0, 0, 0.06, 0),
+    xform(new THREE.BoxGeometry(0.19, 0.008, 0.13), 0.006, 0.027, -0.004, 0, -0.09, 0)
+  ], clipStackMat));
+  const clipTop = new THREE.Mesh(new THREE.PlaneGeometry(0.185, 0.125),
+    new THREE.MeshStandardMaterial({ map: clipTex, roughness: 0.85 }));
+  clipTop.rotation.x = -Math.PI / 2;
+  clipTop.rotation.z = 0.1;
+  clipTop.position.set(0.004, 0.0325, -0.002);
+  clipTray.add(clipTop);
+  clipTray.position.set(-0.42, 0.78, 0.27);
+  clipTray.rotation.y = 0.22;
+  readTable.add(clipTray);
+  const clipFlash = { t: -1 };
+  updaters.push((dt) => {
+    if (clipFlash.t < 0) return;
+    clipFlash.t += dt;
+    const u = clipFlash.t / 1.4;
+    if (u >= 1) { clipFlash.t = -1; return; }
+    // 台灯池借一拍光（叠在台灯更新器之后）：读报的人把灯拨亮了一瞬
+    lampPool.intensity += Math.sin(u * Math.PI) * 2.2;
+  });
+  hotspots.add(clipTop, {
+    hint: 'E — 访谈剪报',
+    onActivate: () => {
+      clipFlash.t = 0;
+      audio.sfxAt('page', -2.4, -13.7, 0.7, 3);
+      ui.showInterviews();
+    }
+  });
+
+  // ---------- 引语立牌（v1.13：七厅唯独档案廊没有，补上第 7 座） ----------
+  // 壁龛口南肩，走近才显影；讲解员驻足 1.6s 后低声补上语境。
+  const q1 = quoteStand(quoteById('doughnut'), '#c9d0c2');
+  q1.position.set(-3.02, 0, 3.7);
+  q1.rotation.y = Math.atan2(3.02, -0.7);
+  group.add(q1);
+  updaters.push(quoteStandUpdater(q1, player, ui, {
+    narration, docent: DOCENT.doughnut
+  }));
+  hotspots.add(q1.userData.board, {
+    hint: 'E — 他自己的话',
+    onActivate: () => ui.showQuotes()
+  });
 
   // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
   const projector = filmProjector({ mats: M });

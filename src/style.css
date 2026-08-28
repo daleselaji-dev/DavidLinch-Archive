@@ -279,6 +279,12 @@ body.touch .touch-ui { display: block; }
 .panel-body .quote-card { margin: 0 0 26px; padding: 14px 16px 8px; border: 1px solid rgba(201,163,92,0.22); background: rgba(201,163,92,0.04); }
 .panel-body .quote-card .fact { border-left-color: var(--gold, #c9a35c); font-size: 14px; }
 .panel-body .quote-en { font-style: italic; opacity: 0.72; font-size: 12px; margin: 6px 0 4px; }
+.panel-body .iv-topic {
+  display: inline-block; font-size: 10px; letter-spacing: 0.18em;
+  color: var(--gold, #c9a35c); border: 1px solid rgba(201, 163, 92, 0.35);
+  padding: 2px 8px; margin-bottom: 8px;
+}
+.panel-body .iv-ctx { font-size: 11px; opacity: 0.6; margin: 4px 0 6px; }
 .panel-body button.link-hall {
   margin-top: 14px; width: 100%; padding: 12px; cursor: pointer;
   background: rgba(143,14,30,0.2); color: var(--ivory);
