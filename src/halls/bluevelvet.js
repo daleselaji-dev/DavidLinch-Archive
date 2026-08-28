@@ -1554,7 +1554,12 @@ export function build(ctx) {
   micHit.visible = false;
   micHit.position.set(0, 1.6, -D / 2 + 2.3);
   group.add(micHit);
-  const micState = { wait: -1, breath: 0 };
+  // v1.17 彩蛋五批·问第二遍（bv）：脚灯呼吸落定后的 6s 回声窗内
+  // **再碰一次**——话筒不闷响、脚灯不亮，吧台背柜整面酒瓶墙的玻璃
+  // 在同一拍泛起一口光又落回（答与动作同拍，答在你身后的玻璃上；
+  // GLB 精修件与程序化兜底共用 bottleGlassMats 登记表，换网格不换答）。
+  const micState = { wait: -1, breath: 0, echo: 0 };
+  const glassEcho = { t: -1 };
   updaters.push((dt) => {
     if (micState.wait >= 0) {
       micState.wait -= dt;
@@ -1562,15 +1567,33 @@ export function build(ctx) {
     }
     if (micState.breath > 0) {
       micState.breath = Math.max(0, micState.breath - dt / 1.8);
+      if (micState.breath === 0) micState.echo = 6; // 脚灯落定，回声窗开
       const p = ANSWER_BREATH(1 - micState.breath);
       footWash.intensity += p * 3.2;
       footLights.material.emissiveIntensity += p * 1.9;
+    } else if (micState.echo > 0) {
+      micState.echo -= dt;
+    }
+    // 玻璃的答：注册在「电压不稳」之后——加法覆写当帧生效
+    if (glassEcho.t >= 0) {
+      glassEcho.t += dt;
+      if (glassEcho.t >= 1.4) {
+        glassEcho.t = -1;
+      } else {
+        const p = ANSWER_BREATH(glassEcho.t / 1.4);
+        for (const mat of bottleGlassMats) mat.emissiveIntensity += p * 0.9;
+      }
     }
   });
   hotspots.add(micHit, {
     hint: 'E — 空话筒',
     onActivate: () => {
       if (micState.wait >= 0 || micState.breath > 0) return;
+      if (micState.echo > 0) {
+        micState.echo = 0;
+        glassEcho.t = 0; // 这回答的不是台口，是酒瓶墙
+        return;
+      }
       micState.wait = 1.5;
       audio.sfxAt('micthump', 0, -D / 2 + 2.3, 0.7, 4);
     }

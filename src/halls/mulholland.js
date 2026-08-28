@@ -373,14 +373,26 @@ export function build(ctx) {
   // 声音和光不同步。贴顶厅纪律：零新增网格（热点落在既有灯杆
   // 上）、零字幕零光源（只调制既有灯）；可重复无锁存；不加
   // 远场重放（远声密度已到上限，应答全走光通道）。
-  const poleEcho = { wait: -1, t: -1 };
+  // v1.17 彩蛋五批·问第二遍（mull）：迟放的光落回后的 6s 回声窗内
+  // **再敲一次**——铁杆这回不响，灯却在同一拍就把双沉打出来（第一遍
+  // 声先光迟，第二遍光先声无：这条路上因果只肯对上一半）。贴顶厅
+  // 纪律不破：零新增网格零音色（还是那盏灯、那条双沉包络）。
+  const poleEcho = { wait: -1, t: -1, echo: 0, replay: 0 };
   updaters.push((dt, t) => {
     if (poleEcho.wait >= 0) {
       poleEcho.wait -= dt;
       if (poleEcho.wait < 0) poleEcho.t = 0;
     } else if (poleEcho.t >= 0) {
       poleEcho.t += dt;
-      if (poleEcho.t > 0.6) poleEcho.t = -1;
+      if (poleEcho.t > 0.6) {
+        poleEcho.t = -1;
+        // 回声窗只在「等来的答」之后开一扇（即时重放不续窗——
+        // 七件同口径：第二遍答完即消耗，第三遍回到从头等起）
+        poleEcho.echo = poleEcho.replay ? 0 : 6;
+        poleEcho.replay = 0;
+      }
+    } else if (poleEcho.echo > 0) {
+      poleEcho.echo -= dt;
     }
     for (const [i, L] of lampData.entries()) {
       let f = 1;
@@ -402,6 +414,12 @@ export function build(ctx) {
     hint: 'E — 路灯铁杆',
     onActivate: () => {
       if (poleEcho.wait >= 0 || poleEcho.t >= 0) return;
+      if (poleEcho.echo > 0) {
+        poleEcho.echo = 0;
+        poleEcho.replay = 1;
+        poleEcho.t = 0; // 这回光先来，声永远没来
+        return;
+      }
       poleEcho.wait = 2.4;
       audio.sfxAt('poletap', -3.9, 14, 0.6, 4);
     }

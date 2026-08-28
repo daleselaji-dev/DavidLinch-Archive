@@ -468,6 +468,10 @@ export function build(ctx) {
   secHand.position.z = 0.063;
   const pin = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), M.brass);
   pin.position.z = 0.062;
+  // v1.17 门禁 83：共用件并发抽查取证句柄——冒烟探针按名读针角，
+  // 断言两台状态机（clockState 驱分针 / windState 驱秒针）并发后各自归位
+  minHand.name = 'clockMinHand';
+  secHand.name = 'clockSecHand';
   clock.add(hourHand, minHand, secHand, pin);
   clock.position.set(-W / 2 + 0.06, 3.15, 8.6);
   clock.rotation.y = Math.PI / 2;
@@ -510,10 +514,18 @@ export function build(ctx) {
   keyPivot.rotation.y = Math.PI / 2;
   group.add(keyPivot);
   const SEC_REST = Math.PI; // 秒针的 6 点位
-  const windState = { t: -1, step: 0 };
+  // v1.17 彩蛋五批·问第二遍（archive）：秒针滑回后的 8s 回声窗内
+  // **再拧一次**——钥匙不响、秒针不动，斜上方停摆钟的分针在同一拍
+  // 挣一下（答与动作同拍，答在隔壁那口钟）。共用件纪律：分针只有
+  // clockState 一个写者（这里只点火 clockState.t，不直驱 minHand）；
+  // 秒针只有 windState 一个写者——两台状态机并发也各归各位。
+  const windState = { t: -1, step: 0, echo: 0 };
   const TICK_AT = [0.4, 1.05, 1.9]; // 擒纵间隔 0.4→0.65→0.85s：一格比一格迟
   updaters.push((dt) => {
-    if (windState.t < 0) return;
+    if (windState.t < 0) {
+      if (windState.echo > 0) windState.echo -= dt;
+      return;
+    }
     windState.t += dt;
     const k = windState.t;
     windKey.rotation.z = Math.sin(k * 16) * 0.34 * Math.exp(-k * 2.6);
@@ -527,6 +539,7 @@ export function build(ctx) {
       windState.step = 0;
       secHand.rotation.z = SEC_REST;
       windKey.rotation.z = 0;
+      windState.echo = 8; // 漏走的时间还热着——回声窗开
       return;
     }
     if (windState.step === 3 && k >= 2.6) {
@@ -538,6 +551,11 @@ export function build(ctx) {
     hint: 'E — 上弦钥匙',
     onActivate: () => {
       if (windState.t >= 0) return;
+      if (windState.echo > 0) {
+        windState.echo = 0;
+        if (clockState.t < 0) clockState.t = 0; // 钥匙没动，钟先动了
+        return;
+      }
       windState.t = 0;
       audio.sfxAt('ratchet', -W / 2, 9.35, 0.32, 3);
     }
