@@ -1133,7 +1133,12 @@ export function build(ctx) {
     group.add(art);
   }
 
-  // 工作台灯 v2（重底座 + 弹簧臂 + 绿铝罩；可开关 — 交互①）
+  // 工作台灯 v3·手作精修（v1.20 门禁 94；可开关 — 交互①）：
+  // GLB 轴 studio 刻意留空，这间屋的精修件在这间屋里做——车削木
+  // 重底座（座肩留车刀痕）/ 手弯铁杆（单管四弯 + 蝶形螺母）/
+  // 手锤黄铜罩（手刷绿漆，clearcoat 退役）/ 布包余线盘在桌面。
+  // 热点（shade）/ 光路（3.4/5.5/1.8）/ hint / 字幕 / 音色全部
+  // 一字不动——精修只动做工；mesh 账 7 → 5（净 −2，227 → 225）。
   const lampState = { on: 1 };
   const lamp = angleLamp({ shadeColor: 0x1c4232, mats: M });
   lamp.position.set(-6.55, 0.905, -2.35);

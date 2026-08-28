@@ -875,47 +875,83 @@ export function phoneBooth({ mats } = {}) {
 }
 
 // ============================================================
-// 林奇的房间 —— 工作台灯 v2（重底座 + 双节弹簧臂 + 铝罩 + 旋钮）
+// 林奇的房间 —— 工作台灯 v3·手作精修（v1.20 门禁 94）
+// GLB 轴在 studio 刻意留空（收官红线：零导入）——这间屋的精修件
+// 不从外面运进来，是「在这间屋里做出来的」。v2 工厂 Anglepoise
+// （珐琅座 / 镀铬双节臂 / 拉簧）退役，换手作四件账：
+//   ① 车削木重底座：厚坯剖面，座肩 0.030–0.037 段的细台阶是一圈
+//      没磨平的车刀痕；开关小旋钮手刻，装得略歪（rz −0.12）；
+//   ② 手弯铁杆：一根管子四道弯（CatmullRom 单管），第 3 分量的
+//      ±6mm 出平面量就是「没有夹具」本身——工厂臂才是两根直杆；
+//      顶端蝶形螺母锁俯仰，翼片拧到哪算哪（不回正）；
+//   ③ 手锤黄铜罩：车削钟形 + 整数频率定植锤痕（接缝安全），外面
+//      手刷绿漆深浅不齐（横道毛边贴图）——v2 的 clearcoat 清漆与
+//      envMapIntensity 1.1 一并退役，哑光是手刷漆的诚实；
+//   ④ 布包电线在桌面盘一圈慵懒的余线——这间屋不藏线。
+// mesh 账 7 → 5（拉簧/肘球/双节臂退场，杆与螺母并单 mesh，余线
+// +1）；userData 接线（shade/light/bulbMat）与 studio 热点/光路
+// 一字不动；D-11 光纪律照旧（灯泡藏罩腔，光池 3.4/5.5/1.8 三值
+// 原封——精修只动做工，不动光）。
 // ============================================================
 export function angleLamp({ shadeColor = 0x1c4232, mats } = {}) {
   const M = mats || propMats();
   const g = new THREE.Group();
-  const enamel = new THREE.MeshPhysicalMaterial({
-    color: shadeColor, roughness: 0.32, metalness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3,
-    envMapIntensity: 1.1
-  });
-  // 车削重底座 + 旋钮
-  const baseGeo = lathe([[0.14, 0], [0.135, 0.02], [0.1, 0.035], [0.05, 0.05], [0.035, 0.07]], 20);
-  const knobGeo = lathe([[0.0, 0], [0.018, 0.004], [0.02, 0.02], [0.012, 0.03]], 12);
+  // ① 车削木重底座 + 手刻开关旋钮（略歪）
+  const baseWood = woodMat({ base: [86, 56, 30], planks: 1, size: 128, seed: 120, gloss: 0.25 });
+  const knobGeo = lathe([[0.0, 0], [0.017, 0.005], [0.019, 0.022], [0.011, 0.032]], 10);
   const base = mergedMesh([
-    baseGeo,
-    xform(knobGeo, 0.1, 0.05, 0)
-  ], enamel);
+    lathe([
+      [0.148, 0], [0.144, 0.012], [0.126, 0.024], [0.122, 0.03],
+      [0.118, 0.033], [0.112, 0.037], [0.082, 0.048], [0.056, 0.062], [0.046, 0.08]
+    ], 22),
+    xform(knobGeo, 0.098, 0.046, 0.02, 0, 0, -0.12)
+  ], baseWood);
   g.add(base);
-  // 下臂 / 铰点 / 上臂 / 弹簧
-  const armMat = M.chrome;
-  const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.42, 8), armMat);
-  lower.position.set(0.02, 0.26, 0);
-  lower.rotation.z = 0.35;
-  const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), armMat);
-  elbow.position.set(0.095, 0.455, 0);
-  const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.4, 8), armMat);
-  upper.position.set(0.02, 0.63, 0);
-  upper.rotation.z = -0.75;
-  // 弹簧（螺旋管）
-  class Spring extends THREE.Curve {
-    getPoint(t) {
-      const a = t * Math.PI * 18;
-      return new THREE.Vector3(t * 0.3, t * 0.13 + Math.cos(a) * 0.012, Math.sin(a) * 0.012);
-    }
+  // ② 手弯铁杆（单管四弯）+ 蝶形螺母
+  const stemCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.02, 0.055, 0),
+    new THREE.Vector3(0.04, 0.3, 0.006),
+    new THREE.Vector3(0.105, 0.46, -0.008),
+    new THREE.Vector3(0.02, 0.64, 0.005),
+    new THREE.Vector3(-0.088, 0.778, -0.002)
+  ]);
+  const stem = mergedMesh([
+    new THREE.TubeGeometry(stemCurve, 28, 0.011, 8, false),
+    xform(new THREE.CylinderGeometry(0.013, 0.013, 0.032, 8), -0.088, 0.778, 0, Math.PI / 2, 0, 0),
+    xform(new THREE.BoxGeometry(0.052, 0.015, 0.006), -0.088, 0.792, 0.017, 0.35, 0, 0.22)
+  ], M.iron);
+  g.add(stem);
+  // ③ 手锤黄铜罩：定植锤痕（整数角频率——lathe 接缝两侧的重复顶点
+  //    算出同一凹深，不裂缝）；只锤罩皮，顶孔圈不锤
+  const shadeGeo = lathe([[0.012, 0], [0.098, -0.012], [0.13, -0.096], [0.121, -0.168]], 26);
+  const sp = shadeGeo.attributes.position;
+  for (let i = 0; i < sp.count; i++) {
+    const x = sp.getX(i), y = sp.getY(i), z = sp.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 0.03) continue;
+    const a = Math.atan2(z, x);
+    const dent = (Math.sin(a * 7 + y * 90) * Math.sin(a * 3 - y * 55) > 0.55 ? 0.0035 : 0)
+      + Math.sin(a * 11 + y * 140) * 0.0012;
+    const k = (r - dent) / r;
+    sp.setX(i, x * k);
+    sp.setZ(i, z * k);
   }
-  const spring = new THREE.Mesh(new THREE.TubeGeometry(new Spring(), 100, 0.0035, 6), armMat);
-  spring.position.set(-0.1, 0.35, 0);
-  spring.rotation.z = 0.5;
-  g.add(lower, elbow, upper, spring);
-  // 铝罩（车削钟形）+ 灯泡 + 光
-  const shadeGeo = lathe([[0.01, 0], [0.1, -0.01], [0.13, -0.1], [0.12, -0.17]], 20);
-  const shade = new THREE.Mesh(shadeGeo, enamel);
+  shadeGeo.computeVertexNormals();
+  const paint = new THREE.MeshStandardMaterial({
+    color: shadeColor, roughness: 0.86, metalness: 0.15,
+    side: THREE.DoubleSide, envMapIntensity: 0.35,
+    map: canvasTexture(64, (c, s) => {
+      c.fillStyle = '#ffffff';
+      c.fillRect(0, 0, s, s);
+      const r2 = rng(122);
+      for (let i = 0; i < 26; i++) {
+        // 手刷的横道：一道一个灰度，边缘蹭出毛边
+        c.fillStyle = `rgba(${200 + r2() * 55 | 0},${200 + r2() * 55 | 0},${198 + r2() * 50 | 0},0.5)`;
+        c.fillRect(0, r2() * s, s, 2 + r2() * 6);
+      }
+    })
+  });
+  const shade = new THREE.Mesh(shadeGeo, paint);
   shade.position.set(-0.12, 0.82, 0);
   shade.rotation.z = 0.7;
   // v1.12 D-11 克制化：灯泡缩小并塞进罩腔（侧看只见罩下辉光、不见裸球），
@@ -926,6 +962,19 @@ export function angleLamp({ shadeColor = 0x1c4232, mats } = {}) {
   const light = new THREE.PointLight(0xffd9a0, 3.4, 5.5, 1.8);
   light.position.set(-0.24, 0.72, 0);
   g.add(shade, bulb, light);
+  // ④ 布包电线：座底后侧出线，桌面盘一圈慵懒的余线
+  const cordCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.04, 0.02, -0.135),
+    new THREE.Vector3(-0.13, 0.008, -0.2),
+    new THREE.Vector3(-0.25, 0.005, -0.13),
+    new THREE.Vector3(-0.29, 0.005, -0.21),
+    new THREE.Vector3(-0.21, 0.005, -0.28)
+  ]);
+  const cord = new THREE.Mesh(
+    new THREE.TubeGeometry(cordCurve, 32, 0.0045, 6, false),
+    new THREE.MeshStandardMaterial({ color: 0x2b231b, roughness: 0.95 })
+  );
+  g.add(cord);
   g.userData.light = light;
   g.userData.bulbMat = bulbMat;
   g.userData.shade = shade;

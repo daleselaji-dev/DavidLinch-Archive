@@ -15,6 +15,8 @@
 // v1.17：32 → 34，补「此生」主题（6 → 8 条，四主题分布 9/9/8/8）。
 // v1.18：34 → 38，四主题齐涨（10/10/9/9——单主题 ≥10 前先扩别的
 //        的口径本轮起改为整排推进）。
+// v1.20：38 持平——封顶 40 后转质量维护首轮：**替换弱条目而非
+//        追加**（absurdity → detectives，见条目处留账）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -75,14 +77,19 @@ export const INTERVIEWS = [
     source: '纪录片访谈 · 2016',
     context: '他回忆美术学院时代对「画家的一生」的全部想象。'
   },
+  // v1.20 质量维护（替换不追加）：原「看世界」（absurdity——满眼
+  // 荒诞）退役：与立牌 sense（「生活讲不通」）领地重叠、语义最薄。
+  // 换入同主题（心境）侦探句——条数 38 与四主题 10/10/9/9 双持平。
+  // 防撞记录：detective(s) 全库（QUOTES/INTERVIEWS/DOCENT）零出现，
+  // 逐句比对零重复。
   {
-    id: 'absurdity',
-    topic: '看世界',
+    id: 'detectives',
+    topic: '都在找的东西',
     theme: '心境',
-    en: 'I look at the world and I see absurdity all around me.',
-    zh: '我看这个世界，满眼都是荒诞。',
+    en: 'We\u2019re all like detectives in life. There\u2019s something at the end of the trail that we\u2019re all looking for.',
+    zh: '我们在生活里都像侦探——小路的尽头有个东西，我们都在找它。',
     source: '公开访谈',
-    context: '被问到素材从哪里来时，他先说的是日常本身。'
+    context: '他谈人对谜团的天然亲近时说过这句，被反复转述。'
   },
   {
     id: 'happiness',
