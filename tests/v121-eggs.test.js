@@ -166,9 +166,8 @@ describe('v1.21 门禁 99：维护纪律复钉 + 盘点增量账 + 版本', () =
     expect(SRC.studio).not.toContain('.glb?inline');
   });
 
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.21.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v122-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.21.0');
-    expect(SRC.main).toContain("version: '1.21.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });

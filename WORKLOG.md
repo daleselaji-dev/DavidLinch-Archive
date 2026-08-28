@@ -574,3 +574,22 @@
 | 2026-08-28 11:56 | 2026-08-28 12:05 | V/M | **四连验证 + 转盘双样张 + GLB 维护第 3 轮**：`npm run smoke` 5/5；electron `--smoke` EXIT=0（七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25 持平·**studio mesh 225→224 转盘账兑现**·tp/mull 峰值 244 贴顶未涨·双惊吓自然触发·热点归属七厅全过）；blender:check 七件全过——**GLB 维护第 3 轮零病灶零改动零回炉**（落厅代码零改动 → 零定向机位，§10/§11 承诺连续兑现）；转盘定向双样张目检：静止歇臂全景（臂停盘外歇位、黑胶红标在座）+ 播放摆入特写（SV_SHOT_PRE 瞬移后压 pitchObject 俯仰——**teleport 会清 pitch，俯仰必须在 PRE 里瞬移之后设**，新勘破入交接；activateByHint 放唱片 + SV_SHOT_DELAY=22000 给软渲染游戏时钟摆臂留足）——臂入沟槽带、针尖落盘面、配重在枢轴后，判定病灶修成立 | /tmp/smoke-run-v121.log + /tmp/shots-v121-tt{,-play}/studio.png |
 | 2026-08-28 12:05 | 2026-08-28 12:07 | 6/8 | **文档收口（门禁 99 前半）**：门禁 97–99 全节 + CHANGELOG v1.21.0 + 本段 + TESTING（669 用例/v121-eggs 覆盖行/v1.21 抽查段五条）+ README（转盘病灶修 + 访谈换血第二轮 + 版本史与 §12 指针）+ GOAL_HANDOFF 第 9→10 轮交接（**Goal 终态评估：七轴全维护/封口、四目标俱达，建议父代理 UpdateGoal complete + 证据清单**）；669 复跑全绿 | commit `f55c1f0` |
 | 2026-08-28 12:07 | 2026-08-28 12:16 | 收口 | **Release 1.21.0 产物落库（门禁 99 后半）**：`dist:win` tmux 后台**完整一次成型 EXIT=0**（Portable 95.8MiB + Setup 96.0MiB 均低于 raw 100MiB 限；PE32 校验 ×2；asar 内版本 1.21.0 提取核对——**extract-file 覆盖根 package.json 老坑本轮再踩**：npx asar 的 --output 参数不存在、回退命令在仓库根跑，git checkout 恢复后按交接口径 cd /tmp 重取，教训续入交接）；SHA256SUMS 重写 + DOWNLOAD 直链换轨本分支 + 1.20.0 双产物移除防混用；**发布产物终版冒烟复跑 EXIT=0**（七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25·studio mesh 224·峰值 244·lobby 207 余量最大·双惊吓自然触发·热点归属七厅全过——期间一次误跑：cwd 残留 release/ 导致 electron 找错入口秒退，回根重跑即过） | release/ 三件 + /tmp/{dist-win,smoke-release}-v121.log |
+
+## v1.22 —— 拐角惊吓换代 · 魅影回炉 · 访谈封顶（新 Goal 第 1 轮）
+
+> 本轮主题：**新 Goal（拐角惊吓 + 林奇风演进）第 1 轮——用户三诉求
+> 逐条落地：①拐角惊吓触发时机换代（显形线触发 + 镜头特写接管 +
+> 单拍 3.2s，v1.8–v1.12 病灶在机制不在参数）②corner_wraith 第二轮
+> 回炉（眼组一字不动，其余三档五拍全重塑）③林奇内容补充（访谈
+> 38→40 封顶 + 刮痕墙错拍变奏彩蛋）· 打包 1.22.0 exe**。基线
+> v1.21.0 tip（ea9e657，origin/cursor/maintenance-finale-round9-
+> v1210-a993，非 main）。范围：门禁 100。转身惊吓 / 195 交互 /
+> 98 音色 / 封口轴五条全部保留不回退。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 13:56 | 2026-08-28 14:20 | 0/1 | fetch v1.21.0 tip 建分支 `cursor/corner-beat-lock-round1-v1220-a993`；基线四连全绿确认；**病灶判定**：圆形触发区量的是「离拐角多远」，用户要的是「快要看见墙后之物」——两者只在特定走位重合，四轮调半径都治不好；**cornerTrigger v2 重写**（kit.js）：显形线 = 拐角沿 K×藏身点 R 连线（跨线瞬间恰是视线越过拐角的几何瞬间），armed()/revealed() 暴露；mulholland.js 重写 CORNER_SCARE（gate/corner/reveal 三点几何）/SCARE_BEATS（单拍 3.2s：灯灭→0.55s 抽搐滑出→错拍盯人→0.4s 扑近→闷击黑幕→移回巷口）/REVEAL_PATH 贝塞尔/CLOSEUP 镜头接管（跨线帧双脚钉死 + yaw/pitch smoothstep 0.45s 入锁跟焦 + FOV 慢推 13°、黑幕帧归还）/APPROACH_DREAD 接近段恐惧（心跳渐密/巷灯渐次不稳/半程低频升压，armed() 静音门）；转身惊吓零改动 | kit.js/mulholland.js diff |
+| 2026-08-28 14:20 | 2026-08-28 14:32 | T | **cornerscare.test 47 用例重钉**：显形线跨线判定（贴墙/对侧/斜穿三族采样）+「跨显形线 ⟺ 藏身点视线通」逐点等价守卫（一次采样点几何算错的红——(10,-26.5) 本就在线南，修采样不修实现）+ fov/cooldown 门 + K/R/G 相对剧场墙与拐角沿的几何断言 + BEATS 时序约束 + CLOSEUP 参数域 + mulholland 接线源码级断言；675 全绿；electron 冒烟改走显形线路径（[9.3,-24.6] 停线北 → [9.3,-27.05] 跨线）双惊吓自然触发全过；SV_SCARE_SHOT 帧取证在 swiftshader 下 capturePage 返回陈旧帧（合成器滞后）——几何正确性交单测、功能触发交冒烟、视觉取证交 Blender CLI 渲染，限记入册；commit `2b760de` | tests 47 用例 + /tmp/smoke 日志 |
+| 2026-08-28 14:32 | 2026-08-28 15:39 | 2 | **corner_wraith 三档五拍回炉**（gen_corner_wraith.py，眼组一字不动）：拍 1 基线诊断（蘑菇罩发帘/管风琴绺束/软钟身形/帽尖/蜘蛛腿臂/绒毯体色六病灶）；拍 2 剖面材质大改（主身收瘦杀帽尖/驼峰双结/肩线歪斜/佝偻场/发帘罩改披/绺束宽头埋帘/垂臂收拢加长/体色压黑）；拍 3 INSPECT 账（指尖穿地 7.7cm→下段指骨双收口；裙摆拖地 -0.08 为基线既有设计不动）；拍 4 近景勘破（**佝偻场推到头顶把头冠从脸窗顶出、眼组全灭**→颈上淡出；发帘金属光→哑光）；拍 5 复渲三连修（帘幕合拢三教训：对称收留亮缝/坡度太陡锯齿/外侧越线亮板→displace_hem 先跑+不对称合拢+帘沿内收）+ **射线排查**坐实最后亮柱真身是帘沿非绺束/躯干/披领（藏件对照渲染三轮误判后 ray_cast 逐像素命中定案）+ 披领前侧向后折 + 前垂发绺 ×4 盖受光残余；四机位取证重录；GLB 224960B ≤300KB 出 src/assets（**对象名/wraithPivot 全保——落厅零改动**）；blender:check 七件全过；commit `19e45ef` | renders/corner-wraith-*.png + GLB |
+| 2026-08-28 15:39 | 2026-08-28 15:52 | 3 | **林奇内容**：访谈 38→40 封顶收官（lightbulbs 心境 + bigboy 此生趣闻，四主题 10/10/10/10，防撞第六轮零撞车，封顶后新增永久关闸）；**刮痕墙错拍变奏彩蛋**（零网格零新热点）：scare.seen 置位后再摸墙，刮擦回应不来、空一拍只剩轻心跳与「刮痕停在了那一夜」；v118/v120/v121 三处历史钉按封顶口径改钉留账；v122-eggs 门禁 100 钉终态；685 全绿 + smoke 5/5（版本钉后 686）；commit `ffa3f17` | interviews.js/mulholland.js/tests diff |
+| 2026-08-28 15:52 | 2026-08-28 16:05 | V/6/8 | **四连门禁 + 文档收口**：npm run build → electron `--smoke` EXIT=0（七厅全过·六 glb-landed·mull 244 mesh 持平·25 交互·**拐角惊吓自然触发 OK：视线越过拐角那一帧→灯灭+闪出→特写盯人→扑近→移回巷口**·转身惊吓 OK·普查 195）；bump 1.22.0（package.json + __SV__.version，版本钉移交 v122-eggs，v121 钉改同值语义）；CHANGELOG v1.22.0 全节 + 本段 + 门禁 100 + STYLE_AUDIT §13 + TESTING + README + GOAL_HANDOFF 新 Goal 第 1→2 轮交接 | commit（本条） |

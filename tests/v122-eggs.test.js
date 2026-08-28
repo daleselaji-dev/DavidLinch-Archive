@@ -112,4 +112,10 @@ describe('v1.22 门禁 100：corner_wraith 第二轮回炉（资产与契约账�
     expect(SRC.gen).toContain('前垂发绺 ×4');
     expect(SRC.gen).toContain('前侧领口向后');
   });
+
+  it('版本口径一致：package.json 与 __SV__.version 都是 1.22.0', () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.version).toBe('1.22.0');
+    expect(read('src/main.js')).toContain("version: '1.22.0'");
+  });
 });

@@ -1854,7 +1854,8 @@ export function build(ctx) {
   group.add(figure);
   // ---------- 惊吓主体 v4（v1.15 门禁 72）：GLB 换网格、程序化动画保留 ----------
   // 拐角魅影换成 DCC 管线定稿（corner_wraith.glb：车削布褶/发帘绺条/
-  // 眼窝空洞五拍精修，12 mesh / 6.8k tris）。**评估结论**：GLB 无动画轨
+  // 眼窝空洞五拍精修；v1.22 第二轮回炉——眼组一字不动，身形/发帘/
+  // 垂臂/披领/材质全重塑，12 mesh / 7.4k tris）。**评估结论**：GLB 无动画轨
   // （bpy 侧未烘 action），AnimationMixer 无轨可播——走「仅换网格保留
   // 程序化动画」：gen 脚本已把臂/帘原点设在肩点与头心（关节即对象原点），
   // 运行时装一副枢轴（pivot 体态 + headPivot 顿挪抬头 + 双臂拖摆），
