@@ -168,16 +168,25 @@ function createWindow() {
         //    1.6s（> armTime 上膛）后 spinYaw(π) 模拟猛回头——turnTrigger
         //    看到 yaw 突变即自然引爆，同样移回巷口。拐角触发器 75s
         //    冷却（游戏时钟）保证第二段路过拐角区不复触发。
-        const pollUntilWake = (label, budgetMs, onWake, onTick) => {
+        // v1.25 门禁 103：wake 断言升级——位置 (9.7,9.5) 之外加朝向档
+        // （拐角惊吓 v1.25 面南朝巷醒 yaw 0，转身惊吓照旧 π 背巷——两重
+        // wake 分家第三轴）；同轮把 scareProbe 状态位（phase/sub/clock/
+        // seen）每拍实录进日志，供 CI 外真机耳机验收逐拍人工对照
+        // （swiftshader 无音频、陈旧帧不可信——状态位时序是唯一对照基准）。
+        const pollUntilWake = (label, budgetMs, wantYaw, onWake, onTick) => {
           const t0 = Date.now();
           const poll = () => {
             win.webContents.executeJavaScript(
-              '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
-            ).then((at) => {
-              if (at === '9.7,9.5') {
+              '(() => { const p = window.__SV__.player(); const s = window.__SV__.scareProbe ? window.__SV__.scareProbe() : null; return JSON.stringify({ at: p.x.toFixed(1) + "," + p.z.toFixed(1), yaw: +p.yaw.toFixed(3), scare: s }); })()', true
+            ).then((raw) => {
+              const st = JSON.parse(raw);
+              if (st.scare) {
+                console.log(`[smoke] ${label} 状态位: phase=${st.scare.phase} sub=${st.scare.sub || '-'} clock=${st.scare.clock} seen=${st.scare.seen} @ (${st.at})`);
+              }
+              if (st.at === '9.7,9.5' && Math.abs(st.yaw - wantYaw) <= 0.02) {
                 onWake();
               } else if (Date.now() - t0 > budgetMs) {
-                console.error(`[smoke] ${label} 未完成（机位 ${at}，期望 9.7,9.5）`);
+                console.error(`[smoke] ${label} 未完成（机位 ${st.at} yaw ${st.yaw}，期望 9.7,9.5 yaw ${wantYaw.toFixed(2)}）`);
                 app.exit(1);
               } else {
                 if (onTick) onTick();
@@ -237,8 +246,8 @@ function createWindow() {
                 }
               }
               // 单拍序列 later 链按实时钟走（~3.2s）+ 软渲染冗余 → 预算 40s
-              pollUntilWake('拐角惊吓', 40000, () => {
-                console.log('[smoke] 拐角惊吓自然触发 OK：视线越过拐角那一帧 → 灯灭+闪出 → 特写盯人 → 扑近 → 空间错位移回巷口 (9.7,9.5)');
+              pollUntilWake('拐角惊吓', 40000, 0, () => {
+                console.log('[smoke] 拐角惊吓自然触发 OK：视线越过拐角那一帧 → 灯灭+闪出 → 特写盯人 → 扑近 → 空间错位移回巷口 (9.7,9.5)，面南朝巷醒 (yaw 0)');
                 setTimeout(turnScareTest, 1600); // 等状态机归零再测第二扳机
               });
             }).catch((err) => {
@@ -272,8 +281,8 @@ function createWindow() {
               setTimeout(() => {
                 spin();
                 let lastSpin = Date.now();
-                pollUntilWake('转身惊吓', 40000, () => {
-                  console.log('[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)');
+                pollUntilWake('转身惊吓', 40000, Math.PI, () => {
+                  console.log('[smoke] 转身惊吓自然触发 OK：空地站定 → 猛回头 → 冲脸 → 空间错位移回巷口 (9.7,9.5)，背巷平视醒 (yaw π)');
                   setTimeout(done, 1600); // 等惊吓状态机归零再做全量激活
                 }, () => {
                   if (Date.now() - lastSpin > 3000) {

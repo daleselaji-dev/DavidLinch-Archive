@@ -347,6 +347,12 @@ window.__SV__ = {
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
   /** 冒烟/截屏：当前展厅 id（SV_SHOT_PRE 按厅分机位用） */
   hall: () => (current ? current.id : null),
+  /**
+   * 冒烟（v1.25 门禁 103）：惊吓状态位只读快照（phase/sub/clock/seen）。
+   * 冒烟轮询实录进日志——swiftshader 下瞬时视效/音频不可取证，状态位
+   * 时序是 CI 外真机耳机验收的对照基准。非惊吓厅返回 null。
+   */
+  scareProbe: () => (current && current.built.scareProbe ? current.built.scareProbe() : null),
   /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹；v1.14 +yaw） */
   player: () => ({
     x: controls.yawObject.position.x,
@@ -416,5 +422,5 @@ window.__SV__ = {
     }
     return false;
   },
-  version: '1.24.0'
+  version: '1.25.0'
 };
