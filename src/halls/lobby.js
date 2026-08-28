@@ -1164,10 +1164,15 @@ export function build(ctx) {
   snuffer.position.set(-2.68, 0.02, 3.02);
   group.add(snuffer);
   // ---------- v1.17 彩蛋五批·问第二遍（lobby）：烛剪 ----------
-  // 应答刚落（火苗立回）的 6s 回声窗内**再问一次**：这回不等也
+  // 应答刚落（火苗立回）的回声窗内**再问一次**：这回不等也
   // 不出声——火苗纹丝不动，屋子另一头三根立柱上的束带流苏在
   // 同一拍全部晃起来（答与动作同拍，但答在意想不到的通道）。
   // 零新增交互/网格/光源/音色；echo 走游戏时钟自复位，无锁存。
+  // v1.19 窗长差异化（回声窗第七批·深化不加件）：**余温总账 9s**
+  // ——问出口那刻起余温一共九秒，答落定花掉几秒，窗就剩几秒
+  // （落定慢的窗短、落定快的窗长——七件全 ≈6s 的模板在此拆掉，
+  // 机制零改动：echo 倒数/问一次即消耗/自复位照旧，只改常数）。
+  // 烛剪 1.5 错拍 + 2.2 立回 = 3.7s 七件最慢落定 → 窗 5.3s 全馆最短。
   const snuffState = { wait: -1, duck: 0, echo: 0 };
   const echoTassels = { fire: null }; // 束带块在下文闭包里挂真身
   updaters.push((dt) => {
@@ -1177,7 +1182,7 @@ export function build(ctx) {
     }
     if (snuffState.duck > 0) {
       snuffState.duck = Math.max(0, snuffState.duck - dt / 2.2);
-      if (snuffState.duck === 0) snuffState.echo = 6; // 应答落定，回声窗开
+      if (snuffState.duck === 0) snuffState.echo = 5.3; // 余温 9−3.7——回声窗开
       const k = 1 - ANSWER_BREATH(1 - snuffState.duck) * 0.78;
       flamePivot.scale.y *= k;
       flameGlow.intensity *= k;

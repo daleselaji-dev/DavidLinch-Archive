@@ -1232,11 +1232,12 @@ export function build(ctx) {
   );
   saucer.position.set(-6.62, 0.912, -0.3);
   group.add(saucer);
-  // v1.17 彩蛋五批·问第二遍（studio）：三嗒收完后的 6s 回声窗内
+  // v1.17 彩蛋五批·问第二遍（studio）：三嗒收完后的回声窗内
   // **再碰一次**——瓷不嗒、碟不颤，房间另一头停在半拍上的节拍器
   // 摆针在同一拍无声地点了一下头又停回去（答与动作同拍，凉意跑进
   // 了拍子里）。metro 正在走时不插话（摆针仍只有 metro 更新器一个
   // 基准写者，nudge 是注册在其后的加法覆写）。零新增件零音色。
+  // v1.19 余温总账 9s：三嗒序列 3.0s 落定 → 窗 6.0s（账落老值）。
   const chinaState = { t: -1, step: 0, echo: 0 };
   const metroNudge = { t: -1 };
   const CHINA_AT = [0, 0.9, 2.1]; // 收缩三嗒：间隔 0.9→1.2s 在拉长
@@ -1269,7 +1270,7 @@ export function build(ctx) {
     if (k >= 3.0) {
       chinaState.t = -1;
       chinaState.step = 0;
-      chinaState.echo = 6; // 第三嗒还挂在空气里——回声窗开
+      chinaState.echo = 6; // 余温 9−3.0——第三嗒还挂在空气里
     }
   });
   hotspots.add(saucer, {

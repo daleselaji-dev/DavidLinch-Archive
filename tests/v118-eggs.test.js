@@ -219,9 +219,8 @@ describe('v1.18 门禁 89：GLB 轴收官转维护', () => {
 });
 
 describe('v1.18 阈值与版本', () => {
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.18.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（版本钉移交 v119-eggs.test）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.18.0');
-    expect(SRC.main).toContain("version: '1.18.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });

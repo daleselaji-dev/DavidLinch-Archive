@@ -373,10 +373,12 @@ export function build(ctx) {
   // 声音和光不同步。贴顶厅纪律：零新增网格（热点落在既有灯杆
   // 上）、零字幕零光源（只调制既有灯）；可重复无锁存；不加
   // 远场重放（远声密度已到上限，应答全走光通道）。
-  // v1.17 彩蛋五批·问第二遍（mull）：迟放的光落回后的 6s 回声窗内
+  // v1.17 彩蛋五批·问第二遍（mull）：迟放的光落回后的回声窗内
   // **再敲一次**——铁杆这回不响，灯却在同一拍就把双沉打出来（第一遍
   // 声先光迟，第二遍光先声无：这条路上因果只肯对上一半）。贴顶厅
   // 纪律不破：零新增网格零音色（还是那盏灯、那条双沉包络）。
+  // v1.19 余温总账 9s：2.4 错拍 + 0.6 双沉 = 3.0s 落定 → 窗 6.0s
+  // （差异化是算出来的不是配出来的——这件的账恰好落在老值上）。
   const poleEcho = { wait: -1, t: -1, echo: 0, replay: 0 };
   updaters.push((dt, t) => {
     if (poleEcho.wait >= 0) {
@@ -388,7 +390,7 @@ export function build(ctx) {
         poleEcho.t = -1;
         // 回声窗只在「等来的答」之后开一扇（即时重放不续窗——
         // 七件同口径：第二遍答完即消耗，第三遍回到从头等起）
-        poleEcho.echo = poleEcho.replay ? 0 : 6;
+        poleEcho.echo = poleEcho.replay ? 0 : 6; // 余温 9−3.0
         poleEcho.replay = 0;
       }
     } else if (poleEcho.echo > 0) {
