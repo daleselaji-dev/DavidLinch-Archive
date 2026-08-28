@@ -9,6 +9,7 @@
 // （原创程序化惊吓，无镜头复刻、无对白引用）
 // ============================================================
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
   PALETTE, canvasTexture, curtain, curtainWithValance, neonSign, micStand, doorway,
   smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
@@ -17,6 +18,10 @@ import {
   mergedMesh, xform, roundedBoxMesh, brushedMetalTexture, velvetMaterial,
   asphaltMat, woodMat, concreteMat, rng
 } from './kit.js';
+// v1.15 门禁 72：拐角魅影 GLB（gen_corner_wraith.py 五拍精修定稿）——
+// ?inline data URI + 手动 base64 解码绕 electron sandbox fetch 拦截
+// （勘破记录见 twinpeaks.js 孪生松）
+import wraithGlbUri from '../assets/corner_wraith.glb?inline';
 import { propMats, theaterSeats, ticketBooth, phoneBooth, streetLampV2, dressingMirror } from './props.js';
 import { quoteById, DOCENT } from '../data/essays.js';
 
@@ -165,16 +170,16 @@ export function build(ctx) {
     })
   );
   group.add(horizon);
+  // v1.15「先合并再新增」：七座远山剪影同材质各占一 mesh ——合并成
+  // 单 mesh（−6），把预算腾给拐角魅影 GLB（12 mesh 换程序化 8 mesh）
+  const hillGeos = [];
   for (let i = 0; i < 7; i++) {
-    const hill = new THREE.Mesh(
-      new THREE.SphereGeometry(26 + Math.random() * 18, 12, 8),
-      new THREE.MeshBasicMaterial({ color: 0x05030b, fog: false })
-    );
+    const hg = new THREE.SphereGeometry(26 + Math.random() * 18, 12, 8);
+    hg.scale(1, 0.55, 1);
     const a = (i / 7) * Math.PI * 2 + 0.4;
-    hill.position.set(Math.cos(a) * 78, -14 + Math.random() * 6, Math.sin(a) * 78);
-    hill.scale.y = 0.55;
-    group.add(hill);
+    hillGeos.push(xform(hg, Math.cos(a) * 78, -14 + Math.random() * 6, Math.sin(a) * 78));
   }
+  group.add(mergedMesh(hillGeos, new THREE.MeshBasicMaterial({ color: 0x05030b, fog: false })));
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(400 * 3);
   for (let i = 0; i < 400; i++) {
@@ -1726,9 +1731,109 @@ export function build(ctx) {
   const figure = veiledFigure(2.3);
   figure.visible = false;
   group.add(figure);
-  const wraith = cornerWraith(2.35);
+  // ---------- 惊吓主体 v4（v1.15 门禁 72）：GLB 换网格、程序化动画保留 ----------
+  // 拐角魅影换成 DCC 管线定稿（corner_wraith.glb：车削布褶/发帘绺条/
+  // 眼窝空洞五拍精修，12 mesh / 6.8k tris）。**评估结论**：GLB 无动画轨
+  // （bpy 侧未烘 action），AnimationMixer 无轨可播——走「仅换网格保留
+  // 程序化动画」：gen 脚本已把臂/帘原点设在肩点与头心（关节即对象原点），
+  // 运行时装一副枢轴（pivot 体态 + headPivot 顿挪抬头 + 双臂拖摆），
+  // setLurch/setRush 用 kit.cornerWraith v3 同一套曲线驱动。
+  // 材质钳制走黑影类口径：roughness≥0.92 / metalness 0 / env 0.2 /
+  // 眼环与内衬 emissive 保留（红光呼吸是这个角色仅有的心跳）。
+  // GLB 解析失败则装回程序化 cornerWraith(2.35)——惊吓不因资产缺席。
+  const wraith = new THREE.Group();
   wraith.visible = false;
+  wraith.userData.setLurch = () => {};
+  wraith.userData.setRush = () => {};
   group.add(wraith);
+  const wraithReady = new Promise((resolve) => {
+    const b64 = wraithGlbUri.slice(wraithGlbUri.indexOf(',') + 1);
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    new GLTFLoader().parse(buf.buffer, '', (gltf) => {
+      const H = 2.35;
+      let eyeMat = null;
+      let bodyMat = null;
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && o.material) {
+          o.material.roughness = Math.max(o.material.roughness ?? 1, 0.92);
+          o.material.metalness = 0;
+          o.material.envMapIntensity = 0.2;
+          if (o.material.name === 'wraithEye') eyeMat = o.material;
+          if (o.material.name === 'wraithBody') bodyMat = o.material;
+        }
+      });
+      // bpy 侧的常态歪度烘在 wraithPivot 空物上——清零交还运行时
+      // （setLurch/setRush 自带常态前倾与 0.06 侧歪）
+      const baked = gltf.scene.getObjectByName('wraithPivot');
+      if (baked) baked.rotation.set(0, 0, 0);
+      // GLB 前脸在局部 -z（Blender +Y 经 Y-up 换算）——绕 y 转半圈，
+      // 恢复「lookAt 后 +z 朝玩家」的 kit 约定（眼窝must看着你）
+      gltf.scene.rotation.y = Math.PI;
+      const pivot = new THREE.Group();
+      pivot.add(gltf.scene);
+      wraith.add(pivot);
+      wraith.updateMatrixWorld(true);
+      // 运行时枢轴：头件（发帘/绺束/面部空洞/眼窝 ×4）attach 进头心
+      // 枢轴（attach 保世界位形——Y-up 换算全部由它消化）
+      const headPivot = new THREE.Group();
+      headPivot.position.set(0, H * 0.84, 0);
+      pivot.add(headPivot);
+      const veil = gltf.scene.getObjectByName('hairVeil');
+      for (const name of ['hairVeil', 'hairStrands', 'faceVoidMesh',
+        'eyeRing_L', 'eyeRing_R', 'eyeVoid_L', 'eyeVoid_R']) {
+        const n = gltf.scene.getObjectByName(name);
+        if (n) headPivot.attach(n);
+      }
+      const armL = gltf.scene.getObjectByName('arm_L');
+      const armR = gltf.scene.getObjectByName('arm_R');
+      // kit.cornerWraith v3 同一套体态曲线（顿挪冻住/越挪越前倾/
+      // 头一档一档抬起/红光与眼窝错半拍呼吸/扑近烧亮）
+      wraith.userData.setLurch = (s, t = 0) => {
+        const beat = Math.sin(s * Math.PI * 6);
+        pivot.rotation.x = 0.12 + s * 0.14;
+        pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
+        pivot.position.y = Math.abs(beat) * 0.035;
+        headPivot.rotation.x = -(0.06 + s * 0.34);
+        headPivot.rotation.z = -0.06 * s + beat * 0.03;
+        if (veil) {
+          veil.rotation.z = Math.sin(t * 1.7) * 0.045 - beat * 0.03;
+          veil.rotation.x = Math.sin(t * 1.15 + 0.8) * 0.028;
+        }
+        if (armL) { armL.rotation.x = -0.08 + beat * 0.1; armL.rotation.z = 0.05 * beat; }
+        if (armR) { armR.rotation.x = -0.08 - beat * 0.1; armR.rotation.z = 0.05 * beat; }
+        if (bodyMat) bodyMat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
+        if (eyeMat) eyeMat.emissiveIntensity = 0.55 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2.4 + 1.2));
+      };
+      wraith.userData.setRush = (k, t = 0) => {
+        pivot.rotation.x = 0.26 + 0.3 * k;
+        pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
+        pivot.position.y = 0;
+        headPivot.rotation.x = -0.4 - 0.22 * k;
+        headPivot.rotation.z = 0;
+        if (veil) {
+          veil.rotation.x = -0.14 * k;
+          veil.rotation.z = Math.sin(t * 13) * 0.05 * k;
+        }
+        if (armL) armL.rotation.x = -0.08 - 0.55 * k;
+        if (armR) armR.rotation.x = -0.08 - 0.55 * k;
+        gltf.scene.scale.set(1 + k * 0.08, 1, 1 + k * 0.08);
+        if (bodyMat) bodyMat.emissiveIntensity = 0.9 + k * 0.5;
+        if (eyeMat) eyeMat.emissiveIntensity = 1.2 + k * 1.6;
+      };
+      console.log('[sv] glb-landed mulholland wraith');
+      resolve(gltf.scene);
+    }, (err) => {
+      console.warn('[sv] glb-failed mulholland wraith', err);
+      // 兜底：程序化魅影上岗（v3 全套动画在 userData 里现成）
+      const proc = cornerWraith(2.35);
+      wraith.add(proc);
+      wraith.userData.setLurch = (s, t) => proc.userData.setLurch(s, t);
+      wraith.userData.setRush = (k, t) => proc.userData.setRush(k, t);
+      resolve(null);
+    });
+  });
   // 剪影光：拐角后一盏冷背光——黑影挪出时只读出轮廓，读不出任何细节
   // （v1.12 随新绕角路径同步移位：从 out 点身后西南方向打过来——
   // 发帘团块剪影贴着拐角沿被背光切出来，眼窝空洞是剪影里仅有的两点）
@@ -2893,6 +2998,8 @@ export function build(ctx) {
       return 'outdoor';
     },
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    // GLB 魅影解析就位信号——main.js 等它再宣布 hall-loaded（普查完整）
+    ready: wraithReady,
     eggs: { 'corner-scare': cornerTrig, 'turn-scare': turnTrig, 'alley-dread': dreadTrig },
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;

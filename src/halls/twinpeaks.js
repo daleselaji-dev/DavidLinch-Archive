@@ -760,6 +760,9 @@ export function build(ctx) {
         if (li === 2 && i === 0) topLog = { x: x0, y, z: z0, r: r0, len };
       }
     }
+    // v1.15「先合并再新增」：砧木顶面（同 cutMat 的静件）并进端面
+    // 合并组——twinpeaks 245/250 贴顶，新蛋的预算从合并里来
+    cutGeos.push(xform(new THREE.CircleGeometry(0.165, 14), 0.02, 0.502, 0.95, -Math.PI / 2, 0, 0));
     woodpile.add(mergedMesh(barkGeos, barkMat), mergedMesh(cutGeos, cutMat));
     // 双立桩（防散）+ 砧木（前侧独立一墩）
     woodpile.add(mergedMesh([
@@ -767,10 +770,6 @@ export function build(ctx) {
       xform(new THREE.CylinderGeometry(0.03, 0.038, 0.62, 8), 0, 0.31, 0.46),
       xform(new THREE.CylinderGeometry(0.17, 0.19, 0.5, 12), 0.02, 0.25, 0.95)
     ], barkMat));
-    const blockTop = new THREE.Mesh(new THREE.CircleGeometry(0.165, 14), cutMat);
-    blockTop.rotation.x = -Math.PI / 2;
-    blockTop.position.set(0.02, 0.502, 0.95);
-    woodpile.add(blockTop);
     // 斧：楔形头（缩放盒）+ 刃口亮线 + 微斜木柄——嵌进砧木顶
     const axe = new THREE.Group();
     const axeHead = mergedMesh([
@@ -797,13 +796,12 @@ export function build(ctx) {
     rollPivot.position.set(topLog.x, topLog.y, topLog.z);
     const rollLog = new THREE.Mesh(new THREE.CylinderGeometry(topLog.r, topLog.r, topLog.len, 10, 1, true), barkMat);
     rollLog.rotation.z = Math.PI / 2;
-    const rollCapA = new THREE.Mesh(new THREE.CircleGeometry(topLog.r * 0.96, 12), cutMat);
-    rollCapA.position.x = topLog.len / 2 + 0.002;
-    rollCapA.rotation.y = Math.PI / 2;
-    const rollCapB = rollCapA.clone();
-    rollCapB.position.x = -topLog.len / 2 - 0.002;
-    rollCapB.rotation.y = -Math.PI / 2;
-    rollPivot.add(rollLog, rollCapA, rollCapB);
+    // v1.15「先合并再新增」：双端盖同料同枢轴——并单 mesh（−1）
+    const rollCaps = mergedMesh([
+      xform(new THREE.CircleGeometry(topLog.r * 0.96, 12), topLog.len / 2 + 0.002, 0, 0, 0, Math.PI / 2, 0),
+      xform(new THREE.CircleGeometry(topLog.r * 0.96, 12), -topLog.len / 2 - 0.002, 0, 0, 0, -Math.PI / 2, 0)
+    ], cutMat);
+    rollPivot.add(rollLog, rollCaps);
     rollPivot.position.y += 0.11; // 顶层再叠一根（第 4 层单根，E 的主角）
     woodpile.add(rollPivot);
     const rollState = { t: -1 };
