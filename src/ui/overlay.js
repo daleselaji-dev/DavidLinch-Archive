@@ -4,7 +4,7 @@
 // ============================================================
 import { FILMS, filmById, filmsSorted, ARTIST } from '../data/filmography.js';
 import { QUOTES, LEGAL } from '../data/essays.js';
-import { INTERVIEWS } from '../data/interviews.js';
+import { INTERVIEWS, INTERVIEW_THEMES } from '../data/interviews.js';
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -293,12 +293,24 @@ export class UI {
    * 访谈摘录册（v1.13）——更多他自己的话：公开访谈/著作短引语 +
    * 一句可查证的策展语境。主动翻阅才打开（档案廊剪报盒 /
    * 原话墙 / 年表入口），不弹不塞。
+   * v1.15：28 条按主题筛选（点子/电影/心境/此生）——筛选只重排
+   * 面板内容，文字仍只活在面板里（D-5 收纳纪律）；换筛即收声。
    */
-  showInterviews() {
+  showInterviews(theme = null) {
+    this._stopMurmur();
     const body = this._showInfo('访谈摘录', 'FROM THE INTERVIEWS');
     body.append(el('p', 'quiet',
       '摘自公开访谈与著作的只言片语，注明出处类型。非商业粉丝纪念语境下的短引语合理使用。'));
-    for (const v of INTERVIEWS) {
+    const chips = el('div', 'iv-themes');
+    for (const t of [null, ...INTERVIEW_THEMES]) {
+      const n = t ? INTERVIEWS.filter((v) => v.theme === t).length : INTERVIEWS.length;
+      const chip = el('button', 'iv-theme' + (t === theme ? ' active' : ''),
+        (t || '全部') + ' ' + n);
+      chip.addEventListener('click', () => this.showInterviews(t));
+      chips.append(chip);
+    }
+    body.append(chips);
+    for (const v of theme ? INTERVIEWS.filter((x) => x.theme === theme) : INTERVIEWS) {
       const card = el('div', 'quote-card');
       card.append(el('span', 'iv-topic', v.topic));
       card.append(el('p', 'fact', '「' + v.zh + '」'));

@@ -285,6 +285,15 @@ body.touch .touch-ui { display: block; }
   padding: 2px 8px; margin-bottom: 8px;
 }
 .panel-body .iv-ctx { font-size: 11px; opacity: 0.6; margin: 4px 0 6px; }
+.panel-body .iv-themes { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 16px; }
+.panel-body .iv-theme {
+  background: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+  color: var(--ivory-dim); border: 1px solid rgba(242,233,220,0.18);
+  padding: 3px 10px; transition: all 0.3s;
+}
+.panel-body .iv-theme:hover { color: var(--gold, #c9a35c); border-color: rgba(201,163,92,0.5); }
+.panel-body .iv-theme.active { color: var(--gold, #c9a35c); border-color: var(--gold, #c9a35c); background: rgba(201,163,92,0.08); }
 .panel-body .iv-murmur {
   float: right; background: none; cursor: pointer;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
