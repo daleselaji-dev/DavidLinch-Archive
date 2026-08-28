@@ -1976,7 +1976,8 @@ export function build(ctx) {
       u * u * A.z + 2 * u * s * B.z + s * s * C.z);
     return out;
   };
-  const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
+  // seen：拐角惊吓是否已发生过（v1.22 彩蛋——刮痕墙的错拍变奏认它）
+  const scare = { phase: 0, sub: null, t: 0, seen: false, from: new THREE.Vector3(), to: new THREE.Vector3() };
   // v1.22 镜头特写接管：pitchObject 是 camera 的父节点、yawObject 是
   // 祖父节点（controls 装配约定，WORKLOG v1.21 转盘取证同口径）。
   // 接管期间双脚钉死在跨线点、yaw/pitch 平滑锁向魅影头部并全程跟焦、
@@ -2024,6 +2025,7 @@ export function build(ctx) {
     scare.phase = 2;
     scare.sub = 'reveal';
     scare.t = 0;
+    scare.seen = true;
     const B = SCARE_BEATS;
     // 跨线那一帧（reveal）：世界的灯一口气全灭（狂闪前奏退役——原片
     // 的黑一步到位，剪影光是黑里仅有的光）+ 声音塌下去 + 拐角一声
@@ -2251,9 +2253,17 @@ export function build(ctx) {
   scratch.position.set(7.35, 1.3, -26.67);
   scratch.rotation.y = Math.PI;
   group.add(scratch);
+  // v1.22 彩蛋（零网格）：错拍变奏——见过它之后，这面墙的回答变了。
+  // 之前摸墙有刮擦回应（它听见了）；惊吓过后再摸，预期中的那声
+  // 刮擦**不来**，空一拍只有一记很轻的心跳——缺席比在场更不对。
   hotspots.add(scratch, {
     hint: 'E — 墙角的刮痕',
     onActivate: () => {
+      if (scare.seen) {
+        later(() => audio.sfx('heartbeat', 0.3), 900);
+        ui.caption('刮痕停在了那一夜。', 4200);
+        return;
+      }
       audio.sfxAt('scrape', 7.35, -26.7, 0.45, 3);
       later(() => audio.sfx('breath', 0.35), 700);
       ui.caption('刮痕比你高，还在变多。', 4200);
