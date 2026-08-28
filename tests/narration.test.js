@@ -74,6 +74,15 @@ describe('文案哲学：只用林奇自己的话，二手解读退场', () => {
     expect(quoteById('nonexistent')).toBeNull();
   });
 
+  it('v1.10 讲解扩容档新增引语（poison/opposites/bait/abstractions）', () => {
+    for (const id of ['poison', 'opposites', 'bait', 'abstractions']) {
+      const q = QUOTES.find((x) => x.id === id);
+      expect(q, `缺引语 ${id}`).toBeTruthy();
+      expect(q.en.length).toBeLessThanOrEqual(200);
+      expect(q.source).toBeTruthy();
+    }
+  });
+
   it('v1.9 深夜电台档新增引语（mystery/worlds/detectives/outofdark）', () => {
     for (const id of ['mystery', 'worlds', 'detectives', 'outofdark']) {
       expect(quoteById(id), `缺引语: ${id}`).toBeTruthy();

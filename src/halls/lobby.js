@@ -434,6 +434,92 @@ export function build(ctx) {
     }
   });
 
+  // ============================================================
+  // v1.10 彩蛋：守夜烛台——碑旁一座黄铜三烛台。E 逐支点亮
+  // （火柴声 + 火苗腾起 + 烛光池渐暖）；第三支亮起时，六扇门
+  // 依次低低应了一拍光、帷幕后有人换了口气（守夜连锁）。
+  // 三支全亮再按 E 吹熄复位。dt 节拍机，冒烟名 candle-vigil。
+  // ============================================================
+  const votive = new THREE.Group();
+  const votiveTray = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.19, 0), new THREE.Vector2(0.17, 0.03), new THREE.Vector2(0.05, 0.07),
+      new THREE.Vector2(0.045, 0.72), new THREE.Vector2(0.2, 0.8), new THREE.Vector2(0.22, 0.85),
+      new THREE.Vector2(0.205, 0.87)
+    ], 16), M.brass
+  );
+  votive.add(votiveTray);
+  const waxMat = new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.55 });
+  const flameMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0d04, emissive: 0xffb45e, emissiveIntensity: 3.2, toneMapped: false
+  });
+  const candleXZ = [[-0.1, 0.02], [0.02, -0.09], [0.1, 0.07]];
+  const flames = [];
+  candleXZ.forEach(([cx, cz], i) => {
+    const h = 0.16 - i * 0.03; // 三支高矮不齐（烧过的样子）
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, h, 8), waxMat);
+    c.position.set(cx, 0.87 + h / 2, cz);
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.05, 6), flameMat);
+    f.position.set(cx, 0.87 + h + 0.035, cz);
+    f.visible = false;
+    votive.add(c, f);
+    flames.push(f);
+  });
+  const candleGlow = new THREE.PointLight(0xffa04a, 0, 3.4, 2.0);
+  candleGlow.position.set(0, 1.15, 0);
+  votive.add(candleGlow);
+  votive.position.set(-2.6, 0, 1.7);
+  group.add(votive);
+  const candleState = { lit: 0 };
+  const vigil = { t: -1, cool: 0 };
+  const runVigil = () => {
+    if (vigil.t >= 0 || vigil.cool > 0) return;
+    vigil.t = 0;
+    vigil.cool = 50;
+    audio.duck(1.4, 0.35, 2.0);
+  };
+  updaters.push((dt, t) => {
+    // 烛光池与火苗呼吸
+    candleGlow.intensity += (candleState.lit * 1.15 - candleGlow.intensity) * Math.min(1, dt * 5);
+    if (candleState.lit > 0) {
+      candleGlow.intensity *= 1 + Math.sin(t * 11.7) * 0.06;
+      for (const f of flames) if (f.visible) f.scale.y = 1 + Math.sin(t * 13 + f.position.x * 40) * 0.22;
+    }
+    if (vigil.cool > 0) vigil.cool -= dt;
+    if (vigil.t < 0) return;
+    const prev = vigil.t;
+    vigil.t += dt;
+    // 六扇门依次低低亮一拍，再一起退回去
+    const fade = Math.max(0, 1 - Math.max(0, vigil.t - 2.8) / 1.3);
+    doorPortals.forEach((p, i) => {
+      const k = Math.max(0, Math.min(1, (vigil.t - 0.35 - i * 0.24) * 3.2));
+      p.material.emissiveIntensity = 0.13 + k * 1.25 * fade;
+    });
+    if (prev < 1.2 && vigil.t >= 1.2) audio.sfxAt('whisper', 0, -7.5, 0.42, 11);
+    if (prev < 2.0 && vigil.t >= 2.0) ui.caption('门也在守夜。', 3000);
+    if (vigil.t > 4.4) vigil.t = -1;
+  });
+  hotspots.add(votiveTray, {
+    hint: 'E — 守夜烛台',
+    onActivate: () => {
+      if (candleState.lit < 3) {
+        flames[candleState.lit].visible = true;
+        candleState.lit += 1;
+        audio.sfxAt('strike', -2.6, 1.7, 0.6, 3);
+        if (candleState.lit === 1) {
+          ui.caption('给他点一支烛。', 3000);
+          ui.docentNote('他走后，各地影迷点了整夜的烛。');
+        }
+        if (candleState.lit === 3) setTimeout(runVigil, 650);
+      } else {
+        candleState.lit = 0;
+        for (const f of flames) f.visible = false;
+        audio.sfx('lampoff', 0.4);
+        ui.caption('三支一起吹熄。', 2600);
+      }
+    }
+  });
+
   // 天鹅绒绒绳围栏 —— 推一下会摆
   const rail = stanchionRope({ span: 1.9, mats: M });
   rail.position.set(-2.85, 0, 4.2);
@@ -912,6 +998,15 @@ export function build(ctx) {
     spawn: { x: 0, z: 8.6, yaw: 0 },
     bounds: circleBounds(R - 2.4),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'curtain-whisper': whisperTrig, 'audio-guide': { force: playGuide } }
+    eggs: {
+      'curtain-whisper': whisperTrig, 'audio-guide': { force: playGuide },
+      'candle-vigil': {
+        force: () => {
+          candleState.lit = 3;
+          for (const f of flames) f.visible = true;
+          runVigil();
+        }
+      }
+    }
   };
 }

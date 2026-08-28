@@ -155,6 +155,31 @@ export const QUOTES = [
     en: 'I love seeing people come out of darkness.',
     zh: '我爱看人从黑暗里走出来。',
     source: '公开访谈'
+  },
+  // v1.10 讲解扩容档（守夜烛台 / 罐壁三敲 / 缩微阅读器 / 夜鸮的旁白语境）
+  {
+    id: 'poison',
+    en: 'Anger and depression and sorrow are beautiful things in a story, but they\u2019re like poison to the filmmaker.',
+    zh: '愤怒、抑郁与悲伤放进故事里很美，但对拍电影的人来说是毒药。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'opposites',
+    en: 'The world we live in is a world of opposites. And to reconcile those opposing things is the trick.',
+    zh: '我们住在一个满是对立面的世界，诀窍是让它们和解。',
+    source: '公开访谈'
+  },
+  {
+    id: 'bait',
+    en: 'Desire for an idea is like bait. When you\u2019re fishing, you have to have patience.',
+    zh: '对点子的渴望就像鱼饵。钓鱼这件事，你得有耐心。',
+    source: '《Catching the Big Fish》著作 · 2006'
+  },
+  {
+    id: 'abstractions',
+    en: 'Life is filled with abstractions, and the only way we make heads or tails of it is through intuition.',
+    zh: '生活里满是抽象，能把它理出头绪的只有直觉。',
+    source: '公开访谈'
   }
 ];
 

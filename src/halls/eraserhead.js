@@ -963,6 +963,57 @@ export function build(ctx) {
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
 
+  // ============================================================
+  // v1.10 彩蛋：罐壁三敲——8 秒内敲三下罐壁，罐里那头顿了两拍，
+  // 从内侧回敲三下（更深更慢），随后余烬涨一口亮、蒸汽噗出一股、
+  // 三块压力表齐跳（这罐炉子听得见）。dt 节拍机，冒烟名 boiler-knock。
+  // ============================================================
+  const knock = { taps: [], t: -1, cool: 0, clock: 0, noted: false };
+  const runBoilerKnock = () => {
+    if (knock.t >= 0 || knock.cool > 0) return;
+    knock.t = 0;
+    knock.cool = 40;
+    audio.duck(1.6, 0.3, 2.2);
+  };
+  updaters.push((dt, t) => {
+    knock.clock = t;
+    if (knock.cool > 0) knock.cool -= dt;
+    if (knock.t < 0) return;
+    const prev = knock.t;
+    knock.t += dt;
+    const at = (m) => prev < m && knock.t >= m;
+    // 两拍死寂后，罐内回敲三下（错拍、一记比一记沉）
+    if (at(1.8)) audio.sfxAt('clank', -S / 2 - 4.6, 1.2, 0.42, 6);
+    if (at(2.75)) audio.sfxAt('clank', -S / 2 - 4.6, -0.9, 0.5, 6);
+    if (at(3.9)) audio.sfxAt('thud', -S / 2 - 4.6, 0, 0.95, 7);
+    if (at(4.2)) {
+      pressure.surge = Math.max(pressure.surge, 3.4);
+      audio.sfxAt('steam', -S / 2 - 3.6, 1.6, 0.65, 6);
+      ui.caption('里面回了三下。', 3600);
+    }
+    // 余烬涨一口亮再慢慢咽回去
+    emberMat.emissiveIntensity = 1.2 +
+      (knock.t > 3.9 ? Math.max(0, 1 - (knock.t - 3.9) / 2.6) * 1.7 : 0);
+    if (knock.t > 7.5) { knock.t = -1; emberMat.emissiveIntensity = 1.2; }
+  });
+  hotspots.add(boiler, {
+    hint: 'E — 敲一敲罐壁',
+    onActivate: () => {
+      audio.sfxAt('clank', -S / 2 - 4.2, 0.8, 0.7, 4);
+      if (!knock.noted) {
+        knock.noted = true;
+        ui.docentNote('这栋楼的底噪是他和音效师造出来的。');
+      }
+      knock.taps.push(knock.clock);
+      if (knock.taps.length > 3) knock.taps.shift();
+      if (knock.taps.length === 3 && knock.taps[2] - knock.taps[0] < 8 &&
+        knock.t < 0 && knock.cool <= 0) {
+        knock.taps.length = 0;
+        runBoilerKnock();
+      }
+    }
+  });
+
   // ---------- 煤角（v1.4 四遍）：炉子烧了五十年，煤终于进了场 ----------
   // 北墙投煤口 + 斜溜槽 → 锅炉腹侧煤堆（flatShading 晶面在余烬光里发亮）
   // + 插着的铁锹；E → 锹柄晃 + 两块煤滚落 + 炉膛应了一口亮（连锁）
@@ -1534,6 +1585,9 @@ export function build(ctx) {
     // 脚步材质分区：锅炉房检修步道=钢格栅；其余=水泥
     surfaceAt: (x, z) => (x >= -S / 2 - 2.4 && x <= -S / 2 - 0.8 && z >= -2.5 && z <= 2.5 ? 'metal' : 'concrete'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
-    eggs: { 'radiator-stage': radiatorTrig, 'intercom-reply': { force: callDown } }
+    eggs: {
+      'radiator-stage': radiatorTrig, 'intercom-reply': { force: callDown },
+      'boiler-knock': { force: runBoilerKnock }
+    }
   };
 }

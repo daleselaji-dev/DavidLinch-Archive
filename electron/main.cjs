@@ -97,8 +97,10 @@ function createWindow() {
         //       厂笛拉杆/霓虹检修箱/松节油罐）——阈值全线 +1
         // v1.9：bluevelvet 谱架歌单（stage-seance 连锁入口）+1、
         //       twinpeaks 柜台收音机（深夜访谈档 / night-frequency）+1
+        // v1.10：lobby 守夜烛台（candle-vigil）+1、archive 缩微阅读器 +1、
+        //        eraserhead 罐壁三敲（boiler-knock）+1
         const INTERACTIVE_MIN = {
-          lobby: 13, archive: 24, eraserhead: 17, bluevelvet: 17,
+          lobby: 14, archive: 25, eraserhead: 18, bluevelvet: 17,
           twinpeaks: 21, mulholland: 16, studio: 18
         };
         const interactiveCheck = win.webContents.executeJavaScript(

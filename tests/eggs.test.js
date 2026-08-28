@@ -170,6 +170,47 @@ describe('v1.9 连锁彩蛋扩容（stage-seance / night-frequency）', () => {
   });
 });
 
+describe('v1.10 彩蛋扩容（candle-vigil / boiler-knock / owl-watch / 缩微阅读器）', () => {
+  const lb = readFileSync(new URL('../src/halls/lobby.js', import.meta.url), 'utf8');
+  const er = readFileSync(new URL('../src/halls/eraserhead.js', import.meta.url), 'utf8');
+  const ar = readFileSync(new URL('../src/halls/archive.js', import.meta.url), 'utf8');
+
+  it('大厅守夜烛台：三支逐点 + 第三支触发六门顺次应光连锁，force 补齐三支再点火', () => {
+    for (const k of ['candleState.lit', 'runVigil', "'candle-vigil'", 'doorPortals.forEach']) {
+      expect(lb, `candle-vigil 缺环节: ${k}`).toContain(k);
+    }
+    const seg = lb.slice(lb.indexOf("'candle-vigil'"));
+    expect(seg).toContain('candleState.lit = 3');
+    expect(seg).toContain('runVigil()');
+    // 声画 ≥2 通道：火柴声 + 烛光池 + 远窃语 + 门光序列
+    for (const k of ["'strike'", 'candleGlow.intensity', "'whisper'"]) {
+      expect(lb, `candle-vigil 缺通道: ${k}`).toContain(k);
+    }
+  });
+
+  it('橡皮头罐壁三敲：8s 窗口判定 + dt 节拍机回敲三下 + 余烬/蒸汽/压力表连锁', () => {
+    for (const k of ['knock.taps', 'knock.taps[2] - knock.taps[0] < 8', 'runBoilerKnock',
+      "'boiler-knock'", 'emberMat.emissiveIntensity', 'pressure.surge = Math.max']) {
+      expect(er, `boiler-knock 缺环节: ${k}`).toContain(k);
+    }
+    // 回敲节拍由 dt 帧循环驱动（at(m) 跨帧判定），不走 setTimeout 主链
+    expect(er).toContain('const at = (m) => prev < m && knock.t >= m');
+  });
+
+  it('双峰夜鸮凝视：owl-watch 注册 + 只转头（身体不动）+ flutter/owl 双声位置化', () => {
+    for (const k of ["'owl-watch'", 'owlStare', 'headAim', "sfxAt('flutter'", "sfxAt('owl'"]) {
+      expect(tp, `owl-watch 缺环节: ${k}`).toContain(k);
+    }
+  });
+
+  it('档案缩微阅读器：屏亮/双卷盘对转/棘轮声 + 年表逐格轮播（filmsSorted 公开事实）', () => {
+    for (const k of ['mfState', 'reelL.rotation.x', 'reelR.rotation.x',
+      "sfxAt('ratchet'", 'years[mfState.idx]', 'f.titleZh']) {
+      expect(ar, `缩微阅读器缺环节: ${k}`).toContain(k);
+    }
+  });
+});
+
 describe('v1.5 氛围增强（雾呼吸 + 稀发远景事件）', () => {
   it('穆赫兰道：路雾/巷雾呼吸 + 远景事件调度器（惊吓中不插话）', () => {
     expect(mul).toContain('roadHaze.material.opacity = 0.05 * (1 + Math.sin');

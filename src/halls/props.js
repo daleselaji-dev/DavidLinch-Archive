@@ -236,21 +236,37 @@ export function cardCatalog({ cols = 4, rows = 5, mats } = {}) {
 }
 
 // ============================================================
-// 蓝丝绒 / 双峰 diner —— 点唱机（拱顶 + 格栅 + 氖光弧管 + 按键排）
+// 蓝丝绒 / 双峰 diner —— 点唱机 v2（v1.10 Blender 权威细模档：
+// gen_jukebox.py 烘焙）。瀑布拱机壳（双层壳 + 双侧瀑布立柱 + 底板）
+// 与黄铜档（日出扇格栅 ×7 / 氖管座圈双弧 / 窗四梃 / 键床 / 踢脚线）；
+// 氖光弧管、显示窗、按键排、格栅布、踢脚与点光保持程序化
+// （setOn / tubeMats / win 动画契约不变）。
 // ============================================================
 export function jukebox({ mats } = {}) {
   const M = mats || propMats();
   const g = new THREE.Group();
-  // 机身：下箱体 + 半圆拱顶
-  const body = roundedBoxMesh(0.92, 0.9, 0.62, 0.05, M.darkWood);
-  body.position.y = 0.45;
-  const archGeo = new THREE.CylinderGeometry(0.46, 0.46, 0.6, 26, 1, false, 0, Math.PI);
-  const arch = new THREE.Mesh(archGeo, M.darkWood);
-  arch.rotation.set(0, 0, -Math.PI / 2);
-  arch.rotation.x = Math.PI / 2;
-  arch.position.y = 0.9;
-  g.add(body, arch);
-  // 氖光弧管 ×2（外/内圈）
+  const caseMat = M.darkWood.clone();
+  caseMat.vertexColors = true; // 烘焙竖木纹/拱缘磨损/扇窝窗腔压暗
+  const trimMat = M.brass.clone();
+  trimMat.vertexColors = true;
+  trimMat.anisotropy = 0; // 烘焙件关各向异性（v1.9 NaN 毒帧教训）
+  g.add(new THREE.Mesh(planarUV(blendGeo('jukebox/wood'), 1.2), caseMat));
+  g.add(new THREE.Mesh(planarUV(blendGeo('jukebox/brass'), 2), trimMat));
+  // 格栅布（程序纹理暗织物，藏在日出扇条后）
+  const clothTex = canvasTexture(64, (g2, s) => {
+    g2.fillStyle = '#2c2014';
+    g2.fillRect(0, 0, s, s);
+    g2.fillStyle = 'rgba(0,0,0,0.42)';
+    for (let y = 0; y < s; y += 3) for (let x = 0; x < s; x += 3) g2.fillRect(x, y, 1.4, 1.4);
+  }, 2, 2);
+  const cloth = new THREE.Mesh(
+    new THREE.CircleGeometry(0.38, 22),
+    new THREE.MeshStandardMaterial({ map: clothTex, roughness: 0.95 })
+  );
+  cloth.position.set(0, 0.16, 0.3162);
+  cloth.scale.y = 1.08;
+  g.add(cloth);
+  // 氖光弧管 ×2（外/内圈，嵌进烘焙座圈双弧之间）
   const tubeMat = new THREE.MeshStandardMaterial({
     color: 0x111111, emissive: 0xff2e88, emissiveIntensity: 2.2, toneMapped: false
   });
@@ -258,30 +274,22 @@ export function jukebox({ mats } = {}) {
     color: 0x111111, emissive: 0x3ec5ff, emissiveIntensity: 2.0, toneMapped: false
   });
   const arc1 = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.016, 8, 30, Math.PI), tubeMat);
-  arc1.position.set(0, 0.9, 0.31);
+  arc1.position.set(0, 0.9, 0.322);
   const arc2 = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.013, 8, 26, Math.PI), tubeMat2);
-  arc2.position.set(0, 0.9, 0.315);
+  arc2.position.set(0, 0.9, 0.326);
   g.add(arc1, arc2);
-  // 面板格栅（竖条合并）+ 显示窗
-  const grillGeos = [];
-  const barGeo = new THREE.BoxGeometry(0.028, 0.42, 0.02);
-  for (let i = 0; i < 9; i++) {
-    grillGeos.push(xform(barGeo, -0.28 + i * 0.07, 0.46, 0.315));
-  }
-  barGeo.dispose();
-  g.add(mergedMesh(grillGeos, M.brass));
+  // 显示窗（发光动画通道，平贴进烘焙窗梃框内）
   const windowMat = new THREE.MeshStandardMaterial({
     color: 0x0a0a10, emissive: 0xffca7a, emissiveIntensity: 0.35
   });
-  const win = roundedBoxMesh(0.56, 0.2, 0.02, 0.01, windowMat);
-  win.position.set(0, 0.98, 0.29);
-  win.rotation.x = -0.18;
+  const win = roundedBoxMesh(0.56, 0.2, 0.014, 0.007, windowMat);
+  win.position.set(0, 0.98, 0.318);
   g.add(win);
   g.userData.win = win;
-  // 按键排
+  // 按键排（坐在烘焙键床上）
   const keyGeos = [];
   const keyGeo = new THREE.BoxGeometry(0.045, 0.02, 0.03);
-  for (let i = 0; i < 8; i++) keyGeos.push(xform(keyGeo, -0.19 + i * 0.055, 0.76, 0.33, -0.5, 0, 0));
+  for (let i = 0; i < 8; i++) keyGeos.push(xform(keyGeo, -0.19 + i * 0.055, 0.762, 0.336, -0.5, 0, 0));
   keyGeo.dispose();
   g.add(mergedMesh(keyGeos, new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.4 })));
   // 底座踢脚

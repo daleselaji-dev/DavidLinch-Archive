@@ -344,3 +344,64 @@ describe('纹理分辨率预算（PRODUCTION_PLAN §2.1 源码审计）', () => 
     expect(src).not.toMatch(/canvas(?:Texture|Of)\(\s*(2048|4096)/);
   });
 });
+
+describe('v1.10 Blender 细模第三批（林地夜鸮 / 歌厅点唱机）', () => {
+  it('新烘焙件全部可解码：位置/法线/顶点色/索引齐全', () => {
+    for (const name of ['owl/body', 'owl/head', 'jukebox/wood', 'jukebox/brass']) {
+      const g = kit.blendGeo(name);
+      expect(g.attributes.position?.count, `${name} 缺位置`).toBeGreaterThan(0);
+      expect(g.attributes.normal?.count, `${name} 法线数不齐`).toBe(g.attributes.position.count);
+      expect(g.attributes.color?.count, `${name} 顶点色数不齐`).toBe(g.attributes.position.count);
+      expect(g.index?.count % 3, `${name} 索引非三角`).toBe(0);
+    }
+  });
+
+  it('夜鸮三角预算与姿态：body ≤1500 / head ≤1000，爪下 y=0、头件原点在颈枢轴', () => {
+    const body = kit.blendGeo('owl/body');
+    const head = kit.blendGeo('owl/head');
+    expect(body.index.count / 3).toBeLessThanOrEqual(1500);
+    expect(head.index.count / 3).toBeLessThanOrEqual(1000);
+    body.computeBoundingBox();
+    head.computeBoundingBox();
+    // 躯干立在枝面上（y≈0 起步，顶到颈口 ≈0.34）
+    expect(body.boundingBox.min.y).toBeGreaterThan(-0.05);
+    expect(body.boundingBox.max.y).toBeGreaterThan(0.30);
+    expect(body.boundingBox.max.y).toBeLessThan(0.40);
+    // 头件局部原点=颈枢轴：包围盒跨过 y=0（下颌在枢轴下、耳簇在上）
+    expect(head.boundingBox.min.y).toBeLessThan(0.0);
+    expect(head.boundingBox.max.y).toBeGreaterThan(0.15);
+  });
+
+  it('twinpeaks 夜鸮已接线：Blender 双件 + 只转头凝视（owlHead.rotation.y）+ 眼球程序化', () => {
+    const tp = readFileSync(new URL('../src/halls/twinpeaks.js', import.meta.url), 'utf8');
+    for (const k of ["blendGeo('owl/body')", "blendGeo('owl/head')",
+      'owlHead.rotation.y', 'owlHead.rotation.z', 'eyeMat']) {
+      expect(tp, `twinpeaks 夜鸮缺接线: ${k}`).toContain(k);
+    }
+    // 旧的 12 段 Lathe 猫头鹰退场
+    expect(tp).not.toContain('Vector2(0.115, 0.12)');
+  });
+
+  it('点唱机壳档在原货架足迹内（瀑布拱 ≈1.36 高 / 含底板 ≤1.1 宽 / 地面 y=0）', () => {
+    const g = kit.blendGeo('jukebox/wood');
+    g.computeBoundingBox();
+    const bb = g.boundingBox;
+    expect(bb.max.y).toBeGreaterThan(1.28);
+    expect(bb.max.y).toBeLessThan(1.42);
+    expect(bb.max.x - bb.min.x).toBeLessThanOrEqual(1.1);
+    expect(bb.min.y).toBeLessThan(0.06);
+  });
+
+  it('props.jukebox 已换 Blender 档且保留 setOn/tubeMats/win 动画契约（烘焙黄铜关各向异性）', () => {
+    const pr = readFileSync(new URL('../src/halls/props.js', import.meta.url), 'utf8');
+    const seg = pr.slice(pr.indexOf('export function jukebox'), pr.indexOf('export function sedanCar'));
+    expect(seg).toContain("blendGeo('jukebox/wood')");
+    expect(seg).toContain("blendGeo('jukebox/brass')");
+    for (const k of ['userData.setOn', 'userData.tubeMats', 'userData.win', 'anisotropy = 0']) {
+      expect(seg, `jukebox 契约缺挂点: ${k}`).toContain(k);
+    }
+    // 旧的九根盒条格栅退场（换日出扇烘焙档 + 程序格栅布）
+    expect(seg).not.toContain('for (let i = 0; i < 9; i++)');
+    expect(seg).toContain('CircleGeometry(0.38');
+  });
+});

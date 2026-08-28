@@ -700,7 +700,74 @@ export function build(ctx) {
     }
   });
 
-  // ---------- 16mm 放映机展台（对东墙投一方无声的白） ----------
+  // ---------- v1.10 缩微胶片阅读器（阅览桌上；年表的另一种读法） ----------
+  // E → 屏幕亮起、双卷盘对转、棘轮声；片窗每两秒翻一格
+  // 「年份 · 片名」（filmsSorted 公开事实轮播）；再按 E 停格熄屏。
+  const mfilm = new THREE.Group();
+  const mfilmIron = new THREE.MeshStandardMaterial({ color: 0x23252b, roughness: 0.42, metalness: 0.75 });
+  const mfBody = mergedMesh([
+    xform(roundedBoxGeo(0.34, 0.05, 0.26, 0.012), 0, 0.025, 0),           // 底座
+    xform(roundedBoxGeo(0.08, 0.34, 0.1, 0.015), 0, 0.2, -0.075),         // 背柱
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.1, 8), -0.09, 0.395, -0.075, 0, 0, Math.PI / 2), // 卷轴梁
+    xform(new THREE.CylinderGeometry(0.02, 0.024, 0.04, 10), 0.13, 0.05, 0.09, Math.PI / 2, 0, 0)     // 进给旋钮
+  ], mfilmIron);
+  // 屏幕罩：前倾的深斗 + 内嵌屏
+  const hood = roundedBoxMesh(0.3, 0.24, 0.1, 0.015, mfilmIron);
+  hood.position.set(0, 0.26, 0.02);
+  hood.rotation.x = -0.22;
+  const mfScreenMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0b09, emissive: 0xd8e6c8, emissiveIntensity: 0.02
+  });
+  const mfScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.18), mfScreenMat);
+  mfScreen.position.set(0, 0.26, 0.073);
+  mfScreen.rotation.x = -0.22;
+  // 双卷盘（对转；停机即停）
+  const reelGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.012, 14);
+  const mkReel = (x) => {
+    const r = new THREE.Mesh(reelGeo, mfilmIron);
+    r.rotation.z = Math.PI / 2;
+    r.position.set(x, 0.395, -0.075);
+    return r;
+  };
+  const reelL = mkReel(-0.075);
+  const reelR = mkReel(0.075);
+  mfilm.add(mfBody, hood, mfScreen, reelL, reelR);
+  mfilm.position.set(0.05, 0.78, -0.2);
+  mfilm.rotation.y = 0.1;
+  readTable.add(mfilm);
+  const years = filmsSorted();
+  const mfState = { on: false, t: 0, idx: Math.floor(Math.random() * years.length), noted: false };
+  updaters.push((dt) => {
+    if (!mfState.on) {
+      mfScreenMat.emissiveIntensity += (0.02 - mfScreenMat.emissiveIntensity) * Math.min(1, dt * 6);
+      return;
+    }
+    // 片窗微闪（走片的呼吸）+ 每 2s 翻一格年表
+    mfState.t += dt;
+    mfScreenMat.emissiveIntensity = 0.75 + Math.sin(mfState.t * 17) * 0.07;
+    reelL.rotation.x += dt * 5.2;
+    reelR.rotation.x += dt * 3.4;
+    if (mfState.t >= 2.0) {
+      mfState.t = 0;
+      mfState.idx = (mfState.idx + 1) % years.length;
+      const f = years[mfState.idx];
+      audio.sfxAt('type', -2.8, -14.2, 0.25, 2.5);
+      ui.caption(`${f.year} · ${f.titleZh}`, 1800);
+    }
+  });
+  hotspots.add(hood, {
+    hint: 'E — 缩微胶片阅读器',
+    onActivate: () => {
+      mfState.on = !mfState.on;
+      mfState.t = 1.7; // 开机很快翻出第一格
+      audio.sfxAt('ratchet', -2.8, -14.2, 0.55, 3);
+      if (mfState.on && !mfState.noted) {
+        mfState.noted = true;
+        ui.docentNote('从 1966 年到 2017 年，都收在这卷片里。');
+      }
+      if (!mfState.on) ui.caption('片窗停在半格上。', 2600);
+    }
+  });
   const projector = filmProjector({ mats: M });
   projector.position.set(-2.4, 0, 8.2);
   projector.rotation.y = Math.PI / 2; // 镜头指 +X（东墙）

@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import {
   PALETTE, canvasTexture, curtain, curtainRing, neonSign,
   smokeLayer, dustField, quotePlaque, velvetMaterial,
-  zoneTrigger, zonesBounds, pineTree,
+  zoneTrigger, zonesBounds, pineTree, blendGeo, cylUV,
   roundedBoxMesh, mergedMesh, xform, rockMesh, rng,
   groundStrip, gravelTexture, woodTexture, brushedMetalTexture, lightCone,
   chevronMat, asphaltMat, waterMat, boomerangMat, ridgeRing
@@ -296,57 +296,62 @@ export function build(ctx) {
     xform(new THREE.CylinderGeometry(0.028, 0.045, 0.8, 7), 0.3, 2.9, 0.06, 0, 0, -1.15),
     xform(new THREE.CylinderGeometry(0.02, 0.035, 0.55, 7), -0.2, 2.45, -0.05, 0, 0, 1.05)
   ], barkMat));
+  // v1.10：夜鸮换 Blender 权威细模档（gen_owl.py 烘焙）——
+  // 躯干横斑/折翼羽排/尾扇勾爪 + 独立颈枢轴头件；E → 只有头
+  // 无声拧过来对准你（身体一动不动），凝视里带一点歪头蠕变
   const owl = new THREE.Group();
-  const owlBody = new THREE.Mesh(
-    new THREE.LatheGeometry([
-      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.09, 0.02), new THREE.Vector2(0.115, 0.12),
-      new THREE.Vector2(0.095, 0.24), new THREE.Vector2(0.07, 0.3), new THREE.Vector2(0.075, 0.34),
-      new THREE.Vector2(0.05, 0.38), new THREE.Vector2(0.001, 0.39)
-    ], 12),
-    new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 })
-  );
-  const tuftGeo = new THREE.ConeGeometry(0.018, 0.05, 6);
-  owl.add(owlBody, mergedMesh([
-    xform(tuftGeo, -0.045, 0.4, 0, 0, 0, 0.25),
-    xform(tuftGeo, 0.045, 0.4, 0, 0, 0, -0.25)
-  ], owlBody.material));
+  const featherMat = new THREE.MeshStandardMaterial({
+    color: 0x4d3826, roughness: 0.92, vertexColors: true
+  });
+  const owlBody = new THREE.Mesh(cylUV(blendGeo('owl/body'), 2), featherMat);
+  const owlHead = new THREE.Group();
+  owlHead.add(new THREE.Mesh(cylUV(blendGeo('owl/head'), 2), featherMat));
   const eyeMat = new THREE.MeshStandardMaterial({
     color: 0x050403, emissive: 0xffb45e, emissiveIntensity: 1.15
   });
-  const eyes = mergedMesh([
-    xform(new THREE.SphereGeometry(0.02, 8, 6), -0.035, 0.315, 0.075),
-    xform(new THREE.SphereGeometry(0.02, 8, 6), 0.035, 0.315, 0.075)
-  ], eyeMat);
-  owl.add(eyes);
+  // 眼球坐进烘焙眼窝暗腔（gen_owl.py 挂点 ±0.048, 0.065, 0.058）
+  owlHead.add(mergedMesh([
+    xform(new THREE.SphereGeometry(0.018, 8, 6), -0.048, 0.065, 0.058),
+    xform(new THREE.SphereGeometry(0.018, 8, 6), 0.048, 0.065, 0.058)
+  ], eyeMat));
+  owlHead.position.y = 0.335; // 颈枢轴（烘焙头件局部原点）
+  owl.add(owlBody, owlHead);
   owl.position.set(0.62, 3.12, 0.12);
   owl.rotation.y = 0.5;
   snag.add(owl);
   snag.position.set(-6.3, 0, 5.7);
   group.add(snag);
   const owlState = { t: -1, blink: 0 };
+  const headAim = Math.atan2(6.3 - 0.62, -5.7 - 0.12) - 0.5; // 头局部偏航：拧向空地中心
   updaters.push((dt, t) => {
     // 偶发眨眼（微光一灭一亮）
     owlState.blink = Math.random() < dt * 0.12 ? 0.18 : Math.max(0, owlState.blink - dt);
     if (owlState.t < 0) {
       eyeMat.emissiveIntensity = owlState.blink > 0 ? 0.06 : 1.15 + Math.sin(t * 1.3) * 0.18;
+      owlHead.rotation.y += (0 - owlHead.rotation.y) * Math.min(1, dt * 1.2);
+      owlHead.rotation.z += (0 - owlHead.rotation.z) * Math.min(1, dt * 1.2);
       return;
     }
     owlState.t += dt;
     const k = owlState.t;
-    if (k >= 3.2) { owlState.t = -1; return; }
-    eyeMat.emissiveIntensity = 1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.2));
-    // 头（整只）无声转过来对准空地中心，再缓缓转回去
-    const face = Math.atan2(6.3 - 0.62, -5.7 - 0.12);
-    const aim = k < 2.2 ? face : 0.5;
-    owl.rotation.y += (aim - owl.rotation.y) * Math.min(1, dt * (k < 0.6 ? 10 : 1.4));
+    if (k >= 3.4) { owlState.t = -1; return; }
+    eyeMat.emissiveIntensity = 1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.4));
+    // 只有头拧过来（身体纹丝不动），凝视时带一点缓慢歪头
+    const aim = k < 2.4 ? headAim : 0;
+    owlHead.rotation.y += (aim - owlHead.rotation.y) * Math.min(1, dt * (k < 0.6 ? 9 : 1.4));
+    owlHead.rotation.z = (k > 0.8 && k < 2.4) ? Math.sin((k - 0.8) * 1.9) * 0.16 : owlHead.rotation.z * (1 - Math.min(1, dt * 3));
   });
+  const owlStare = () => {
+    if (owlState.t < 0) owlState.t = 0;
+    audio.sfxAt('flutter', -6.3, 5.7, 0.7, 5);
+    setTimeout(() => audio.sfxAt('owl', -6.3, 5.7, 0.5, 6), 900);
+    ui.caption('它先看见你的。', 3200);
+  };
   hotspots.add(owlBody, {
     hint: 'E — 树梢上的一双眼睛',
     onActivate: () => {
-      if (owlState.t < 0) owlState.t = 0;
-      audio.sfxAt('flutter', -6.3, 5.7, 0.7, 5);
-      setTimeout(() => audio.sfxAt('owl', -6.3, 5.7, 0.5, 6), 900);
-      ui.caption('它先看见你的。', 3200);
+      owlStare();
+      ui.docentNote('他镜头里的鸮总在看，从不出声。');
     }
   });
   const cupSteam = smokeLayer(6, { x: 0.1, z: 0.1 }, { opacity: 0.06, size: 0.5, yBase: 0.9, ySpread: 0.5, color: 0xffffff });
@@ -1387,7 +1392,10 @@ export function build(ctx) {
     '「谜越是不可知，就越美。」——他在著作里写',
     '「我们都像生活里的侦探。」——公开访谈',
     '「就在表面底下，还有另一个世界。」——公开访谈',
-    '「我爱看人从黑暗里走出来。」——公开访谈'
+    '「我爱看人从黑暗里走出来。」——公开访谈',
+    // v1.10 深夜档补两条
+    '「对点子的渴望就像鱼饵。」——他在著作里写',
+    '「把世界理出头绪的只有直觉。」——公开访谈'
   ];
   const dinerRadio = radioCabinet({ mats: M });
   dinerRadio.position.set(31.02, 1.11, -4.98);
@@ -1973,7 +1981,7 @@ export function build(ctx) {
     eggs: {
       'stone-circle': groveTrig, 'falls-vigil': vigilTrig,
       'walkie-duet': { force: runDuet }, 'mill-whistle': { force: runMillWhistle },
-      'night-frequency': { force: runNightFreq }
+      'night-frequency': { force: runNightFreq }, 'owl-watch': { force: owlStare }
     },
     onLeave: () => { for (const id of timers) clearTimeout(id); }
   };
