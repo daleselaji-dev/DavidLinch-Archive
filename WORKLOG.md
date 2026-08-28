@@ -459,3 +459,21 @@
 | 2026-08-28 05:12 | 2026-08-28 05:35 | C3 | **彩蛋第三批·远声应答谱系**：六厅各 +1 全部可重复/零字幕/游戏时钟错拍/零光源——archive 通风格栅（2.4s 应答每次换一头）/ era 对讲管（3.0s 极远 replyhum）/ bv 返听音箱死敲（v1.4 就在台上，零新增网格，1.9s 后幕回应）/ tp 松果（磕柴垛 2.2s 林海 replytap）/ mul BACK IN 5 小牌（转半圈背面还是 BACK IN 5，1.6s 亭内 replyhum）/ studio 墙角立管（1.4s 楼下回敲）；**回归修复**：门禁 69 误删工作桌挂载三行（v1.14.0 全程桌子不在场景，git 考古 `git show 9644c12` 勘破找回，207→226 mesh）；**撞名勘破**：studio 首版做节拍器彩蛋构建报 `metro` 重声明——v1.4 已有「停在半拍上」节拍器，撤回改立管；INTERACTIVE_MIN 重锁 186；v115-eggs.test 33 用例（谱系/块级零字幕/无锁存/零光源/GLB 体积纪律/回归修复）；503 全绿 + electron 全绿（244/250 峰值） | commit `1342bd5` + 冒烟日志 |
 | 2026-08-28 05:35 | 2026-08-28 05:42 | D2 | **访谈 20→28 + 主题筛选**：八个新话题（忠于点子/谜/红帷幕/胶片之后/最终剪辑权/高尔夫球/自私的权利/天气播报——收尾语与 studio 收音机天气成对照）；与 QUOTES 零重复（bigfish/sound5050/coffee/philly/intuition 等立牌语录全部避开）；四主题（点子5/电影9/心境8/此生6）+ 面板筛选片（带计数，换筛即收声）；出处类型收「播报」；interviews.test ≥28+主题审计；505 全绿 | commit `e6be4c2` |
 | 2026-08-28 05:42 | 2026-08-28 06:20 | 6/8 | **文档收口 + Release 1.15.0**：bump 1.15.0；门禁 71–75 全节 + CHANGELOG v1.15.0 + WORKLOG 本段 + TESTING（505 用例/v115-eggs 覆盖行/访谈 28 口径）+ README（186 交互/88 音色/28 条访谈+主题筛选/GLB 三件落厅）+ STYLE_AUDIT §6 执行账（三病灶清账+四条新备忘：冒烟盲区/远声密度/贴顶厅/字面预算）+ GOAL_HANDOFF 轮次交接；终版四连复跑；`npm run dist:win` 双 exe + SHA256SUMS + DOWNLOAD 直链 + 发布产物冒烟复跑 | commit（本条）+ release/ 三件 |
+
+## v1.16 —— 蒸汽调速器 · 幽灵交互普查 · 彩蛋换轴 · 三十二条访谈（持续 Goal 第 4 轮）
+
+> 本轮主题：**Blender loop 第 5 件（蒸汽调速器，三档五拍）· GLB
+> 落厅第三批守红线（贴顶厅禁入，落 era）+ 冒烟盲区补漏（热点场景
+> 归属普查）· 彩蛋第四批换轴（光的应答 / 温度 / 时间错位）· 访谈
+> 28→32 补「点子」· 打包 1.16.0 exe**。基线 v1.15.0 tip（14e8277，
+> origin/cursor/velvet-round3-v1150-a993）。范围：门禁 76–80。
+> 拐角魅影 / 双惊吓 / 186 交互全部保留不回退。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 06:05 | 2026-08-28 06:15 | 0 | 从 v1.15.0 tip 建分支 `cursor/smoke-velvet-round4-v1160-a993`；通读 GOAL_HANDOFF 第 4 轮优先项 / STYLE_AUDIT §6 备忘；新 VM 重装 Blender 4.1.1 + npm install（后台并行） | 分支 + /usr/local/bin/blender |
+| 2026-08-28 06:15 | 2026-08-28 06:35 | A5 | **Blender 资产⑤蒸汽调速器三档五拍精修**：gen_steam_governor.py（block 比例架 1.66m 基座/立柱/锭轴/双臂飞球/套筒 → mid → fine）；五拍病灶实录：柱粗球小（柱瘦球大重开臂角 THETA0 0.72）/ 带轮套筒撞件（带轮下移套筒上抬）/ 节流杆贴柱（支点外移）/ 连杆天线化（球顶挂点上移改陡）/ S 臂折痕 + 叉口啃轴（中点收幅 + 叉尖止于套筒环外缘）；定稿 6 mesh / 2480 顶点 / 4320 tris / GLB 112KB；blender:check 五件 | commit `c40df41` + 三视图样张 |
+| 2026-08-28 06:35 | 2026-08-28 06:48 | G3 | **落厅第三批 + 冒烟盲区补漏**：governor 落 era 西墙守红线（贴顶厅禁入单测钉死）；GLB 与程序化兜底共用 rigGovernor 装配（spinPivot/armPivots 随 omega 张角/套筒升降/节流杆随动），machineState.run 直驱转速（停机塌臂）；同步代理热区 + govwhirr 超速一拍 + 0.9s 大机器冲一拍回敬；governorReady 承诺 + glb-landed 信号；**__SV__.auditHotspots() 场景归属普查**（parent 链上溯 scene，v1.15 工作桌事故制度化）入 electron 冒烟逐厅硬断言；音色第九批九件（不入 REPLY_DYAD）；INTERACTIVE_MIN 重锁 194−1 | commit `4e4bafe` |
+| 2026-08-28 06:48 | 2026-08-28 06:52 | C4 | **彩蛋第四批换轴**：光的应答（lobby 烛剪→火苗压低立回 / bv 空话筒→脚灯呼吸，共用 kit ANSWER_BREATH）、温度（era 结霜支管冷高薄 / tp 保温座 warmhum+蒸汽错拍 / studio 白瓷小碟收缩三嗒渐疏）、时间错位（archive 上弦钥匙秒针挣三格渐迟滑回 / mull 路灯铁杆 poletap 双鸣灯 2.4s 用光迟放双沉——只走光通道不加远场重放）；贴顶厅零新增网格（potBase / userData.pole 句柄）；全批零字幕零光源可重复 | commit `9ba2c8f` |
+| 2026-08-28 06:52 | 2026-08-28 06:55 | D3 | **访谈 28→32 补「点子」**：四条《钓大鱼》可查证原文（钓点子要等/接住的一瞬/隔壁的拼图/小鱼与大鱼——书名出处段落与立牌大鱼句互为上下句）；防撞记录留档（doughnut/beneath the surface 已是 QUOTES 立牌语录，弃用）；点子 5→9（9/9/8/6=32）；interviews.test ≥32+点子≥9 | commit `44ec76d` |
+| 2026-08-28 06:55 | 2026-08-28 07:20 | 6/8 | **v116-eggs.test 47 用例 + bump 1.16.0 + 四连**：552 全绿 / smoke 5·5 / electron EXIT=0（交互普查 22/36/30/24/27/25/30=194 与预测一致、七厅场景归属全过、四 glb-landed、双惊吓自然触发、mesh 峰值 244/250）/ blender:check 五件；文档收口（门禁 76–80 + CHANGELOG + 本段 + TESTING + README + STYLE_AUDIT §7 + GOAL_HANDOFF 第 5 轮）；dist:win 双 exe + SHA256SUMS + DOWNLOAD 直链 + 发布产物冒烟复跑 | commit（本条）+ release/ 三件 |
