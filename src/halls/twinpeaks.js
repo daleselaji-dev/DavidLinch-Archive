@@ -2011,6 +2011,29 @@ export function build(ctx) {
       ui.caption('续了一杯。', 2600);
     }
   });
+  // ---------- v1.16 彩蛋四批·温度（tp）：保温座 ----------
+  // 壶是玻璃的、亮的；座是铁的、烫的——没人碰过它。掌心贴上去：
+  // warmhum 极低软哼即刻浮起（温度用听的）；1.3s 游戏时钟错拍后
+  // 蒸汽旺一大口 + 保温座回滴一声——这家店的热是从座上来的。
+  // 贴顶厅纪律：零新增网格（热点落在既有 potBase 上）、零字幕
+  // 零光源；可重复无锁存。与 P19「咖啡永远是热的」共用蒸汽通道。
+  const warmState = { wait: -1 };
+  updaters.push((dt) => {
+    if (warmState.wait < 0) return;
+    warmState.wait -= dt;
+    if (warmState.wait < 0) {
+      potState.puff = 1.3;
+      audio.sfxAt('drip', 30.7, -6.4, 0.34, 4);
+    }
+  });
+  hotspots.add(potBase, {
+    hint: 'E — 保温座',
+    onActivate: () => {
+      if (warmState.wait >= 0) return;
+      warmState.wait = 1.3;
+      audio.sfxAt('warmhum', 30.7, -6.4, 0.65, 4);
+    }
+  });
   // 旋转派柜（三层瓷盘；E → 转架）
   const pcase = pieCase({ mats: M });
   pcase.position.set(30.7, 1.12, -10.4);

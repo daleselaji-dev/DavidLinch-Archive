@@ -1382,7 +1382,9 @@ export function streetLampV2({ mats } = {}) {
     // 灯头吊环
     xform(new THREE.TorusGeometry(0.05, 0.012, 6, 12), 0.92, 4.55, 0)
   ];
-  g.add(mergedMesh(poleGeos, M.iron));
+  const pole = mergedMesh(poleGeos, M.iron);
+  g.add(pole);
+  g.userData.pole = pole; // v1.16：灯杆句柄（穆赫兰道时间错位彩蛋的热点靶）
   // 泪滴灯头（车削）
   const headGeo = lathe([[0.01, 0], [0.13, -0.03], [0.16, -0.14], [0.1, -0.28], [0.04, -0.34], [0.055, -0.38]], 16);
   const head = new THREE.Mesh(headGeo, M.iron);
