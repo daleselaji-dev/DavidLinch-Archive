@@ -132,9 +132,8 @@ describe('v1.20 门禁 96：活轴盘点入册 + 纪律复钉', () => {
     expect((SRC.engine.match(/case '/g) || []).length).toBe(98);
   });
 
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.20.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（版本钉移交 v121-eggs.test）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.20.0');
-    expect(SRC.main).toContain("version: '1.20.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });
