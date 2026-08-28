@@ -1320,22 +1320,38 @@ export function lurchEase(k, steps = 3, duty = 0.42) {
 }
 
 /**
- * 拐角触发器（v1.8 惊吓主机制）—— 玩家走进拐角触发区、且视线落进
- * 「即将看见」方向的 ±fov/2 锥内即触发：转过拐角、垃圾箱与后门
- * 方向即将入画的那一步就是扳机。背向穿区（原路北归）不触发；
- * 面朝墙进区的，转回那个方向的瞬间触发。冷却后可重复。
- * zone: { x, z, r } 圆形区；lookAt: { x, z } 视线目标点。
- * 返回 { update(pose, dt), force() }；pose = { x, z, yaw }。
+ * 拐角触发器 v2（v1.22 贴角锁拍——v1.8→v1.12 四轮圆形触发区仍被判
+ * 「时机不对」后的机制换代）——触发时机不再是「走进某个圆」，而是
+ * 钉死在**视线即将越过拐角、看见墙壁后面之物**的几何瞬间：
+ * 以拐角沿 K（遮挡墙的端点）与藏身点 R（墙后之物）的连线为
+ * **显形线**（reveal line——从拐角放射出去的可见性分界线），玩家
+ * 跨过这条线的那一帧，R 恰好从拐角后入画。贴着遮挡墙走的人要走到
+ * 拐角沿本体才跨线；靠对侧走的人按几何提前一小步（口袋对他们先
+ * 张开）——每个人都在**自己那半步**被吓，不再有固定圆区的提前/
+ * 延后。三个条件同帧成立即触发：跨过显形线 × 人在拐角口袋
+ * （gate 圆，锁定局部性）× 视线落向拐角方向（±fov/2，背向北归
+ * 穿区不触发）。冷却后可重复。
+ * spec: { gate:{x,z,r}, corner:{x,z}, reveal:{x,z}, lookAt:{x,z} }
+ * 返回 { update(pose,dt), force(), armed(), revealed(p) }。
  */
-export function cornerTrigger(zone, lookAt, onFire, { fov = 2.6, cooldown = 75 } = {}) {
+export function cornerTrigger(spec, onFire, { fov = 2.6, cooldown = 75 } = {}) {
+  const { gate, corner: K, reveal: R, lookAt } = spec;
   let coolT = 0;
-  const r2 = zone.r * zone.r;
-  return {
+  const r2 = gate.r * gate.r;
+  // 显形线：过 K、方向 R→K 的直线；跨线判定用叉积符号（纯几何，可单测）
+  const lx = K.x - R.x;
+  const lz = K.z - R.z;
+  const api = {
+    /** 扳机是否上膛（冷却中 = false）——接近段恐惧氛围以此静音 */
+    armed: () => coolT <= 0,
+    /** 纯几何：从 p 点看，藏身点 R 是否已越过拐角沿入画（跨过显形线） */
+    revealed: (p) => lx * (p.z - K.z) - lz * (p.x - K.x) <= 0,
     update(pose, dt = 0.016) {
       if (coolT > 0) { coolT -= dt; return; }
-      const dx = pose.x - zone.x;
-      const dz = pose.z - zone.z;
-      if (dx * dx + dz * dz > r2) return;
+      const gx = pose.x - gate.x;
+      const gz = pose.z - gate.z;
+      if (gx * gx + gz * gz > r2) return;
+      if (!api.revealed(pose)) return;
       // 视线方向（yaw 0 → -z）与目标方向的夹角（卷绕安全）
       const want = Math.atan2(-(lookAt.x - pose.x), -(lookAt.z - pose.z));
       let d = pose.yaw - want;
@@ -1352,6 +1368,7 @@ export function cornerTrigger(zone, lookAt, onFire, { fov = 2.6, cooldown = 75 }
       onFire();
     }
   };
+  return api;
 }
 
 /**

@@ -158,10 +158,11 @@ function createWindow() {
         const hallChecks = Promise.all([interactiveCheck, orphanCheck]);
         // v1.6 门禁 37 / v1.7 门禁 40 / v1.8 门禁 44：穆赫兰道后巷通路
         // 走通性 + 两重惊吓自然触发断言。
-        // ① 拐角惊吓（v1.8 主触发）：walkPath 把真实玩家逐帧走过
-        //    路→右侧便道→票亭转角→暗巷（停在拐角触发区北缘外），再一步
-        //    走进拐角区——南行朝向天然落在「垃圾箱·后门」视锥内，
-        //    cornerTrigger 在下一渲染帧自然引爆多幕序列（实时钟 ~6.5s），
+        // ① 拐角惊吓（v1.22 显形线触发）：walkPath 把真实玩家逐帧走过
+        //    路→右侧便道→票亭转角→暗巷（停在显形线以北），再一步跨过
+        //    显形线（x=9.3 线上跨线点 z≈-26.51）——南行朝向天然落在
+        //    「垃圾箱·后门」视锥内，cornerTrigger 在下一渲染帧自然引爆
+        //    单拍序列（实时钟 ~3.2s：闪出→错拍盯人→扑近→黑幕），
         //    空间错位应把玩家移回巷口 (9.7, 9.5)。
         // ② 转身惊吓（v1.7 保留第二扳机）：再走到空地站定点，站定
         //    1.6s（> armTime 上膛）后 spinYaw(π) 模拟猛回头——turnTrigger
@@ -194,8 +195,8 @@ function createWindow() {
           // v1.12：截屏机位（SV_SHOT_POS/SV_SHOT_PRE）可能把玩家留在任意
           // 分区（如剧场背后空地）——走测先定点回街口再起步；门禁验证的
           // 是「巷道走通性 + 拐角自然触发」，与截屏残留位置解耦
-          // ① 走到拐角触发区北缘外一步（v1.12 贴角化：zone 圆心 9.3,-27.2
-          //    r1.15 → 北缘 z≈-26.05，距拐角沿 z≈-26.7 仅 0.65m）
+          // ① 走到显形线以北一步（v1.22 贴角锁拍：中巷线 x=9.3 的跨线点
+          //    z≈-26.51，距拐角沿 z≈-26.7 仅 0.19m——贴墙走则在拐角沿本体）
           const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -24.6]]);
           win.webContents.executeJavaScript(
             `window.__SV__.teleport(2, -8, Math.PI), window.__SV__.walkPath(${routeA})`, true
@@ -206,18 +207,20 @@ function createWindow() {
               app.exit(1);
               return;
             }
-            // 再一步走进拐角区（面朝南——垃圾箱·后门方向在视锥内），
-            // 下一渲染帧 cornerTrigger 自然引爆（不靠 triggerEggs 强制）
-            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -27.2]])', true).then((rB) => {
+            // 再一步跨过显形线（终点在线南 ≥0.24m，面朝南——垃圾箱·
+            // 后门方向在视锥内），下一渲染帧 cornerTrigger 自然引爆
+            // （不靠 triggerEggs 强制）
+            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -27.05]])', true).then((rB) => {
               if (!rB || !rB.ok) {
                 console.error('[smoke] 走进拐角触发区失败');
                 app.exit(1);
                 return;
               }
-              console.log('[smoke] 已走进拐角触发区：等待拐角惊吓多幕序列自然触发…');
-              // SV_SCARE_SHOT: 可选，惊吓多幕序列连拍捕帧（视觉证据）。
-              // 软渲染下扳机在进区后的下一渲染帧引爆（~0.4–1.2s 漂移），
-              // 单点必踩空——从 3s 起每 0.8s 连拍 6 帧覆盖顿挪→扑近→冲击窗
+              console.log('[smoke] 已跨过显形线：等待拐角惊吓单拍序列自然触发…');
+              // SV_SCARE_SHOT: 可选，惊吓序列连拍捕帧（视觉证据）。
+              // 软渲染下扳机在跨线后的下一渲染帧引爆（~0.4–1.2s 漂移），
+              // 单点必踩空——从 1.4s 起每 0.45s 连拍 14 帧覆盖闪出→
+              // 错拍→扑近→冲击窗（全程 ~3.2s）
               const scareDir = process.env.SV_SCARE_SHOT;
               if (scareDir) {
                 for (let si = 0; si < 14; si++) {
@@ -230,12 +233,12 @@ function createWindow() {
                     } catch (err) {
                       console.error('[smoke] 惊吓捕帧失败', err);
                     }
-                  }, 2200 + si * 800);
+                  }, 1400 + si * 450);
                 }
               }
-              // 多幕序列 later 链按实时钟走（~6.5s）+ 软渲染冗余 → 预算 40s
+              // 单拍序列 later 链按实时钟走（~3.2s）+ 软渲染冗余 → 预算 40s
               pollUntilWake('拐角惊吓', 40000, () => {
-                console.log('[smoke] 拐角惊吓自然触发 OK：转过拐角 → 灯闪/刮擦/心跳 → 留白 → 顿挪现身 → 扑近 → 空间错位移回巷口 (9.7,9.5)');
+                console.log('[smoke] 拐角惊吓自然触发 OK：视线越过拐角那一帧 → 灯灭+闪出 → 特写盯人 → 扑近 → 空间错位移回巷口 (9.7,9.5)');
                 setTimeout(turnScareTest, 1600); // 等状态机归零再测第二扳机
               });
             }).catch((err) => {
