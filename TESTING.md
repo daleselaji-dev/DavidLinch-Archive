@@ -3,7 +3,7 @@
 ## 自动化测试
 
 ```bash
-npm test              # vitest 单元测试（800 用例）
+npm test              # vitest 单元测试（817 用例）
 npm run smoke         # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
 npm run blender:check # Blender 工具链冒烟（七件资产 block 阶段生成+INSPECT；未装 Blender 跳过不红）
 ```
@@ -42,7 +42,8 @@ npm run blender:check # Blender 工具链冒烟（七件资产 block 阶段生�
 | `tests/v123-eggs.test.js` | **v1.23 新 Goal 第 2 轮审计（门禁 101，31 用例）**：**手感参数边界**（错拍 950ms 三拍顺延且全程 ≤4.5s / 入锁 0.35s 早于滑出收尾 / FOV 推量 15≤18 且 smoothstep 在源、线性推退役钉 / 滑出四次方曲线性质——前 0.2s ≥80% 行程 + 全程单调 / 错拍三口心跳间隔收紧 / 接近段双拍半拍音量低于主拍 + APPROACH_DREAD 涨程原值）；**STARE_TILT 歪头**（歪完落错拍窗内 + 弧度 ≤0.12 + lookAt→rotateZ 次序守卫）；**相位确定化数学账**（WRAITH_T0 使眼焰在错拍开始过零上行 + 峰值落错拍窗 40–90% + scare.clock 接线与 47 用例字面钉共存）；**rim 分拍**（RIM_BEATS 边界——过冲 ≤基值/呼吸 ≤15% 基值 + reveal 涨光/打火/错半拍/涌光四式在源 + 单档更新器退役 + 色温灯位钉 + rimState 开关帧不动 + gen 眼组零回炉复验）；**DOCENT 回访补注**（七条 24–96 字 ≤3 短句 + 七厅各恰一接线且键名配对 + kit 回访门 awayAfterSpoke + 防撞第七轮 + 访谈 40 封顶复钉）；**呼叫铃变奏**（scare.seen 分支 + doorfar 钉 CORNER_EDGE + 1400<2100 + 首访原拍在源 + 分支内 later 恰一——第三层判死红线 + INTERACTIVE_MIN 24 持平）+ 版本钉 1.23.0（v1.24 起移交同值语义） |
 | `tests/v124-eggs.test.js` | **v1.24 新 Goal 第 3 轮审计（门禁 102，27 用例）**：**直通总线接线普查**（engine punch 建线绕 master 直连压缩器 + setMuted 同闸 + sfx/sfxAt 第 4 路由参 + 两重惊吓十一处「它的声」逐处直通钉 + 世界侧 lampoff/接近段心跳/半程升压**不走直通反钉**）；**真空罩账**（VACUUM 拐角 3.555/转身 2.005 = 各自 wake+0.3−0.045 同构算式 + 罩过黑幕段 + 归还 1–2.5s 区间 + 旧 duck(1.3) 退役钉）；**WAKE_DAZE 俯冲醒**（俯角 −0.36 边界 + 字幕迟到 1.15s 边界 + teleport 清俯仰→压 pitch 顺序守卫 + **只给拐角**——转身分支零 daze 反钉）；**塑形钉**（scare 失谐簇 ±0.4 分翼/噪声墙劈两面/52→27Hz 半沉层在源 + thud vol≥0.9 力度分层——**全馆 thud 调用普查惊吓级恰两处**、家具级 ≤0.8 原封 + scrape 对时账 0.48<0.55 + wing 分翼通道在源）；**setDread 低压层**（27Hz dreadswell 同源账 + 增益 q² 封顶 0.2 + armed 闸/冷却零输出 + 挂 master 被真空抽走 + 换厅 stopAmbience 归零）；**时序反转变奏**（poleEcho.rev 2.4s = 首访 wait 2.4s 同值账 + 段内**零字幕零 sfxAt** 双钉 + rev 首行闸 + `if (scare.seen)` 恰三处封口 + INTERACTIVE_MIN 24 持平）；**机制拍长零改动复钉**（SCARE_BEATS/CLOSEUP/STARE_TILT/RIM_BEATS toEqual 原值整表 + electron wake 40s 预算联动注）+ 版本钉 1.24.0（v1.25 起移交同值语义） |
 | `tests/v125-eggs.test.js` | **v1.25 新 Goal 第 4 轮审计（门禁 103，30 用例）**：**鸮形体精修**（眼组三钉逐字复钉——位置/半径/emissive/眨眼-亮起机制 + **收形不吞眼账**——颈腰新剖面 r0.0735 < 眼心轴距 0.0828 眼球仍探出 ≥20mm + 轮廓三段剪影钉且旧桶形剖面退役反钉 + 双翼/垂尾/耳羽簇在源——尾尖 y<0 沉到枝下账 + **栖枝几何账**——枝面标高参数方程重算、落座 |3.075−surf|≤5mm、骑轴 10mm<枝半径、旧账悬空 48mm/偏轴 60mm 判死留档 + 四趾恰 4 且尖朝前下象限 + 头转对准角改钉留账/转头拍长原值 + **净账 −1**——鸮段 mergedMesh 恰 2/零裸 Mesh/owl.add 单行 + 热点 hint/flutter/owl 叫声接线原封 + tp 交互 26 持平 + **禁新 GLB**——tp 仅孪生松一件、鸮段零 glb）；**wake 朝向档**（WAKE_POINT toEqual 持平 + WAKE_DAZE 添 yaw 0 整表钉 + **朝向几何账**——面南离拐角沿轴 ≤3.5°、两盏壁灯在视线前方 + teleport 三元接线钉 + 两重 wake 收尾语原封 + 冒烟断言同步钉——拐角 0/转身 π/容差 0.02 + 落点触发区外复核）；**真机验收基建**（mull scareProbe 只读字面量快照 + __SV__ 转发非惊吓厅 null + 冒烟逐拍实录日志钉 + TESTING**耳机验收清单在册钉**——七拍词条扫描）；**内容质量替换**（DOCENT.home 新钉含《妖夜慌踪》/好莱坞山 + 旧印象句全库退场 + home2 原封 + **防撞**——妖夜慌踪语料 QUOTES/INTERVIEWS/NARRATIONS 零出现恰 DOCENT 一处 + 访谈 40 恰等四主题 10/10/10/10 逐格**宁持平不换弱留账** + 变奏 `if (scare.seen)` 恰三处复钉 + INTERACTIVE_MIN 195 口径）；**四层零翻修复钉**（SCARE_BEATS/CLOSEUP/STARE_TILT/RIM_BEATS/VACUUM/APPROACH_DREAD 六表 toEqual 原值 + wake+0.3 派生账复验）+ 版本钉移交（v1.26 起同值语义） |
-| `tests/v126-eggs.test.js` | **v1.26 新 Goal 第 7 轮审计（门禁 106，26 用例）**：**靶一·接近压迫 FOV 渐窄**（APPROACH_SQUEEZE 窗口账——收满点 = APPROACH_DREAD.z1 同步钉 + 在跨线点以北 + 涨程 1.5–2.5m 且起点距中巷跨线点 2.0±0.2m + 收窄窗全落 dread 涨落区内 + drop=5 且 70−5≥60 克制、浅于 CLOSEUP.fovPush + **接线钉**——armed() 门/惊吓中不收/巷内限定/位置驱动 smoothstep + **收放不对称钉**——收直取位置值、松开 dt×6 缓释 + grab 接管让位/epsilon 闸 + **交接账**——跨线帧 grab.fov0 捕获 + squeeze 清零 + CLOSEUP 从 fov0 续推 + **推近终点数学账**——push=1 时无论 fov0 终点恒为 55°、push=0 起点即 fov0 零跳变 + 中巷跨线点 z≈−26.506 对照系复验）；**靶二·滑出去抽搐拍**（GLB 版与 kit 兜底版 setLurch 体内 beat=sin(s·6π) **双侧退役钉** + 滑出体态平滑加深逐行同账 + **s=1 交接无缝数学账**——sin(6π)=0 + 调用形 setLurch(s,t)/(1,t)/setRush(k,t) 字面钉与四次方曲线/revealBez 原封 + 错拍 STARE_TILT toEqual/rush 高频扑动 sin(t·13) 双侧仍在 + lurchEase 纯函数留册）；**靶三·wake 巷灯缓燃**（WAKE_RELIGHT.dur=3 恰等 + 比 VACUUM.release 慢 + 燃满落拐角字幕窗内 + **只给拐角**——daze 分支起燃/else 分支瞬回次序钉 + 更新器游戏时钟/smoothstep/两灯同一口气逐行钉 + **新惊吓接管让位钉** + WAKE_POINT/WAKE_DAZE 原值复钉 + 两重惊吓灯灭帧恰两处）；**机制零改动复钉**（SCARE_BEATS 六拍 ±0ms + VACUUM 派生账 + CLOSEUP/RIM_BEATS/APPROACH_DREAD toEqual + gen_corner_wraith 眼组零回炉）；**纪律三数**（scare.seen 恰三处·98 音色·40 访谈·普查 195）+ 版本钉 1.26.0 |
+| `tests/v126-eggs.test.js` | **v1.26 新 Goal 第 7 轮审计（门禁 106，26 用例）**：**靶一·接近压迫 FOV 渐窄**（APPROACH_SQUEEZE 窗口账——收满点 = APPROACH_DREAD.z1 同步钉 + 在跨线点以北 + 涨程 1.5–2.5m 且起点距中巷跨线点 2.0±0.2m + 收窄窗全落 dread 涨落区内 + drop=5 且 70−5≥60 克制、浅于 CLOSEUP.fovPush + **接线钉**——armed() 门/惊吓中不收/巷内限定/位置驱动 smoothstep + **收放不对称钉**——收直取位置值、松开 dt×6 缓释 + grab 接管让位/epsilon 闸 + **交接账**——跨线帧 grab.fov0 捕获 + squeeze 清零 + CLOSEUP 从 fov0 续推 + **推近终点数学账**——push=1 时无论 fov0 终点恒为 55°、push=0 起点即 fov0 零跳变 + 中巷跨线点 z≈−26.506 对照系复验）；**靶二·滑出去抽搐拍**（GLB 版与 kit 兜底版 setLurch 体内 beat=sin(s·6π) **双侧退役钉** + 滑出体态平滑加深逐行同账 + **s=1 交接无缝数学账**——sin(6π)=0 + 调用形 setLurch(s,t)/(1,t)/setRush(k,t) 字面钉与四次方曲线/revealBez 原封 + 错拍 STARE_TILT toEqual/rush 高频扑动 sin(t·13) 双侧仍在 + lurchEase 纯函数留册）；**靶三·wake 巷灯缓燃**（WAKE_RELIGHT.dur=3 恰等 + 比 VACUUM.release 慢 + 燃满落拐角字幕窗内 + **只给拐角**——daze 分支起燃/else 分支瞬回次序钉 + 更新器游戏时钟/smoothstep/两灯同一口气逐行钉 + **新惊吓接管让位钉** + WAKE_POINT/WAKE_DAZE 原值复钉 + 两重惊吓灯灭帧恰两处）；**机制零改动复钉**（SCARE_BEATS 六拍 ±0ms + VACUUM 派生账 + CLOSEUP/RIM_BEATS/APPROACH_DREAD toEqual + gen_corner_wraith 眼组零回炉）；**纪律三数**（scare.seen 恰三处·98 音色·40 访谈·普查 195）+ 版本钉移交（v1.27 起同值语义） |
+| `tests/v127-eggs.test.js` | **v1.27 新 Goal 第 8 轮审计（门禁 107，17 用例）**：**劫后远门回声 WAKE_ECHO**（拍点窗口账——delayMs 1500–2500 取 2000 + **声要等世界回来**——拍点 > VACUUM 0.3+release 1.6=1.9s 且调用无 punch 第 6 参（世界的声不走直通）+ **错拍账（声先于灯）**——2.0s < WAKE_RELIGHT.dur 3s、门响时 smoothstep∈(0.5,0.9)≈0.74 灯确在半途 + **字幕零新增**——落在迟到字幕 1.15s+5.2s 驻留窗内）；**接线边界**（调用在 `if (daze)` 块内 else 之前——转身惊吓不分家此项 + later 走 WAKE_ECHO.delayMs 与迟到字幕同调度语义 + **让位闸**——回调内 phase≠0 先于响 + relight 让位闸原封）；**方位与可闻性**（CORNER_EDGE toEqual 复用 v1.23 变奏应答同一扇门 + 36.2m 距离账 + spatialParams 实算 vol·att∈[0.03,0.08]——混音器 0.015 裁声线 3× 余量仍是「远」+ 声像近中 pan≤0.1 + far 族纪律 ref≥2/vol≤1 + **字面=账本**——源码字面量与 WAKE_ECHO.vol/ref 恰等防两本账漂移）；**三刀零改动复钉**（APPROACH_SQUEEZE/WAKE_RELIGHT/WAKE_DAZE/WAKE_POINT/SCARE_BEATS/VACUUM/CLOSEUP toEqual 原值）；**纪律三数**（98 音色零新增·40 访谈·普查 195·scare.seen 恰三处）+ 版本钉 1.27.0 |
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -548,7 +549,7 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
       `[smoke] <label> 状态位: phase=… sub=… clock=… seen=…`——
       时序应与下方耳机验收清单逐拍对得上
 
-### 拐角惊吓耳机验收清单（v1.26 真机验收口径——CI 无音频，此单只能真机走）
+### 拐角惊吓耳机验收清单（v1.27 真机验收口径——CI 无音频，此单只能真机走）
 
 > swiftshader 冒烟**无音频输出、陈旧帧不可信**：CI 只能证明「时序
 > 账目正确 + 不抛错」（v124/v125-eggs + 冒烟状态位实录）。「吓不吓
@@ -566,6 +567,7 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 | **冲击**（1.9s） | 1.9s | 惊吓级闷击（19Hz 次声深层——一记胸口捶） | uShock 后处理冲击 + 暗红闪帧 |
 | **黑幕**（2.4–3.3s） | 2.4s 起 | **万籁俱寂**——环境底噪全程死寂不得回血（真空罩到 3.555s） | 纯黑 |
 | **俯冲醒**（3.3s） | 3.3s | 耳边一声很近的 whisper **独响**（无声世界里唯一的声）；环境音比睁眼**慢 0.3s** 渐次归还（1.6s 内） | 醒在巷口 (9.7,9.5)，**视线压在脚边地面**，头要自己抬；抬头**面前是那条巷子**（v1.25 朝向档）；**巷灯用 3s 从黑里慢慢燃回**（v1.26：灯比声音回得更晚——劫后余生的余韵）；1.15s 后字幕「有些拐角，不该拐过去。」 |
+| **劫后回声**（醒后 2.0s） | 5.3s | **正前方很远处一声关门/落锁**（v1.27 doorfar 复用——很轻很远，36m 外拐角那头、离轴 2°；环境音 1.9s 刚回满它才响） | 什么都不变——灯还在燃回半途（~74%）、字幕还在屏上；**这一声零字幕不解释**。转身惊吓醒来**没有**这一声 |
 
 对照工具：`--smoke` 日志的状态位实录（`phase=2 sub=reveal/stare/rush`
 + `clock` 游戏秒）给出各拍的**时序基准**；真机走查时拍位若与清单

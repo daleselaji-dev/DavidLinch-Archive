@@ -1922,6 +1922,45 @@ r6-corner-walkthrough-probe.txt`（逐帧实录全文 + 逐条账目对照 +
 `file release/*.exe` + asar extract-file 版本核对 + DOWNLOAD.md
 新直链三方一致（exe / `__SV__.version` / v126-eggs 版本钉）。
 
+### 107. 劫后远门回声 WAKE_ECHO + Release 1.27.0（v1.27 新增，新 Goal 第 8 轮）
+- [x] **一声不翻修**：本轮唯一改动 = r6 报告遗留一笔「醒来加一声
+      远处门关/锁扣」，走 GOAL_HANDOFF 第 7→8 轮第 3 点论证的
+      doorfar 复用路径——**98 音色刹车内零新增**；v1.26 三刀
+      （APPROACH_SQUEEZE/滑出改闪/WAKE_RELIGHT）参数 ±0，显形线
+      几何/SCARE_BEATS 六拍/VACUUM/rim 灯语/WAKE_POINT 全原封
+- [x] **拍点与错拍账（声先于灯）**：拐角 daze wake 后 2.0s（任务
+      窗 1.5–2.5s 取中），环境音回满 1.9s（VACUUM 0.3+release
+      1.6——doorfar 挂 master 不走直通，世界的声回来它才响得成）
+      → 门 2.0s → 灯 3.0s 燃满（门响时 smoothstep≈0.74 巷子还在
+      半黑里）；迟到字幕 1.15s+5.2s 驻留仍在屏上，这一声零字幕
+- [x] **方位与可闻性账**：复用 v1.23 变奏应答同一扇门
+      （CORNER_EDGE 8.3,−26.7——世界里答话的门只有那一扇）；醒来
+      面南朝巷，门在视线尽头近轴处（pan≤0.1）；36.2m 处
+      vol·att≈0.045——混音器 0.015 裁声线 3× 余量、≤0.08 仍是「远」
+- [x] **边界纪律**：只给拐角 daze（转身惊吓不分家此项——它的
+      错位在时间轴）；新惊吓接管时回声让位（phase≠0 闸，与
+      relight 同纪律）；sfxAt 字面量音量/ref 让 audio.test far 族
+      提取器逮得住（位置化 + ref 8≥2 + vol 0.5≤1）
+- [x] **v127-eggs 17 用例**：拍点窗口账/错拍账/字幕零新增/daze
+      边界与让位闸/同门方位账/可闻性与声像数学账/字面=账本防漂/
+      三刀零改动复钉/纪律三数/版本钉 1.27.0；v126-eggs 版本精确
+      钉移交（同值语义）——**817/817**（32 文件，首跑即绿）
+- [x] **四连门禁全绿（改前改后各一整轮）**：`npm test` 800/800 →
+      817/817 / `npm run smoke` 5/5 ×2 / electron `--smoke` 全队列
+      EXIT=0 ×2（七厅全过·六 glb-landed·普查 195=22/37/30/24/
+      30/27/25·tp 243 / mull 244 / studio 224·双惊吓双朝向档）/
+      `npm run blender:check` 七件全过 ×2
+- [x] **Release 1.27.0**：dist:win 完整一次成型 EXIT=0（首跑 7z
+      载荷步遭 VM 瞬态进程孵化故障 EXIT=1 半成品全清，重跑一次
+      成型——不拆目标单跑）；PE32 ×2；asar 内版本 1.27.0 核对
+      （先 cd /tmp）；双 exe 95.8/96.0MiB 均 <100MiB raw 限；
+      SHA256SUMS 重写 + `sha256sum -c` 自校；DOWNLOAD 直链换轨
+      本分支 + 1.26.0 双产物同轮移除；发布产物终版冒烟复跑 EXIT=0
+
+**验证方式**：`npm test`（v127-eggs 全绿）+ electron 冒烟日志 +
+`file release/*.exe` + asar extract-file 版本核对 + DOWNLOAD.md
+新直链三方一致（exe / `__SV__.version` / v127-eggs 版本钉）。
+
 ---
 
 ## 补充说明：关于「PS5 级别」
