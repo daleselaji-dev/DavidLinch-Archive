@@ -8,6 +8,7 @@
 // 所有几何与贴图均程序化生成，无外部素材。
 // ============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   roundedBoxGeo, roundedBoxMesh, mergedMesh, xform, canvasTexture,
   woodMat, brassMat, chromeMat, ironMat, fabricMat, rng
@@ -197,19 +198,44 @@ export function cardCatalog({ cols = 4, rows = 5, mats } = {}) {
   const faceGeo = roundedBoxGeo(0.205, 0.155, 0.02, 0.008, 2);
   const pullGeo = new THREE.CylinderGeometry(0.008, 0.014, 0.05, 8);
   const frameGeo = new THREE.BoxGeometry(0.09, 0.035, 0.006);
+  // v1.12 门禁 61（二级细节）：三只「最常被拉的抽屉」——拉手被手汗磨亮
+  // （亮铜低粗糙度），拉手下方脸板漆面被指腹磨掉一圈软边光晕。
+  // 使用痕迹让 4×5 完全均匀的格子有了「谁用过它」的历史。
+  const wornSet = new Set(['1,2', '2,0', '3,3']);
+  const wornBrassGeos = [];
+  const wornHaloGeos = [];
+  const haloGeo = new THREE.PlaneGeometry(0.075, 0.055);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const x = -W / 2 + 0.16 + c * 0.24;
       const y = 0.19 + r * 0.19;
       if (r === rows - 2 && c === 1) continue; // 留给可拉抽屉
       faceGeos.push(xform(faceGeo, x, y, 0.235));
-      brassGeos.push(xform(pullGeo, x, y - 0.03, 0.255, Math.PI / 2, 0, 0));
+      const worn = wornSet.has(`${r},${c}`);
+      (worn ? wornBrassGeos : brassGeos)
+        .push(xform(pullGeo, x, y - 0.03, 0.255, Math.PI / 2, 0, 0));
       brassGeos.push(xform(frameGeo, x, y + 0.035, 0.246));
+      if (worn) wornHaloGeos.push(xform(haloGeo, x, y - 0.028, 0.2462));
     }
   }
-  faceGeo.dispose(); pullGeo.dispose(); frameGeo.dispose();
+  faceGeo.dispose(); pullGeo.dispose(); frameGeo.dispose(); haloGeo.dispose();
   g.add(mergedMesh(faceGeos, M.warmWood));
   g.add(mergedMesh(brassGeos, M.brass));
+  const polished = M.brass.clone();
+  polished.color = new THREE.Color(0xd8b878);
+  polished.roughness = 0.18;
+  g.add(mergedMesh(wornBrassGeos, polished));
+  const haloTex = canvasTexture(64, (g2, s) => {
+    const rad = g2.createRadialGradient(s / 2, s / 2, 2, s / 2, s / 2, s / 2);
+    rad.addColorStop(0, 'rgba(224,198,150,0.5)');
+    rad.addColorStop(0.55, 'rgba(224,198,150,0.22)');
+    rad.addColorStop(1, 'rgba(224,198,150,0)');
+    g2.fillStyle = rad;
+    g2.fillRect(0, 0, s, s);
+  });
+  g.add(mergedMesh(wornHaloGeos, new THREE.MeshStandardMaterial({
+    map: haloTex, transparent: true, depthWrite: false, roughness: 0.45
+  })));
   // 可拉抽屉（独立部件：面板 + 屉体 + 卡片）
   const drawer = new THREE.Group();
   const dFace = roundedBoxMesh(0.205, 0.155, 0.02, 0.008, M.warmWood);
@@ -268,9 +294,45 @@ export function jukebox({ mats } = {}) {
     grillGeos.push(xform(barGeo, -0.28 + i * 0.07, 0.46, 0.315));
   }
   barGeo.dispose();
+  // v1.12 门禁 61（二级细节）：投币口——按键排右肩一块竖装铜板
+  // （面板上唯一会被手指摸亮的地方），板上一道竖槽由两条凸棱夹出，
+  // 槽下一粒退币钮。并进格栅黄铜网格：零新增 mesh。
+  grillGeos.push(xform(new THREE.BoxGeometry(0.07, 0.13, 0.012), 0.31, 0.78, 0.328, -0.5, 0, 0));
+  grillGeos.push(xform(new THREE.BoxGeometry(0.012, 0.052, 0.008), 0.296, 0.802, 0.34, -0.5, 0, 0));
+  grillGeos.push(xform(new THREE.BoxGeometry(0.012, 0.052, 0.008), 0.324, 0.802, 0.34, -0.5, 0, 0));
+  grillGeos.push(xform(new THREE.CylinderGeometry(0.013, 0.016, 0.01, 10), 0.31, 0.742, 0.352, Math.PI / 2 - 0.5, 0, 0));
   g.add(mergedMesh(grillGeos, M.brass));
+  // v1.12 门禁 61（二级细节）：显示窗从「一条空白琥珀」变成**选曲标签架**
+  // ——两列纸条、条上一道虚线示意曲名（无真实文字，合规），左缘一列
+  // 圆孔是换标签的抽针位。亮灯时逐条被点亮（emissiveMap 同贴图）。
+  const titleTex = canvasTexture(256, (g2, s) => {
+    g2.fillStyle = '#141018';
+    g2.fillRect(0, 0, s, s);
+    const tr = rng(43);
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 2; col++) {
+        const x = 14 + col * 122, y = 22 + row * 44;
+        g2.fillStyle = `rgba(232,226,208,${0.82 + tr() * 0.14})`;
+        g2.fillRect(x, y, 106, 30);
+        g2.fillStyle = 'rgba(40,30,26,0.7)';
+        const dashes = 3 + Math.floor(tr() * 3);
+        let dx = x + 8;
+        for (let d = 0; d < dashes; d++) {
+          const w = 10 + tr() * 22;
+          g2.fillRect(dx, y + 13, w, 3.5);
+          dx += w + 6;
+          if (dx > x + 96) break;
+        }
+        g2.beginPath();
+        g2.fillStyle = '#0a0a10';
+        g2.arc(x + 3, y + 15, 2.5, 0, Math.PI * 2);
+        g2.fill();
+      }
+    }
+  });
   const windowMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a10, emissive: 0xffca7a, emissiveIntensity: 0.35
+    color: 0xffffff, map: titleTex,
+    emissive: 0xffca7a, emissiveMap: titleTex, emissiveIntensity: 0.2
   });
   const win = roundedBoxMesh(0.56, 0.2, 0.02, 0.01, windowMat);
   win.position.set(0, 0.98, 0.29);
@@ -293,7 +355,7 @@ export function jukebox({ mats } = {}) {
   g.userData.setOn = (on) => {
     tubeMat.emissiveIntensity = on ? 3.4 : 1.2;
     tubeMat2.emissiveIntensity = on ? 3.2 : 1.0;
-    windowMat.emissiveIntensity = on ? 1.1 : 0.35;
+    windowMat.emissiveIntensity = on ? 0.8 : 0.2;
     glow.intensity = on ? 7 : 0;
   };
   g.userData.tubeMats = [tubeMat, tubeMat2];
@@ -319,7 +381,11 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
     // 发动机舱盖脊线
     xform(roundedBoxGeo(1.4, 0.16, 0.5, 0.07), 1.35, 1.03, 0),
     // 行李箱斜背
-    xform(roundedBoxGeo(0.9, 0.4, 1.3, 0.16), -1.72, 0.95, 0, 0, 0, 0.35)
+    xform(roundedBoxGeo(0.9, 0.4, 1.3, 0.16), -1.72, 0.95, 0, 0, 0, 0.35),
+    // v1.12 D-10：B 柱 ×2 + 分体风挡中柱——窗带不再连成一圈玻璃环
+    xform(new THREE.BoxGeometry(0.07, 0.48, 0.03), 0.02, 1.3, 0.735),
+    xform(new THREE.BoxGeometry(0.07, 0.48, 0.03), 0.02, 1.3, -0.735),
+    xform(new THREE.BoxGeometry(0.03, 0.44, 0.05), 0.61, 1.3, 0)
   ];
   g.add(mergedMesh(bodyGeos, paint));
   // 翼子板（半embedded 球壳拉长）+ 踏板
@@ -363,11 +429,13 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
   ], new THREE.MeshStandardMaterial({ color: 0x3a0508, emissive: 0xd4243c, emissiveIntensity: 0.4 }));
   g.add(tail);
   // 车窗（整体镶入的深色玻璃）
+  // v1.12 D-10（贴脸病灶）：旧版直角玻璃盒比圆角舱壳还宽 0.02——舱体
+  // 的圆角全被它盖住、车顶读成硬盒 → 玻璃改圆角盒（窗带仍微凸于舱壳）
   const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0x0a1218, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.85,
     envMapIntensity: 1.6
   });
-  g.add(new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.44, 1.44), glassMat)
+  g.add(new THREE.Mesh(roundedBoxGeo(1.84, 0.44, 1.46, 0.13), glassMat)
     .translateX(-0.32).translateY(1.32));
   // v1.4 v2.5（P3 装配感）：门缝线 + 铬门把手 + 引擎盖飞饰 + 侧后视镜 + 排气尾管
   const seamGeos = [];
@@ -401,7 +469,23 @@ export function sedanCar({ color = 0x11161c, mats } = {}) {
     capGeos.push(xform(capGeo, x, 0.36, z + (z > 0 ? 0.06 : -0.06), z > 0 ? Math.PI / 2 : -Math.PI / 2, 0, 0));
   }
   tireGeo.dispose(); capGeo.dispose();
-  g.add(mergedMesh(tireGeos, new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.92 })));
+  // v1.12 D-10：白圈胎壁——夜街里纯黑轮胎隐形、轮拱只剩黑洞；40 年代
+  // 流线正好是白壁胎的年代（一圈灰白把四只轮子从夜里捞回来）。
+  // 胎与白圈 useGroups 合成单 mesh 双材质，网格数不变
+  const wallGeos = [];
+  const wallRing = new THREE.RingGeometry(0.185, 0.272, 18);
+  for (const [x, z] of [[1.32, 0.78], [1.32, -0.78], [-1.32, 0.78], [-1.32, -0.78]]) {
+    wallGeos.push(xform(wallRing, x, 0.36, z + (z > 0 ? 0.115 : -0.115), 0, z > 0 ? 0 : Math.PI, 0));
+  }
+  wallRing.dispose();
+  const tirePart = mergeGeometries(tireGeos, false);
+  const wallPart = mergeGeometries(wallGeos, false);
+  const tireAll = mergeGeometries([tirePart, wallPart], true);
+  for (const gg of [...tireGeos, ...wallGeos, tirePart, wallPart]) gg.dispose();
+  g.add(new THREE.Mesh(tireAll, [
+    new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.92 }),
+    new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.85 })
+  ]));
   g.add(mergedMesh(capGeos, M.chrome));
   const headLightL = new THREE.SpotLight(0xffe9c0, 0, 16, 0.5, 0.5, 1.4);
   headLightL.position.set(2.05, 0.86, 0);
@@ -570,10 +654,26 @@ export function ticketBooth({ mats } = {}) {
   g.add(sill);
   const bowlMat = M.brass.clone();
   bowlMat.side = THREE.DoubleSide;
-  const bowl = new THREE.Mesh(lathe([
+  // v1.12 门禁 61（二级细节）：柜台从「一块板上放一只碟」升级成
+  // **交易五金组**——出票槽（双板夹一道 8mm 缝，缝里透出台面的暗
+  // 木色）+ 台缘防磨铜条（几十年手肘和硬币磨出来的那一条）+ 碟侧
+  // 固定螺钉。全部并进碗的黄铜网格：零新增 mesh。
+  const bowlGeo = lathe([
     [0.002, 0], [0.055, 0.008], [0.085, 0.03], [0.1, 0.052], [0.105, 0.055]
-  ], 18), bowlMat);
-  bowl.position.set(0, 1.178, 0.52);
+  ], 18).translate(0, 1.178, 0.52);
+  const slotPlate = new THREE.BoxGeometry(0.16, 0.006, 0.038);
+  const slotCap = new THREE.BoxGeometry(0.025, 0.006, 0.008);
+  const bowl = mergedMesh([
+    bowlGeo,
+    xform(slotPlate, -0.28, 1.1785, 0.499),
+    xform(slotPlate, -0.28, 1.1785, 0.545),
+    xform(slotCap, -0.3475, 1.1785, 0.522),
+    xform(slotCap, -0.2125, 1.1785, 0.522),
+    xform(new THREE.BoxGeometry(1.06, 0.01, 0.018), 0, 1.172, 0.683),
+    xform(new THREE.CylinderGeometry(0.007, 0.009, 0.005, 8), -0.125, 1.1785, 0.52),
+    xform(new THREE.CylinderGeometry(0.007, 0.009, 0.005, 8), 0.125, 1.1785, 0.52)
+  ], bowlMat);
+  slotPlate.dispose(); slotCap.dispose();
   g.add(bowl);
   g.userData.bowl = bowl;
   // 二折折窗：左扇铰在左立柱，右扇铰在左扇右缘
@@ -808,10 +908,12 @@ export function angleLamp({ shadeColor = 0x1c4232, mats } = {}) {
   const shade = new THREE.Mesh(shadeGeo, enamel);
   shade.position.set(-0.12, 0.82, 0);
   shade.rotation.z = 0.7;
-  const bulbMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a0, emissiveIntensity: 3 });
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
-  bulb.position.set(-0.19, 0.74, 0);
-  const light = new THREE.PointLight(0xffd9a0, 5, 8, 1.8);
+  // v1.12 D-11 克制化：灯泡缩小并塞进罩腔（侧看只见罩下辉光、不见裸球），
+  // 发光与点光强度回落、照射半径收拢——光池留在桌面，不吃掉半个房间
+  const bulbMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd9a0, emissiveIntensity: 2 });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), bulbMat);
+  bulb.position.set(-0.172, 0.758, 0);
+  const light = new THREE.PointLight(0xffd9a0, 3.4, 5.5, 1.8);
   light.position.set(-0.24, 0.72, 0);
   g.add(shade, bulb, light);
   g.userData.light = light;
@@ -968,11 +1070,15 @@ export function typewriter({ mats } = {}) {
     pp.setZ(i, Math.pow(Math.max(0, pp.getY(i)), 2) * -0.6);
   }
   paperGeo.computeVertexNormals();
+  // v1.12 D-11：纸页压一档 + 打满行——台灯直射下过亮的空白纸会被
+  // bloom 读成发光板；行密了之后即便偏亮也读得出「一页打了一半的字」
   const paperTex = canvasTexture(128, (g2, s) => {
-    g2.fillStyle = '#e4dcc8';
+    g2.fillStyle = '#d8cfb8';
     g2.fillRect(0, 0, s, s);
-    g2.fillStyle = 'rgba(30,26,22,0.75)';
-    for (let i = 0; i < 6; i++) g2.fillRect(18, 22 + i * 14, 30 + (i * 37) % 60, 3);
+    g2.fillStyle = 'rgba(30,26,22,0.72)';
+    for (let i = 0; i < 11; i++) g2.fillRect(18, 16 + i * 9, 26 + (i * 37) % 68, 2.5);
+    // 半行停在中途——像被打断的那一句
+    g2.fillRect(18, 16 + 11 * 9, 14, 2.5);
   });
   const paper = new THREE.Mesh(paperGeo, new THREE.MeshStandardMaterial({
     map: paperTex, roughness: 0.9, side: THREE.DoubleSide
@@ -1344,16 +1450,34 @@ export function viewScope({ mats } = {}) {
   const ped = new THREE.Mesh(pedGeo, M.iron);
   g.add(ped);
   const headGroup = new THREE.Group();
+  // v1.12 门禁 60（中尺度装配感）：叉架补**轴销螺栓**——镜头俯仰的
+  // 转轴不再是「筒悬在两块板中间」
   const fork = mergedMesh([
     xform(new THREE.BoxGeometry(0.03, 0.16, 0.05), -0.1, 0.05, 0),
     xform(new THREE.BoxGeometry(0.03, 0.16, 0.05), 0.1, 0.05, 0),
-    xform(new THREE.BoxGeometry(0.22, 0.03, 0.05), 0, -0.03, 0)
+    xform(new THREE.BoxGeometry(0.22, 0.03, 0.05), 0, -0.03, 0),
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 0.026, 10), -0.118, 0.1, 0, 0, 0, Math.PI / 2),
+    xform(new THREE.CylinderGeometry(0.022, 0.022, 0.026, 10), 0.118, 0.1, 0, 0, 0, Math.PI / 2)
   ], M.iron);
+  // v1.12 门禁 60：投币观景镜的标志解剖补齐——**双目眼罩板**（单筒
+  // 望远镜读感 → 眺望台双目镜读感）、**两侧持握把手**（扶着转的那
+  // 两根）、物镜圈、投币缝 + 退币钮。全并进筒身镀铬网格：零新增 mesh。
   const scopeBody = mergedMesh([
     xform(new THREE.CylinderGeometry(0.075, 0.09, 0.3, 14), -0.0, 0.1, -0.05, Math.PI / 2, 0, 0),
     xform(new THREE.CylinderGeometry(0.045, 0.05, 0.12, 12), -0.0, 0.1, 0.16, Math.PI / 2, 0, 0),
-    // 投币盒
-    xform(roundedBoxGeo(0.08, 0.1, 0.05, 0.01), 0, -0.02, 0.12)
+    // 双目眼罩板 + 左右眼罩筒
+    xform(roundedBoxGeo(0.115, 0.075, 0.02, 0.012), 0, 0.1, 0.226),
+    xform(new THREE.CylinderGeometry(0.021, 0.025, 0.045, 10), -0.029, 0.1, 0.245, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.021, 0.025, 0.045, 10), 0.029, 0.1, 0.245, Math.PI / 2, 0, 0),
+    // 物镜圈（前端唇缘）
+    xform(new THREE.TorusGeometry(0.086, 0.009, 8, 18), 0, 0.1, -0.198),
+    // 两侧持握把手（斜向外下）
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.15, 8), -0.105, 0.05, 0.06, 0, 0, 0.55),
+    xform(new THREE.CylinderGeometry(0.011, 0.011, 0.15, 8), 0.105, 0.05, 0.06, 0, 0, -0.55),
+    // 投币盒 + 币缝 + 退币钮
+    xform(roundedBoxGeo(0.08, 0.1, 0.05, 0.01), 0, -0.02, 0.12),
+    xform(new THREE.BoxGeometry(0.032, 0.005, 0.014), 0, 0.032, 0.12),
+    xform(new THREE.CylinderGeometry(0.013, 0.013, 0.012, 10), 0.02, -0.05, 0.147, Math.PI / 2, 0, 0)
   ], M.chrome);
   headGroup.add(fork, scopeBody);
   headGroup.position.y = 1.16;
@@ -1691,6 +1815,21 @@ export function memorialStele({ mats } = {}) {
   );
   insc.position.set(0, 1.72, D / 2 + 0.005);
   g.add(insc);
+  // v1.12 门禁 61（二级细节）：铭文从「贴在石上的贴花」变成**装上去的
+  // 铜牌**——牌后一块带厚度的黄铜底板（边缘倒角高光探出石面一线）+
+  // 四角沉头螺钉（贴脸看的面才给五金）
+  const plaqueBack = new THREE.BoxGeometry(0.9, 0.9, 0.012);
+  const screwHead = new THREE.CylinderGeometry(0.011, 0.014, 0.006, 8);
+  const slotG = new THREE.BoxGeometry(0.014, 0.0022, 0.003);
+  g.add(mergedMesh([
+    xform(plaqueBack, 0, 1.72, D / 2 - 0.002), // 前表面 0.184，铭文面 0.185——留 1mm 防共面闪烁
+    ...[[-0.405, 2.125], [0.405, 2.125], [-0.405, 1.315], [0.405, 1.315]].flatMap(
+      ([sx, sy], si) => [
+        xform(screwHead, sx, sy, D / 2 + 0.007, Math.PI / 2, 0, 0),
+        xform(slotG, sx, sy, D / 2 + 0.0105, 0, 0, 0.6 + si * 0.9) // 螺槽各朝一向（装过的痕迹）
+      ])
+  ], M.brass));
+  plaqueBack.dispose(); screwHead.dispose(); slotG.dispose();
   // 背面：蚀刻烟纹——一缕烟从碑脚升到冠沿（原创线刻，无文字）。
   // 绕到碑后看到的不是黑板，而是这缕烟。
   const smokeTex = canvasTexture(256, (g2, s) => {
@@ -2141,13 +2280,18 @@ export function filmProjector({ mats } = {}) {
   lensTip.position.set(0, 1.1, 0.385);
   g.add(lensTip);
   // 供片/收片盘（侧板 + 三辐条 + 片饼），装在盘臂端，可旋转
+  // v1.12 巡查修正：镀铬平板映黑环境时隐形、暗厅里只剩「发光辐条」
+  // ——外缘加圈（曲面从任何角度都接得住高光，圆轮廓不丢）
   const mkReel = (filmR) => {
     const r = new THREE.Group();
     const plateGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.008, 22);
     const spokeGeo = new THREE.BoxGeometry(0.022, 0.006, 0.3);
+    const rimGeo = new THREE.TorusGeometry(0.166, 0.008, 8, 26);
     const reelGeos = [
       xform(plateGeo, -0.02, 0, 0, 0, 0, Math.PI / 2),
-      xform(plateGeo, 0.02, 0, 0, 0, 0, Math.PI / 2)
+      xform(plateGeo, 0.02, 0, 0, 0, 0, Math.PI / 2),
+      xform(rimGeo, -0.024, 0, 0, 0, Math.PI / 2, 0),
+      xform(rimGeo, 0.024, 0, 0, 0, Math.PI / 2, 0)
     ];
     for (let i = 0; i < 3; i++) {
       reelGeos.push(xform(spokeGeo, -0.021, 0, 0, i * Math.PI / 3, 0, 0));
@@ -2155,10 +2299,11 @@ export function filmProjector({ mats } = {}) {
     }
     plateGeo.dispose();
     spokeGeo.dispose();
+    rimGeo.dispose();
     r.add(mergedMesh(reelGeos, M.chrome));
     const film = new THREE.Mesh(
       new THREE.CylinderGeometry(filmR, filmR, 0.024, 20),
-      new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.55 })
+      new THREE.MeshStandardMaterial({ color: 0x1c1713, roughness: 0.5 })
     );
     film.rotation.z = Math.PI / 2;
     r.add(film);

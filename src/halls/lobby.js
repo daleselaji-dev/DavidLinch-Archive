@@ -360,6 +360,7 @@ export function build(ctx) {
     g2.fillRect(0, 0, s, s);
   });
   const doorPools = [];
+  const doorGroups = [];
   for (const d of doors) {
     const door = doorway({ label: d.label, labelZh: d.labelZh, color: d.color });
     const x = Math.cos(d.angle) * (R - 2.1);
@@ -367,6 +368,7 @@ export function build(ctx) {
     door.position.set(x, 0, z);
     door.lookAt(0, 0, 0);
     group.add(door);
+    doorGroups.push(door);
     updaters.push(door.userData.update);
     doorPortals.push(door.userData.portal);
     hotspots.add(door.userData.portal, {
@@ -390,6 +392,82 @@ export function build(ctx) {
   updaters.push((dt, t) => {
     for (const p of doorPools) {
       p.mesh.material.opacity = (0.16 + Math.sin(t * 1.7 + p.phase) * 0.07) * openGate.chand;
+    }
+  });
+
+  // ---------- v1.12 E-9：门后刚走过一个人（一次性，无字幕） ----------
+  // 本次进馆第一次走近任意一扇门时，那扇门的虚空里有个剪影横穿过
+  // 去——遮住底缘渗光与中缝竖隙，两声很轻的脚步，之后整馆不再出现。
+  // 与「帷幕后的暗影」（环幕慢巡的鼓包）机制/位置/读感均不同：这个
+  // 只在你正要进门的那一刻、在门里。抽象无面目剪影（头影 + 披落身
+  // 形，非肖像）；单 mesh（lobby +1）
+  const doorGhostTex = canvasTexture(64, (g2, s) => {
+    g2.clearRect(0, 0, s, s);
+    const blob = (cx, cy, rx, ry, a) => {
+      const grad = g2.createRadialGradient(cx, cy, 0, cx, cy, rx);
+      grad.addColorStop(0, `rgba(0,0,0,${a})`);
+      grad.addColorStop(0.7, `rgba(0,0,0,${a * 0.85})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g2.save();
+      g2.translate(cx, cy);
+      g2.scale(1, ry / rx);
+      g2.translate(-cx, -cy);
+      g2.fillStyle = grad;
+      g2.beginPath();
+      g2.arc(cx, cy, rx, 0, Math.PI * 2);
+      g2.fill();
+      g2.restore();
+    };
+    blob(32, 10, 7, 8.5, 0.95);            // 头影
+    blob(32, 30, 12, 16, 0.95);            // 肩
+    blob(32, 44, 10.5, 22, 0.92);          // 披落身形（下摆渐收）
+  });
+  const doorGhostMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 3.0),
+    new THREE.MeshBasicMaterial({
+      map: doorGhostTex, color: 0x000000, transparent: true, opacity: 0, depthWrite: false
+    })
+  );
+  doorGhostMesh.position.set(0, 1.6, 0.05);
+  doorGhostMesh.visible = false;
+  doorGroups[0].add(doorGhostMesh);
+  const doorGhost = { t: -1, fired: false, dir: 1, step1: false, step2: false };
+  const DG_DUR = 3.6;
+  updaters.push((dt) => {
+    if (doorGhost.fired && doorGhost.t < 0) return;
+    if (doorGhost.t < 0) {
+      if (openGate.chand < 1) return; // 开幕点灯前它不走
+      for (const dg of doorGroups) {
+        const d = Math.hypot(player.x - dg.position.x, player.z - dg.position.z);
+        if (d < 2.6) {
+          doorGhost.fired = true;
+          doorGhost.t = 0;
+          doorGhost.dir = Math.random() < 0.5 ? -1 : 1;
+          doorGhost.step1 = doorGhost.step2 = false;
+          dg.add(doorGhostMesh);
+          doorGhostMesh.visible = true;
+          break;
+        }
+      }
+      return;
+    }
+    doorGhost.t += dt;
+    const k = Math.min(1, doorGhost.t / DG_DUR);
+    doorGhostMesh.position.x = doorGhost.dir * (-0.78 + 1.56 * k);
+    doorGhostMesh.material.opacity = Math.sin(Math.PI * k) * 0.92;
+    const host = doorGhostMesh.parent;
+    if (!doorGhost.step1 && k > 0.3) {
+      doorGhost.step1 = true;
+      audio.sfxAt('step-wood', host.position.x, host.position.z, 0.16, 5);
+    }
+    if (!doorGhost.step2 && k > 0.62) {
+      doorGhost.step2 = true;
+      audio.sfxAt('step-wood', host.position.x, host.position.z, 0.13, 5);
+    }
+    if (k >= 1) {
+      doorGhost.t = -1;
+      doorGhostMesh.visible = false;
+      doorGhostMesh.material.opacity = 0;
     }
   });
 

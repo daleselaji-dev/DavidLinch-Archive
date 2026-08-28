@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { cornerTrigger, lurchEase, multiRectBounds } from '../src/halls/kit.js';
 import {
-  CORNER_SCARE, CORNER_EDGE, SCARE_BEATS, WAKE_POINT, WALK_RECTS, SCARE_REGION, SPAWN
+  CORNER_SCARE, CORNER_EDGE, THEATER_WALL, LURK_PATH,
+  SCARE_BEATS, WAKE_POINT, WALK_RECTS, SCARE_REGION, SPAWN
 } from '../src/halls/mulholland.js';
 
 // ============================================================
@@ -122,7 +123,9 @@ describe('拐角触发器：转过拐角那一步才是扳机', () => {
     expect(CORNER_SCARE.fov).toBeLessThanOrEqual(Math.PI);
     expect(CORNER_SCARE.cooldown).toBeGreaterThanOrEqual(45);
     expect(Number.isFinite(CORNER_SCARE.cooldown)).toBe(true); // 冷却有限 → 可重复
-    expect(Z.r).toBeGreaterThanOrEqual(1.5);
+    // v1.12 贴角化：半径下限放宽到 1.0（更小的区才贴得住拐角）；
+    // 低帧兜底另有守卫（15fps 主路径仍触发）
+    expect(Z.r).toBeGreaterThanOrEqual(1.0);
     expect(Z.r).toBeLessThanOrEqual(4);
   });
 
@@ -177,22 +180,22 @@ describe('拐角触发区几何：主惊吓就长在必经之路上', () => {
   });
 });
 
-describe('v1.11 门禁 55：触发时机钉死在拐角处（几何守卫，防再漂）', () => {
+describe('v1.12 门禁 59：触发时机钉死在拐角处（几何守卫，v1.11 的 1.4m 再收紧）', () => {
   // 顺巷南行（x=Z.x）最早可触发点 = 触发区北缘
   const zEnter = Z.z + Z.r;
 
-  it('北缘贴着拐角沿：最早触发点距拐角 ≤1.6m、不晚于拐角以南 0.3m', () => {
-    expect(zEnter - CORNER_EDGE.z).toBeLessThanOrEqual(1.6);  // 不早（老病灶 3m）
+  it('北缘贴着拐角沿：最早触发点距拐角 ≤0.7m、不晚于拐角以南 0.3m', () => {
+    expect(zEnter - CORNER_EDGE.z).toBeLessThanOrEqual(0.7);  // v1.11 为 1.4m——用户仍嫌不贴角
     expect(zEnter - CORNER_EDGE.z).toBeGreaterThanOrEqual(-0.3); // 不晚
   });
 
-  it('老病灶回归钉：直巷中段（z≥-25.0，离拐角还有 1.7m+）绝不触发', () => {
+  it('老病灶回归钉（v1.12 收紧）：直巷段 z≥-25.8 绝不触发——转过拐角那半步才是扳机', () => {
     const fire = vi.fn();
     const trig = makeTrig(fire);
-    walkLine(trig, { yaw: 0, fromZ: -20, toZ: -25.0 });
-    expect(fire).not.toHaveBeenCalled(); // v1.8–v1.10 在 z=-23.6 就炸了
-    walkLine(trig, { yaw: 0, fromZ: -25.0, toZ: -28 });
-    expect(fire).toHaveBeenCalledTimes(1); // 拐角那一步才是扳机
+    walkLine(trig, { yaw: 0, fromZ: -20, toZ: -25.8 });
+    expect(fire).not.toHaveBeenCalled(); // v1.8–v1.10 在 -23.6 就炸、v1.11 在 -25.3
+    walkLine(trig, { yaw: 0, fromZ: -25.8, toZ: -28 });
+    expect(fire).toHaveBeenCalledTimes(1);
   });
 
   it('与巷中恐惧拍（圆心 z=-21.5 r2.6）不同拍：触发区北缘在恐惧区以南', () => {
@@ -202,6 +205,82 @@ describe('v1.11 门禁 55：触发时机钉死在拐角处（几何守卫，防�
   it('拐角沿数据自洽：拐角在巷的西侧、后墙一线', () => {
     expect(CORNER_EDGE.x).toBeLessThan(Z.x);
     expect(CORNER_EDGE.z).toBeCloseTo(-26.7, 1);
+  });
+});
+
+describe('v1.12 门禁 59：黑影从拐角处挪出来（LURK_PATH 贝塞尔绕角守卫）', () => {
+  const bez = (s) => {
+    const u = 1 - s;
+    const { hide: A, corner: B, out: C } = LURK_PATH;
+    return {
+      x: u * u * A.x + 2 * u * s * B.x + s * s * C.x,
+      z: u * u * A.z + 2 * u * s * B.z + s * s * C.z
+    };
+  };
+  const W = THEATER_WALL;
+  // 线段 p→q 是否被侧墙（x=sideX, z∈[sideZ0,sideZ1]）或后墙
+  // （z=backZ, x≤backX）截断
+  const blocked = (p, q) => {
+    const dx = q.x - p.x;
+    const dz = q.z - p.z;
+    if (Math.abs(dx) > 1e-9) {
+      const t = (W.sideX - p.x) / dx;
+      if (t > 0 && t < 1) {
+        const z = p.z + dz * t;
+        if (z >= W.sideZ0 && z <= W.sideZ1) return true;
+      }
+    }
+    if (Math.abs(dz) > 1e-9) {
+      const t = (W.backZ - p.z) / dz;
+      if (t > 0 && t < 1) {
+        const x = p.x + dx * t;
+        if (x <= W.backX) return true;
+      }
+    }
+    return false;
+  };
+
+  it('藏点在剧场体内（侧墙正后方）：x<侧墙、z 在后墙以北', () => {
+    expect(LURK_PATH.hide.x).toBeLessThan(W.sideX);
+    expect(LURK_PATH.hide.z).toBeGreaterThan(W.backZ);
+    expect(LURK_PATH.hide.z).toBeLessThan(W.sideZ1);
+  });
+
+  it('从巷/空地任何可达采样点看藏点，视线都被墙截断（现身不穿帮）', () => {
+    const samples = [
+      { x: Z.x, z: Z.z + Z.r },   // 触发区北缘（最早触发点）
+      { x: Z.x, z: Z.z },         // 区中心
+      { x: Z.x, z: Z.z - Z.r },   // 区南缘（触发后继续走）
+      { x: 9.9, z: -28.5 },       // 空地东段
+      { x: 9.3, z: -30.5 },       // 空地东南角
+      { x: 8.5, z: -24 }          // 巷内贴墙
+    ];
+    for (const p of samples) {
+      expect(blocked(p, LURK_PATH.hide), `(${p.x},${p.z}) 竟能直视藏点`).toBe(true);
+    }
+  });
+
+  it('现身点贴拐角沿（≤0.45m）——「从拐角处挪出来」落在拐角本体', () => {
+    const d = Math.hypot(LURK_PATH.out.x - CORNER_EDGE.x, LURK_PATH.out.z - CORNER_EDGE.z);
+    expect(d).toBeLessThanOrEqual(0.45);
+  });
+
+  it('三顿节奏：第一顿平台仍在墙后（只闻其声）、第二顿探出拐角、第三顿全身出角', () => {
+    const p1 = bez(lurchEase(0.7 / 3, 3)); // 第一顿平台段
+    expect(p1.x).toBeLessThan(W.sideX);    // 还在侧墙后
+    const p2 = bez(lurchEase(1.7 / 3, 3)); // 第二顿平台段
+    expect(p2.x).toBeGreaterThanOrEqual(W.sideX - 0.05); // 已到墙沿/探出
+    expect(p2.z).toBeLessThan(W.sideZ0 + 0.15);          // 从墙南端点（拐角）处出来
+    const p3 = bez(1);
+    expect(p3.x).toBe(LURK_PATH.out.x);
+    expect(p3.z).toBe(LURK_PATH.out.z);
+  });
+
+  it('现身点离触发中的玩家 ~1m（贴脸但不重叠）', () => {
+    const player = { x: Z.x, z: Z.z + Z.r * 0.5 }; // 触发后半步的典型位置
+    const d = Math.hypot(player.x - LURK_PATH.out.x, player.z - LURK_PATH.out.z);
+    expect(d).toBeGreaterThan(0.55);
+    expect(d).toBeLessThan(2.0);
   });
 });
 
@@ -303,24 +382,52 @@ describe('源码级门禁：主触发是拐角、多幕素材全接线、字幕�
     expect(eng).toContain("case 'dreadswell'");
   });
 
-  it('v1.11 魅影 v2：兜帽空腔 / 第二层破披撕口 / 三指 / 冻住时红光在呼吸', () => {
+  it('v1.12 魅影 v3：披垂发帘 + 成绺长发 + 眼窝空洞（环红芯黑）+ 头枢轴 / 破披三指保留', () => {
     const kit = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
-    expect(kit).toContain('hoodVoid');
-    expect(kit).toContain('capeGeo');
-    expect(kit).toContain('tear[');
-    expect(kit).toContain('fingerGeos');
-    // setLurch 里有 emissiveIntensity 的时基搏动（身体冻住，红光在呼吸）
+    expect(kit).not.toContain('hoodVoid');   // 兜帽语言退役——换披发语言
+    expect(kit).toContain('hairMat');        // 发丝材质（冷暗高光）
+    expect(kit).toContain('hemTear');        // 下摆 seeded 参差发梢
+    expect(kit).toContain('strandAngles');   // 成绺长发 ×9
+    expect(kit).toContain('eyeMat');         // 眼窝外环（极暗红 emissive）
+    expect(kit).toContain('voidMat');        // 眼窝内芯（纯黑无光）
+    expect(kit).toContain('headPivot');      // 顿挪抬头的头枢轴
+    expect(kit).toContain('capeGeo');        // v1.11 破披保留
+    expect(kit).toContain('fingerGeos');     // v1.11 三指保留
+    // 发帘是局部车削：前脸留开口（洞里是眼窝），不是整圈罩住
+    expect(kit).toMatch(/LatheGeometry\(\s*hairProf, 40, OPEN_HALF, Math\.PI \* 2 - OPEN_HALF \* 2\)/);
     const lurchBody = /setLurch = \(s, t = 0\) => \{[^]*?\};/.exec(kit)?.[0] ?? '';
+    // 身体冻住时红光在呼吸（v1.11 保留）
     expect(lurchBody).toMatch(/emissiveIntensity = [^;]*Math\.sin\(t/);
-    // 越挪越前倾：rotation.x 随 s 增长（每顿定格在更近的一档）
+    // 越挪越前倾（v1.11 保留）
     expect(lurchBody).toMatch(/rotation\.x = 0\.12 \+ s \*/);
+    // v1.12：头一档一档抬起（headPivot 随 s 后仰，平台段随 s 冻住）
+    expect(lurchBody).toMatch(/headPivot\.rotation\.x = -\(0\.06 \+ s \*/);
+    // v1.12：眼窝环呼吸（与红光错相位）
+    expect(lurchBody).toMatch(/eyeMat\.emissiveIntensity = [^;]*Math\.sin\(t/);
+    // v1.12 抛光：身体冻住时发帘还在极缓地摆（t 基慢摆，频率与身体拍
+    // 无关——惯性没停，它不是雕像）
+    expect(lurchBody).toMatch(/hair\.rotation\.z = Math\.sin\(t \* 1\.7\)/);
+    expect(lurchBody).toMatch(/hair\.rotation\.x = Math\.sin\(t \* 1\.15/);
+    // rush 拍眼窝烧起来 + 发帘后甩叠高频扑动（锚在 cornerWraith 段内——
+    // veiledFigure 也有 setRush）
+    const wraithSrc = kit.slice(kit.indexOf('export function cornerWraith'));
+    const rushBody = /setRush = \(k, t = 0\) => \{[^]*?\};/.exec(wraithSrc)?.[0] ?? '';
+    expect(rushBody).toMatch(/eyeMat\.emissiveIntensity = 1\.2 \+ k \*/);
+    expect(rushBody).toMatch(/hair\.rotation\.x = -0\.14 \* k/);
+    expect(rushBody).toMatch(/hair\.rotation\.z = Math\.sin\(t \* 13\)/);
   });
 
-  it('v1.11 冒烟路径同步：routeA 停在新北缘外、进区步落在拐角本体', () => {
+  it('v1.12 冒烟路径同步：routeA 停在新北缘外、进区步落在贴角圆心', () => {
     const cjs = readFileSync(new URL('../electron/main.cjs', import.meta.url), 'utf8');
-    expect(cjs).toContain('[9.3, -24.6]');   // 停点在北缘 z≈-25.3 外
-    expect(cjs).toContain('[[9.3, -26.9]]'); // 进区步 = 拐角本体圆心
-    expect(cjs).not.toContain('[9.3, -23.2]'); // 老停点（直巷中段）必须消失
+    expect(cjs).toContain('[9.3, -24.6]');   // 停点在北缘 z≈-26.05 外
+    expect(cjs).toContain('[[9.3, -27.2]]'); // 进区步 = 贴角圆心（v1.12）
+    expect(cjs).not.toContain('[[9.3, -26.9]]'); // v1.11 进区步必须消失
+    expect(cjs).not.toContain('[9.3, -23.2]');   // 老停点（直巷中段）必须消失
+  });
+
+  it('v1.12 绕角路径接线：lurch 拍走 lurkBez 贝塞尔、刮擦声钉在拐角沿', () => {
+    expect(src).toContain('lurkBez(s, wraith.position)');
+    expect(src).toContain("audio.sfxAt('scrape', CORNER_EDGE.x, CORNER_EDGE.z");
   });
 
   it('展厅字幕全部 ≤22 字（门禁 19 口径）', () => {

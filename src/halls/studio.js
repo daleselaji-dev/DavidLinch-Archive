@@ -394,19 +394,34 @@ export function build(ctx) {
     deckBody.position.y = 0.045;
     deck.add(deckBody);
     const reelMat = new THREE.MeshStandardMaterial({ color: 0x232528, roughness: 0.35, metalness: 0.7 });
-    const tapeMat = new THREE.MeshStandardMaterial({ color: 0x2e1d12, roughness: 0.6 });
+    const tapeMat = new THREE.MeshStandardMaterial({ color: 0x33200f, roughness: 0.55 });
+    // v1.12 D-6（INSPECT 病灶）：旧盘=底片+三辐+带饼全同色，俯视读成
+    // 两个平贴黑圆片；且左右盘之间没有磁带——「刚倒完一半」没有实体。
+    // 盘解剖重做：底法兰 + 暖褐带饼（法兰间露侧缘）+ 上法兰（车削
+    // 环缘 + 三辐，窗口里透出下面的带饼）+ 轴毂与六角主轴螺帽
+    const flangeMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.3, metalness: 0.85 });
     const mkReel = (rx, tapeR) => {
       const reel = new THREE.Group();
-      reel.add(new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, 0.01, 20), reelMat));
-      const spoke = new THREE.BoxGeometry(0.17, 0.014, 0.02);
+      const rimGeo = new THREE.LatheGeometry([
+        new THREE.Vector2(0.086, 0.022), new THREE.Vector2(0.105, 0.022),
+        new THREE.Vector2(0.105, 0.0265), new THREE.Vector2(0.086, 0.0265),
+        new THREE.Vector2(0.086, 0.022)
+      ], 24);
+      const spokeGeo = new THREE.BoxGeometry(0.176, 0.0045, 0.026);
       reel.add(mergedMesh([
-        xform(spoke, 0, 0.004, 0), xform(spoke, 0, 0.004, 0, 0, Math.PI / 3, 0),
-        xform(spoke, 0, 0.004, 0, 0, -Math.PI / 3, 0),
-        xform(new THREE.CylinderGeometry(0.022, 0.022, 0.022, 10), 0, 0.008, 0)
-      ], reelMat));
+        xform(new THREE.CylinderGeometry(0.105, 0.105, 0.008, 24), 0, 0, 0), // 底法兰
+        xform(rimGeo, 0, 0, 0),                                              // 上法兰环缘
+        xform(spokeGeo, 0, 0.024, 0),                                        // 三辐（辐间即窗口）
+        xform(spokeGeo, 0, 0.024, 0, 0, Math.PI / 3, 0),
+        xform(spokeGeo, 0, 0.024, 0, 0, -Math.PI / 3, 0),
+        xform(new THREE.CylinderGeometry(0.024, 0.026, 0.034, 12), 0, 0.019, 0),
+        xform(new THREE.CylinderGeometry(0.0115, 0.0115, 0.009, 6), 0, 0.0405, 0)
+      ], flangeMat));
+      rimGeo.dispose();
+      spokeGeo.dispose();
       if (tapeR > 0) {
-        const tape = new THREE.Mesh(new THREE.CylinderGeometry(tapeR, tapeR, 0.008, 18), tapeMat);
-        tape.position.y = -0.002;
+        const tape = new THREE.Mesh(new THREE.CylinderGeometry(tapeR, tapeR, 0.013, 20), tapeMat);
+        tape.position.y = 0.0115;
         reel.add(tape);
       }
       reel.position.set(rx, 0.098, -0.05);
@@ -415,15 +430,36 @@ export function build(ctx) {
     };
     const reelL = mkReel(-0.125, 0.082); // 左盘满
     const reelR = mkReel(0.125, 0.03);   // 右盘几乎空
-    // 走带头桥 + 旋钮 + VU 小窗（琥珀微光，放音时呼吸）
+    // 走带头桥 + 导带柱 + VU 小窗（琥珀微光，放音时呼吸）
+    // v1.12 D-6：补磁头罩盖（桥上鼓起那块）+ 主导轴 + VU 铝框（旧版
+    // VU 面片直接漂在机身前脸上，读成一张橙色贴纸）
     const vuMat = new THREE.MeshStandardMaterial({
       color: 0x1a1408, emissive: 0xffb45e, emissiveIntensity: 0.25, roughness: 0.6
     });
     deck.add(mergedMesh([
       xform(new THREE.BoxGeometry(0.2, 0.03, 0.05), 0, 0.1, 0.1),
       xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), -0.19, 0.1, 0.11),
-      xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), 0.19, 0.1, 0.11)
+      xform(new THREE.CylinderGeometry(0.016, 0.02, 0.03, 10), 0.19, 0.1, 0.11),
+      xform(roundedBoxGeo(0.09, 0.036, 0.05, 0.006, 2), 0, 0.112, 0.1),      // 磁头罩盖
+      xform(new THREE.CylinderGeometry(0.005, 0.005, 0.042, 8), 0.1, 0.104, 0.124), // 主导轴
+      xform(new THREE.BoxGeometry(0.106, 0.042, 0.007), 0, 0.0773, 0.1671, -0.18, 0, 0) // VU 铝框
     ], reelMat));
+    // v1.12 D-6：磁带走带路径——左盘沿→导柱前脸→（主导轴+压带轮夹缝）
+    // →导柱→右盘沿。丝带是静态的：转的是盘，带在桥上是绷直的
+    const mkStrand = (x1, z1, x2, z2) => {
+      const len = Math.hypot(x2 - x1, z2 - z1);
+      const src = new THREE.BoxGeometry(len, 0.012, 0.0016);
+      const g = xform(src, (x1 + x2) / 2, 0.109, (z1 + z2) / 2,
+        0, Math.atan2(-(z2 - z1), x2 - x1), 0);
+      src.dispose();
+      return g;
+    };
+    deck.add(mergedMesh([
+      mkStrand(-0.183, 0.008, -0.19, 0.129),  // 左盘沿 → 左导柱
+      mkStrand(-0.19, 0.129, 0.19, 0.129),    // 横越磁头桥前脸
+      mkStrand(0.19, 0.129, 0.146, -0.029),   // 右导柱 → 右盘沿（近空盘）
+      xform(new THREE.CylinderGeometry(0.009, 0.009, 0.02, 10), 0.1, 0.108, 0.138) // 压带轮（橡胶）
+    ], tapeMat));
     const vu = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.028), vuMat);
     vu.position.set(0, 0.078, 0.171);
     vu.rotation.x = -0.18;
@@ -1011,9 +1047,11 @@ export function build(ctx) {
   lamp.rotation.y = Math.PI / 2 + 0.6;
   group.add(lamp);
   updaters.push((dt, t) => {
+    // v1.12 D-11 克制化：5/3 → 3.4/2——桌角一汪暖光，不再把纸页
+    // 烧成发光板（光/声克制审视项）
     const f = (1 + Math.sin(t * 7.2) * 0.05) * lampState.on;
-    lamp.userData.light.intensity = 5 * f;
-    lamp.userData.bulbMat.emissiveIntensity = 3 * Math.max(0.03, f);
+    lamp.userData.light.intensity = 3.4 * f;
+    lamp.userData.bulbMat.emissiveIntensity = 1.4 * Math.max(0.03, f);
   });
   hotspots.add(lamp.userData.shade, {
     hint: 'E — 台灯（他的绿罩台灯）',
@@ -1173,6 +1211,23 @@ export function build(ctx) {
   );
   canvasMesh.position.set(0, 1.35, 0.06);
   canvasMesh.rotation.x = -0.08;
+  // v1.12 门禁 61（二级细节）：画布不再是「一块光板盒」——背面装上
+  // 绷画布的**内框**：四边撑条 + 中横档 + 四角撑楔（生松木色，画布
+  // 反面才有的构造语言；观众能绕到画架背后）。挂 canvasMesh 名下
+  // 跟画同倾角。
+  const backFrameMat = new THREE.MeshStandardMaterial({ color: 0xcbb287, roughness: 0.9 });
+  const keyG = new THREE.BoxGeometry(0.024, 0.024, 0.01);
+  const backFrame = mergedMesh([
+    xform(new THREE.BoxGeometry(0.92, 0.05, 0.018), 0, 0.555, -0.03),
+    xform(new THREE.BoxGeometry(0.92, 0.05, 0.018), 0, -0.555, -0.03),
+    xform(new THREE.BoxGeometry(0.05, 1.06, 0.018), -0.455, 0, -0.03),
+    xform(new THREE.BoxGeometry(0.05, 1.06, 0.018), 0.455, 0, -0.03),
+    xform(new THREE.BoxGeometry(0.92, 0.055, 0.014), 0, 0, -0.028),
+    ...[[-0.42, 0.52], [0.42, 0.52], [-0.42, -0.52], [0.42, -0.52]].map(
+      ([kx, ky]) => xform(keyG, kx, ky, -0.036, 0, 0, Math.PI / 4))
+  ], backFrameMat);
+  keyG.dispose();
+  canvasMesh.add(backFrame);
   easel.add(canvasMesh);
   easel.position.set(-4.6, 0, -4.6);
   easel.rotation.y = 0.85;

@@ -287,6 +287,34 @@ export function build(ctx) {
   pines.count = placed;
   trunks.count = placed;
   group.add(pines, trunks);
+  // v1.12 门禁 60：林地散布件——三根倒木（路侧可见、离步道 2.5m+ 不挡路）。
+  // 每根：渐细主干斜卧微沉 + 厚端根盘（劈裂缘）+ 两根断枝残桩，
+  // 复用树皮材质合并单 mesh（+1 mesh 零新材质）。
+  const logR = rng(97);
+  const logGeos = [];
+  for (const [lx, lz, lyaw] of [[13.6, 16.8, 0.7], [2.6, -16.2, -0.9], [-9.2, -11.8, 2.3]]) {
+    const len = 2.6 + logR() * 1.1;
+    const rr = 0.13 + logR() * 0.05;
+    const main = new THREE.CylinderGeometry(rr * 0.72, rr, len, 9, 1);
+    main.rotateZ(Math.PI / 2); // 卧倒（沿 x）
+    logGeos.push(xform(main, lx, rr * 0.62, lz, 0.04, lyaw, 0));
+    // 厚端根盘：压扁的短锥（断根劈裂缘朝外）
+    const root = new THREE.CylinderGeometry(rr * 2.1, rr * 1.5, 0.12, 9);
+    root.rotateZ(Math.PI / 2);
+    logGeos.push(xform(root,
+      lx - Math.cos(lyaw) * (len / 2), rr * 1.15, lz + Math.sin(lyaw) * (len / 2),
+      0.04, lyaw, 0.12));
+    for (let bi = 0; bi < 2; bi++) { // 断枝残桩 ×2（朝上参差）
+      const bl = 0.22 + logR() * 0.2;
+      const stub = new THREE.CylinderGeometry(0.02, 0.038, bl, 5);
+      stub.translate(0, bl / 2, 0);
+      const along = (logR() - 0.5) * len * 0.6;
+      logGeos.push(xform(stub,
+        lx + Math.cos(lyaw) * along, rr * 1.1, lz - Math.sin(lyaw) * along,
+        (logR() - 0.5) * 0.9, logR() * Math.PI, (logR() - 0.5) * 0.9));
+    }
+  }
+  group.add(mergedMesh(logGeos, trunkMat));
 
   // ============================================================
   // ① 林间空地 —— 红帷幕之门
@@ -304,7 +332,15 @@ export function build(ctx) {
   curtainL.position.set(-0.85, 1.8, 0);
   const curtainR = curtain(1.6, 3.6, PALETTE.velvet, 3, gateMat);
   curtainR.position.set(0.85, 1.8, 0);
-  const lintelC = curtain(3.6, 0.9, PALETTE.velvet, 6, gateMat);
+  // v1.12 D-14：楣幕顶缘收口——裸 curtain 的褶裥剖面在顶端直接断口，
+  // 衬着夜空读成锯齿几何缺陷。加一根同料帘头卷（缝进顶边的卷边）
+  // 并进楣幕单 mesh（tp 240 贴顶纪律，网格数守恒）
+  const lintelSrc = curtain(3.6, 0.9, PALETTE.velvet, 6, gateMat);
+  const lintelC = mergedMesh([
+    xform(lintelSrc.geometry.clone(), 0, 0, 0),
+    xform(new THREE.CapsuleGeometry(0.13, 3.42, 6, 12), 0, 0.46, 0.02, 0, 0, Math.PI / 2)
+  ], gateMat);
+  lintelSrc.geometry.dispose();
   lintelC.position.set(0, 3.55, 0);
   const glowPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(1.2, 3.4),
@@ -822,11 +858,31 @@ export function build(ctx) {
     ], 18),
     rrBrass
   ));
+  // v1.12 D-12：丝罩透光改竖向渐变（灯泡高度最亮、上下沿收暗）+
+  // 绢面拼幅缝 8 道——此前 0.7 平铺整罩被 bloom 读成发光块，
+  // 流苏穗全部淹没在辉光里（光克制审视项）
+  const rrShadeGlowTex = canvasTexture(64, (g, s) => {
+    const grad = g.createLinearGradient(0, 0, 0, s);
+    grad.addColorStop(0, '#5a4830');
+    grad.addColorStop(0.42, '#ffe2b0');
+    grad.addColorStop(0.72, '#c9a878');
+    grad.addColorStop(1, '#6e5638');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(60,44,24,0.55)';
+    g.lineWidth = 1.5;
+    for (let i = 0; i < 8; i++) {
+      g.beginPath();
+      g.moveTo((i / 8) * s, 0);
+      g.lineTo((i / 8) * s, s);
+      g.stroke();
+    }
+  });
   const rrShade = new THREE.Mesh(
     new THREE.CylinderGeometry(0.2, 0.31, 0.3, 18, 1, true),
     new THREE.MeshStandardMaterial({
       color: 0xd8ccb2, roughness: 0.82, side: THREE.DoubleSide,
-      emissive: 0xffe2b0, emissiveIntensity: 0.7
+      emissive: 0xffffff, emissiveMap: rrShadeGlowTex, emissiveIntensity: 0.5
     })
   );
   rrShade.position.y = 1.78;
@@ -1655,8 +1711,13 @@ export function build(ctx) {
   menuBoard.position.set(31.55, 2.45, -7.8);
   dinerInner.add(menuBoard);
   // 柜台（v1.4 P2 欠账落地：五十年代 boomerang 层压板台面 + 金属包边踢脚）
+  // v1.12 D-15 克制化：近白底 + clearcoat 0.65 + env 1.2 在双吊灯正下
+  // 方整面镜面爆白（boomerang 纹样全部淹没）——底色压一档、蜡面收敛
   const counterTop = roundedBoxMesh(1.1, 0.1, 6.4, 0.04,
-    boomerangMat({ bg: [232, 222, 198], tones: ['#b8a682', '#8f2032', '#3a4652'], size: 512, seed: 37, repX: 2, repY: 6 }));
+    boomerangMat({
+      bg: [214, 203, 178], tones: ['#b8a682', '#8f2032', '#3a4652'],
+      size: 512, seed: 37, repX: 2, repY: 6, clearcoat: 0.4, env: 0.7
+    }));
   counterTop.position.set(30.7, 1.06, -7.8);
   const counterBody = roundedBoxMesh(0.95, 1.0, 6.3, 0.04,
     new THREE.MeshStandardMaterial({ color: 0x321820, roughness: 0.55 }));
@@ -1691,23 +1752,69 @@ export function build(ctx) {
   const pieGroup = new THREE.Group();
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.03, 22),
     new THREE.MeshStandardMaterial({ color: 0xe8e2d5, roughness: 0.3 }));
-  const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.09, 20),
-    new THREE.MeshStandardMaterial({
-      map: canvasTexture(128, (g, s) => {
-        g.fillStyle = '#8a4a1c';
-        g.fillRect(0, 0, s, s);
-        g.strokeStyle = '#5c2c10';
-        g.lineWidth = 5;
-        for (let i = 0; i < 5; i++) {
-          g.beginPath(); g.moveTo((i / 5) * s + 12, 0); g.lineTo((i / 5) * s + 12, s); g.stroke();
-          g.beginPath(); g.moveTo(0, (i / 5) * s + 12); g.lineTo(s, (i / 5) * s + 12); g.stroke();
-        }
-      }),
-      roughness: 0.7
-    }));
-  pie.position.y = 0.06;
+  // v1.12 门禁 61（二级细节）：派从「圆柱上画格子」升级成**真格纹派**——
+  // 酥皮壁（开口圆柱）+ 顶面暗樱桃填馅圆盘 + 格纹条真实几何（两向各 4 条，
+  // 条与条之间露出发亮的馅）+ 一圈拇指捏花沿。顶点色分件上色：
+  // 单材质单 mesh，零新增（罩下的英雄道具值得真几何）。
+  const pieTint = (g, r, gg, b) => {
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = r; arr[i * 3 + 1] = gg; arr[i * 3 + 2] = b; }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
+  // 顶点色走线性空间：sRGB 直觉值必须先转线性，否则渲染端整体提亮
+  // 成灰粉（首拍病灶）。crust 烤透金褐 / fill 暗樱桃糖浆。
+  // 注意亮度下限：转线性后漫反射若跌到 ~3%（如 0x7c3e11），宽镜面
+  // 灰光会反客为主、把派「读灰」——中档暖褐才立得住色相
+  const crustLin = new THREE.Color(0xb0641f).convertSRGBToLinear();
+  const fillLin = new THREE.Color(0x5a1013).convertSRGBToLinear();
+  const crustC = [crustLin.r, crustLin.g, crustLin.b];
+  const fillC = [fillLin.r, fillLin.g, fillLin.b];
+  const pieGeos = [
+    // 酥皮壁（开口圆柱，顶径 0.18 底径 0.2）+ 底封片
+    pieTint(xform(new THREE.CylinderGeometry(0.18, 0.2, 0.09, 20, 1, true), 0, 0.06, 0), ...crustC),
+    pieTint(xform(new THREE.CircleGeometry(0.2, 20), 0, 0.016, 0, -Math.PI / 2, 0, 0), ...crustC),
+    // 填馅面（微低于沿口——烤塌下去的那一点点）
+    pieTint(xform(new THREE.CircleGeometry(0.175, 20), 0, 0.098, 0, -Math.PI / 2, 0, 0), ...fillC)
+  ];
+  // 格纹条：扁圆棍（capsule 压扁），两向各 4 条，端头顺沿口收进
+  const lattRng = rng(47);
+  const lattG = new THREE.CapsuleGeometry(0.019, 0.22, 3, 8);
+  for (let i = 0; i < 4; i++) {
+    const off = -0.105 + i * 0.07;
+    const halfW = Math.sqrt(Math.max(0.02, 0.17 * 0.17 - off * off));
+    const sL = halfW / 0.15;
+    pieGeos.push(pieTint(xform(lattG, off, 0.106, 0, Math.PI / 2, 0, 0.04 + lattRng() * 0.05, sL), ...crustC));
+    pieGeos.push(pieTint(xform(lattG, 0, 0.112, off, 0.04 + lattRng() * 0.05, 0, Math.PI / 2, sL), ...crustC));
+  }
+  lattG.dispose();
+  // 拇指捏花沿：16 粒小球沿口一圈（错落深浅）
+  const crimpG = new THREE.SphereGeometry(0.016, 8, 6);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    pieGeos.push(pieTint(
+      xform(crimpG, Math.cos(a) * 0.178, 0.102 + lattRng() * 0.006, Math.sin(a) * 0.178),
+      crustC[0] * (0.9 + lattRng() * 0.2), crustC[1] * (0.9 + lattRng() * 0.2), crustC[2]));
+  }
+  crimpG.dispose();
+  const pie = mergedMesh(pieGeos, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.66, // 压住宽镜面灰光，色相交给顶点色
+    map: canvasTexture(64, (g, s) => {
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, s, s);
+      const pr = rng(48);
+      for (let i = 0; i < 90; i++) { // 烤斑细噪（乘在顶点色上）
+        g.fillStyle = `rgba(120,70,30,${0.05 + pr() * 0.1})`;
+        const x = pr() * s, y = pr() * s;
+        g.fillRect(x, y, 1 + pr() * 2, 1 + pr() * 2);
+      }
+    })
+  }));
+  // v1.12：罩子白纱收敛——env 反射 1.6→1.0、不透明度 0.14→0.11，
+  // 罩下的派不再隔着一层奶（英雄道具优先于罩子的存在感）
   const dome = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.14, roughness: 0.05, envMapIntensity: 1.6, depthWrite: false }));
+    new THREE.MeshPhysicalMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.11, roughness: 0.05, envMapIntensity: 1.0, depthWrite: false }));
   dome.position.y = 0.02;
   pieGroup.add(plate, pie, dome);
   pieGroup.position.set(30.7, 1.12, -9.2);
@@ -2154,18 +2261,44 @@ export function build(ctx) {
       g.fillRect(x, 0, 1.5 + rr() * 2.5, s * (0.55 + rr() * 0.45));
     }
   });
+  // v1.12 D-2（剪影级修正）：岩鼻近纯黑 0x07090d 在白瀑上远看读成
+  // 「两团漂浮黑块」——提为湿岩冷灰（水雾里的石头本来就带天光）+
+  // 回流白瀑加宽提亮，把岩鼻从视觉上「接回水里」
   const rejoinMat = new THREE.MeshBasicMaterial({
-    map: rejoinTex, transparent: true, opacity: 0.6, toneMapped: false,
+    map: rejoinTex, transparent: true, opacity: 0.74, toneMapped: false,
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   const rejoinGeos = [];
-  for (const [nx, ny, ns] of [[10.1, 11.4, 1.05], [14.2, 12.3, 0.85]]) {
-    const nose = rockMesh(ns, 0x07090d);
-    nose.scale.z = 0.55;
-    nose.position.set(nx, ny, -41.35);
-    overlook.add(nose);
-    rejoinGeos.push(xform(new THREE.PlaneGeometry(ns * 1.6, 2.3), nx, ny - ns * 0.7 - 1.05, -41.02));
-  }
+  // v1.12 D-9（眺望台正面复检三轮定案）：两颗中幅漂浮刺球从来不是
+  // 「双瀑」的语言（D-2 提亮/白沫领/剪切线三方案都救不了错误的形与
+  // 位）。正版语义重排：①**冠顶崖齿**——一块宽楔岩贴上缘正中把水口
+  // 一分为二（上半没进崖冠线，只露下垂的齿尖）；②齿下**干影带**——
+  // 被分开的水在齿后留下一条暗隙（渐隐面片压暗幕体）；③下方白瀑
+  // **重新织合**（rejoin 流纹）+ 齿冠喷溅白。网格数守恒：两鼻→一齿
+  // 一带（tp 240 贴顶纪律）
+  const tooth = rockMesh(1.35, 0x0d1219);
+  tooth.scale.set(1.5, 1.0, 0.5);
+  tooth.position.set(12, 13.35, -41.3);
+  overlook.add(tooth);
+  const dryTex = canvasTexture(64, (g, s) => {
+    const grad = g.createLinearGradient(0, 0, 0, s);
+    grad.addColorStop(0, 'rgba(9,13,19,0.88)');
+    grad.addColorStop(0.6, 'rgba(9,13,19,0.5)');
+    grad.addColorStop(1, 'rgba(9,13,19,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, s, s);
+  });
+  const dryBand = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.1, 2.6),
+    new THREE.MeshBasicMaterial({ map: dryTex, transparent: true, depthWrite: false })
+  );
+  dryBand.position.set(12, 11.3, -41.05);
+  overlook.add(dryBand);
+  // 织合白瀑（干影带下端两股水重新拧成一股）+ 齿侧两道剪切亮缕 + 齿冠喷溅
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(2.3, 2.8), 12, 9.6, -41.02));
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(0.55, 2.4), 9.8, 12.7, -41.0));
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(0.55, 2.4), 14.2, 12.7, -41.0));
+  rejoinGeos.push(xform(new THREE.PlaneGeometry(2.6, 0.9), 12, 13.9, -41.0));
   overlook.add(mergedMesh(rejoinGeos, rejoinMat));
   // 上缘白沿（水离崖那一线）+ 底部翻涌泡沫带
   const brink = new THREE.Mesh(
@@ -2340,12 +2473,55 @@ export function build(ctx) {
     force() { vigilFire(); }
   };
   updaters.push((dt) => vigilTrig.update(player, dt));
-  // 锯木厂剪影（烟囱 + 缓慢的烟）
-  const millMat = new THREE.MeshBasicMaterial({ color: 0x05070c, fog: false });
-  const mill = mergedMesh([
+  // 锯木厂剪影 v2（v1.12 D-18）——旧版三只平顶盒黑上加黑：夜空同为
+  // 近黑，眺望台正望过去整厂读成一片虚无、只剩烟悬在半空。剪影级重做：
+  // ①主棚双坡屋脊 + 披屋单坡（厂房轮廓线）②原木上料坡道 + 双支腿
+  // （锯木厂最认得出的一笔）③锥形木屑焚炉（西北厂区的语言）+ 囱顶
+  // 防火帽箍；④顶点色两粒**值夜窗**微暖光（睡着的厂留一盏灯——剪影
+  // 有了自证，不与「锯木厂睡着了」抵触）。全并单 mesh 网格数守恒
+  const millGeos = [
     xform(new THREE.BoxGeometry(10, 5, 6), 0, 2.5, 0),
     xform(new THREE.BoxGeometry(5, 3, 6.2), -5.5, 1.5, 0),
     xform(new THREE.CylinderGeometry(0.5, 0.7, 7, 10), 2.5, 6, 1)
+  ];
+  // 屋面三片单独收进「月色顶」组——比厂身抬半档的冷灰，衬崖影时
+  // 轮廓线还在（月光落在坡屋面上的那点差别，剪影自证的第二笔）
+  const millRoofGeos = [
+    // 主棚双坡（两片斜板到脊，端面缺口衬黑天不可见）
+    xform(new THREE.BoxGeometry(10.6, 0.18, 3.55), 0, 5.82, -1.62, -0.55, 0, 0),
+    xform(new THREE.BoxGeometry(10.6, 0.18, 3.55), 0, 5.82, 1.62, 0.55, 0, 0),
+    // 披屋单坡（向外倾）
+    xform(new THREE.BoxGeometry(5.5, 0.14, 6.7), -5.6, 3.25, 0, 0, 0, 0.24)
+  ];
+  millGeos.push(
+    // 原木上料坡道：从地面斜升到主棚檐口 + 双支腿
+    xform(new THREE.BoxGeometry(8.2, 0.22, 1.1), 6.6, 2.6, 2.4, 0, 0, 0.56),
+    xform(new THREE.BoxGeometry(0.22, 2.4, 0.22), 8.6, 1.2, 2.4),
+    xform(new THREE.BoxGeometry(0.22, 3.6, 0.22), 6.4, 1.8, 2.4),
+    // 锥形木屑焚炉 + 炉顶小帽
+    xform(new THREE.ConeGeometry(2.3, 4.8, 12), -9.8, 2.4, 1.2),
+    xform(new THREE.CylinderGeometry(0.5, 0.72, 0.5, 10), -9.8, 4.95, 1.2),
+    // 囱顶防火帽箍
+    xform(new THREE.CylinderGeometry(0.62, 0.56, 0.42, 10), 2.5, 9.4, 1)
+  );
+  // 值夜窗 ×2：主棚 +z 立面一大一小（面向眺望台的那一侧）
+  const millWinGeos = [
+    xform(new THREE.PlaneGeometry(0.55, 0.4), -1.4, 1.7, 3.02),
+    xform(new THREE.PlaneGeometry(0.3, 0.34), 1.9, 2.1, 3.02)
+  ];
+  const millTint = (geo, color) => {
+    const c = new THREE.Color(color);
+    const n = geo.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return geo;
+  };
+  const millMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false });
+  const mill = mergedMesh([
+    ...millGeos.map((g) => millTint(g, 0x05070c)),
+    ...millRoofGeos.map((g) => millTint(g, 0x0c1220)),
+    ...millWinGeos.map((g) => millTint(g, 0x9c6a34))
   ], millMat);
   mill.position.set(30, 0, -38);
   overlook.add(mill);
@@ -2359,17 +2535,58 @@ export function build(ctx) {
   // 彩蛋：环形石阵（空间错位）
   // ============================================================
   const grove = new THREE.Group();
+  // v1.12 门禁 60-D：石阵从裸 BoxGeometry（黑方块 placeholder）重做为
+  // **风化立石**——seeded 变形二十面体（横向捏窄成板状、竖向拉高、
+  // 逐顶点噪声起皮）+ 微沉入土 + 各自歪斜；基部一圈碎石垫脚；
+  // 直纹风化贴图（竖向淋痕 + 苔斑）map/bump 同源。合并单 mesh 零新增。
+  const stoneR = rng(41);
   const stoneGeos = [];
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
-    const h = 0.8 + Math.random() * 0.7;
-    stoneGeos.push(xform(
-      new THREE.BoxGeometry(0.4, h, 0.32),
-      Math.cos(a) * 2.4, h / 2, Math.sin(a) * 2.4,
-      (Math.random() - 0.5) * 0.16, a + Math.random() * 0.5, 0
+    const h = 0.8 + stoneR() * 0.7;
+    const g = new THREE.IcosahedronGeometry(0.5, 1);
+    const p = g.attributes.position;
+    for (let vi = 0; vi < p.count; vi++) {
+      const k = 1 + (stoneR() - 0.5) * 0.46;
+      p.setXYZ(vi,
+        p.getX(vi) * k * 0.5,
+        p.getY(vi) * (h + (stoneR() - 0.5) * 0.12),
+        p.getZ(vi) * k * 0.36);
+    }
+    g.computeVertexNormals();
+    stoneGeos.push(xform(g,
+      Math.cos(a) * 2.4, h * 0.42, Math.sin(a) * 2.4,
+      (stoneR() - 0.5) * 0.18, a + stoneR() * 0.5, (stoneR() - 0.5) * 0.12
     ));
+    for (let bi = 0; bi < 2; bi++) { // 基部碎石垫脚
+      const pb = new THREE.IcosahedronGeometry(0.06 + stoneR() * 0.05, 0);
+      stoneGeos.push(xform(pb,
+        Math.cos(a) * 2.4 + (stoneR() - 0.5) * 0.5, 0.03,
+        Math.sin(a) * 2.4 + (stoneR() - 0.5) * 0.5,
+        stoneR() * 2, stoneR() * 2, 0));
+    }
   }
-  grove.add(mergedMesh(stoneGeos, new THREE.MeshStandardMaterial({ color: 0x11141a, roughness: 0.9 })));
+  const stoneTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#171a20';
+    g.fillRect(0, 0, s, s);
+    const r = rng(43);
+    for (let i = 0; i < 40; i++) { // 竖向淋痕
+      const x = r() * s;
+      g.fillStyle = `rgba(${8 + r() * 10 | 0},${9 + r() * 10 | 0},${12 + r() * 12 | 0},${0.3 + r() * 0.35})`;
+      g.fillRect(x, r() * s * 0.4, 1 + r() * 2, s * (0.3 + r() * 0.6));
+    }
+    for (let i = 0; i < 26; i++) { // 苔斑（贴地一侧更密）
+      const y = s * (0.55 + r() * 0.45);
+      g.fillStyle = `rgba(${14 + r() * 12 | 0},${26 + r() * 18 | 0},${16 + r() * 10 | 0},${0.22 + r() * 0.3})`;
+      g.beginPath();
+      g.arc(r() * s, y, 1.5 + r() * 4, 0, Math.PI * 2);
+      g.fill();
+    }
+  }, 1, 1);
+  grove.add(mergedMesh(stoneGeos, new THREE.MeshStandardMaterial({
+    color: 0xb8bcc4, map: stoneTex, roughness: 0.95,
+    bumpMap: stoneTex, bumpScale: 0.55
+  })));
   const poolMat = waterMat(0x02030a, { seed: 32, repX: 1.5, repY: 1.5, env: 1.8 });
   const pool = new THREE.Mesh(new THREE.CircleGeometry(1.5, 28), poolMat);
   pool.rotation.x = -Math.PI / 2;

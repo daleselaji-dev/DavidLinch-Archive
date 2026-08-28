@@ -147,10 +147,15 @@ function createWindow() {
         };
         const maybeWalkTest = (done) => {
           if (hall !== 'mulholland') { done(); return; }
-          // ① 走到拐角触发区北缘外一步（v1.11 拐角化：zone 圆心 9.3,-26.9
-          //    r1.6 → 北缘 z≈-25.3，贴着拐角沿 z≈-26.7）
+          // v1.12：截屏机位（SV_SHOT_POS/SV_SHOT_PRE）可能把玩家留在任意
+          // 分区（如剧场背后空地）——走测先定点回街口再起步；门禁验证的
+          // 是「巷道走通性 + 拐角自然触发」，与截屏残留位置解耦
+          // ① 走到拐角触发区北缘外一步（v1.12 贴角化：zone 圆心 9.3,-27.2
+          //    r1.15 → 北缘 z≈-26.05，距拐角沿 z≈-26.7 仅 0.65m）
           const routeA = JSON.stringify([[2, -8], [6.5, -11], [9.3, -12.8], [9.3, -24.6]]);
-          win.webContents.executeJavaScript(`window.__SV__.walkPath(${routeA})`, true).then((rA) => {
+          win.webContents.executeJavaScript(
+            `window.__SV__.teleport(2, -8, Math.PI), window.__SV__.walkPath(${routeA})`, true
+          ).then((rA) => {
             console.log(`[smoke] 后巷走通性（至拐角前）mulholland: ${JSON.stringify(rA)}`);
             if (!rA || !rA.ok) {
               console.error('[smoke] 后巷通路不通：玩家撞墙走不到拐角');
@@ -159,7 +164,7 @@ function createWindow() {
             }
             // 再一步走进拐角区（面朝南——垃圾箱·后门方向在视锥内），
             // 下一渲染帧 cornerTrigger 自然引爆（不靠 triggerEggs 强制）
-            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -26.9]])', true).then((rB) => {
+            win.webContents.executeJavaScript('window.__SV__.walkPath([[9.3, -27.2]])', true).then((rB) => {
               if (!rB || !rB.ok) {
                 console.error('[smoke] 走进拐角触发区失败');
                 app.exit(1);

@@ -190,3 +190,84 @@ describe('v1.11 门禁 57：新音色 ≥3 在引擎且被接线', () => {
     expect(seg).toContain('11.55, -8 - fenceRng() * 18');
   });
 });
+
+describe('v1.12 门禁 61 追加：门虚空纵深 + 门后剪影（一次性，零字幕）', () => {
+  const kit = readFileSync(new URL('../src/halls/kit.js', import.meta.url), 'utf8');
+
+  it('门虚空不再是纯色发光平板：灰度纵深贴图（底缘渗光/中缝竖隙/顶部楣影）', () => {
+    expect(kit).toContain('portalDepthTex');
+    expect(kit).toContain('emissiveMap: portalDepthTex');
+    // 三个层次都在：底缘渗光 + 中缝竖隙 + 顶部收暗
+    const at = kit.indexOf('portalDepthTex');
+    const seg = kit.slice(at, at + 1600);
+    expect(seg).toContain('floorGlow');
+    expect(seg).toContain('slit');
+    expect(seg).toContain('topShade');
+  });
+
+  it('门后剪影：贴近任意一扇门触发、整馆一次性（fired 锁存）', () => {
+    expect(SRC.lobby).toContain('doorGhost');
+    expect(SRC.lobby).toContain('doorGhost.fired = true');
+    // 触发半径贴近门（< 3m）
+    expect(/d < 2\.6/.test(SRC.lobby)).toBe(true);
+    // 开幕点灯前不走
+    expect(/openGate\.chand < 1\) return;.*开幕点灯前/.test(SRC.lobby)).toBe(true);
+  });
+
+  it('门后剪影零字幕（克制是设计的一部分）+ 两声轻脚步空间化', () => {
+    const at = SRC.lobby.indexOf('doorGhostTex');
+    const end = SRC.lobby.indexOf('doorGhostMesh.material.opacity = 0');
+    expect(at).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(at);
+    const seg = SRC.lobby.slice(at, end);
+    expect(seg).not.toContain('ui.caption');
+    expect((seg.match(/sfxAt\('step-wood'/g) || []).length).toBe(2);
+  });
+
+  it('剪影为抽象无面目（头影/肩/披落身形三团块，非肖像合规口径）', () => {
+    const at = SRC.lobby.indexOf('doorGhostTex');
+    const seg = SRC.lobby.slice(at, at + 1400);
+    expect(seg).toContain('头影');
+    expect(seg).toContain('披落身形');
+    expect(seg).not.toMatch(/face|眼|口|鼻/);
+  });
+});
+
+// ============================================================
+// v1.12 门禁 60 追加：第十一轮巡查两件结构守卫（D-17/D-18）。
+// 口径：装配矛盾修正后不许回流（百叶重新横贯双门 / 锯木厂回退平顶盒）
+// ============================================================
+describe('v1.12 门禁 60 追加：衣柜百叶分幅 + 锯木厂剪影 v2', () => {
+  it('D-17 衣柜百叶逐门分幅：每级左右两半合并（不再整条横贯双门）+ 红渗光保留', () => {
+    const at = SRC.bluevelvet.indexOf('百叶从「0.94 整条横贯双门」改为');
+    expect(at).toBeGreaterThan(-1);
+    const seg = SRC.bluevelvet.slice(at, at + 900);
+    // 左右两半：同一 0.4 宽板在 ±0.3 各放一块，合并单 mesh（网格数守恒）
+    expect((seg.match(/BoxGeometry\(0\.4, 0\.09, 0\.03\)/g) || []).length).toBe(2);
+    expect(seg).toContain('-0.3, 0, 0');
+    expect(seg).toContain('0.3, 0, 0');
+    expect(seg).toContain('mergedMesh');
+    // 仍是 8 级、彩蛋红渗光通道保留
+    expect(seg).toContain('i < 8');
+    expect(seg).toContain('0xd4243c');
+  });
+
+  it('D-18 锯木厂剪影 v2：单 mesh 顶点色（厂身/月色顶/值夜窗三档）+ 焚炉 + 坡道', () => {
+    const at = SRC.twinpeaks.indexOf('锯木厂剪影 v2');
+    expect(at).toBeGreaterThan(-1);
+    const seg = SRC.twinpeaks.slice(at, at + 3400);
+    // 顶点色驱动的无光剪影（不吃后处理、低档零损失）
+    expect(seg).toContain('MeshBasicMaterial({ vertexColors: true, fog: false })');
+    // 三档色：厂身近黑 / 屋面抬半档 / 值夜窗微暖
+    expect(seg).toContain('0x05070c');
+    expect(seg).toContain('millRoofGeos');
+    expect(seg).toContain('0x0c1220');
+    expect(seg).toContain('millWinGeos');
+    expect(seg).toContain('0x9c6a34');
+    // 剪影新五金：木屑焚炉（锥）+ 上料坡道；值夜窗恰好两粒（睡着的厂不多亮）
+    expect(seg).toContain('ConeGeometry(2.3, 4.8, 12)');
+    expect(seg).toContain('上料坡道');
+    const winSeg = seg.slice(seg.indexOf('millWinGeos'), seg.indexOf('millTint'));
+    expect((winSeg.match(/PlaneGeometry/g) || []).length).toBe(2);
+  });
+});

@@ -53,21 +53,37 @@ const BACKLOT = { minX: -10.5, maxX: 10.1, minZ: -30.7, maxZ: -27.6 }; // 背后
 
 // 冒烟与单测用：通路矩形并集 / 惊吓武装区 / 出生点（纯数据，可在 node 侧仿真行走）
 export const WALK_RECTS = [ROAD, ROOM, DOOR, WALKWAY, CORNER, ALLEY, BACKLOT];
-// v1.11 门禁 55：拐角沿——剧场侧墙沿巷到 z=-26.8、后墙 z=-26.6，
-// 「拐角」在 z≈-26.7。触发区必须贴着它（北缘距拐角 ≤1.6m、不晚于
-// 拐角以南 0.3m——cornerscare.test 几何守卫钉死，防再漂）。
+// v1.11 门禁 55 / v1.12 门禁 59：拐角沿——剧场侧墙实体 x≈8.05 沿巷到
+// z=-26.8、后墙 z=-26.6，「拐角」在 z≈-26.7。触发区必须贴着它
+// （v1.12 收紧：北缘距拐角 ≤0.7m、不晚于拐角以南 0.3m——
+// cornerscare.test 几何守卫钉死，防再漂）。
 export const CORNER_EDGE = { x: 8.3, z: -26.7 };
+// 剧场墙体实体（藏点视线遮挡验算与单测守卫共用）：侧墙平面 x=8.05
+// 覆盖 z∈[-26.8,-13.6]；后墙平面 z=-26.6 覆盖 x∈[-8.2,8.2]。
+export const THEATER_WALL = { sideX: 8.05, sideZ0: -26.8, sideZ1: -13.6, backZ: -26.6, backX: 8.2 };
 // v1.8 拐角惊吓（主触发）：巷尾拐角触发区——垃圾箱·后门方向即将
 // 入画的那一步就是扳机。顺巷南行视线自然落进 ±fov/2 锥内即触发；
 // 背向北归穿区不触发；面朝墙进区的，转回那个方向的瞬间触发。
-// v1.11 修正：v1.8–v1.10 的触发区（圆心 z=-25.9 r2.3）北缘在 z=-23.6，
-// 离拐角还有 3 米的直巷中段就引爆——错位置。现移到拐角本体：
-// 北缘 z≈-25.3，「即将看见」的最后一步才是扳机。
+// v1.11 修正：触发区从直巷中段（北缘 z=-23.6，离拐角 3 米就引爆）
+// 移到拐角本体（北缘 z≈-25.3）。
+// v1.12 再收紧（门禁 59）：用户仍嫌不贴角——北缘再前移到 z≈-26.05，
+// 距拐角沿 0.65m：**转过拐角的那半步**才是扳机。
 export const CORNER_SCARE = {
-  zone: { x: 9.3, z: -26.9, r: 1.6 },    // 拐角本体（北缘 z≈-25.3）
+  zone: { x: 9.3, z: -27.2, r: 1.15 },   // 贴角本体（北缘 z≈-26.05）
   lookAt: { x: 4.2, z: -30.6 },          // 垃圾箱与后门所在的西南方向
   fov: 2.6,                              // ±74.5°：顺巷南行必然在锥内
   cooldown: 75
+};
+// v1.12 门禁 59：黑影挪出路径（三点贝塞尔，贴拐角沿绕出）。
+// hide 在侧墙正后方剧场体内（x<8.05 且 z>-26.6）——从巷/空地任何
+// 可达点看它，视线都要穿过侧墙或后墙（几何守卫入测）；corner 贴墙
+// 南端点外侧；out 贴拐角沿（离触发中的玩家约 1m）。三顿挪节奏由此
+// 变成：第一顿在墙后（只闻刮擦）→ 第二顿从拐角探出半身 → 第三顿
+// 全身出角——「黑影从拐角处挪出来」的字面呈现。
+export const LURK_PATH = {
+  hide: { x: 7.55, z: -26.1 },
+  corner: { x: 8.05, z: -27.25 },
+  out: { x: 8.6, z: -26.8 }
 };
 // v1.8 多幕节奏时间线（ms，实时钟）：灯闪/抽真空/刮擦/心跳 → 留白 →
 // 顿挪现身 → 加速扑近 → 闷击闪帧 → 黑幕 → 空间错位。单测断言节拍次序与留白。
@@ -278,15 +294,30 @@ export function build(ctx) {
     }
     const cx = px + ox;
     const cz = pz + oz;
+    // v1.12 D-4（剪影级）：直锥叶远看读成「尖星」——改**两段式拱叶**
+    // （根段近平展 + 梢段深垂头，喷泉剪影）+ 冠下一圈**枯叶裙**
+    // （LKG 没人修剪的棕榈都披着这个）。仍并进同一合并网格。
     const nf = 6 + ((prng() * 3) | 0);
     for (let f = 0; f < nf; f++) {
       const af = (f / nf) * Math.PI * 2 + prng() * 0.5;
-      const tilt = 0.95 + prng() * 0.85;
-      const fl = 2.2 + prng() * 1.3;
-      const cone = new THREE.ConeGeometry(0.16, fl, 4);
-      cone.translate(0, fl / 2, 0);
-      palmGeos.push(xform(cone, cx, hT, cz, 0, Math.PI - af, tilt));
+      const ry = Math.PI - af;
+      const t1 = 0.7 + prng() * 0.45;
+      const t2 = t1 + 0.55 + prng() * 0.3;
+      const l1 = 1.3 + prng() * 0.7;
+      const l2 = 1.1 + prng() * 0.6;
+      const seg1 = new THREE.ConeGeometry(0.15, l1, 4);
+      seg1.translate(0, l1 / 2, 0);
+      palmGeos.push(xform(seg1, cx, hT, cz, 0, ry, t1));
+      // 根段端点（Euler XYZ：dir = Ry(ry)·Rz(t)·ŷ）
+      const ex = cx - Math.sin(t1) * Math.cos(ry) * l1;
+      const ey = hT + Math.cos(t1) * l1;
+      const ez = cz + Math.sin(t1) * Math.sin(ry) * l1;
+      const seg2 = new THREE.ConeGeometry(0.1, l2, 4);
+      seg2.translate(0, l2 / 2, 0);
+      palmGeos.push(xform(seg2, ex, ey, ez, 0, ry, t2));
     }
+    const skirt = new THREE.ConeGeometry(0.42, 1.1, 6);
+    palmGeos.push(xform(skirt, cx, hT - 0.45, cz, Math.PI, 0, 0));
   }
   group.add(mergedMesh(palmGeos, new THREE.MeshBasicMaterial({ color: 0x030209, fog: false })));
 
@@ -961,8 +992,11 @@ export function build(ctx) {
   newsBox.add(newsDoor);
   // v1.6：报箱挪到巷口铁皮墙根（原位在新便道正中会被穿模）——
   // 顺便当了往暗巷去的第一枚路标
+  // v1.12 D-5（INSPECT 病灶）：v1.6 搬家时展示窗朝了 0.4m 外的铁皮
+  // 墙——玩家从便道走来只见黑背板。转 180°：空头版窗、弹簧门、
+  // 投币器面向来向（「第一枚路标」终于把脸转回来）
   newsBox.position.set(10.62, 0, 6.1);
-  newsBox.rotation.y = Math.PI / 2 + 0.05;
+  newsBox.rotation.y = -Math.PI / 2 + 0.05;
   group.add(newsBox);
   const newsState = { t: -1 };
   updaters.push((dt) => {
@@ -1340,14 +1374,75 @@ export function build(ctx) {
 
   // 大垃圾箱（那个东西住在它后面）——艺术二遍：
   // 斜口箱体 + 竖向压筋 + 双开盖微错位 + 侧袋钩 + 脚轮，惊吓闪光时剪影可信
-  const dumpMat = new THREE.MeshStandardMaterial({ color: 0x14231c, roughness: 0.8, metalness: 0.4 });
+  // v1.12 D-7（贴脸巡查病灶）：整箱一种无贴图近黑材质——肋条 4cm
+  // 起伏在同色暗光下零读出，贴脸是一块无特征黑板；而它是拐角惊吓的
+  // 戏剧锚点。shading 遍：工业漆面贴图（竖刷痕/底缘锈斑带/锈滴垂痕/
+  // 盖缘刮亮/撕掉招贴留下的浅色方斑——零文字合规）；几何遍：叉车袋
+  // ×2 + 四角护角钢并进肋条合并网格（零新增 mesh，mul 239 贴顶纪律）
+  const dumpTex = canvasTexture(256, (g, s) => {
+    g.fillStyle = '#16241d';
+    g.fillRect(0, 0, s, s);
+    const dr = rng(73);
+    // 竖向刷痕（旧漆的方向感）
+    for (let i = 0; i < 60; i++) {
+      const x = dr() * s;
+      g.strokeStyle = dr() > 0.5
+        ? `rgba(42,62,52,${0.08 + dr() * 0.12})`
+        : `rgba(10,18,14,${0.08 + dr() * 0.16})`;
+      g.lineWidth = 1 + dr() * 3;
+      g.beginPath();
+      g.moveTo(x, dr() * 40);
+      g.lineTo(x + (dr() - 0.5) * 10, s - dr() * 30);
+      g.stroke();
+    }
+    // 撕掉招贴留下的浅色方斑（只有一块颜色更嫩的漆——零文字）
+    g.fillStyle = 'rgba(56,78,64,0.32)';
+    g.fillRect(s * 0.6, s * 0.28, s * 0.24, s * 0.2);
+    g.strokeStyle = 'rgba(14,22,17,0.5)';
+    g.lineWidth = 2;
+    g.strokeRect(s * 0.6, s * 0.28, s * 0.24, s * 0.2);
+    // 底缘锈斑带 + 锈滴垂痕
+    for (let i = 0; i < 26; i++) {
+      const x = dr() * s;
+      const y = s - 6 - dr() * 34;
+      const r = 4 + dr() * 12;
+      g.fillStyle = `rgba(${74 + (dr() * 30) | 0},${44 + (dr() * 14) | 0},20,${0.2 + dr() * 0.3})`;
+      g.beginPath();
+      g.ellipse(x, y, r, r * (0.5 + dr() * 0.5), dr() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 7; i++) {
+      const x = dr() * s;
+      const y0 = s * (0.1 + dr() * 0.3);
+      g.strokeStyle = `rgba(66,40,18,${0.16 + dr() * 0.2})`;
+      g.lineWidth = 1.5 + dr() * 2;
+      g.beginPath();
+      g.moveTo(x, y0);
+      g.lineTo(x + (dr() - 0.5) * 6, y0 + s * (0.2 + dr() * 0.4));
+      g.stroke();
+    }
+    // 盖缘/上部磕碰刮亮（露底金属的斜短痕）
+    for (let i = 0; i < 14; i++) {
+      const x = dr() * s;
+      const y = dr() * s * 0.3;
+      g.strokeStyle = `rgba(120,128,122,${0.1 + dr() * 0.16})`;
+      g.lineWidth = 1 + dr();
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + 6 + dr() * 16, y + 2 + dr() * 6);
+      g.stroke();
+    }
+  });
+  const dumpMat = new THREE.MeshStandardMaterial({
+    map: dumpTex, roughness: 0.82, metalness: 0.3, envMapIntensity: 0.5
+  });
   const dumpster = new THREE.Group();
   const dumpBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.25, 1.3), dumpMat);
   dumpBody.position.y = 0.78;
   // 上沿外翻边
   const dumpRim = new THREE.Mesh(new THREE.BoxGeometry(2.72, 0.07, 1.42), dumpMat);
   dumpRim.position.y = 1.42;
-  // 竖向压筋（前后面各 5 道，合并）
+  // 竖向压筋（前后面各 5 道，合并）+ v1.12 D-7 叉车袋与四角护角钢
   const ribGeo = new THREE.BoxGeometry(0.07, 1.1, 0.04);
   const ribGeos = [];
   for (let i = 0; i < 5; i++) {
@@ -1356,6 +1451,19 @@ export function build(ctx) {
     ribGeos.push(xform(ribGeo, x, 0.76, -0.66));
   }
   ribGeo.dispose();
+  // 叉车袋：前后面各两只矩形套筒（垃圾车的叉齿从这里进）
+  const pocketGeo = new THREE.BoxGeometry(0.36, 0.2, 0.06);
+  for (const px of [-0.62, 0.62]) {
+    ribGeos.push(xform(pocketGeo, px, 0.42, 0.675));
+    ribGeos.push(xform(pocketGeo, px, 0.42, -0.675));
+  }
+  pocketGeo.dispose();
+  // 四角护角钢（竖向棱线，暗光下箱体的最外剪影）
+  const cornerGeo = new THREE.BoxGeometry(0.075, 1.18, 0.075);
+  for (const [cx, cz] of [[-1.29, 0.64], [1.29, 0.64], [-1.29, -0.64], [1.29, -0.64]]) {
+    ribGeos.push(xform(cornerGeo, cx, 0.77, cz));
+  }
+  cornerGeo.dispose();
   // 双开盖（微错位开角）+ 管状把手
   const lidGeo = new THREE.BoxGeometry(1.3, 0.07, 1.36);
   const lidL = new THREE.Mesh(lidGeo, dumpMat);
@@ -1531,19 +1639,26 @@ export function build(ctx) {
   wraith.visible = false;
   group.add(wraith);
   // 剪影光：拐角后一盏冷背光——黑影挪出时只读出轮廓，读不出任何细节
+  // （v1.12 随新绕角路径同步移位：从 out 点身后西南方向打过来——
+  // 发帘团块剪影贴着拐角沿被背光切出来，眼窝空洞是剪影里仅有的两点）
   const rimLight = new THREE.PointLight(0x9fb7ff, 0, 11, 1.6);
-  rimLight.position.set(5.6, 2.4, -29.8);
+  rimLight.position.set(6.3, 2.5, -28.7);
   group.add(rimLight);
   const rimState = { on: 0 };
   updaters.push((dt) => {
     rimLight.intensity += (rimState.on * 6.5 - rimLight.intensity) * Math.min(1, dt * 7);
   });
-  // 黑影挪出路径：藏在剧场东南拐角后（后墙挡视线）→ 绕出拐角到巷口可见处。
-  // v1.11：触发点移到拐角本体后玩家离拐角更近——藏点压深到后墙以西
-  // （从触发区北缘任何视线都被后墙截断），现身点贴在拐角沿（离玩家
-  // 约 2 米——从拐角后探出来的那一步就在你脸前）。
-  const LURK_HIDE = new THREE.Vector3(5.6, 0, -28.8);
-  const LURK_OUT = new THREE.Vector3(8.55, 0, -27.15);
+  // 黑影挪出路径（v1.12 门禁 59）：LURK_PATH 三点贝塞尔——hide 在
+  // 侧墙正后方剧场体内（任何可达视线都被墙截断），绕过墙南端点、
+  // 贴着拐角沿滑到 out（离玩家约 1m）。见展厅导出注释与单测守卫。
+  const lurkBez = (s, out) => {
+    const u = 1 - s;
+    const { hide: A, corner: B, out: C } = LURK_PATH;
+    out.set(
+      u * u * A.x + 2 * u * s * B.x + s * s * C.x, 0,
+      u * u * A.z + 2 * u * s * B.z + s * s * C.z);
+    return out;
+  };
   const scare = { phase: 0, sub: null, t: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
 
   // v1.11 P16：夜风偶尔推一下巷侧瓦楞围栏（fencewomp，seeded 稀发）——
@@ -1600,13 +1715,14 @@ export function build(ctx) {
     later(() => {
       scare.sub = 'lurch';
       scare.t = 0;
-      wraith.position.copy(LURK_HIDE);
+      lurkBez(0, wraith.position);
       wraith.visible = true;
       rimState.on = 1;
     }, B.lurch);
+    // 每顿一声刮擦+落定闷响——声源钉在拐角沿本体（它就贴着这个角挪）
     for (const [i, off] of [50, 750, 1450].entries()) {
-      later(() => audio.sfxAt('scrape', 8.5, -26.5, 0.5 + i * 0.12, 4), B.lurch + off);
-      later(() => audio.sfxAt('thud', 8.5, -26.5, 0.22 + i * 0.06, 4), B.lurch + off + 260);
+      later(() => audio.sfxAt('scrape', CORNER_EDGE.x, CORNER_EDGE.z, 0.5 + i * 0.12, 4), B.lurch + off);
+      later(() => audio.sfxAt('thud', CORNER_EDGE.x, CORNER_EDGE.z, 0.22 + i * 0.06, 4), B.lurch + off + 260);
     }
     // 心跳渐密——追着顿挪加速
     for (const [i, off] of [200, 800, 1330, 1780, 2140].entries()) {
@@ -1649,9 +1765,9 @@ export function build(ctx) {
       wraith.userData.setRush(k, t);
     } else if (scare.sub === 'lurch' && wraith.visible) {
       const s = lurchEase(Math.min(1, scare.t / 2.1), 3); // 名义 2.1s 三顿挪完
-      wraith.position.lerpVectors(LURK_HIDE, LURK_OUT, s);
+      lurkBez(s, wraith.position); // 贴拐角沿的贝塞尔弧线绕出（v1.12）
       wraith.lookAt(player.x, 1.5, player.z);
-      wraith.userData.setLurch(s, t); // 侧倾/沉肩/臂拖摆——平台段全身冻住
+      wraith.userData.setLurch(s, t); // 侧倾/沉肩/抬头/臂拖摆——平台段冻住
     }
   });
   const cornerTrig = cornerTrigger(CORNER_SCARE.zone, CORNER_SCARE.lookAt, doCornerScare,

@@ -624,10 +624,36 @@ export function doorway({ label, labelZh, color = '#3ec5ff', width = 2.4, height
     xform(new THREE.BoxGeometry(width + 1.1, 0.07, 0.6), 0, height + 0.38, 0),
     xform(new THREE.BoxGeometry(width + 1.0, 0.05, 0.55), 0, height - 0.02, 0)
   ], frameMat);
-  // 门内的"虚空" —— 微光涌动的黑
+  // 门内的"虚空" —— 微光涌动的黑。
+  // v1.12 D-13：纯色发光在近景读成一块平亮的色板（纵深全无）——改
+  // 灰度发光贴图给黑里做层次：底缘一线渗光（帘下漏出来的那种）+
+  // 中缝极暗竖隙 + 顶部收进全黑；各门仍按主题色 emissive 着色
+  const portalDepthTex = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#07070a';
+    g.fillRect(0, 0, s, s);
+    const floorGlow = g.createLinearGradient(0, s, 0, s * 0.52);
+    floorGlow.addColorStop(0, 'rgba(255,255,255,0.85)');
+    floorGlow.addColorStop(0.35, 'rgba(255,255,255,0.22)');
+    floorGlow.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = floorGlow;
+    g.fillRect(0, s * 0.52, s, s * 0.48);
+    // 中缝竖隙：极暗的一线亮——像两层帘子没合拢
+    const slit = g.createLinearGradient(s * 0.47, 0, s * 0.53, 0);
+    slit.addColorStop(0, 'rgba(255,255,255,0)');
+    slit.addColorStop(0.5, 'rgba(255,255,255,0.28)');
+    slit.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = slit;
+    g.fillRect(s * 0.44, 0, s * 0.12, s);
+    // 顶部两角沉进全黑（楣影）
+    const topShade = g.createLinearGradient(0, 0, 0, s * 0.4);
+    topShade.addColorStop(0, 'rgba(0,0,0,0.9)');
+    topShade.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = topShade;
+    g.fillRect(0, 0, s, s * 0.4);
+  });
   const voidMat = new THREE.MeshStandardMaterial({
     color: 0x02010a, roughness: 1,
-    emissive: new THREE.Color(color), emissiveIntensity: 0.16
+    emissive: new THREE.Color(color), emissiveMap: portalDepthTex, emissiveIntensity: 0.34
   });
   const portal = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.2, height - 0.1), voidMat);
   portal.position.y = height / 2;
@@ -644,7 +670,8 @@ export function doorway({ label, labelZh, color = '#3ec5ff', width = 2.4, height
   group.add(columns, rings, lintel, portal, sign, signZh, step, stepTrim);
   group.userData.portal = portal;
   group.userData.update = (dt, t) => {
-    portal.material.emissiveIntensity = 0.13 + Math.sin(t * 1.7) * 0.06;
+    // 贴图整体压暗后基线抬到 0.3（帘下渗光在呼吸，黑还是黑）
+    portal.material.emissiveIntensity = 0.3 + Math.sin(t * 1.7) * 0.12;
     sign.userData.flicker(t, width);
   };
   return group;
@@ -986,17 +1013,25 @@ export function veiledFigure(height = 2.25) {
 
 /**
  * 拐角魅影 —— v1.8 拐角惊吓主体（抽象无面目，比帷形人影更细一级）。
- * 车削主身之上做非对称后处理：肩背向后隆起一坨驼峰、头前倾埋进
- * 兜帽（任何角度都读不出脸，只有「一个佝偻的人形」）；裙裾下摆
- * 一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 + 收尖
- * 手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
+ * 车削主身之上做非对称后处理：肩背向后隆起一坨驼峰、头微前倾；
+ * 裙裾下摆一圈 seeded 长短错落的破布条；两条过长的垂臂（双段微屈 +
+ * 收尖手锥，指尖几乎拖地），挂在独立枢轴上可随步伐拖摆。绒黑体表 +
  * 极暗红内衬自发光：剪影光下只读出轮廓，闪光拍里读出体积。
- * v1.11（门禁 55）三处升级：① 兜帽内 hoodVoid 纯黑无光空腔——闪光
- * 拍里读出的不是「看不清脸」而是「没有脸」；② 第二层错相位破披
- * （下摆 seeded 撕口）——剪影从光滑钟形变成叠着残布的人形；
- * ③ 双手各三指过长收尖；setLurch 里身体冻住时**红光在呼吸**、
- * 且越挪越前倾（每顿定格在更近的一档——每停一次都更「看着你」）。
- * userData: { pivot, mat, setLurch(s,t) 顿挪体态, setRush(k,t) 扑近形变 }
+ * v1.12（门禁 59）v3 全面重做「长发与眼睛」：
+ * ① **hairVeil 披垂发帘**——局部车削（前脸留 ~70° 开口）从头顶披垂
+ *   过肩：角度双谐波绺条起伏 + 下摆 seeded 参差发梢，剪影从「兜帽
+ *   人形」变成「披垂长发的团块」；发帘外再挂九绺**成绺长发**（宽头
+ *   收尖、长短错落，前侧两绺垂过胸口）——团块感由绺与绺叠出来。
+ * ② **eyeSockets 深陷眼窝空洞**——发帘开口内、头前面上两粒空洞：
+ *   内芯纯黑无光（任何灯照不进去），外环极暗红 emissive 随呼吸
+ *   搏动/扑近烧亮。**无鼻无嘴无瞳无脸皮**：非写实人脸、非肖像——
+ *   恐怖感只来自「发帘后面两个洞在看你」。
+ * ③ **headPivot 顿挪抬头**——发帘与眼窝挂头枢轴：lurch 平台段头
+ *   一档一档抬起（每停一次抬头多一点，越停越「看着你」）；rush 拍
+ *   发帘迎风后甩、眼窝烧起来。
+ * 保留 v1.11：第二层错相位破披（下摆 seeded 撕口）/三指长手/身体
+ * 冻住时红光呼吸/越挪越前倾。
+ * userData: { pivot, headPivot, mat, eyeMat, setLurch(s,t), setRush(k,t) }
  */
 export function cornerWraith(height = 2.35) {
   const group = new THREE.Group();
@@ -1041,15 +1076,100 @@ export function cornerWraith(height = 2.35) {
   geo.computeVertexNormals();
   const body = new THREE.Mesh(geo, mat);
   pivot.add(body);
-  // v1.11 ①：兜帽内的纯黑空腔——无光材质，任何灯/闪帧都照不进去。
-  // 半嵌进兜帽前脸，只露一个洞口的弧面：读出「没有脸」。
-  const hoodVoid = new THREE.Mesh(
-    new THREE.SphereGeometry(0.1, 12, 10),
-    new THREE.MeshBasicMaterial({ color: 0x000000 })
-  );
-  hoodVoid.scale.set(0.9, 1.25, 0.6);
-  hoodVoid.position.set(0, H * 0.94, H * 0.088);
-  pivot.add(hoodVoid);
+  // ---- v1.12 ①②③：头枢轴 + 披垂发帘 + 成绺长发 + 眼窝空洞 ----
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, H * 0.84, 0);
+  pivot.add(headPivot);
+  // 发丝材质：比体表更暗、冷暗高光（头发的光），闪帧里读出绺条体积；
+  // 极暗冷 emissive 兜底——纯黑发在纯黑巷里也得留一口剪影
+  const hairMat = new THREE.MeshPhysicalMaterial({
+    color: 0x040306, roughness: 0.55, metalness: 0,
+    sheen: 1.0, sheenColor: 0x181a28, sheenRoughness: 0.38,
+    emissive: 0x040309, emissiveIntensity: 0.5,
+    side: THREE.DoubleSide
+  });
+  // 发帘：局部车削（前脸留 ~76° 开口——洞里是面部空洞与眼窝）。
+  // 第二拍 INSPECT 修正：首版太贴头、下摆与肩线齐平——「长发团块」
+  // 剪影读不出来。现在加宽（颌位 0.19）加长（垂到 -0.3H，盖过驼峰
+  // 一半）+ 绺条起伏加深一倍：远看是一坨披垂的发，不是第二层兜帽。
+  const OPEN_HALF = Math.PI * 0.21; // 开口半角 ~38°
+  const hairProf = [
+    [0.035, 0.17], [0.115, 0.125], [0.16, 0.06], [0.19, -0.01],
+    [0.205, -0.09], [0.225, -0.19], [0.24, -0.3]
+  ].map(([r, y]) => new THREE.Vector2(r * H * 0.5, y * H));
+  const hairGeo = new THREE.LatheGeometry(
+    hairProf, 40, OPEN_HALF, Math.PI * 2 - OPEN_HALF * 2);
+  const hp = hairGeo.attributes.position;
+  const hr = rng(211);
+  const hemTear = [];
+  for (let i = 0; i <= 40; i++) hemTear.push(hr() * 0.08 + (i % 4 === 0 ? hr() * 0.07 : 0));
+  for (let i = 0; i < hp.count; i++) {
+    const x = hp.getX(i);
+    const y = hp.getY(i);
+    const z = hp.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const a = Math.atan2(x, z); // phi=0 → +z（前脸开口中线）
+    // 绺条起伏：双谐波沿角度 + 随高度微扭（发是垂下来的，不是罩上去的）
+    const tw = a + (y / H) * 0.4;
+    const clump = 1 + 0.1 * Math.sin(tw * 9 + 1.3) + 0.05 * Math.sin(tw * 17 + 4.1);
+    hp.setX(i, x * clump);
+    hp.setZ(i, z * clump);
+    if (y < -H * 0.1) { // 下摆参差发梢（seeded 长短）
+      const idx = Math.min(40, Math.floor(((a + Math.PI) / (Math.PI * 2)) * 40));
+      hp.setY(i, y + hemTear[idx] * H);
+    }
+  }
+  hairGeo.computeVertexNormals();
+  // 成绺长发 ×13：宽头收尖、长短错落（前侧两绺垂过胸口、框住面部
+  // 开口），避开前脸开口；粗细上探到 0.03H——绺与绺叠出团块感
+  const strandGeos = [hairGeo];
+  const strandR = rng(223);
+  const strandAngles = [
+    0.78, 1.16, 1.55, 1.95, 2.38, 2.8, 3.22, 3.66, 4.1, 4.52, 4.92, 5.28, 5.5
+  ];
+  for (const [si, sa0] of strandAngles.entries()) {
+    const sa = sa0 + (strandR() - 0.5) * 0.18;
+    const long = si === 0 || si === strandAngles.length - 1; // 前侧两绺垂过胸口
+    const sl = (long ? 0.52 : 0.3) * H + strandR() * 0.12 * H;
+    const sw = (0.02 + strandR() * 0.011) * H;
+    const sg = new THREE.ConeGeometry(sw, sl, 5);
+    sg.rotateX(Math.PI); // 宽头在上、发梢收尖朝下
+    sg.translate(0, -sl / 2, 0);
+    const rr = H * (0.078 + strandR() * 0.014);
+    strandGeos.push(xform(sg,
+      Math.sin(sa) * rr, H * (0.1 + strandR() * 0.04), Math.cos(sa) * rr,
+      Math.sin(sa) * 0.12 + (strandR() - 0.5) * 0.1, 0,
+      -Math.cos(sa) * 0.12 + (strandR() - 0.5) * 0.1));
+  }
+  const hair = mergedMesh(strandGeos, hairMat);
+  headPivot.add(hair);
+  // 面部空洞：发帘开口内一块凹陷的纯黑无光弧面——开口里没有脸，
+  // 只有一个洞（任何灯照不进去）；两粒眼窝环是洞里仅有的东西
+  const voidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const faceVoid = new THREE.Mesh(new THREE.SphereGeometry(0.052 * H, 14, 12), voidMat);
+  faceVoid.scale.set(0.95, 1.3, 0.55);
+  faceVoid.position.set(0, 0.045 * H, 0.052 * H);
+  headPivot.add(faceVoid);
+  // 眼窝空洞 ×2：外环极暗红 emissive（呼吸/烧亮由 eyeMat 控）+ 内芯
+  // 纯黑——深陷进面部空洞的两个洞口，不是眼球（无瞳、无脸皮）
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0304, roughness: 0.8, metalness: 0,
+    emissive: 0x3a060c, emissiveIntensity: 0.5
+  });
+  const mkRing = (sx) => {
+    const t = new THREE.TorusGeometry(0.016 * H, 0.005 * H, 6, 14);
+    t.scale(1, 1.3, 1); // 眼窝竖长——空洞更「陷」
+    return xform(t, sx * 0.027 * H, 0.042 * H, 0.088 * H, -0.1, 0, sx * 0.12);
+  };
+  const mkVoid = (sx) => {
+    const s = new THREE.SphereGeometry(0.015 * H, 10, 8);
+    s.scale(1, 1.32, 0.5);
+    return xform(s, sx * 0.027 * H, 0.042 * H, 0.086 * H, -0.1, 0, sx * 0.12);
+  };
+  const eyeGeo = mergeGeometries([mkRing(-1), mkRing(1), mkVoid(-1), mkVoid(1)], true);
+  const eyes = new THREE.Mesh(eyeGeo, [eyeMat, eyeMat, voidMat, voidMat]);
+  headPivot.add(eyes);
   // v1.11 ②：第二层错相位破披——肩背披下的一层残布，褶相位与主身
   // 错开，下摆一圈 seeded 参差撕口（双面材质，撕口翻看得到里子）。
   const capeMat = new THREE.MeshPhysicalMaterial({
@@ -1131,34 +1251,51 @@ export function cornerWraith(height = 2.35) {
   const armR = mkArm(1);
   pivot.rotation.z = 0.06; // 常态就歪着——最不对劲的一度
   group.userData.pivot = pivot;
+  group.userData.headPivot = headPivot;
   group.userData.mat = mat;
+  group.userData.eyeMat = eyeMat;
   /** 顿挪体态：s 为 lurchEase 后的阶梯进度——挪的时候侧倾/沉肩/臂拖摆，
    *  s 停在平台上时全身随之冻住（sin(s·6π) 在平台段不动）。
-   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档，每停一次
-   *  都更「看着你」）；身体冻住时暗红内衬随呼吸搏动（红光在呼吸——
-   *  唯一还在动的东西）。 */
+   *  v1.11：越挪越前倾（0.12→0.26——每顿定格在更近的一档）；身体
+   *  冻住时暗红内衬随呼吸搏动（红光在呼吸——唯一还在动的东西）。
+   *  v1.12：**头一档一档抬起**（headPivot 随 s 后仰——每停一次抬头
+   *  多一点，发帘里的眼窝越停越正对你）；眼窝环与红光错半拍呼吸；
+   *  **身体冻住时发帘还在极缓地摆**（t 基慢摆钟频率与身体拍无关——
+   *  惯性没停，它不是雕像）。 */
   group.userData.setLurch = (s, t = 0) => {
     const beat = Math.sin(s * Math.PI * 6);
     pivot.rotation.x = 0.12 + s * 0.14;
     pivot.rotation.z = 0.06 + s * 0.045 + beat * 0.075;
     pivot.position.y = Math.abs(beat) * 0.035;
+    headPivot.rotation.x = -(0.06 + s * 0.34);
+    headPivot.rotation.z = -0.06 * s + beat * 0.03;
+    hair.rotation.z = Math.sin(t * 1.7) * 0.045 - beat * 0.03;
+    hair.rotation.x = Math.sin(t * 1.15 + 0.8) * 0.028;
     armL.rotation.x = -0.08 + beat * 0.1;
     armR.rotation.x = -0.08 - beat * 0.1;
     armL.rotation.z = 0.05 * beat;
     armR.rotation.z = 0.05 * beat;
     mat.emissiveIntensity = 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(t * 2.4));
+    eyeMat.emissiveIntensity = 0.55 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2.4 + 1.2));
   };
   /** 扑近形变：k∈[0,1] —— 深前倾 + 双臂甩后 + 裙裾展开 + 连续侧摆；
-   *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。 */
+   *  v1.11：红光在扑近里烧起来（0.9→1.4，闪帧里读出体积）。
+   *  v1.12：头死死昂着盯你 + 发帘迎风后甩（叠高频扑动）+ 眼窝烧起来
+   *  （1.2→2.8）。 */
   group.userData.setRush = (k, t = 0) => {
     pivot.rotation.x = 0.26 + 0.3 * k;
     pivot.rotation.z = 0.06 + Math.sin(t * 11) * 0.06 * k;
     pivot.position.y = 0;
+    headPivot.rotation.x = -0.4 - 0.22 * k;
+    headPivot.rotation.z = 0;
+    hair.rotation.x = -0.14 * k;
+    hair.rotation.z = Math.sin(t * 13) * 0.05 * k;
     armL.rotation.x = -0.08 - 0.55 * k;
     armR.rotation.x = -0.08 - 0.55 * k;
     body.scale.set(1 + k * 0.1, 1, 1 + k * 0.1);
     fringe.scale.set(1 + k * 0.22, 1, 1 + k * 0.22);
     mat.emissiveIntensity = 0.9 + k * 0.5;
+    eyeMat.emissiveIntensity = 1.2 + k * 1.6;
   };
   return group;
 }
@@ -1380,15 +1517,35 @@ export function ridgeRing(radius, {
  */
 export function pineGeometryMaterial() {
   // ---- 冠 ----
+  // v1.12 门禁 60 精修循环 v3：v2 的八层枝轮彼此首尾相接——中景读感
+  // 仍是「连续锥裙叠塔」。三处结构升级：
+  // ① 每层锥体收短（×0.8）拉开**层间空隙**，加一根贯穿冠体的内脊
+  //   （顶点色压成暗褐——空隙里露出来的是被针叶阴影吃掉的树干）；
+  // ② 顶点色分层明暗：下层枝轮压暗到 0.62（老枝背光），向上渐亮——
+  //   一棵树自己就有纵深，不吃后处理；
+  // ③ 下层枝轮下垂加深（0.16→0.30 随层递减）+ 段数 12→16（近树
+  //   枝尖圈不再读出折角）。
   const tr = rng(67);
   const tiers = [
     [1.16, 1.0, -1.32], [1.03, 0.95, -0.86], [0.9, 0.92, -0.4],
     [0.78, 0.88, 0.05], [0.65, 0.84, 0.48], [0.51, 0.8, 0.9],
     [0.37, 0.74, 1.3], [0.2, 0.66, 1.66]
   ];
+  const tint = (g, r, gg, b) => {
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      arr[i * 3] = r;
+      arr[i * 3 + 1] = gg;
+      arr[i * 3 + 2] = b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
   const geos = [];
-  for (const [rad, h, y] of tiers) {
-    const cone = new THREE.ConeGeometry(rad, h, 12, 1, true);
+  for (const [ti, [rad, h, y]] of tiers.entries()) {
+    const low = 1 - ti / (tiers.length - 1); // 1=最下层
+    const cone = new THREE.ConeGeometry(rad, h * 0.8, 16, 1, true);
     const p = cone.attributes.position;
     const ph = tr() * Math.PI * 2;
     const ph2 = tr() * Math.PI * 2;
@@ -1404,12 +1561,19 @@ export function pineGeometryMaterial() {
           0.07 * Math.sin(a * 13 + ph * 1.3);
         p.setX(vi, vx * jag);
         p.setZ(vi, vz * jag);
-        p.setY(vi, vy - 0.16 - 0.13 * (0.5 + 0.5 * Math.sin(a * 7 + ph2 * 1.7)));
+        p.setY(vi, vy - (0.1 + 0.2 * low) -
+          (0.09 + 0.1 * low) * (0.5 + 0.5 * Math.sin(a * 7 + ph2 * 1.7)));
       }
     }
-    geos.push(xform(cone, 0, y, 0));
+    const shade = 0.62 + 0.38 * (1 - low); // 下层暗、上层亮
+    geos.push(xform(tint(cone, shade, shade, shade), 0, y, 0));
   }
-  geos.push(xform(new THREE.ConeGeometry(0.055, 0.5, 6), 0, 1.92, 0)); // 顶梢针尖
+  geos.push(xform(
+    tint(new THREE.ConeGeometry(0.055, 0.5, 6), 1, 1, 1), 0, 1.92, 0)); // 顶梢针尖
+  // 冠内脊：层间空隙里露出来的一段暗褐树干（顶点色压色，同材质零新增）
+  geos.push(xform(
+    tint(new THREE.CylinderGeometry(0.045, 0.075, 3.2, 7), 0.55, 0.34, 0.22),
+    0, 0.16, 0));
   const geo = mergeGeometries(geos, false);
   for (const g of geos) g.dispose();
   geo.computeVertexNormals();
@@ -1433,10 +1597,11 @@ export function pineGeometryMaterial() {
   }, 3, 3);
   const mat = new THREE.MeshStandardMaterial({
     map: needleTex, color: 0x93a38c, roughness: 0.95,
-    bumpMap: needleTex, bumpScale: 0.5, side: THREE.DoubleSide
+    bumpMap: needleTex, bumpScale: 0.5, side: THREE.DoubleSide,
+    vertexColors: true // v1.12：分层明暗 + 冠内脊压色
   });
-  // ---- 杆（y∈[0,1] 归一，实例侧 scale.y 接冠底） ----
-  const trunk = new THREE.CylinderGeometry(0.052, 0.115, 1, 9, 3, true);
+  // ---- 杆（y∈[0,1] 归一，实例侧 scale.y 接冠底；v1.12 段数 9→12） ----
+  const trunk = new THREE.CylinderGeometry(0.052, 0.115, 1, 12, 3, true);
   trunk.translate(0, 0.5, 0);
   const tp = trunk.attributes.position;
   for (let vi = 0; vi < tp.count; vi++) {
