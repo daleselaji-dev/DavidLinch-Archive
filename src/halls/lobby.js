@@ -1255,7 +1255,7 @@ export function build(ctx) {
         tp.pv.rotation.x = Math.sin(t * 3.4 + tp.z) * 0.2 * tp.sway;
       }
     });
-    // v1.17 彩蛋五批：烛剪「问第二遍」的答口——三对流苏同拍晃起
+    // v1.17 问第二遍答口（烛剪）：三对流苏同拍晃起
     // （复用既有 sway 通道，不出声不加件）
     echoTassels.fire = () => {
       for (const tp of tasselPivots) tp.sway = Math.max(tp.sway, 0.7);

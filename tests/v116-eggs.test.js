@@ -217,9 +217,5 @@ describe('v1.16 阈值重锁 + 版本', () => {
     }
   });
 
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.16.0', () => {
-    const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.16.0');
-    expect(SRC.main).toContain("version: '1.16.0'");
-  });
+  // 版本钉死断言随轮转移交：v1.17 起由 v117-eggs.test.js 持有
 });
