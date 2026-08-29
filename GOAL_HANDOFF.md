@@ -1,13 +1,42 @@
-# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 9 轮 → 第 10 轮）
+# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 10 轮 → 第 11 轮）
 
 > 本文件由每轮子代理更新：本轮完成了什么 / 下一轮优先做什么 /
 > 当前分支与阻塞项。父代理不改代码，只据此派生下一轮 Task。
-> 上一个 Goal（持续演进，九轮 v1.13→v1.21）已终态收官——评估
-> 与证据清单存档在 v1.21 版本的本文件（git 历史 `f55c1f0`）。
 
 ---
 
-## 第 9 轮纯巡检（零代码改动，版本维持 1.27.0）✅
+## 第 10 轮（v1.28.0 原著对齐大改）✅
+
+**分支**：`cursor/bob-align-round10-v1280-a993`（基线
+`cursor/wraith-viewcheck-v1270-3602`）。门禁 **108**。
+
+用户证词「仍然不够吓人、建模和内容没有太多提升、不符合原著」——
+本轮**实质大改**（非微调）：
+
+### 1) 拐角惊吓·原著 peek 语义 ✅
+- **两阶段 peek→slide**：`REVEAL_PEEK`（s=0.15 hold 220ms）先露发顶/
+  肩线，再四次方滑出全身；错拍 **720ms**（+170）；`CLOSEUP` 侵入
+  （grabIn 0.28 / fovPush 18° / headY 2.05）；`RIM_BEATS` 硬剪影
+  （base 8.2）；`APPROACH_SQUEEZE` drop 7°；第四口心跳 +940ms。
+- `VACUUM.hold` 派生改钉 **3.725**（wake 3470ms）；显形线几何零改动。
+
+### 2) corner_wraith 第三轮回炉 ✅
+- 眼组一字不动；主身再收瘦、发帘开口收窄、前垂发绺 ×7 + 侧 peek
+  绺 ×3、peek 肩不对称、pivot 前倾 0.18、体色再压黑。
+- GLB **227872B** ≤300KB；12 mesh / wraithPivot 契约不破。
+
+### 3) 内容 ✅
+- `DOCENT.mulholland/mulholland2` + 穆赫兰道厅接线（替换 sense/sense2）。
+- 访谈质量替换：`golfball→tenclues`、`milkman→lanight`（40 封顶维持）。
+
+### 4) 门禁 ✅
+- **834/834** + smoke 5/5 + electron `--smoke` EXIT=0 + blender:check 七件。
+- `tests/v128-eggs.test.js` 门禁 108（17 用例）。
+
+**第 11 轮**：等用户真机证词；有证词按反馈修；无证词纯巡检。
+仍不建议 UpdateGoal complete（需用户试玩确认「够吓人/符合原著」）。
+
+---
 
 无用户证词轮，按第 8→9 轮交接口径执行**纯巡检零改动**。同分支
 `cursor/doorfar-wake-echo-round8-v1270-a993`（基线 tip `6078ce4`），

@@ -118,8 +118,8 @@ describe('v1.27 门禁 107：可闻性与混音纪律数学账', () => {
 });
 
 describe('v1.27 门禁 107：三刀参数零改动复钉（本轮加的是声，不动三刀）', () => {
-  it('APPROACH_SQUEEZE 原值（FOV 渐窄不动）', () => {
-    expect(APPROACH_SQUEEZE).toEqual({ z0: -24.5, z1: -26.4, drop: 5 });
+  it('APPROACH_SQUEEZE 原值（v1.28 drop 7°）', () => {
+    expect(APPROACH_SQUEEZE).toEqual({ z0: -24.5, z1: -26.4, drop: 7 });
   });
 
   it('WAKE_RELIGHT/WAKE_DAZE/WAKE_POINT 原值（缓燃与落点朝向不动）', () => {
@@ -128,15 +128,15 @@ describe('v1.27 门禁 107：三刀参数零改动复钉（本轮加的是声，
     expect(WAKE_POINT).toEqual({ x: 9.7, z: 9.5 });
   });
 
-  it('SCARE_BEATS 六拍 / VACUUM / CLOSEUP 原值（拍长几何机制全不动）', () => {
+  it('SCARE_BEATS 六拍 / VACUUM / CLOSEUP 原值（v1.28 演进后复钉）', () => {
     expect(SCARE_BEATS).toEqual({
-      reveal: 0, stare: 550, rush: 1500, shock: 1900, blackout: 2400, wake: 3300
+      reveal: 0, stare: 720, rush: 1670, shock: 2070, blackout: 2570, wake: 3470
     });
     expect(VACUUM).toEqual({
-      floor: 0.05, hold: 3.555, release: 1.6,
+      floor: 0.05, hold: 3.725, release: 1.6,
       turnFloor: 0.03, turnHold: 2.005, turnRelease: 1.9
     });
-    expect(CLOSEUP).toEqual({ grabIn: 0.35, fovPush: 15, headY: 1.97 });
+    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
   });
 
   it('纪律三数：音色恰 98（doorfar 复用零新增）· 访谈 40 · 普查 195 · 变奏恰三处', () => {
@@ -150,9 +150,9 @@ describe('v1.27 门禁 107：三刀参数零改动复钉（本轮加的是声，
 });
 
 describe('v1.27 门禁 107：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.27.0', () => {
+  it('package.json 与 __SV__.version 都是 1.28.0', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.27.0');
-    expect(SRC.main).toContain("version: '1.27.0'");
+    expect(pkg.version).toBe('1.28.0');
+    expect(SRC.main).toContain("version: '1.28.0'");
   });
 });

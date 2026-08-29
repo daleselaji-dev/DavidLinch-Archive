@@ -170,7 +170,7 @@ describe('v1.18 门禁 88：回声窗一句暗示 + 访谈 34 → 38（四主题
   });
 
   it('新增四条在册且与 QUOTES 立牌语录零重复（防撞第四轮：sound5050/intuition/you 三句撞库弃用在案）', () => {
-    const themes = { ideasdictate: '点子', telephone: '电影', abstractions: '心境', milkman: '此生' };
+    const themes = { ideasdictate: '点子', telephone: '电影', abstractions: '心境', lanight: '此生' };
     for (const [id, theme] of Object.entries(themes)) {
       const v = INTERVIEWS.find((x) => x.id === id);
       expect(v, `缺新条目 ${id}`).toBeTruthy();

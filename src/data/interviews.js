@@ -21,6 +21,8 @@
 //        留账；每轮 ≤2 条止损线内只换一条即收手）。
 // v1.22：38 → 40 **封顶收官**（四主题 10/10/10/10 齐平；此后
 //        新增永久关闸，只做质量替换）。
+// v1.28：40 封顶维持——质量替换两条（golfball→tenclues 心境、
+//        milkman→lanight 此生；穆赫兰道/原著气质向，零追加）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -268,13 +270,13 @@ export const INTERVIEWS = [
     context: '那次失去最终剪辑权的经历之后，他再没让步。'
   },
   {
-    id: 'golfball',
-    topic: '高尔夫球',
+    id: 'tenclues',
+    topic: '十条提示',
     theme: '心境',
-    en: 'If you have a golf-ball-sized consciousness, when you read a book, you\u2019ll have a golf-ball-sized understanding.',
-    zh: '如果你的意识只有高尔夫球那么大，读一本书，就只有高尔夫球那么大的理解。',
-    source: '《Catching the Big Fish》著作 · 2006',
-    context: '他讲扩大意识时最常用的比方，讲座里也反复讲。'
+    en: 'I put ten clues on the DVD. But I still won\u2019t explain the film.',
+    zh: '我在碟片里放了十条提示。但我仍然不解释这部电影。',
+    source: '公开访谈 · 2000s',
+    context: '影碟版附带的提示清单是他唯一愿意给的「钥匙」——谜照旧是谜。'
   },
   {
     id: 'selfish',
@@ -388,13 +390,13 @@ export const INTERVIEWS = [
     context: '与立牌上那句「直觉」互为上下文：这里说的是生活，不是创作。'
   },
   {
-    id: 'milkman',
-    topic: '五十年代的小城',
+    id: 'lanight',
+    topic: '洛杉矶的夜',
     theme: '此生',
-    en: 'My childhood was elegant homes, tree-lined streets, the milkman, building forts, droning airplanes, blue skies, picket fences, green grass, cherry trees.',
-    zh: '我的童年是雅致的屋子、成排的绿树、送奶人、搭堡垒、嗡嗡掠过的飞机、蓝天、白篱笆、绿草、樱桃树。',
-    source: '《Lynch on Lynch》访谈录 · 1997',
-    context: '他常这样一口气罗列自己的小城童年；那之后的话才是转折。'
+    en: 'Los Angeles at night \u2014 there\u2019s a mood, a feeling, a kind of wind.',
+    zh: '洛杉矶的夜——有一种情绪、一种感觉、一阵风。',
+    source: '公开访谈（多次讲述）',
+    context: '他讲《穆赫兰道》的视觉灵感时，常从这座城的夜路说起。'
   },
   // ---------- v1.22 扩容（38 → 40 封顶）：心境/此生各一（10/10/10/10） ----------
   // 防撞记录：lightbulb(s)/bliss/Big Boy/shake 语料全库（QUOTES/
