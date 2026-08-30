@@ -1,135 +1,147 @@
-# GOAL_HANDOFF — 持续演进 Goal 交接（第 8 轮 → 第 9 轮）
+# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 3 轮 → 第 4 轮）
 
 > 本文件由每轮子代理更新：本轮完成了什么 / 下一轮优先做什么 /
 > 当前分支与阻塞项。父代理不改代码，只据此派生下一轮 Task。
+> 上一个 Goal（持续演进，九轮 v1.13→v1.21）已终态收官——评估
+> 与证据清单存档在 v1.21 版本的本文件（git 历史 `f55c1f0`）。
 
 ---
 
-## 本轮（第 8 轮，v1.20.0）完成了什么
+## 本轮（新 Goal 第 3 轮，v1.24.0）完成了什么
 
-**分支**：`cursor/live-axis-audit-round8-v1200-d012`（基线
-v1.19.0 tip `9ef0f9f`，origin/cursor/echo-window-cadence-round7-
-v1190-a993，非 main）。门禁 94–96 全绿，单测 632→**649**，四连
-测试（test/smoke/electron/blender:check）全过，**已打包 1.20.0
-exe**。
+**分支**：`cursor/corner-audio-wake-round3-v1240-a993`（基线
+v1.23.0 tip `30e6eb9`，origin/cursor/corner-feel-polish-round2-
+v1230-a993，非 main）。门禁 102 全绿，单测 717→**744**（29
+文件），四连测试（test/smoke/electron/blender:check）全过。
+**机制/几何/拍长零改动**：SCARE_BEATS/CLOSEUP/STARE_TILT/
+RIM_BEATS 原值复钉（±0ms，v124-eggs toEqual 整表钉），显形线
+47 用例原封，gen 脚本零回炉。
 
-### 1) 活轴盘点首轮（门禁 96 前半，STYLE_AUDIT §11）✅
-- §10 观察点第 4 条兑现：**先盘点再动手**——七条演进轴逐一过账
-  分三档：**活轴两条**（studio 程序化精修 / 访谈质量维护——本轮
-  全部投入）、**维护轴两条**（GLB 资产 / 林奇风巡检——巡不动手）、
-  **封口轴三组**（回声窗三步收官 / 墙那头·暗示预算·字面预算三钉 /
-  **低密度厅第三层反应判死**——给既有件叠第三层 ≈「问第三遍」
-  同构，红线不许换厅名回流）。
-- 盘点纪律入册：下一轮只盘「状态变了的轴」，不全量重盘——盘点
-  本身不许变成新仪式（§11 有账，v120 单测钉盘点账在册）。
+### 1) 音频层病灶修复（交接口径第 1 条上半）✅
 
-### 2) studio 台灯 v3·手作精修（门禁 94）✅
-- GLB 留空厅的程序化答案：精修件**在这间屋里做出来**——v2 工厂
-  Anglepoise（珐琅座/镀铬双节臂/拉簧/clearcoat 清漆）退役，换
-  手作四件账：车削木重底座（座肩车刀痕 + 手刻歪旋钮）/ 手弯
-  铁杆（CatmullRom 单管四弯 ±6mm 出平面 + 蝶形螺母）/ 手锤黄铜
-  罩（**整数角频率**定植锤痕——lathe 接缝两侧重复顶点同凹深不
-  裂缝；手刷绿漆横道毛边贴图）/ 布包余线盘桌面。
-- **精修只动做工不动账**：热点（shade）/光路（3.4/5.5/1.8 D-11
-  三值）/hint/两句字幕/音色一字不动——世界不宣布自己被精修过；
-  mesh 账 7→5（studio 227→**225** 冒烟实证）；精修函数区零
-  setTimeout/零 sfx/零 caption 单测钉死。
-- 定向机位双样张目检（开灯全景 + SV_SHOT_PRE activateByHint
-  关灯特写）：手作语言成立。
+- **直通总线**（engine `punch`，本轮最重要的一笔）：勘定发现
+  惊吓自己的十一处声（刮擦/三口心跳/闷击/scare 主体/whisper）
+  全挂 master——reveal 帧自己的 duck 抽真空 45ms 内把它们压到
+  6%，错拍心跳实际推子只剩 0.03、扑近那嗓子只剩 ~15% 电平。
+  **「不够吓人」的音频病灶在总线不在音色**。立 punch 直通
+  （绕 duck 不绕总压缩器、静音闸同闸、sfx/sfxAt 第 4 路由参），
+  「它的声」全走直通；世界侧（灯灭/接近段心跳/半程升压）照旧
+  被抽走——抽真空抽走的是世界，不是它。
+- **真空罩拍长重钉**（VACUUM）：旧 duck(1.3s) 在 1.345s 就开始
+  归还、黑幕段环境底噪回到半血。改罩到 **wake+0.3s**（拐角
+  3.555 / 转身 2.005 同构账入测）——环境音比睁眼慢一步回来。
+- **音色塑形 98 刹车内零新嗓子**：scare 低频加权 + 双翼去相关
+  （棕噪 1.9s、52→27Hz 半沉层、失谐簇 ±0.4 分翼、噪声墙劈两
+  面）；scrape 与四次方滑出对时（0.9s 线性→0.58s 指数快落、
+  石屑 0.48s）；thud 力度分层（vol≥0.9 惊吓级才醒 31→19Hz
+  深层——全馆家具级闷响原封，普查恰两处入测）。
+- **接近段持续低压层**（engine `setDread`）：dreadswell 同源
+  27Hz 嗓子拉成 sustain（增益 q² 封顶 0.2、指数趋近），与巷灯
+  /心跳同 q 同 armed 闸；挂 master 跨线帧被真空一并抽走；换厅
+  stopAmbience 归零。**非新音色**（case 恰 98 复钉）。
 
-### 3) 访谈质量维护首轮（门禁 95）✅
-- 封顶 40 后第一次**替换不追加**：absurdity（「满眼荒诞」——与
-  立牌 sense「生活讲不通」领地重叠、语义最薄）退役 → detectives
-  （「我们在生活里都像侦探」）**心境同格换入**。
-- **38 条恰等 + 四主题 10/10/9/9 逐格相等**双持平入测（涨一条都
-  算破口径）；防撞五轮口径照旧（detective 语料全库零出现）；
-  退役理由留账进数据源注释。
+### 2) wake 错位感（交接口径第 1 条下半）✅
 
-### 4) GLB 维护巡检第 2 轮（门禁 96 中）✅
-- **更轻口径**（§10「零改动焦虑」承诺兑现——落厅代码零改动 →
-  免全量定向截屏）：blender:check 七件全过 + 六 glb-landed 冒烟
-  信号全在 + mull 魅影拐角惊吓自然触发功能验证——**零病灶、
-  零改动、零回炉**。维护轴单测钉在岗（v119 + v120 双层）。
+- **俯冲醒**（WAKE_DAZE.pitch −0.36）：teleport 清俯仰后把视线
+  压到脚边巷口地面——醒来不是站着醒的，头要自己抬起来。
+- **字幕迟到 1.15s**：先自己认出这是哪儿，那句「有些拐角，
+  不该拐过去。」才补刀。
+- **只给拐角惊吓**：转身惊吓平视即醒即字——两重 wake 从此不只
+  字幕不同：一个错的是**空间**（醒姿/声音都不对），一个错的
+  是**时间**（转身与看见之间没有间隙）。
 
-### 5) Release 1.20.0（门禁 96 后半）✅
-- bump 1.20.0（package.json + `__SV__.version`，版本钉移交
-  v120-eggs.test）；CHANGELOG/WORKLOG/TESTING/README/STYLE_AUDIT
-  §11 执行账入册；四连全绿（**649** / smoke 5·5 / electron
-  EXIT=0 / blender:check 七件）；`dist:win` **完整一次成型**
-  EXIT=0 双 exe + SHA256SUMS + DOWNLOAD 直链 + 发布产物冒烟复跑。
+### 3) 变奏彩蛋第三例·时序反转语法（交接口径第 2 条）✅
 
-## 下一轮（第 9 轮）优先做什么
+- **路灯杆**：scare.seen 后敲杆**手上没声**、灯同帧把双沉答完、
+  你那记铁鸣 2.4s 后才从杆里走出来——**答在问前**。与缺席
+  （刮痕墙）/换位（呼叫铃）语法不同源。零字幕零网格零新热点、
+  v1.16 贴顶纪律与远声密度钉原封（迟到的声在段外 rev 更新器走
+  游戏时钟）；`if (scare.seen)` 恰三处封口入测——**三例三语法
+  到此收满，再加就是通胀**。交互普查 195 持平、mull mesh 244
+  持平。
 
-1. **盘点增量化**——只盘「状态变了的轴」（活→封口 / 维护→活），
-   没变的引用 §11 即可；不全量重盘（盘点不许变成新仪式）。
-2. **studio 精修轴慎续**：台灯之后 studio 还有磁带机/转盘/收音机
-   三件老抛光件——但「每轮精修一件」会变成 GLB 轴「每轮一件」
-   惯性的转世。**先问「哪件看着假」再动手，没有病灶就不精修**；
-   若精修，「手作」语言是 studio 一间屋的专利（弯点出平面/锤痕/
-   歪旋钮），别的厅保持各自做工语言（工厂件就该像工厂件）。
-3. **访谈换血止损线**：每轮 ≤2 条且必须留退役理由账——一轮换
-   三五条就成了变相重写（38 条的账目连续性也是馆史）。本轮只换
-   一条即收手是范本。
-4. **GLB 轴维护第 3 轮**照旧更轻口径：blender:check + 六
-   glb-landed 信号即可；只在改了落厅代码或怀疑病灶时摆机位。
-   **不产新资产**（gen_*.py 恰七件钉死）。
-5. **封口轴零触碰**：回声窗七件窗长是终态（v119 精确钉）、
-   drawerfar 恰三处、暗示预算一句、BACK IN 5 是最后一处字面、
-   「第三层反应」判死（v120 §11 留痕）——这五条谁来都不许动，
-   改测试绕纪律更不行。
-6. **性能预算警戒照旧**：twinpeaks 244、mulholland 244（250
-   预算）贴顶禁入；studio 精修后 225（+2 余量回收）；lobby 207
-   仍是全馆余量最大。
-7. **三数口径**：交互 195 / 音色 98 持平有账；访谈 38 内容可换
-   血、数目持平。若真出现「不得不加」的敘事需要，按老规矩开
-   一格并留账——刹车防惯性不防生长。
+### 4) Release 1.24.0 ✅
+
+- bump 1.24.0（版本钉移交 v124-eggs；cornerscare dreadswell
+  接线钉改钉留账 + v123 版本钉同值语义移交）；新增 **v124-eggs
+  27 用例**（直通接线普查/真空账/俯冲醒顺序/塑形钉/低压层/
+  反转账/机制拍长零改动复钉）；CHANGELOG/WORKLOG/TESTING/
+  README/STYLE_AUDIT §15/门禁 102 入册；四连全绿（**744** /
+  smoke 5/5 / electron EXIT=0——含 scare.seen 后三条变奏分支
+  无异常 / blender:check 七件）；dist:win 完整一次成型 +
+  SHA256SUMS + DOWNLOAD 直链（见 DOWNLOAD.md）。
+
+## 下一轮（第 4 轮）优先
+
+1. **拐角惊吓四层齐了，下一步是真机验收不是继续改造**：机制
+   （显形线）→ 手感（拍长/镜头/歪头）→ 灯语（rim 分拍/相位
+   确定化）→ 音频与 wake（直通/真空/塑形/低压层/俯冲醒）四轮
+   四层全部落地。swiftshader 无音频输出、陈旧帧不可信——本轮
+   全部时序正确性交 v124-eggs 账目钉。**若用户仍报「不够吓
+   人」，先问清「哪一拍不吓人」**（接近段没压？滑出不闪？错拍
+   不僵？扑近不响？醒来不晕？）再定向动手，全面翻修的回报已经
+   递减到负值。
+2. **wake 空间错位的下一档（若需要）**：俯冲醒+字幕迟到+环境
+   音迟归三件已到身体面——再往下是 WAKE_POINT 挪位置/换朝向
+   （醒在「不该在」的地方）。动之前先论证与巷口地标/CORNER
+   几何的关系，且 electron 冒烟的 wake 位置断言要同步。
+3. **三个内容出口全部收满，只剩质量替换**：变奏三语法封口
+   （scare.seen 恰三处入测）、DOCENT 二层封口、访谈 40 封顶——
+   第 4 轮内容侧只有质量替换一条路；新载体需先论证且不增
+   INTERACTIVE_MIN。**变奏第四例判死**：任何语法都会稀释前
+   三例。
+4. **维护纪律照旧**：封口轴五条零触碰（回声窗窗长/drawerfar
+   三处/暗示预算/BACK IN 5/第三层判死）；三数口径 **195 交互 /
+   98 音色 / 40 访谈**；gen_*.py 恰七件；studio 零 GLB；手作
+   语言是台灯专利。
+5. **性能预算警戒照旧**：twinpeaks 244、mulholland 244（250
+   预算）贴顶禁入；studio 224；lobby 207 余量最大。
 
 ## 当前分支与阻塞项
 
-- **分支**：`cursor/live-axis-audit-round8-v1200-d012`
-  （已推送，基于 cursor/echo-window-cadence-round7-v1190-a993）。
+- **分支**：`cursor/corner-audio-wake-round3-v1240-a993`
+  （已推送，基于 cursor/corner-feel-polish-round2-v1230-a993）。
 - **阻塞项**：无硬阻塞。环境注意（新 VM 必读）：
   - Blender 不随仓库分发——按 `scripts/blender/README.md` 重装
-    （NLUUG 镜像 ~100s）；`blender:check` 缺 Blender 时跳过不红。
+    （NLUUG 镜像 ~100–335s）；`blender:check` 缺 Blender 时跳过不红。
   - electron `--smoke` 断言跑在 **dist 构建产物**上——改厅代码后必须
     先 `npm run build` 再跑（先确认 build 成功再读冒烟数）。
+  - **swiftshader 下 capturePage 会返回陈旧帧**（合成器滞后）——
+    短时程视效（惊吓 3.3s 序列）的视觉取证不要依赖 SV_SCARE_SHOT
+    连拍；几何正确性交单测、功能触发交冒烟、模型视觉交 Blender
+    CLI 渲染。**WebAudio 同理无输出可言**——音频时序正确性交
+    v124-eggs 真空账/直通钉/对时账，冒烟只证不抛错。
   - **游戏时钟≠真钟**：软件渲染下 dt 封顶 0.1s、游戏时钟走
     0.08–0.42 倍速——凡计时敏感的 `SV_SHOT_PRE` 探针**别用
-    setTimeout 数真秒**，注入 `S.engine.updaters` 累加 dt 记游戏秒
-    （模板见 WORKLOG v1.19 P 行；`SV_WIN_SIZE=360x560` +
-    `setQuality('low')` 可把倍速提到 ~0.42，探针等待给足
-    `SV_SHOT_DELAY=150000`）。
-  - `SV_SHOT_PRE` 探针脚本会在**每个厅**执行——探针里先
-    `S.hall()` 守卫目标厅，否则在 lobby 就炸（本轮台灯关灯特写
-    照此口径，一次过）。
-  - `SV_SMOKE_QUEUE` 单厅巡检：lobby 作首厅**总会先装载**——
-    要 lobby 机位就指着**别的厅**跑（`SV_SMOKE_QUEUE=lobby` 会
-    二次导航退出码 5，且 `SV_SHOT_POS` 全局生效会被后厅覆写）。
-  - studio 已有 `metro`/`saucer`/`chinaState`/`metroNudge`；
-    archive 已有 `cardArrayReady`/`stuckState`/`stuckParts`——
-    新增道具前先 rg 同名变量防撞名。
-  - Blender 生成脚本里 `box()` 参数序是 **(w,h,d)**（v1.18 黑衬板
-    h/d 写反病灶实录在 gen_card_catalog.py 注释）。
-  - 打包 winCodeSign/NSIS 缓存 VM 轮换后会丢，dist:win 时现场下载
-    （连通性已验证可达）；**必须完整 dist:win 一次成型**，单独重跑
-    nsis 会在被签名污染的 win-unpacked 上重压 app-64.7z 超限；
-    asar extract-file 校验版本时**输出到 /tmp**，勿覆盖根
-    package.json。
-  - lathe 几何做顶点扰动时**只用整数角频率**（sin(n·a)，n∈ℤ）
-    ——接缝两侧 ±π 重复顶点才会算出同一位移，不裂缝（台灯锤痕
-    实证，v120 单测钉口径）。
-
-## Goal 终态对照（父 Goal 四目标——未终结，持续中）
-
-- **Blender 管线成熟**：维护第 2 轮平稳——七件资产六处落厅零
-  病灶零回炉；巡检口径按承诺降档（落厅代码没动就不摆机位），
-  维护成本逐轮递减而纪律钉双层在岗。
-- **林奇风**：STYLE_AUDIT 十一节病灶→纪律→执行账八轮闭环；本轮
-  「活轴盘点」把「收官≠停滞」立成方法：投入只给长得动的轴，
-  手作语言成为 studio 的身份而非全馆的模板。
-- **丰富彩蛋互动**：195 件持平三轮——本轮的深化是**做工**（台灯
-  v3）而非机制：世界不宣布自己被精修过，但手弯的杆和锤痕会被
-  站得近的人看见。
-- **合规访谈**：38 条封顶转质量维护——第一次换血（替换弱条目
-  而非追加）落地，防撞六轮实战口径；QUOTES/DOCENT/访谈三库
-  互斥纪律照旧。
+    setTimeout 数真秒**，注入 `S.engine.updaters` 累加 dt 记游戏秒；
+    `SV_SHOT_PRE` 探针会在每个厅执行——先 `S.hall()` 守卫。
+  - **teleport 会清俯仰**——俯拍取证俯仰必须写在 PRE 里瞬移之后
+    （pitchObject 是 camera 父节点）；WAKE_DAZE 俯冲醒依赖同一
+    顺序（先 teleport 后压 pitch，v124-eggs 有顺序守卫钉）。
+  - **xvfb 显示锁**：并行跑过 electron 后 `:99` 可能被占——
+    `xvfb-run -a` 自动挑空闲显示号。
+  - Blender 渲染排查穿帮件时**别信藏件对照渲染的目检**——用
+    `scene.ray_cast(depsgraph, origin, dir)` 逐像素问首命中对象
+    （模板在 WORKLOG v1.22 段）。
+  - 打包 winCodeSign/NSIS 缓存 VM 轮换后会丢，dist:win 现场下载；
+    **必须完整 dist:win 一次成型**，单独重跑 nsis 会超限；asar
+    extract-file 校验版本**先 cd /tmp 再跑**（无 --output 参数、
+    总写 CWD，在仓库根跑必覆盖根 package.json）。
+  - lathe 顶点扰动只用整数角频率（接缝安全）；Blender `box()`
+    参数序 (w,h,d)；bpy `create_cone` 的 radius1 在底面（-z）——
+    「尖朝下」要翻 z（gen_corner_wraith.py add_cone 行注）。
+  - mulholland 已有 `scare.seen`（刮痕墙/呼叫铃/路灯杆三处变奏
+    在用，**恰三处有测试钉**——新增分支会红）、`scare.clock`
+    （emissive 局部时钟）与 `poleEcho.rev`（反转变奏迟到声）；
+    studio 已有 `metro`/`saucer`/`chinaState`；archive 已有
+    `cardArrayReady`——新增状态字段先 rg 防撞名。
+  - 惊吓拍改动注意三处联动：electron --smoke 的拐角惊吓 wake
+    守卫预算 40s（现全程 3.3s 余量大）；v124-eggs 钉了
+    SCARE_BEATS/CLOSEUP/STARE_TILT/RIM_BEATS **整表 toEqual
+    原值**——改拍长要改钉留账；**VACUUM 是 wake+0.3−0.045 的
+    派生账**（v124-eggs 有算式钉）——改 SCARE_BEATS.wake 必须
+    同步改 VACUUM.hold，否则真空罩漏拍。
+  - engine `sfx/sfxAt` 第 4 参是 punch 路由——新惊吓声想直通
+    传 `true`；世界的声（环境/家具/脚步）**不要**走直通（会
+    躲过抽真空破坏「世界消失」）。`setDread` 挂 master 是刻意
+    的（dread 属于世界）。

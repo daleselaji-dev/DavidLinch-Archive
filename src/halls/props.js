@@ -1041,6 +1041,16 @@ export function radioCabinet({ mats } = {}) {
 
 // ============================================================
 // 林奇的房间 —— 唱机（底座 + 转盘 + 黑胶 + 弯管唱臂 + 配重）
+// v1.21 病灶修（第 9 轮问诊「哪件看着假」唯一挂账件）：
+//   旧账三处互相拆台——①静止时唱臂横在唱片标签正上方、悬空
+//   3.7cm；②唱头壳下没有唱头也没有针杆，「针尖落进沟槽」只有
+//   字幕没有针尖；③转盘中心没有主轴，唱片是搁着的圆片。
+//   修法是工厂做工（唱机就该像出厂的唱机——手作语言是台灯的，
+//   不扩散）：补主轴 + 歇臂柱 + 唱头/针杆，臂管重指向——静止落
+//   在歇臂柱上（唱片外），播放摆入沟槽带，针尖真的落到唱片面。
+//   接线契约零改动：userData.record/arm/platter 三挂点原名原样，
+//   studio 的 rotation.y = armIn * -0.5 摆臂线一字不动；网格账
+//   7 → 6（同材质静件合并，预算只减不增）。
 // ============================================================
 export function turntable({ mats } = {}) {
   const M = mats || propMats();
@@ -1048,8 +1058,11 @@ export function turntable({ mats } = {}) {
   const plinth = roundedBoxMesh(0.52, 0.09, 0.42, 0.02, M.darkWood);
   plinth.position.y = 0.045;
   g.add(plinth);
-  const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.022, 28), M.chrome);
-  platter.position.set(-0.04, 0.1, 0);
+  // 转盘 + 主轴（合并单件：轴插在盘心，唱片孔对孔套在轴上）
+  const platter = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.17, 0.17, 0.022, 28), -0.04, 0.1, 0),
+    xform(new THREE.CylinderGeometry(0.0035, 0.0035, 0.024, 8), -0.04, 0.126, 0)
+  ], M.chrome);
   // 黑胶盘（沟槽纹理）
   const grooveTex = canvasTexture(128, (g2, s) => {
     g2.fillStyle = '#0a0a0c';
@@ -1067,17 +1080,29 @@ export function turntable({ mats } = {}) {
   );
   record.position.set(-0.04, 0.115, 0);
   g.add(platter, record);
-  // 唱臂：支座 + 弯管 + 唱头 + 配重
-  const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.028, 0.07, 10), M.chrome);
-  armBase.position.set(0.18, 0.12, -0.12);
+  // 唱臂支座 + 歇臂柱（合并单件）：柱顶托槽在静止臂管正下方——
+  // 不放唱片的时候，臂有地方歇，不再悬在半空
+  const armBase = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.024, 0.028, 0.07, 10), 0.18, 0.12, -0.12),
+    xform(new THREE.CylinderGeometry(0.0055, 0.0055, 0.034, 8), 0.163, 0.107, 0.069),
+    xform(new THREE.CylinderGeometry(0.008, 0.008, 0.007, 8), 0.163, 0.1265, 0.069)
+  ], M.chrome);
+  // 唱臂总成：轴承壳出发沿 +z 斜落——静止指向歇臂柱（唱片外），
+  // 播放绕 y 摆 -0.5 rad 进沟槽带（针尖落点距盘心 ~0.117，在
+  // 0.03 标签与 0.155 盘沿之间）
   const armGroup = new THREE.Group();
-  const armTube = new THREE.Mesh(bentTube([0, 0, 0], [-0.1, 0.02, 0.05], [-0.2, 0.0, 0.12], 0.006), M.chrome);
-  const headShell = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.02), M.iron);
-  headShell.position.set(-0.2, 0, 0.12);
-  const counter = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 10), M.iron);
-  counter.rotation.z = Math.PI / 2;
-  counter.position.set(0.035, 0.005, -0.01);
-  armGroup.add(armTube, headShell, counter);
+  const armChrome = mergedMesh([
+    bentTube([0, 0.004, 0], [-0.005, -0.002, 0.1], [-0.017, -0.0235, 0.2], 0.006),
+    xform(new THREE.CylinderGeometry(0.012, 0.012, 0.014, 12), 0, 0.002, 0),
+    // 针杆：锥尖朝下，播放时落到唱片面（y 0.117——盘面 0.118 咬住）
+    xform(new THREE.CylinderGeometry(0.0006, 0.0022, 0.005, 6), -0.019, -0.0355, 0.224)
+  ], M.chrome);
+  const armIron = mergedMesh([
+    xform(new THREE.BoxGeometry(0.02, 0.012, 0.034), -0.019, -0.021, 0.216),   // 唱头壳
+    xform(new THREE.BoxGeometry(0.016, 0.011, 0.026), -0.019, -0.0305, 0.214), // 唱头
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.032, 10), 0.004, 0.006, -0.048, Math.PI / 2, 0, 0) // 配重（臂后）
+  ], M.iron);
+  armGroup.add(armChrome, armIron);
   armGroup.position.set(0.18, 0.155, -0.12);
   g.add(armBase, armGroup);
   g.userData.record = record;

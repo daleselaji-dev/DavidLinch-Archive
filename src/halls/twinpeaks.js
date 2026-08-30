@@ -891,7 +891,7 @@ export function build(ctx) {
   q1.rotation.y = 0.9;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration: ctx.narration, docent: DOCENT.darkness
+    narration: ctx.narration, docent: DOCENT.darkness, docent2: DOCENT.darkness2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

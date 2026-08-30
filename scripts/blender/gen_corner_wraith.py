@@ -1,15 +1,29 @@
 # ============================================================
 # gen_corner_wraith.py — 「拐角魅影」.blend 生成（Blender 4.1.1 headless）
 #
-# 形体对照运行时 Three.js 版 kit.cornerWraith v3（src/halls/kit.js）：
-# 车削主身（裙裾→收腰→驼峰背→缩颈→兜帽）、前倾埋头、错相位破披、
-# 裙裾破布条 ×13、过长垂臂 + 三指、披垂发帘（前脸开口）+ 成绺长发、
-# 面部空洞 + 眼窝空洞 ×2。抽象无面目：无鼻无嘴无瞳无脸皮。
+# 形体语言：车削主身（裙裾→收腰→驼峰背→缩颈→垂首）、前倾佝偻、
+# 错相位破披、裙裾破布条、过长垂臂 + 长指、披垂发帘（前脸开口）+
+# 成绺长发、面部空洞 + 眼窝空洞 ×2。抽象无面目：无鼻无嘴无瞳无脸皮
+# ——致敬林奇魅影的剪影语言，非任何角色的肖像复刻。
 #
 # 精修 loop 三阶段（--stage 参数）：
 #   block  占位比例架：五个 primitive 立出剪影比例（高 2.35m）
-#   mid    中模：车削主身 + 布褶 + 驼峰/埋头非对称 + 垂臂 + 破披
-#   fine   精修：+ 发帘/长发 ×13 + 破布条 ×13 + 眼窝 + 噪声布纹 + 材质
+#   mid    中模：车削主身 + 布褶 + 驼峰/佝偻非对称 + 垂臂 + 破披
+#   fine   精修：+ 发帘/长发 + 破布条 + 眼窝 + 噪声布纹 + 材质
+#
+# v1.22 第二轮回炉（三档五拍，用户口径「眼睛很好，其他都要改」——
+# 眼组参数一字不动，其余全部重塑）：
+#   拍 1  基线诊断（v1.13 定稿四机位重读）：发帘读成蘑菇罩、绺束
+#         从帘后戳出如管风琴（宽头高过帘背）、身形软钟毫无枯瘦、
+#         头顶巫师帽尖、双臂外八如蜘蛛腿、体色偏亮偏蓝像绒毯
+#   拍 2  剖面/材质大改：主身收瘦（胸腰颈全窄一档 + 冠顶降 0.015H
+#         杀帽尖）、驼峰加深加双结 + 左右肩线歪斜、上身前佝偻场、
+#         发帘从「罩」改「披」（垂到 -0.45H、竖绺沟槽加深）、绺束
+#         宽头埋进帘身（挂点 ≤+0.03H）、垂臂收拢贴身加长（左臂
+#         比右臂长——错拍不对称）、指骨加长带屈、体色压进黑里
+#   拍 3  渲染对照修正（见各段行注）
+#   拍 4  近景面部修正（见各段行注）
+#   拍 5  定稿复核 + 导出（inspect 账目见 README）
 #
 # 用法（无显示环境）：
 #   blender -b --factory-startup --python scripts/blender/gen_corner_wraith.py \
@@ -28,24 +42,29 @@ from common import reset_scene, make_material, save_blend, args_after_dashes
 
 H = 2.35  # 与运行时 cornerWraith(height=2.35) 一致
 
-# 车削剖面（r, y）——与 kit.js cornerWraith prof 同表（r 已含 *0.5）
+# 车削剖面（r, y）——v1.22 拍 2 收瘦：胸/腰/颈全窄一档（软钟形→
+# 枯瘦），冠顶从 1.0 降到 0.985 且末段收急（巫师帽尖退役——头顶
+# 是被发帘盖住的小圆冠，不是尖）
 BODY_PROFILE = [
-    (0.36, 0.0), (0.355, 0.02), (0.315, 0.09), (0.26, 0.22), (0.21, 0.36),
-    (0.175, 0.5), (0.16, 0.58), (0.185, 0.68), (0.205, 0.76), (0.17, 0.8),
-    (0.1, 0.83), (0.078, 0.85), (0.105, 0.885), (0.115, 0.93),
-    (0.085, 0.972), (0.001, 1.0)
+    (0.34, 0.0), (0.335, 0.02), (0.30, 0.09), (0.245, 0.22), (0.195, 0.36),
+    (0.16, 0.5), (0.145, 0.58), (0.168, 0.68), (0.185, 0.76), (0.15, 0.80),
+    (0.085, 0.83), (0.062, 0.85), (0.092, 0.885), (0.10, 0.93),
+    (0.06, 0.968), (0.001, 0.985)
 ]
 
-# 发帘剖面 + 前脸开口半角（kit.js v3 同源数据）
+# 发帘剖面 + 前脸开口半角。v1.22 拍 2：从「罩」改「披」——去掉
+# 蘑菇肩肚（0.16→0.14 收），下摆一路披到 -0.45H（盖过肩胛与胸口），
+# 半径缓张（垂布，不是伞）
 HAIR_PROFILE = [
-    (0.035, 0.17), (0.115, 0.125), (0.16, 0.06), (0.19, -0.01),
-    (0.205, -0.09), (0.225, -0.19), (0.24, -0.3)
+    (0.028, 0.16), (0.09, 0.13), (0.14, 0.075), (0.175, 0.0),
+    (0.19, -0.09), (0.20, -0.20), (0.215, -0.33), (0.225, -0.45)
 ]
 OPEN_HALF = math.pi * 0.21
 
+# v1.22 拍 2：破披随主身收瘦同步收窄一档，盖肩线略降
 CAPE_PROFILE = [
-    (0.235, 0.55), (0.26, 0.62), (0.27, 0.68), (0.255, 0.74),
-    (0.21, 0.79), (0.13, 0.825), (0.09, 0.848)
+    (0.215, 0.55), (0.24, 0.62), (0.25, 0.68), (0.235, 0.74),
+    (0.19, 0.79), (0.115, 0.822), (0.08, 0.845)
 ]
 
 
@@ -93,7 +112,19 @@ def lathe(name, profile, segments=48, arc=math.pi * 2, start=0.0, scale=1.0):
 
 
 def displace_body(obj, fine=False):
-    """布褶 + 驼峰/埋头非对称（与 kit.js 同一套位移场；fine 加噪声布纹）。"""
+    """布褶 + 驼峰/佝偻非对称位移场。
+    v1.22 拍 2：
+      · 竖褶加深（0.07/0.048 → 0.09/0.06）——枯瘦的布贴着骨走；
+      · 驼峰加深（0.055H → 0.075H）+ 峰上叠第二结（u≈0.78 小结，
+        0.03H）——背不是一个光滑鼓包，是两节隆起；
+      · 肩线歪斜：u≈0.77 高斯带内按 x 侧写高低（左肩抬右肩塌
+        ±0.028H）——最不对劲的一度从「歪」升级成「斜」；
+      · 上身前佝偻场：u>0.45 起向 +Y（正面）渐进推 0.055H——
+        它不是站直了歪头，是整个上身塌向你。
+    拍 4（近景渲染账）：佝偻场首版推到头顶——头冠向 +Y 出走
+    0.13m，从发帘前脸开口里钻出来把面部空洞/眼组全部挡死（正面
+    四机位一颗灰头，「眼睛很好」直接歼灭）。佝偻场加颈上淡出
+    （u>0.80 线性归零）——塌的是胸肩，头留在帘内眼组对齐位。"""
     for v in obj.data.vertices:
         x, y, z = v.co
         r = math.hypot(x, y)
@@ -101,21 +132,22 @@ def displace_body(obj, fine=False):
         if r > 1e-4:
             a = math.atan2(y, x)
             fall = max(0.0, 1 - u / 0.72)
-            # 第 2 拍精修：渲染对照发现正面竖褶读不出来——主/副谐波
-            # 幅度各加四成（kit.js 0.05/0.034 → 0.07/0.048）；
-            # 第 4 拍：主谐波加相位 0.7——正面（a=π/2）不再落在波节上
-            fold = 1 + math.sin(a * 8 + 0.7) * 0.07 * fall + math.sin(a * 3 + 2.1) * 0.048 * fall
+            fold = 1 + math.sin(a * 8 + 0.7) * 0.09 * fall + math.sin(a * 3 + 2.1) * 0.06 * fall
             if fine:
                 # 近景布纹：两倍频细褶 + 3D 噪声破除车削的机械感
-                fold += math.sin(a * 19 + z * 4.0) * 0.012 * fall
-                fold += (noise.noise(Vector((x * 6, y * 6, z * 3))) - 0.0) * 0.02 * fall
+                fold += math.sin(a * 19 + z * 4.0) * 0.014 * fall
+                fold += (noise.noise(Vector((x * 6, y * 6, z * 3))) - 0.0) * 0.022 * fall
             x *= fold
             y *= fold
-        hump_b = math.exp(-((u - 0.72) / 0.1) ** 2)
-        head_f = math.exp(-((u - 0.95) / 0.07) ** 2)
-        # 驼峰向背侧（-Y）隆起、兜帽头向正面（+Y）前倾、头微垂
-        y = y - hump_b * H * 0.055 + head_f * H * 0.05
-        z = z - head_f * H * 0.02
+        hump_b = math.exp(-((u - 0.70) / 0.09) ** 2)
+        hump_2 = math.exp(-((u - 0.79) / 0.045) ** 2)
+        head_f = math.exp(-((u - 0.94) / 0.07) ** 2)
+        shoulder = math.exp(-((u - 0.77) / 0.06) ** 2)
+        stoop = min(1.0, max(0.0, (u - 0.45) / 0.45))
+        stoop *= 1.0 - min(1.0, max(0.0, (u - 0.80) / 0.10))
+        y = y - hump_b * H * 0.075 - hump_2 * H * 0.03 \
+            + head_f * H * 0.045 + stoop * stoop * H * 0.055
+        z = z - head_f * H * 0.02 + shoulder * (x / (0.2 * H)) * H * 0.028
         v.co = (x, y, z)
 
 
@@ -209,11 +241,18 @@ def build_block():
 
 
 def build_arms(mat):
-    """过长垂臂 ×2：两段微屈 + 三指收尖，指尖近地。"""
+    """过长垂臂 ×2。
+    v1.22 拍 2：外八蜘蛛腿收拢——上段外撇从 0.16 收到 0.055（臂贴着
+    身子挂下来，不是撑出去）；下段加长（0.32H → 0.335H）；左臂比
+    右臂再长 0.02H（错拍不对称——两只手不一样长的剪影比对称更不
+    对劲）；指骨加长带屈（0.19/0.27/0.21 → 0.22/0.30/0.24，指根向
+    掌心微收）。拍 3（INSPECT 账）：首版 0.36H+0.03H+0.33 指让
+    bbox_min z 掉到 -0.077（指尖穿地 7.7cm）——下段/指骨双收口，
+    尖端离地回到 ≥2cm（v1.13 拍 1 立的老账，本轮差点再欠）。"""
     arms = []
     for side in (-1, 1):
         up_len = H * 0.3
-        lo_len = H * 0.32
+        lo_len = H * (0.335 + (0.02 if side < 0 else 0.0))
         bm = bmesh.new()
 
         def seg(r_top, r_bot, length, loc, tilt):
@@ -232,24 +271,24 @@ def build_arms(mat):
             bm.from_mesh(tmp)
             bpy.data.meshes.remove(tmp)
 
-        # 肩点为局部原点；上段外撇、下段回屈
-        seg(0.03, 0.042, up_len, (0, 0, 0), (0.1, side * -0.16, 0))
-        lo_root = (side * up_len * 0.15, up_len * 0.1, -up_len * 0.98)
-        seg(0.022, 0.03, lo_len, lo_root, (-0.06, side * 0.1, 0))
-        # 三指
-        wx = side * up_len * 0.18
-        wy = up_len * 0.06
+        # 肩点为局部原点；上段微撇、下段直垂微屈
+        seg(0.028, 0.04, up_len, (0, 0, 0), (0.12, side * -0.055, 0))
+        lo_root = (side * up_len * 0.055, up_len * 0.12, -up_len * 0.98)
+        seg(0.02, 0.028, lo_len, lo_root, (-0.04, side * 0.04, 0))
+        # 三指（拍 3：指根扇距 0.03→0.024 收窄——爪要拢，不要叉）
+        wx = side * up_len * 0.075
+        wy = up_len * 0.1
         wz = -up_len * 0.98 - lo_len * 0.99
-        for fi, fl in ((-1, 0.19), (0, 0.27), (1, 0.21)):
+        for fi, fl in ((-1, 0.22), (0, 0.30), (1, 0.24)):
             b2 = bmesh.new()
             bmesh.ops.create_cone(b2, cap_ends=True, segments=5,
-                                  radius1=0.015, radius2=0.001, depth=fl)
+                                  radius1=0.013, radius2=0.001, depth=fl)
             import mathutils
-            eul = mathutils.Euler((fi * 0.08, fi * 0.2, 0), 'XYZ')
+            eul = mathutils.Euler((0.22 + fi * 0.05, fi * 0.12, 0), 'XYZ')
             for v in b2.verts:
                 v.co.z -= fl / 2
                 v.co.rotate(eul)
-                v.co += Vector((wx + fi * 0.03, wy + fi * 0.014, wz))
+                v.co += Vector((wx + fi * 0.024, wy + fi * 0.012, wz))
             tmp = bpy.data.meshes.new('_f_tmp')
             b2.to_mesh(tmp)
             b2.free()
@@ -260,7 +299,7 @@ def build_arms(mat):
         bm.to_mesh(mesh)
         bm.free()
         obj = bpy.data.objects.new(mesh.name, mesh)
-        obj.location = (side * H * 0.115, -H * 0.01, H * 0.79)
+        obj.location = (side * H * 0.105, -H * 0.005, H * 0.785)
         bpy.context.collection.objects.link(obj)
         for f in mesh.polygons:
             f.use_smooth = True
@@ -270,10 +309,14 @@ def build_arms(mat):
 
 
 def build_mid(fine=False):
-    """中模：车削主身 + 位移场 + 破披 + 垂臂。fine=True 时加密段数。"""
+    """中模：车削主身 + 位移场 + 破披 + 垂臂。fine=True 时加密段数。
+    v1.22 拍 2 材质：体色从灰蓝绒毯（0.016,0.010,0.020 rough 0.92）
+    压进黑里（0.009,0.006,0.013 rough 0.95）——巷里它是被剪影光切
+    出来的黑，不是一块毛毯；暗红内衬 emission 保留（运行时呼吸）。"""
+    # 拍 5：sheen 0.5→0.3——胸口褶脊在帘缝里吃顶光泛白边
     body_mat = make_material(
-        'wraithBody', (0.016, 0.010, 0.020, 1), roughness=0.92,
-        sheen=0.55, emission=(0.08, 0.008, 0.03, 1), emission_strength=0.05)
+        'wraithBody', (0.009, 0.006, 0.013, 1), roughness=0.95,
+        sheen=0.3, emission=(0.08, 0.008, 0.03, 1), emission_strength=0.05)
     segs = 96 if fine else 48
     body = lathe('body', BODY_PROFILE, segments=segs, scale=H * 1.0)
     # 剖面 r 已是 kit.js 表值——那边乘 H*0.5，这里剖面直接乘 H*0.5：
@@ -284,14 +327,27 @@ def build_mid(fine=False):
     body.data.materials.append(body_mat)
 
     cape_mat = make_material(
-        'wraithCape', (0.014, 0.009, 0.02, 1), roughness=0.95, sheen=0.4)
+        'wraithCape', (0.007, 0.005, 0.011, 1), roughness=0.96, sheen=0.35)
     cape = lathe('cape', [(r * 1.1, y) for r, y in CAPE_PROFILE],
                  segments=72 if fine else 36, scale=H)
     for v in cape.data.vertices:
         v.co.x *= 0.5
         v.co.y *= 0.5
-    displace_hem(cape, seed=157, amp=0.12, below_z=H * 0.6,
-                 harmonics=[(5, 0.06, 0.9), (11, 0.022, 2.6)])
+    # 拍 2：撕口加深（0.12 → 0.15）+ 谐波错相——破披要破得更狠
+    displace_hem(cape, seed=157, amp=0.15, below_z=H * 0.6,
+                 harmonics=[(5, 0.07, 0.9), (11, 0.028, 2.6)])
+    # 拍 5（近景渲染账）：披领原是全 2π 车削——顶端细锥（zu
+    # 0.79→0.845）卡在发帘脸窗正中吃顶光，读成一根「鼻梁亮柱」
+    # （排查时藏 body/藏绺束都不消，真身是披领）。前侧领口向后
+    # 折（y 平滑压到 -0.02），披风只搭肩背，脸窗里只剩黑
+    for v in cape.data.vertices:
+        x, y, z = v.co
+        zu = z / H
+        if y <= 0.0 or zu <= 0.78:
+            continue
+        t = min(1.0, (zu - 0.78) / 0.067)
+        t = t * t * (3 - 2 * t)
+        v.co = (x, y * (1.0 - t) + (-0.02) * t, z)
     cape.data.materials.append(cape_mat)
 
     arms = build_arms(body_mat)
@@ -302,88 +358,138 @@ def build_fine():
     """精修：中模 + 发帘/长发 + 破布条 + 面部空洞 + 眼窝。"""
     body, cape, arms, body_mat = build_mid(fine=True)
 
+    # 拍 2：发色再压一档（灰蓝 → 近黑带冷芯）——发帘的体积交给
+    # 绺沟阴影读，不靠亮色。拍 4：rough 0.5+sheen 1.0 在棚光下
+    # 绺条读成金属管——rough 提到 0.72、sheen 收半。拍 5 复渲
+    # 再哑一档（0.72/0.5 → 0.82/0.3）：帘幕合拢后正面受光面积
+    # 变大，湿发只留极窄的冷高光沿
     hair_mat = make_material(
-        'wraithHair', (0.010, 0.008, 0.016, 1), roughness=0.55,
-        sheen=1.0, emission=(0.02, 0.015, 0.04, 1), emission_strength=0.04)
-    # 发帘：局部车削留 76° 前脸开口，挂在头位（z = 0.84H 处的局部系）
-    veil = lathe('hairVeil', HAIR_PROFILE, segments=80,
+        'wraithHair', (0.006, 0.005, 0.011, 1), roughness=0.82,
+        sheen=0.3, emission=(0.015, 0.012, 0.032, 1), emission_strength=0.04)
+    # 发帘：局部车削留 76° 前脸开口，挂在头位（z = 0.84H 处的局部系）。
+    # 拍 2：竖绺沟槽加深加密（9/17 → 13/23，幅 0.1/0.05 → 0.13/0.06）
+    # ——「披下来的湿发」是一条条沟，不是一顶光滑的罩
+    veil = lathe('hairVeil', HAIR_PROFILE, segments=88,
                  arc=math.pi * 2 - OPEN_HALF * 2, start=OPEN_HALF, scale=H)
     for v in veil.data.vertices:
         v.co.x *= 0.5
         v.co.y *= 0.5
-    displace_hem(veil, seed=211, amp=0.08, below_z=-H * 0.1,
-                 harmonics=[(9, 0.1, 1.3), (17, 0.05, 4.1)])
+    displace_hem(veil, seed=211, amp=0.1, below_z=-H * 0.06,
+                 harmonics=[(13, 0.13, 1.3), (23, 0.06, 4.1)])
+    # 拍 5（近景渲染账三连修）：前脸开口原本纵贯全帘——脸以下
+    # 能从缝里透视到帘内被棚灯照亮的躯干褶脊与后侧绺束（一条亮
+    # 管贴在胸前穿帮）。下段角度重映射向前合拢，三个实渲教训：
+    #   · 对称收 32% 留亮缝（双帘沿正对镜头吃顶光）→ 不对称合拢
+    #     ——右帘收到 26%，左帘越过中线（-30%）补缝，湿发合拢
+    #     从来不对称；
+    #   · 坡度 0.11H 太陡 + 谐波在合拢后的新角度上算 → 帘缝压缩
+    #     成锯齿碎片——displace_hem 先跑（褶纹钉在原始角度），
+    #     合拢坡度放缓到 0.24H（脸窗 zu≥-0.01 全开 76°）；
+    #   · 左帘首版 r×1.035 压外层 → 越线段成了法线正对镜头的
+    #     亮板（射线排查坐实）——改 r×0.97 从内侧越线 + 右帘沿
+    #     随合拢向内收 4.5%（帘缝是一道退进阴影里的褶，不是
+    #     一块顶着光的板）
+    for v in veil.data.vertices:
+        x, y, z = v.co
+        zu = z / H
+        if zu >= -0.01:
+            continue
+        t = min(1.0, (-0.01 - zu) / 0.24)
+        t = t * t * (3 - 2 * t)
+        a = math.atan2(x, y)
+        r = math.hypot(x, y)
+        aa = abs(a)
+        s = 1.0 if a >= 0 else -1.0
+        ol = OPEN_HALF * (1.0 - (0.74 if s > 0 else 1.30) * t)
+        aa2 = ol + (aa - OPEN_HALF) * (math.pi - ol) / (math.pi - OPEN_HALF)
+        edge = max(0.0, 1.0 - (aa - OPEN_HALF) / 0.4) ** 2
+        r2 = r * (1.0 - (0.03 * t if s < 0 else 0.0) - 0.045 * edge * t)
+        v.co = (r2 * math.sin(s * aa2), r2 * math.cos(s * aa2), z)
     veil.location = (0, 0, H * 0.84)
     veil.data.materials.append(hair_mat)
 
-    # 成绺长发 ×13（前侧两绺垂过胸口，避开前脸开口）
-    # 第 2 拍精修：渲染对照发现前侧长绺像「两根木条」拍在胸前——
-    # 摆角减半贴身垂落、绺条加一段圆周（6→7）读出圆身。
-    # 第 4 拍：绺束曾像一圈管风琴管——半径减半（0.02H→0.011H）、
-    # 挂点从帘顶放低到帘身（+0.10~0.14H → +0.02~0.06H），宽头
-    # 藏进发帘里、只留发梢从帘下垂出来
+    # 成绺长发 ×19（v1.13 定稿 13 绺仍读稀；加密 + 拉长）。
+    # 拍 2 治「管风琴」病灶的根：v1.13 挂点 +0.02~0.06H 仍高——帘背
+    # 剖面在 +0.13H 处半径只有 0.09H·0.5=0.045H·H…宽头从帘后露出来
+    # 戳成管。本轮挂点压到 -0.02~+0.02H（帘身最宽段内侧），宽头
+    # 彻底埋进帘壁；绺长拉到 0.34~0.6H（发梢垂过胸口的不止前侧两绺，
+    # 背后也有两三绺长的——湿发不整齐）。
     rnd = seeded(223)
-    strand_angles = [0.78, 1.16, 1.55, 1.95, 2.38, 2.8, 3.22, 3.66, 4.1, 4.52, 4.92, 5.28, 5.5]
+    strand_angles = [0.72, 0.98, 1.24, 1.52, 1.8, 2.08, 2.38, 2.68, 2.98,
+                     3.28, 3.58, 3.88, 4.18, 4.5, 4.82, 5.1, 5.32, 5.5, 5.62]
     cones = []
     for si, sa0 in enumerate(strand_angles):
-        sa = sa0 + (rnd() - 0.5) * 0.18
-        long_s = si in (0, len(strand_angles) - 1)
-        sl = (0.52 if long_s else 0.3) * H + rnd() * 0.12 * H
-        sw = (0.011 + rnd() * 0.006) * H
-        # 第 5 拍（定稿）：宽头嵌进帘身（rr×0.9）、发梢向外下摆
-        # （倾角 0.06→0.16）——绺条贴帘面垂落，不再横排成管
-        rr = H * (0.082 + rnd() * 0.014) * 0.9
+        # 拍 5：挂角钳制在开口沿外 0.08rad——首尾绺加抖动后曾荡进
+        # 前脸开口（一绺横在眼前）
+        sa = sa0 + (rnd() - 0.5) * 0.14
+        sa = min(max(sa, OPEN_HALF + 0.08), math.pi * 2 - OPEN_HALF - 0.08)
+        long_s = si in (0, 4, 9, 14, len(strand_angles) - 1)
+        sl = (0.6 if long_s else 0.34) * H + rnd() * 0.1 * H
+        sw = (0.010 + rnd() * 0.005) * H
+        rr = H * (0.084 + rnd() * 0.012) * 0.92
         # kit.js phi=0 → +z（Three）→ 这里 +Y；sin→x, cos→y
-        loc = (math.sin(sa) * rr, math.cos(sa) * rr, H * 0.84 + H * (0.02 + rnd() * 0.04))
-        rot = (math.cos(sa) * 0.16 + (rnd() - 0.5) * 0.08,
-               -math.sin(sa) * 0.16 + (rnd() - 0.5) * 0.08,
-               (rnd() - 0.5) * 0.12)
+        loc = (math.sin(sa) * rr, math.cos(sa) * rr,
+               H * 0.84 + H * (-0.02 + rnd() * 0.04))
+        rot = (math.cos(sa) * 0.13 + (rnd() - 0.5) * 0.07,
+               -math.sin(sa) * 0.13 + (rnd() - 0.5) * 0.07,
+               (rnd() - 0.5) * 0.1)
         cones.append((sw, sl, loc, rot))
+    # 拍 5 复渲追加：前垂发绺 ×4——帘幕合拢沿吃顶光的最后残余
+    # 用湿发盖：四绺从脸窗下沿（z≈0.785H）搭在合拢帘外侧垂下，
+    # 把正面残留的受光面切成绺影（BOB 式发搭脸前，不进眼窗）
+    for fa, fw, flen, fz in ((-0.30, 0.014, 0.46, -0.045), (-0.11, 0.017, 0.34, -0.065),
+                             (0.07, 0.013, 0.52, -0.055), (0.27, 0.016, 0.30, -0.070)):
+        rr = H * 0.104
+        loc = (math.sin(fa) * rr, math.cos(fa) * rr, H * (0.84 + fz))
+        rot = (math.cos(fa) * 0.07 + (rnd() - 0.5) * 0.05,
+               -math.sin(fa) * 0.07 + (rnd() - 0.5) * 0.05, 0)
+        cones.append((fw * H, flen * H, loc, rot))
     strands = cones_object('hairStrands', cones, segments=7)
     strands.data.materials.append(hair_mat)
 
-    # 裙裾破布条 ×13
-    # INSPECT 第 1 拍修正：布条尖端曾垂到 z=-0.24（穿地）——布条长度
-    # 按挂点高度收口，尖端离地 ≥2cm（黑绒里穿地读不出来，但账要平）
+    # 裙裾破布条 ×15。拍 2：party 帽刺退役——布条收细（0.028→0.019）
+    # 拉长（fl 上限 0.34），摆角 ±0.15 再收到 ±0.09（破布往下挂，
+    # 不往外支）；穿地收口纪律照旧（尖端离地 ≥2cm）
     rnd = seeded(83)
     fr_cones = []
-    for i in range(13):
-        a = (i / 13) * math.pi * 2 + rnd() * 0.3
-        fr = H * 0.168 + rnd() * H * 0.02
-        fl = 0.14 + rnd() * 0.2
+    for i in range(15):
+        a = (i / 15) * math.pi * 2 + rnd() * 0.3
+        fr = H * 0.158 + rnd() * H * 0.02
+        fl = 0.16 + rnd() * 0.18
         hang_z = 0.1 + rnd() * 0.05
         fl = min(fl, hang_z - 0.02)
-        # 第 2 拍精修：摆角 ±0.25 让部分布条上翘如草叉——收到 ±0.15
         fr_cones.append((
-            0.028 + rnd() * 0.014, fl,
+            0.019 + rnd() * 0.009, fl,
             (math.cos(a) * fr, math.sin(a) * fr, hang_z),
-            ((rnd() - 0.5) * 0.3, (rnd() - 0.5) * 0.3, 0)))
+            ((rnd() - 0.5) * 0.18, (rnd() - 0.5) * 0.18, 0)))
     fringe = cones_object('fringe', fr_cones, segments=5)
     fringe.data.materials.append(body_mat)
 
-    # 面部空洞：开口里没有脸，只有一个凹陷的纯黑弧面。
-    # 第 3 拍修正：默认 specular 0.5 让「洞」受光鼓出来——specular=0
-    # 才是照不亮的黑（对应 Three MeshBasicMaterial 0x000000）
+    # 面部空洞：开口里没有脸，只有一个凹陷的纯黑弧面（specular=0，
+    # 照不亮的黑）。拍 2：加大加深（r 0.052H→0.058H、纵向 1.3→1.4）
+    # ——v1.13 的洞太浅，正面光一打脸就「实」了；洞大一圈之后
+    # 眼环是从黑里浮出来的，不是贴在灰罩上的。拍 5：纵向再拉
+    # （1.4→1.78、心口下移 0.01H）——洞底原在 u≈0.805，颈段从
+    # 帘缝里露出来吃光；拉深后黑洞直落到帘幕合拢线
     void_mat = make_material('faceVoid', (0.0, 0.0, 0.0, 1), roughness=1.0, specular=0.0)
     bpy.ops.mesh.primitive_uv_sphere_add(
-        location=(0, 0.052 * H, H * 0.84 + 0.045 * H),
-        radius=0.052 * H, segments=18, ring_count=14)
+        location=(0, 0.048 * H, H * 0.84 + 0.035 * H),
+        radius=0.058 * H, segments=18, ring_count=14)
     face_void = bpy.context.active_object
     face_void.name = 'faceVoidMesh'
-    face_void.scale = (0.95, 0.55, 1.3)
+    face_void.scale = (0.95, 0.6, 1.78)
     face_void.data.materials.append(void_mat)
 
-    # 眼窝空洞 ×2：极暗红环 + 纯黑内芯（无瞳、无脸皮）
-    # 第 2/3 拍精修：emission 2.2 是两粒卡通亮圈——压到 0.9；
-    # 环径收小（0.016H→0.012H）环管收细、往面部空洞里缩 0.013H——
-    # 「深陷的洞口」不是「贴脸的护目镜」
+    # 眼窝空洞 ×2：极暗红环 + 纯黑内芯（无瞳、无脸皮）。
+    # v1.22 用户口径「眼睛很好」——环径/环管/亮度/竖长/内芯参数
+    # 一字不动（0.012H/0.0035H/0.9/1.3），只随面部空洞加深同步
+    # 前移 0.002H 保持「洞口沿」相对位置
     eye_mat = make_material(
         'wraithEye', (0.04, 0.012, 0.016, 1), roughness=0.8,
         emission=(0.23, 0.024, 0.047, 1), emission_strength=0.9)
-    # 第 4 拍：0.075H 后缩过头被帘缘半埋——回到 0.082H（洞口沿）
     for sx in (-1, 1):
         bpy.ops.mesh.primitive_torus_add(
-            location=(sx * 0.027 * H, 0.082 * H, H * 0.84 + 0.042 * H),
+            location=(sx * 0.027 * H, 0.084 * H, H * 0.84 + 0.042 * H),
             major_radius=0.012 * H, minor_radius=0.0035 * H,
             major_segments=18, minor_segments=8)
         ring = bpy.context.active_object
@@ -392,7 +498,7 @@ def build_fine():
         ring.scale = (1, 1, 1.3)
         ring.data.materials.append(eye_mat)
         bpy.ops.mesh.primitive_uv_sphere_add(
-            location=(sx * 0.027 * H, 0.080 * H, H * 0.84 + 0.042 * H),
+            location=(sx * 0.027 * H, 0.082 * H, H * 0.84 + 0.042 * H),
             radius=0.012 * H, segments=12, ring_count=8)
         core = bpy.context.active_object
         core.name = f'eyeVoid_{"L" if sx < 0 else "R"}'

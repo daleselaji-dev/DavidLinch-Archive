@@ -1289,7 +1289,7 @@ export function build(ctx) {
   q1.rotation.y = Math.atan2(3.02, -0.7);
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.doughnut
+    narration, docent: DOCENT.doughnut, docent2: DOCENT.doughnut2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

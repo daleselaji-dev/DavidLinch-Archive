@@ -82,14 +82,20 @@ describe('v1.20 门禁 94：studio 台灯 v3·手作精修（程序化，非 GLB
 });
 
 describe('v1.20 门禁 95：访谈质量维护首轮（替换弱条目而非追加）', () => {
-  it('条数恰 38 持平（封顶 40 语义下的「替换不追加」——涨一条都算破口径）', () => {
-    expect(INTERVIEWS.length).toBe(38);
+  it('条数不超封顶 40（v1.22 改钉：38 → 40 封顶收官，替换纪律由退役条守卫）', () => {
+    // v1.20 本用例钉「恰 38」防的是无限扩列；v1.22 四主题 10/10/10/10
+    // 齐平封顶后，防线改钉封顶本身（超 40 即破口径）
+    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(38);
+    expect(INTERVIEWS.length).toBeLessThanOrEqual(40);
   });
 
-  it('四主题 10/10/9/9 逐格持平（同主题内替换，分布一格不动）', () => {
+  it('四主题分布均衡（v1.22 改钉：10/10/9/9 → 每主题 9..10，封顶终态由 v122 门禁钉死）', () => {
     const dist = INTERVIEW_THEMES.map(
       (t) => INTERVIEWS.filter((v) => v.theme === t).length);
-    expect(dist).toEqual([10, 10, 9, 9]);
+    for (const n of dist) {
+      expect(n).toBeGreaterThanOrEqual(9);
+      expect(n).toBeLessThanOrEqual(10);
+    }
   });
 
   it('弱条目退役：absurdity（与立牌 sense 领地重叠）全库不回流', () => {
@@ -132,9 +138,8 @@ describe('v1.20 门禁 96：活轴盘点入册 + 纪律复钉', () => {
     expect((SRC.engine.match(/case '/g) || []).length).toBe(98);
   });
 
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.20.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（版本钉移交 v121-eggs.test）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.20.0');
-    expect(SRC.main).toContain("version: '1.20.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });

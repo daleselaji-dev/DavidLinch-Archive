@@ -17,6 +17,10 @@
 //        的口径本轮起改为整排推进）。
 // v1.20：38 持平——封顶 40 后转质量维护首轮：**替换弱条目而非
 //        追加**（absurdity → detectives，见条目处留账）。
+// v1.21：38 持平——质量维护第二轮（negativity → setup，见条目处
+//        留账；每轮 ≤2 条止损线内只换一条即收手）。
+// v1.22：38 → 40 **封顶收官**（四主题 10/10/10/10 齐平；此后
+//        新增永久关闸，只做质量替换）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -50,14 +54,22 @@ export const INTERVIEWS = [
     source: '《Catching the Big Fish》著作 · 2006',
     context: '他以此解释为何有些感受只能拍出来、说不出来。'
   },
+  // v1.21 质量维护第二轮（替换不追加，≤2 止损线内只换这一条）：
+  // 原「工作状态」（negativity——消极是创造力的敌人）退役：与同
+  // 主题 poison（「愤怒抑郁悲伤…是毒药」）领地重叠——两条都在讲
+  // 负面情绪伤害创作者，negativity 是五词口号、语义最薄的那条，
+  // poison 更具体故留任。换入同主题（心境）工作条件句——条数 38
+  // 与四主题 10/10/9/9 双持平。防撞记录：setup / place and the
+  // tools 语料全库（QUOTES/INTERVIEWS/DOCENT）零出现，逐句比对
+  // 零重复。
   {
-    id: 'negativity',
-    topic: '工作状态',
+    id: 'setup',
+    topic: '随时能动手',
     theme: '心境',
-    en: 'Negativity is the enemy of creativity.',
-    zh: '消极是创造力的敌人。',
-    source: '公开访谈',
-    context: '他谈创作环境时反复强调的一句。'
+    en: 'It\u2019s crucial to have a setup, so that, at any given moment, when you get an idea, you have the place and the tools to make it happen.',
+    zh: '关键是手边要有一套现成的家伙：点子来的任何一刻，你都有地方、有工具把它做出来。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '他把随时能动手的工作条件，当作接住点子的前提。'
   },
   {
     id: 'suffering',
@@ -383,6 +395,30 @@ export const INTERVIEWS = [
     zh: '我的童年是雅致的屋子、成排的绿树、送奶人、搭堡垒、嗡嗡掠过的飞机、蓝天、白篱笆、绿草、樱桃树。',
     source: '《Lynch on Lynch》访谈录 · 1997',
     context: '他常这样一口气罗列自己的小城童年；那之后的话才是转折。'
+  },
+  // ---------- v1.22 扩容（38 → 40 封顶）：心境/此生各一（10/10/10/10） ----------
+  // 防撞记录：lightbulb(s)/bliss/Big Boy/shake 语料全库（QUOTES/
+  // INTERVIEWS/DOCENT）零出现；lightbulbs 与 happiness 领地相邻但
+  // 不重（happiness 说快乐在哪，这条说内在状态会照到别人）；
+  // bigboy 是「趣闻」向条目——他讲过无数遍的奶昔日课。封顶后
+  // 转质量维护（v1.20 立的口径：只换不加）。
+  {
+    id: 'lightbulbs',
+    topic: '灯泡',
+    theme: '心境',
+    en: 'We\u2019re like lightbulbs. If bliss is growing inside of you, it\u2019s like a light; it affects the environment.',
+    zh: '我们像灯泡。极乐在你里面生长时，就像一盏灯——会照亮周围的环境。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '他谈冥想带来的变化如何外溢到片场和身边人。'
+  },
+  {
+    id: 'bigboy',
+    topic: '每天两点半',
+    theme: '此生',
+    en: 'I went to Bob\u2019s Big Boy every day for seven years. I\u2019d have a chocolate shake and four, five, six, seven cups of coffee \u2014 with lots of sugar.',
+    zh: '我连着七年天天去 Bob\u2019s Big Boy：一杯巧克力奶昔，再来四五六七杯咖啡——多加糖。',
+    source: '公开访谈（多次讲述）',
+    context: '八十年代他在洛杉矶的固定日课，甜与咖啡因之间等点子。'
   }
 ];
 
