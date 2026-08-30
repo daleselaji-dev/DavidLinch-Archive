@@ -238,7 +238,7 @@ describe('v1.24 门禁 102：机制/几何/拍长零改动复钉（本轮纪律�
   });
 
   it('CLOSEUP/STARE_TILT/RIM_BEATS 手感参数原值（v1.28 钉）', () => {
-    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(CLOSEUP).toEqual({ grabIn: 0.10, fovPush: 18, headY: 2.05 });
     expect(STARE_TILT).toEqual({ at: 0.28, span: 0.42, rad: 0.095 });
     expect(RIM_BEATS).toEqual({ base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 });
   });

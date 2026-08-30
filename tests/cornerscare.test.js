@@ -411,7 +411,7 @@ describe('源码级门禁：显形线主触发接线、镜头特写接管、接�
 
   it('镜头特写接管接线：pitch/yaw 链取自 camera 父链、smoothstep 入锁、FOV 推近与归还', () => {
     expect(src).toContain('engine.camera.parent');
-    expect(src).toContain('const k = g * g * (3 - 2 * g)');
+    expect(src).toContain('const k = 1 - (1 - g) ** 3');
     expect(src).toContain('CLOSEUP.fovPush');
     expect(src).toContain('updateProjectionMatrix');
     // 双脚钉死在跨线点 + 黑幕帧/wakeUp 双保险归还

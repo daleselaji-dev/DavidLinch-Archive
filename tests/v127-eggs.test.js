@@ -136,7 +136,7 @@ describe('v1.27 门禁 107：三刀参数零改动复钉（本轮加的是声，
       floor: 0.05, hold: 3.725, release: 1.6,
       turnFloor: 0.03, turnHold: 2.005, turnRelease: 1.9
     });
-    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(CLOSEUP).toEqual({ grabIn: 0.10, fovPush: 18, headY: 2.05 });
   });
 
   it('纪律三数：音色恰 98（doorfar 复用零新增）· 访谈 40 · 普查 195 · 变奏恰三处', () => {
@@ -150,9 +150,9 @@ describe('v1.27 门禁 107：三刀参数零改动复钉（本轮加的是声，
 });
 
 describe('v1.27 门禁 107：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.28.0', () => {
+  it('package.json 与 __SV__.version 都是 1.29.0', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.28.0');
-    expect(SRC.main).toContain("version: '1.28.0'");
+    expect(pkg.version).toBe('1.29.0');
+    expect(SRC.main).toContain("version: '1.29.0'");
   });
 });

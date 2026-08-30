@@ -23,6 +23,7 @@
 //        新增永久关闸，只做质量替换）。
 // v1.28：40 封顶维持——质量替换两条（golfball→tenclues 心境、
 //        milkman→lanight 此生；穆赫兰道/原著气质向，零追加）。
+// v1.29：selfish→coffeelove（此生·片场日课趣闻）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -279,13 +280,13 @@ export const INTERVIEWS = [
     context: '影碟版附带的提示清单是他唯一愿意给的「钥匙」——谜照旧是谜。'
   },
   {
-    id: 'selfish',
-    topic: '自私的权利',
+    id: 'coffeelove',
+    topic: '咖啡是仪式',
     theme: '此生',
-    en: 'You gotta be selfish. And it\u2019s a terrible thing.',
-    zh: '你必须自私。这是件可怕的事。',
-    source: '纪录片访谈 · 2016',
-    context: '他回顾艺术生活对身边人的代价时说的。'
+    en: 'I drink coffee all day long. I love the smell, I love the taste, I love the ritual.',
+    zh: '我整天喝咖啡。我爱那气味，爱那味道，爱那套仪式。',
+    source: '公开访谈（多次讲述）',
+    context: '片场咖啡壶是真的一直热着的——这不是道具，是他的日课。'
   },
   {
     id: 'weathersign',

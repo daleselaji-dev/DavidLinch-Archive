@@ -24,11 +24,11 @@ const SRC = {
 };
 
 describe('v1.28 门禁 108：两阶段 peek 惊吓（原著拐角语义）', () => {
-  it('REVEAL_PEEK 参数域：s∈(0,1) hold 150–300ms', () => {
+  it('REVEAL_PEEK 参数域：s∈(0,1) hold 闪拍 ≤150ms（v1.29 贴角闪现）', () => {
     expect(REVEAL_PEEK.s).toBeGreaterThan(0.05);
-    expect(REVEAL_PEEK.s).toBeLessThan(0.35);
-    expect(REVEAL_PEEK.holdMs).toBeGreaterThanOrEqual(150);
-    expect(REVEAL_PEEK.holdMs).toBeLessThanOrEqual(300);
+    expect(REVEAL_PEEK.s).toBeLessThan(0.4);
+    expect(REVEAL_PEEK.holdMs).toBeGreaterThanOrEqual(60);
+    expect(REVEAL_PEEK.holdMs).toBeLessThanOrEqual(150);
   });
 
   it('peek 冻住再 slide：源码两分支 + 四次方 slide', () => {
@@ -57,8 +57,8 @@ describe('v1.28 门禁 108：两阶段 peek 惊吓（原著拐角语义）', () 
 });
 
 describe('v1.28 门禁 108：侵入 CLOSEUP + 硬 rim + 压迫 FOV', () => {
-  it('CLOSEUP 侵入性：grabIn 0.28 / fovPush 18 / headY 2.05', () => {
-    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+  it('CLOSEUP 侵入性：grabIn 0.10 / fovPush 18 / headY 2.05', () => {
+    expect(CLOSEUP).toEqual({ grabIn: 0.10, fovPush: 18, headY: 2.05 });
     expect(CLOSEUP.fovPush).toBeLessThanOrEqual(18);
     expect(CLOSEUP.grabIn * 1000).toBeLessThan(SCARE_BEATS.stare);
   });
@@ -91,7 +91,7 @@ describe('v1.28 门禁 108：corner_wraith 第三轮回炉', () => {
   it('第三轮回炉账：peek 肩 / 发帘收窄 / 前垂发绺 ×7 / pivot 前倾 0.18', () => {
     expect(SRC.gen).toContain('v1.28 第三轮回炉');
     expect(SRC.gen).toContain('peek 肩');
-    expect(SRC.gen).toContain('OPEN_HALF = math.pi * 0.17');
+    expect(SRC.gen).toContain('OPEN_HALF = math.pi * 0.14');
     expect(SRC.gen).toContain('前垂发绺 ×7');
     expect(SRC.gen).toContain('pivot.rotation_euler = (0.18, 0.08, 0)');
   });
@@ -136,9 +136,9 @@ describe('v1.28 门禁 108：内容（穆赫兰道导览 + 访谈质量替换）
 });
 
 describe('v1.28 门禁 108：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.28.0', () => {
+  it('package.json 与 __SV__.version 都是 1.29.0', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.28.0');
-    expect(SRC.main).toContain("version: '1.28.0'");
+    expect(pkg.version).toBe('1.29.0');
+    expect(SRC.main).toContain("version: '1.29.0'");
   });
 });

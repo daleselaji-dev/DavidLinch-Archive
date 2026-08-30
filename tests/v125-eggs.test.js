@@ -48,8 +48,8 @@ describe('v1.25 门禁 103：双峰鸮形体精修——眼组原封（用户口
     expect(SRC.tp).toContain('1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.2))');
   });
 
-  it('收形不吞眼：颈腰新剖面 r(0.315)≈0.0735 < 眼心轴距 0.0828，眼球仍探出体面 ≥20mm', () => {
-    const r = 0.068 + ((0.315 - 0.302) / (0.335 - 0.302)) * (0.082 - 0.068);
+  it('收形不吞眼：颈腰剖面 r(0.315) < 眼心轴距，眼球仍探出体面 ≥20mm', () => {
+    const r = 0.064 + ((0.315 - 0.302) / (0.335 - 0.302)) * (0.086 - 0.064);
     const eyeAxisDist = Math.hypot(0.035, 0.075);
     expect(r).toBeLessThan(eyeAxisDist);
     expect(eyeAxisDist + 0.02 - r).toBeGreaterThanOrEqual(0.02);
@@ -57,29 +57,27 @@ describe('v1.25 门禁 103：双峰鸮形体精修——眼组原封（用户口
 });
 
 describe('v1.25 门禁 103：鸮形体 v2（轮廓/双翼/尾/耳羽簇——林奇式抽象非写实）', () => {
-  it('轮廓三段剪影入钉：满胸 0.118@0.16 / 收颈 0.068@0.302 / 圆颅 0.082@0.335', () => {
-    expect(OWL).toContain('new THREE.Vector2(0.118, 0.16)');
-    expect(OWL).toContain('new THREE.Vector2(0.068, 0.302)');
-    expect(OWL).toContain('new THREE.Vector2(0.082, 0.335)');
-    // 旧桶形剖面退役（头身不分的病灶）
+  it('轮廓三段剪影入钉：满胸 / 收颈 / 圆颅（v1.29 再收颈、圆颅略放）', () => {
+    expect(OWL).toContain('new THREE.Vector2(0.124, 0.16)');
+    expect(OWL).toContain('new THREE.Vector2(0.064, 0.302)');
+    expect(OWL).toContain('new THREE.Vector2(0.086, 0.335)');
     expect(OWL).not.toContain('new THREE.Vector2(0.115, 0.12)');
   });
 
-  it('合拢双翼 + 垂尾（剪影第二读点）：翼刃 0.55/2.1/0.9、尾楔压扁垂到枝下', () => {
-    expect(OWL).toContain('wingGeo.scale(0.55, 2.1, 0.9)');
+  it('合拢双翼 + 垂尾（剪影第二读点）：翼刃加长、尾楔压扁垂到枝下', () => {
+    expect(OWL).toContain('wingGeo.scale(0.48, 2.45, 0.95)');
     expect((OWL.match(/xform\(wingGeo/g) || []).length).toBe(2);
-    expect(OWL).toContain('tailGeo.scale(1, 1, 0.5)');
-    expect(OWL).toContain('xform(tailGeo, 0, 0.015, -0.085, -2.45, 0, 0)');
-    // 尾尖沉到 y<0（栖枝以下）：中心 0.015 − 0.085·cos(π−2.45) …账：
-    // rx=−2.45 把 +y 压到 (0,−0.77,−0.64)，半高 0.085 → 尾尖 y ≈ −0.05
-    expect(0.015 + 0.085 * Math.cos(-2.45)).toBeLessThan(0);
+    expect(OWL).toContain('tailGeo.scale(1, 1, 0.42)');
+    expect(OWL).toContain('xform(tailGeo, 0, 0.008, -0.092, -2.48, 0, 0)');
+    expect(0.008 + 0.1 * Math.cos(-2.48)).toBeLessThan(0);
   });
 
-  it('耳羽簇 v2：主簇加高外张（0.085 高、±0.5 rad）+ 前副簇各一（角→羽）', () => {
-    expect(OWL).toContain('new THREE.ConeGeometry(0.02, 0.085, 6)');
-    expect(OWL).toContain('xform(tuftGeo, -0.052, 0.412, -0.004, 0, 0, 0.5)');
-    expect(OWL).toContain('xform(tuftGeo, 0.052, 0.412, -0.004, 0, 0, -0.5)');
+  it('耳羽簇 v3：主簇再外张 + 前副簇各一 + 面盘', () => {
+    expect(OWL).toContain('new THREE.ConeGeometry(0.022, 0.11, 6)');
+    expect(OWL).toContain('xform(tuftGeo, -0.056, 0.418, -0.006, 0, 0, 0.58)');
+    expect(OWL).toContain('xform(tuftGeo, 0.056, 0.418, -0.006, 0, 0, -0.58)');
     expect((OWL.match(/xform\(tuftEchoGeo/g) || []).length).toBe(2);
+    expect(OWL).toContain('diskGeo');
   });
 });
 
@@ -249,7 +247,7 @@ describe('v1.25 门禁 103：拐角惊吓四层零翻修复钉（全面翻修回
     expect(SCARE_BEATS).toEqual({
       reveal: 0, stare: 720, rush: 1670, shock: 2070, blackout: 2570, wake: 3470
     });
-    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(CLOSEUP).toEqual({ grabIn: 0.10, fovPush: 18, headY: 2.05 });
     expect(STARE_TILT).toEqual({ at: 0.28, span: 0.42, rad: 0.095 });
     expect(RIM_BEATS).toEqual({ base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 });
   });

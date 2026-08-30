@@ -202,7 +202,7 @@ describe('v1.26 门禁 106：机制/拍长/几何零改动复钉（三刀全在�
   });
 
   it('CLOSEUP/RIM_BEATS/APPROACH_DREAD 原值（v1.28 演进后复钉）', () => {
-    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(CLOSEUP).toEqual({ grabIn: 0.10, fovPush: 18, headY: 2.05 });
     expect(RIM_BEATS).toEqual({ base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 });
     expect(APPROACH_DREAD).toEqual({ z0: -18.5, z1: -26.4, swellAt: 0.6, rearmBelow: 0.15 });
   });

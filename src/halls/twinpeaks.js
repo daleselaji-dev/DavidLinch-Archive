@@ -618,28 +618,45 @@ export function build(ctx) {
   //    z0.07，四趾锥扣在枝面前沿（悬空/骑轴几何账入测）。
   // 预算净账 −1：全部形件与身体同料合并单 mesh（旧 3 mesh → 2），
   // twinpeaks 峰值 244 → 243（250 预算下让回 1 格余量）。
-  const owlMat = new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 });
-  const tuftGeo = new THREE.ConeGeometry(0.02, 0.085, 6);
-  const tuftEchoGeo = new THREE.ConeGeometry(0.012, 0.05, 5);
+  // ⑤ v1.29 形体再修（眼组一字不动）：面盘（鸮的第二读点，林奇式
+  //    抽象圆盘不是写实羽毛）、耳羽再外张、翼刃加长贴身、体色改
+  //    暖褐暗羽贴图（不再是纯黑桶）。mesh 仍 2（形件并入 owlBody）。
+  const owlFeatherTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#120e0a';
+    g.fillRect(0, 0, s, s);
+    const r = rng(41);
+    for (let i = 0; i < 48; i++) {
+      g.fillStyle = `rgba(${28 + r() * 22 | 0},${18 + r() * 12 | 0},${10 + r() * 8 | 0},${0.35 + r() * 0.4})`;
+      g.fillRect(r() * s, r() * s, 1 + r() * 2, 4 + r() * 10);
+    }
+  });
+  const owlMat = new THREE.MeshStandardMaterial({
+    map: owlFeatherTex, color: 0x1a1410, roughness: 0.92, bumpMap: owlFeatherTex, bumpScale: 0.35
+  });
+  const tuftGeo = new THREE.ConeGeometry(0.022, 0.11, 6);
+  const tuftEchoGeo = new THREE.ConeGeometry(0.013, 0.062, 5);
   const wingGeo = new THREE.SphereGeometry(0.05, 7, 5);
-  wingGeo.scale(0.55, 2.1, 0.9); // 折翼刃形（贴身长条，不是球）
-  const tailGeo = new THREE.ConeGeometry(0.05, 0.17, 6);
-  tailGeo.scale(1, 1, 0.5);      // 尾楔压扁（板状垂尾）
+  wingGeo.scale(0.48, 2.45, 0.95);
+  const tailGeo = new THREE.ConeGeometry(0.052, 0.2, 6);
+  tailGeo.scale(1, 1, 0.42);
   const toeGeo = new THREE.ConeGeometry(0.008, 0.042, 5);
+  const diskGeo = new THREE.SphereGeometry(0.078, 10, 8);
+  diskGeo.scale(1.05, 0.92, 0.38);
   const owlBody = mergedMesh([
     new THREE.LatheGeometry([
-      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.075, 0.012), new THREE.Vector2(0.108, 0.09),
-      new THREE.Vector2(0.118, 0.16), new THREE.Vector2(0.1, 0.235), new THREE.Vector2(0.078, 0.285),
-      new THREE.Vector2(0.068, 0.302), new THREE.Vector2(0.082, 0.335), new THREE.Vector2(0.07, 0.365),
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.078, 0.012), new THREE.Vector2(0.112, 0.09),
+      new THREE.Vector2(0.124, 0.16), new THREE.Vector2(0.102, 0.235), new THREE.Vector2(0.076, 0.285),
+      new THREE.Vector2(0.064, 0.302), new THREE.Vector2(0.086, 0.335), new THREE.Vector2(0.072, 0.365),
       new THREE.Vector2(0.045, 0.386), new THREE.Vector2(0.001, 0.395)
     ], 12),
-    xform(tuftGeo, -0.052, 0.412, -0.004, 0, 0, 0.5),
-    xform(tuftGeo, 0.052, 0.412, -0.004, 0, 0, -0.5),
-    xform(tuftEchoGeo, -0.038, 0.402, 0.014, 0, 0, 0.3),
-    xform(tuftEchoGeo, 0.038, 0.402, 0.014, 0, 0, -0.3),
-    xform(wingGeo, -0.094, 0.185, -0.01, 0.12, 0, 0.1),
-    xform(wingGeo, 0.094, 0.185, -0.01, 0.12, 0, -0.1),
-    xform(tailGeo, 0, 0.015, -0.085, -2.45, 0, 0),
+    xform(diskGeo, 0, 0.318, 0.042),
+    xform(tuftGeo, -0.056, 0.418, -0.006, 0, 0, 0.58),
+    xform(tuftGeo, 0.056, 0.418, -0.006, 0, 0, -0.58),
+    xform(tuftEchoGeo, -0.04, 0.406, 0.016, 0, 0, 0.32),
+    xform(tuftEchoGeo, 0.04, 0.406, 0.016, 0, 0, -0.32),
+    xform(wingGeo, -0.098, 0.178, -0.016, 0.16, 0, 0.12),
+    xform(wingGeo, 0.098, 0.178, -0.016, 0.16, 0, -0.12),
+    xform(tailGeo, 0, 0.008, -0.092, -2.48, 0, 0),
     xform(toeGeo, -0.034, 0.01, 0.014, 2.55, 0, 0),
     xform(toeGeo, -0.012, 0.012, 0.018, 2.6, 0, 0),
     xform(toeGeo, 0.012, 0.012, 0.018, 2.6, 0, 0),
