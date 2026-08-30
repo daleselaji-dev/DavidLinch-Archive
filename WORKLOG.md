@@ -593,3 +593,44 @@
 | 2026-08-28 14:32 | 2026-08-28 15:39 | 2 | **corner_wraith 三档五拍回炉**（gen_corner_wraith.py，眼组一字不动）：拍 1 基线诊断（蘑菇罩发帘/管风琴绺束/软钟身形/帽尖/蜘蛛腿臂/绒毯体色六病灶）；拍 2 剖面材质大改（主身收瘦杀帽尖/驼峰双结/肩线歪斜/佝偻场/发帘罩改披/绺束宽头埋帘/垂臂收拢加长/体色压黑）；拍 3 INSPECT 账（指尖穿地 7.7cm→下段指骨双收口；裙摆拖地 -0.08 为基线既有设计不动）；拍 4 近景勘破（**佝偻场推到头顶把头冠从脸窗顶出、眼组全灭**→颈上淡出；发帘金属光→哑光）；拍 5 复渲三连修（帘幕合拢三教训：对称收留亮缝/坡度太陡锯齿/外侧越线亮板→displace_hem 先跑+不对称合拢+帘沿内收）+ **射线排查**坐实最后亮柱真身是帘沿非绺束/躯干/披领（藏件对照渲染三轮误判后 ray_cast 逐像素命中定案）+ 披领前侧向后折 + 前垂发绺 ×4 盖受光残余；四机位取证重录；GLB 224960B ≤300KB 出 src/assets（**对象名/wraithPivot 全保——落厅零改动**）；blender:check 七件全过；commit `19e45ef` | renders/corner-wraith-*.png + GLB |
 | 2026-08-28 15:39 | 2026-08-28 15:52 | 3 | **林奇内容**：访谈 38→40 封顶收官（lightbulbs 心境 + bigboy 此生趣闻，四主题 10/10/10/10，防撞第六轮零撞车，封顶后新增永久关闸）；**刮痕墙错拍变奏彩蛋**（零网格零新热点）：scare.seen 置位后再摸墙，刮擦回应不来、空一拍只剩轻心跳与「刮痕停在了那一夜」；v118/v120/v121 三处历史钉按封顶口径改钉留账；v122-eggs 门禁 100 钉终态；685 全绿 + smoke 5/5（版本钉后 686）；commit `ffa3f17` | interviews.js/mulholland.js/tests diff |
 | 2026-08-28 15:52 | 2026-08-28 16:05 | V/6/8 | **四连门禁 + 文档收口**：npm run build → electron `--smoke` EXIT=0（七厅全过·六 glb-landed·mull 244 mesh 持平·25 交互·**拐角惊吓自然触发 OK：视线越过拐角那一帧→灯灭+闪出→特写盯人→扑近→移回巷口**·转身惊吓 OK·普查 195）；bump 1.22.0（package.json + __SV__.version，版本钉移交 v122-eggs，v121 钉改同值语义）；CHANGELOG v1.22.0 全节 + 本段 + 门禁 100 + STYLE_AUDIT §13 + TESTING + README + GOAL_HANDOFF 新 Goal 第 1→2 轮交接 | commit（本条） |
+
+## v1.23 —— 惊吓手感抛光 · rim 分拍灯语 · 回访补注（新 Goal 第 2 轮）
+
+> 本轮主题：**交接口径逐条落地——①惊吓手感抛光（机制不换，只调
+> 交接点名的五组手感参数与运行时曲线）②魅影下一步在灯光不在几何
+> （rim 分拍灯语 + emissive 相位确定化，gen 脚本零回炉）③关闸后
+> 内容出口双补（DOCENT 回访补注 ×7 + 呼叫铃 scare.seen 变奏）·
+> 打包 1.23.0 exe**。基线 v1.22.0 tip（a0eed23，origin/cursor/
+> corner-beat-lock-round1-v1220-a993，非 main）。范围：门禁 101。
+> 显形线 47 用例 / 转身惊吓 / 195 交互 / 98 音色 / 40 访谈封顶 /
+> 封口轴五条全部保留不回退。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 16:19 | 2026-08-28 16:35 | 0 | fetch v1.22.0 tip（a0eed23）建分支 `cursor/corner-feel-polish-round2-v1230-a993`；通读 GOAL_HANDOFF 第 2 轮优先项 / STYLE_AUDIT §13 自查三条；基线 `npm test` 686 全绿；**封口轴核对先行**：第三层判死 = 给既有件叠第三层反应（低密度厅问第三遍同构）——呼叫铃变奏只换既有第二层应答的方位与迟延、不叠层、mull 非低密度厅，判定不踩线；doorfar 非 drawerfar（恰三处钉不涉）；audio.test 混音纪律预核（far 族必位置化 + ref≥2 + 音量 ≤1）；narration.test 接线正则预核（`docent2: DOCENT.` 不撞 `docent: DOCENT.` 计数） | 分支 + 封口轴核对账 |
+| 2026-08-28 16:35 | 2026-08-28 16:41 | 1/2 | **手感抛光**（mulholland.js，机制零改动）：CLOSEUP.grabIn 0.45→0.35（锁到位早于滑出收尾——原参数锁定时它几乎已站定，闪出被甩在镜头摆动里）+ fovPush 13→15 线性→smoothstep（起步几乎不动、错拍段推速最快）；SCARE_BEATS 错拍 800→950ms 三拍顺延（wake 3300 ≤4500）+ 第三口心跳 870ms 间隔收紧 + STARE_TILT 错拍中段歪头（lookAt 后绕视线轴 rotateZ 0.075rad smoothstep 进不回）；滑出曲线立方→四次方（前 0.2s ~84% 行程）；接近段 q≥0.7 心跳双拍（190ms 半拍轻回声）；**相位确定化**：scare.clock 局部时钟 + WRAITH_T0=(2π−1.2)/2.4−0.55——眼焰恒在错拍开始过零上行、~69% 处烧到峰值（47 用例字面钉 setLurch(s, t) 原封：更新器内重指 t 即局部钟）；**rim 分拍灯语**（RIM_BEATS）：reveal 随滑出进度涨光+90ms 打火过冲 / stare 与眼焰错半拍呼吸 / rush 涌光 / 黑幕归零；色温 0x9fb7ff→0x93aeff + 灯位 2.5→2.9m 背顶剪冠顶肩线；gen 脚本零回炉 | mulholland.js diff |
+| 2026-08-28 16:41 | 2026-08-28 16:43 | 3 | **内容出口双补**：DOCENT 回访补注 ×7（essays.js 键名 = 首段键+2；kit quoteStandUpdater 加 docent2 + awayAfterSpoke 回访门——走开又折回来驻足 1.6s 才补讲，两段都不打断进行中讲解；七厅各一行接线）——一分钟致辞/不设章节点/树木研究员/米兰家具展/住进旧马厩/传记片企划/晚年摇号，防撞第七轮（马厩/米兰/章节点/树木研究员/摇号/传记片全库零出现，「终身成就」在 filmography 奖项表是同一公开事实印证非语录撞车）；**呼叫铃 scare.seen 变奏**：应铃换到拐角那头（doorfar 钉在 CORNER_EDGE、2.1→1.4s、0.4/2.6 混音纪律内）+「这次是拐角那头应的。」，首访原拍原样保留 | essays/kit/七厅 diff |
+| 2026-08-28 16:43 | 2026-08-28 16:45 | T | **v123-eggs.test 31 用例 + bump 1.23.0**：手感参数边界（错拍 950/入锁 350<550/推量 15≤18/smoothstep 在源/线性退役）+ 滑出四次方性质（0.2s ≥80% 行程 + 单调）+ 三口心跳间隔收紧 + STARE_TILT 边界与 lookAt→rotateZ 次序 + WRAITH_T0 数学账（错拍开始过零上行/峰值落窗内 40–90%）+ scare.clock 接线与 47 用例字面钉共存 + RIM_BEATS 边界（过冲≤基值/呼吸≤15% 基值）与分拍四式在源 + 单档更新器退役钉 + 回访补注七条纪律（24–96 字 ≤3 短句/七厅恰一接线/回访门/防撞）+ 变奏账（分支内 later 恰一/1400<2100/首访原拍在源/INTERACTIVE_MIN 24 持平）+ 访谈 40 复钉 + 版本钉 1.23.0；v122 两处改钉留账（clock 字段/版本钉同值语义）——**717 全绿**（28 文件）；commit `2a36adf` + push（先落库再进冒烟） | commit `2a36adf` |
+| 2026-08-28 16:45 | 2026-08-28 16:50 | V | **四连验证**：`npm run build`（318ms 成型）→ `npm run smoke` 5/5 → `xvfb-run -a electron --smoke` **EXIT=0**（七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25 持平·mull mesh 244 / tris 109430 持平·**拐角惊吓自然触发 OK**（新拍长 3.3s 序列走完移回巷口）·转身惊吓 OK·热点归属七厅全过·UI/旁白冒烟过）→ `npm run blender:check` 七件全过（本 VM Blender 4.1.1 已在位，零安装）——**魅影视觉零取证轮**：本轮零几何改动 + swiftshader 陈旧帧不可用于 3.2s 瞬时视效，灯语正确性交 v123-eggs 分拍钉与相位数学账（交接口径「信单测几何 + 定向探针」） | /tmp 冒烟日志 + 本段 |
+
+## v1.24 —— 音频层病灶修复 · wake 错位感 · 时序反转变奏（新 Goal 第 3 轮）
+
+> 本轮主题：**交接口径逐条落地——手感参数已到细调区，剩余空间在
+> 音频层与 wake 错位感：①直通总线病灶修复（惊吓的声不再被自己的
+> 抽真空吞掉）②真空罩拍长重钉（万籁俱寂罩满黑幕、环境音迟归）
+> ③音色塑形 98 刹车内零新嗓子④接近段持续低压层⑤wake 俯冲醒 +
+> 字幕迟到⑥变奏第三例·时序反转 · 打包 1.24.0 exe**。基线 v1.23.0
+> tip（30e6eb9，origin/cursor/corner-feel-polish-round2-v1230-a993，
+> 非 main）。范围：门禁 102。**机制/几何/拍长零改动**：SCARE_BEATS/
+> CLOSEUP/STARE_TILT/RIM_BEATS 原值复钉（±0ms）、显形线 47 用例
+> 原封、gen 脚本零回炉；195 交互 / 98 音色 / 40 访谈 / 封口轴五条
+> 全部保留不回退。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 17:03 | 2026-08-28 17:20 | 0 | fetch v1.23.0 tip（30e6eb9）建分支 `cursor/corner-audio-wake-round3-v1240-a993`；通读 GOAL_HANDOFF 第 3 轮优先项 + mulholland 惊吓段 + engine 98 音色全表 + cornerscare/v123-eggs 钉位；**病灶勘定（本轮最重要的一步）**：读 duck 时序账发现 reveal 帧 duck(1.3, 0.06, 2.0) 在 45ms 内把 master 压到 6%，而**惊吓自己的十一处声全挂 master**——错拍三口心跳（0.67–1.42s 落罩底）实际推子只剩 0.03–0.04、rush 的 scare 主体只剩 ~15% 电平：「不够吓人」的音频病灶不在音色在总线；同时黑幕段（2.4–3.3s）master 已回到半血，「万籁俱寂」漏气。**钉位普查先行**：音色 case 恰 98 三轮精确钉（只能改形不能添丁）/ thud 跨厅家具级通用（不能全局改形→力度分层）/ scrape 是同一实体的声（scratch 墙共用，可整体改形）/ 路灯杆零字幕+段内恰 1 sfxAt 双钉（变奏分支须状态置位、迟到声挪段外）/ 混音纪律提取器兼容第 4 参 | 病灶账 + 钉位普查 |
+| 2026-08-28 17:20 | 2026-08-28 17:23 | 1/2 | **engine.js**：punch 直通总线（unlock 建、绕 master 直连压缩器、setMuted 同闸；sfx/sfxAt 第 4 路由参）；wing(node, spread) 单音色内部分翼通道（tone/noise 末参）；scare 塑形（失谐簇 ±0.4 分翼/噪声墙劈两面 ∓0.6/棕噪 1.5→1.9s/52→27Hz 半沉层）；scrape 与四次方滑出对时（0.9s 线性→0.58s 指数快落、金属啸 0.03/0.1 提前、石屑 0.76→0.48s 赶在落定闷响前）；thud 力度分层（vol≥0.9 惊吓级才醒 31→19Hz 深层+双翼错衰减，家具级原封）；setDread 持续低压层（27Hz dreadswell 同源嗓子 + 65Hz 低通棕噪，增益 q² 封顶 0.2、setTargetAtTime 0.18s 零台阶、帧间去抖、stopAmbience 归零）。**mulholland.js**：VACUUM 真空罩常数（拐角 3.555/转身 2.005 = 各自 wake+0.3−0.045 同构账）+ 两重惊吓十一处「它的声」全走直通（世界侧 lampoff/接近段心跳/半程升压不走）；WAKE_DAZE 俯冲醒（teleport 清俯仰后压 pitch −0.36）+ 字幕迟到 1.15s，只给拐角（转身平视即醒即字——两重 wake 分家：空间 vs 时间）；接近段 setDread(q) 与巷灯/心跳同 q 同 armed 闸；**变奏第三例·时序反转**（路灯杆）：scare.seen 后敲杆手上没声、灯同帧双沉答完、你那记铁鸣 2.4s 后才到（poleEcho.rev 段外更新器走游戏时钟；答在问前——与缺席/换位第三种语法；零字幕零网格、v1.16 远声密度钉原封） | engine/mulholland diff |
+| 2026-08-28 17:23 | 2026-08-28 17:24 | T | **v124-eggs.test 27 用例 + bump 1.24.0**：直通接线普查（引擎总线/静音闸/十一处直通钉 + 世界侧不走直通反钉）+ 真空账（0.045+hold = wake+0.3 精确账/罩过黑幕/归还 1–2.5s/1.3s 旧罩退役钉）+ WAKE_DAZE（俯角与迟到边界/teleport→pitch 顺序守卫/两重 wake 分家钉）+ 塑形钉（scare 分翼与半沉层/thud 力度分层——全馆 thud 调用普查惊吓级恰两处/scrape 对时账 0.48<0.55/wing 通道在源）+ setDread（27Hz 同源账/增益封顶/armed 闸/换厅归零）+ 反转变奏（rev 账 2.4=wait 2.4/段内零字幕零 sfxAt/rev 首行闸/if(scare.seen) 恰三处封口/INTERACTIVE_MIN 24 持平）+ 机制拍长零改动复钉（SCARE_BEATS/CLOSEUP/STARE_TILT/RIM_BEATS toEqual 原值 + electron wake 40s 预算联动）+ 版本钉 1.24.0；cornerscare dreadswell 接线钉改钉留账 + v123 版本钉移交（同值语义）——**744 全绿**（29 文件，一处测试定位误指 startAmbience 内调用点即修）；commit `39812f0` + push（先落库再进冒烟） | commit `39812f0` |
+| 2026-08-28 17:24 | 2026-08-28 17:33 | V | **四连验证**：`npm run smoke` 5/5（含 build 259ms）→ `xvfb-run -a electron --smoke` **EXIT=0**（88s：七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25 持平·mull mesh 244 / tris 109430 持平·**双惊吓自然触发 OK**（拍长零改动 3.3s 序列走完移回巷口 9.7,9.5）·热点归属七厅全过·UI/旁白冒烟过·**mull 全量激活跑在双惊吓之后——scare.seen=true 状态下三条变奏分支（刮痕墙缺席/呼叫铃换位/路灯杆反转）全部无异常**）→ Blender 4.1.1 重装（NLUUG 镜像 ~335s，VM 轮换后不在位）→ `npm run blender:check` 七件全过 EXIT=0——**音频视觉零取证轮**：WebAudio 时序正确性交 v124-eggs 真空账与直通钉（swiftshader 无音频输出可言，冒烟只证不抛错） | /tmp 冒烟日志 + 本段 |
+| 2026-08-28 17:33 | 2026-08-28 17:48 | 6/8 | **文档收口（门禁 102 前半）**：CHANGELOG v1.24.0 全节（病灶修复/真空账/塑形/低压层/wake 分家/反转变奏逐条）+ 本段 + QUALITY_GATES 门禁 102 + STYLE_AUDIT §15（第 3 轮执行账：总线病灶的勘定方法/塑形不添丁/持续态不是新音色/wake 分家/变奏三语法封口）+ TESTING（744 用例/v124-eggs 覆盖行/v1.24 抽查段）+ README（音频层/wake/变奏第三例）+ GOAL_HANDOFF 第 3→4 轮交接——744 复跑全绿 | commit `1691a66` |
+| 2026-08-28 17:48 | 2026-08-28 17:52 | 9 | **Release 1.24.0**：`npm run dist:win` **完整一次成型 EXIT=0**（107s：build 315ms → gen:icon → portable + nsis 双目标，winCodeSign/NSIS 现场下载零事故）；产物校验：PE32 ×2、Portable 95.81MiB / Setup 95.99MiB（均低于 raw 100MiB 限）、asar 内版本 1.24.0 提取核对（按交接口径**先 cd /tmp** 再跑零事故）；SHA256SUMS 重写 + DOWNLOAD.md 直链换轨到本分支（1.23.0 双产物同轮移除防混用）+ 看点九条（耳机向）；**发布产物终版冒烟复跑 EXIT=0**（82s：七厅全过·六 glb-landed·双惊吓自然触发·三条 scare.seen 变奏分支无异常·普查 195=22/37/30/24/30/27/25·mull mesh 244 / tris 109430 持平·studio 224·热点归属七厅全过） | release/ 双 exe + SHA256SUMS + 本条 commit |

@@ -65,7 +65,9 @@ describe('v1.22 门禁 100：访谈册封顶收官（38 → 40，四主题齐平
 
 describe('v1.22 门禁 100：刮痕墙错拍变奏彩蛋（零网格零新热点）', () => {
   it('scare.seen 标记接线：声明带 seen、doCornerScare 置位', () => {
-    expect(SRC.mull).toMatch(/const scare = \{ phase: 0, sub: null, t: 0, seen: false/);
+    // v1.23 改钉留账：scare 状态对象在 t 后新增 clock 字段（惊吓局部
+    // 时钟，emissive 相位确定化）——seen 语义与置位点原样不动
+    expect(SRC.mull).toMatch(/const scare = \{ phase: 0, sub: null, t: 0, clock: 0, seen: false/);
     expect(SRC.mull).toContain('scare.seen = true');
   });
 
@@ -113,9 +115,8 @@ describe('v1.22 门禁 100：corner_wraith 第二轮回炉（资产与契约账�
     expect(SRC.gen).toContain('前侧领口向后');
   });
 
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.22.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v123-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.22.0');
-    expect(read('src/main.js')).toContain("version: '1.22.0'");
+    expect(read('src/main.js')).toContain(`version: '${pkg.version}'`);
   });
 });
