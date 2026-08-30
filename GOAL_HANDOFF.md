@@ -1,7 +1,32 @@
-# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 10 轮 → 第 11 轮）
+# GOAL_HANDOFF — 新 Goal「拐角惊吓 + 林奇风演进」交接（第 11 轮 → 第 12 轮）
 
-> 本文件由每轮子代理更新：本轮完成了什么 / 下一轮优先做什么 /
-> 当前分支与阻塞项。父代理不改代码，只据此派生下一轮 Task。
+> 本文件由每轮子代理更新。第 11 轮因 Cloud Agent 配额用尽，由本环境
+> 直接落地（用户 Goal 要求持续演进直至证词达标）。
+
+---
+
+## 第 11 轮（v1.29.0 贴角闪现）✅
+
+**分支**：`cursor/corner-flash-round11-v1290-a993`（基线
+`cursor/bob-align-round10-v1280-a993` v1.28.0）。门禁 **109**。
+
+用户证词「时机仍然不对 / 建模不够吓人 / 不符合原著」——本轮针对
+**跨线后镜头还在看路、peek 冻 220ms 像提前引爆**：
+
+### (A) 时机 ✅
+- `REVEAL_PEEK` s=0.28 hold **90ms**（闪，不再冻）
+- `CLOSEUP.grabIn` **0.10s** + ease-out 立方（同帧大部分锁向墙后）
+- 显形线几何 / SCARE_BEATS 拍长 / VACUUM 零改动
+
+### (B) 建模 ✅
+- corner_wraith **第四轮**：OPEN_HALF 0.14、体色再压；眼组不动；GLB ~228KB
+- 双峰鸮：眼组不动；面盘 + 羽贴图 + 耳羽/翼刃加长（仍 2 mesh）
+
+### (C) 内容 ✅
+- DOCENT.mulholland2 夜路灵感
+- 访谈 selfish→coffeelove（40 封顶）
+
+**第 12 轮**：等用户真机证词。仍不建议 UpdateGoal complete。
 
 ---
 

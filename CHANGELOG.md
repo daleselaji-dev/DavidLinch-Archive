@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## v1.29.0 — 2026-08-30「贴角闪现：拐过去，它已经在特写里」
+
+> **为什么是 1.29**：用户证词「时机仍然不对、建模不够吓人、不符合原著」。
+> 病灶在跨线后 smoothstep 入锁起步不动 + peek 冻 220ms。本轮只改入锁与
+> 闪拍，拍长/显形线几何不动。门禁 109。
+
+- **贴角闪现**：`REVEAL_PEEK` hold 220→90ms、s 0.15→0.28；`CLOSEUP.grabIn` 0.28→0.10 + ease-out 立方
+- **corner_wraith 第四轮**：发帘开口再收、体色再压；眼组不动
+- **双峰鸮**：面盘 + 羽贴图 + 耳羽/翼刃；眼组不动
+- **内容**：DOCENT 夜路灵感；访谈 coffeelove 替换 selfish
+- 单测 **842**；`tests/v129-eggs.test.js`
+
+## v1.28.0 — 2026-08-29「原著对齐：peek 两阶段 + wraith 第三轮」
+
+- 两阶段 peek→slide、错拍 720ms、CLOSEUP 侵入、硬 rim、FOV 压迫 7°
+- wraith 第三轮回炉（眼组不动）；DOCENT.mulholland；访谈 lanight/tenclues
+
 ## v1.27.0 — 2026-08-28「劫后远门回声：它走了，门在它身后落锁」
 
 > **为什么是 1.27**：新 Goal（拐角惊吓 + 林奇风演进）第 8 轮。

@@ -126,17 +126,15 @@ export const SCARE_BEATS = {
 // 整个人滑出——不是一步到位闪到角上）：贝塞尔 参数 s≈0.15 处只露
 // 冠顶与一侧肩（墙还挡着大半截身子），hold 220ms 冻住这一拍，再
 // 滑到 s=1。显形线几何零改动——改的是现身 choreography。
-export const REVEAL_PEEK = { s: 0.15, holdMs: 220 };
-// v1.22 镜头特写接管（原片语义：看见的人钉在原地，镜头推向那张脸）：
-// 触发帧起接管视线——yaw/pitch 平滑锁向魅影头部并全程跟焦，FOV 从
-// 基值推近（林奇式慢推），双脚钉死在跨线点；黑幕帧归还镜头与 FOV。
-// v1.23 手感抛光：入锁 0.45→0.35s——滑出窗 0.55s，入锁快一步才能
-// 看着它「滑完最后半程」（原来锁到位时它几乎已站定，闪出被甩在
-// 镜头摆动里）；FOV 推量 13→15° 且改 smoothstep（起步几乎不动、
-// 错拍段持续逼近——它站着不动，镜头替它往前走）。
-// v1.28 侵入性加强：入锁 0.35→0.28s（peek 冻住时镜头更快钉死）、
-// FOV 推量 15→18°（更近）、headY 1.97→2.05（锁向发帘开口而非肩线）。
-export const CLOSEUP = { grabIn: 0.28, fovPush: 18, headY: 2.05 };
+// v1.29 贴角闪现（用户证词「时机仍然不对 / 应在拐角直接触发」）：
+// v1.28 hold 220ms 把「闪」做成了「冻」——灯灭后先空等再露面，读成
+// 提前引爆。hold 收到 90ms（只露发顶/肩的一拍闪），s 提到 0.28（墙后
+// 半身已入画，不是还藏在口袋里）。显形线几何零改动。
+export const REVEAL_PEEK = { s: 0.28, holdMs: 90 };
+// v1.29 同帧锁：smoothstep 入锁起步几乎不动，跨线那一帧镜头还在看路
+// ——原片是「拐过去就已经在看它」。ease-out 立方 + grabIn 0.10s：
+// 第一帧就大部分锁向墙后，闪出落在特写里。
+export const CLOSEUP = { grabIn: 0.10, fovPush: 18, headY: 2.05 };
 // v1.23 错拍中段歪头（STARE_TILT，运行时姿态零网格）：站住盯你到
 // 第 at 拍起，用 span 窗把整个身位向侧里缓缓歪 rad 弧度——「不对劲」
 // 的语言：它不是在打量你，是在核对你。at/span 按错拍窗归一。
@@ -2353,7 +2351,9 @@ export function build(ctx) {
     while (dy > Math.PI) dy -= Math.PI * 2;
     while (dy < -Math.PI) dy += Math.PI * 2;
     const g = Math.min(1, grab.t / CLOSEUP.grabIn);
-    const k = g * g * (3 - 2 * g); // smoothstep 入锁
+    // v1.29：ease-out 立方——第一帧就大部分锁向墙后（smoothstep 起步
+    // 几乎不动，闪出被甩在镜头还在看路的那几帧里）
+    const k = 1 - (1 - g) ** 3;
     yawObj.rotation.y += dy * k;
     const dist = Math.max(0.4, Math.hypot(hx - player.x, hz - player.z));
     const wantPitch = Math.atan2(CLOSEUP.headY - 1.68, dist);
