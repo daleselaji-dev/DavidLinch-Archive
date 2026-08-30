@@ -632,11 +632,14 @@ export function build(ctx) {
   keyPivot.rotation.y = Math.PI / 2;
   group.add(keyPivot);
   const SEC_REST = Math.PI; // 秒针的 6 点位
-  // v1.17 彩蛋五批·问第二遍（archive）：秒针滑回后的 8s 回声窗内
+  // v1.17 彩蛋五批·问第二遍（archive）：秒针滑回后的回声窗内
   // **再拧一次**——钥匙不响、秒针不动，斜上方停摆钟的分针在同一拍
   // 挣一下（答与动作同拍，答在隔壁那口钟）。共用件纪律：分针只有
   // clockState 一个写者（这里只点火 clockState.t，不直驱 minHand）；
   // 秒针只有 windState 一个写者——两台状态机并发也各归各位。
+  // v1.19 余温总账 9s：三格漏时序列 3.4s 落定 → 窗 5.6s。旧值 8s
+  // 是七件里唯一的例外，却把「最慢落定」配了「最长的窗」——账
+  // 一立就露了破绽：时间都漏在路上了，余温反而该最薄（8s 钉移交）。
   const windState = { t: -1, step: 0, echo: 0 };
   const TICK_AT = [0.4, 1.05, 1.9]; // 擒纵间隔 0.4→0.65→0.85s：一格比一格迟
   updaters.push((dt) => {
@@ -657,7 +660,7 @@ export function build(ctx) {
       windState.step = 0;
       secHand.rotation.z = SEC_REST;
       windKey.rotation.z = 0;
-      windState.echo = 8; // 漏走的时间还热着——回声窗开
+      windState.echo = 5.6; // 余温 9−3.4——漏走的时间只剩一点热
       return;
     }
     if (windState.step === 3 && k >= 2.6) {
@@ -1286,7 +1289,7 @@ export function build(ctx) {
   q1.rotation.y = Math.atan2(3.02, -0.7);
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.doughnut
+    narration, docent: DOCENT.doughnut, docent2: DOCENT.doughnut2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

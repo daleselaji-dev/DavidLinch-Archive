@@ -190,7 +190,8 @@ describe('v1.17 门禁 83：时间错位轴共用件盯防（archive 单写者�
     expect(seg).toContain('secHand.rotation.z = SEC_REST;');
     expect(seg).toContain('windKey.rotation.z = 0;');
     expect(seg).toContain('windState.step = 0;');
-    expect(seg).toContain('windState.echo = 8;');
+    // 8s 精确钉移交 v119-eggs（余温总账 9s 窗长差异化——最慢落定不再配最长窗）
+    expect(seg).toMatch(/windState\.echo = [\d.]+;/);
   });
 
   it('并发抽查取证句柄在源（冒烟探针按名读针角）', () => {
