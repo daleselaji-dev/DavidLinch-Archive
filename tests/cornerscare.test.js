@@ -404,7 +404,9 @@ describe('源码级门禁：显形线主触发接线、镜头特写接管、接�
 
   it('reveal 帧灯一口气全灭（狂闪前奏退役——原片的黑一步到位）', () => {
     expect(src).toMatch(/lampPanic\.v = 0;\s*\n\s*lampDread\.v = 0;\s*\n\s*lampKill\.v = 1;/);
-    expect(src).toContain("audio.sfx('dreadswell', 0.75)"); // 跨线帧低频升压
+    // v1.24 改钉留账：跨线帧低频升压改走惊吓直通总线（第 4 参 punch）——
+    // 旧钉 sfx('dreadswell', 0.75) 只多了路由参数，音色与推子未动
+    expect(src).toContain("audio.sfx('dreadswell', 0.75, 0, true)");
   });
 
   it('镜头特写接管接线：pitch/yaw 链取自 camera 父链、smoothstep 入锁、FOV 推近与归还', () => {

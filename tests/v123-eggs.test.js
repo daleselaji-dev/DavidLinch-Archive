@@ -236,9 +236,8 @@ describe('v1.23 门禁 101：呼叫铃 scare.seen 变奏（关闸后的内容出
 });
 
 describe('v1.23 门禁 101：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.23.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v124-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.23.0');
-    expect(read('src/main.js')).toContain("version: '1.23.0'");
+    expect(read('src/main.js')).toContain(`version: '${pkg.version}'`);
   });
 });
