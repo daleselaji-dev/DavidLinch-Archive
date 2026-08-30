@@ -160,11 +160,13 @@ describe('v1.18 门禁 88：回声窗一句暗示 + 访谈 34 → 38（四主题
     expect(SRC.main).not.toContain('回头客');
   });
 
-  it('条目 38，四主题分布 10/10/9/9（齐涨口径：单主题 ≥10 前先扩别的 → 整排推进）', () => {
-    expect(INTERVIEWS.length).toBe(38);
+  it('条目 ≥38，四主题整排推进（v1.22 封顶 40 改钉：38/10-10-9-9 → 下限守卫）', () => {
+    // v1.22 起 38 → 40 封顶收官（lightbulbs/bigboy 入册），本用例的
+    // 「恰 38」钉子改为齐涨语义的下限守卫；封顶终态由 v122 门禁钉死
+    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(38);
     const dist = INTERVIEW_THEMES.map(
       (t) => INTERVIEWS.filter((v) => v.theme === t).length);
-    expect(dist).toEqual([10, 10, 9, 9]);
+    for (const n of dist) expect(n).toBeGreaterThanOrEqual(9);
   });
 
   it('新增四条在册且与 QUOTES 立牌语录零重复（防撞第四轮：sound5050/intuition/you 三句撞库弃用在案）', () => {

@@ -1686,7 +1686,7 @@ export function build(ctx) {
   q1.rotation.y = 1.15;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.home
+    narration, docent: DOCENT.home, docent2: DOCENT.home2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
