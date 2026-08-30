@@ -1422,6 +1422,52 @@ export function build(ctx) {
   boilerRoom.add(annexLamp);
   updaters.push(makeFlicker(annexLamp, null, 5, 21));
 
+  // v1.14 彩蛋二批（门禁 69）：配电箱旁一块螺栓检修口盖板——敲一下
+  // （clank 即时），3.5s 后楼那头的管道回敲（pipeknock 错拍）。回应
+  // 一次比一次少：三下、两下、一下……第四次起永远沉默（永久态——
+  // 你把那头的人问完了）。零字幕：这段对话没有译文。
+  const panelState = { asked: 0, wait: 0, wob: -1 };
+  const hatchPanel = mergedMesh([
+    xform(roundedBoxGeo(0.34, 0.44, 0.035, 0.012, 2), 0, 0, 0),
+    // 四角螺栓 + 中央提手
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.016, 6), -0.13, 0.17, 0.02, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.016, 6), 0.13, 0.17, 0.02, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.016, 6), -0.13, -0.17, 0.02, Math.PI / 2, 0, 0),
+    xform(new THREE.CylinderGeometry(0.016, 0.016, 0.016, 6), 0.13, -0.17, 0.02, Math.PI / 2, 0, 0),
+    xform(new THREE.BoxGeometry(0.1, 0.024, 0.03), 0, -0.02, 0.028)
+  ], M.iron);
+  hatchPanel.position.set(-S / 2 - 1.35, 1.2, -2.56);
+  boilerRoom.add(hatchPanel);
+  updaters.push((dt) => {
+    // 盖板被敲后的微震（0.4s 衰减）
+    if (panelState.wob >= 0) {
+      panelState.wob += dt;
+      const d = Math.max(0, 1 - panelState.wob / 0.4);
+      hatchPanel.rotation.z = Math.sin(panelState.wob * 46) * 0.012 * d;
+      if (d <= 0) panelState.wob = -1;
+    }
+    // 迟到的回敲（游戏时钟计 3.5s——软渲染下也不抢拍）
+    if (panelState.wait > 0) {
+      panelState.wait -= dt;
+      if (panelState.wait <= 0 && panelState.asked <= 3) {
+        // 第 n 次问，回 4-n 下（pipeknock 本身是三连敲，靠音量与
+        // 截尾近似「越来越少」：0.9 → 0.55 → 0.3）
+        audio.sfxAt('pipeknock', -S / 2 - 5.5, -2.2, [0, 0.9, 0.55, 0.3][panelState.asked], 9);
+      }
+    }
+  });
+  hotspots.add(hatchPanel, {
+    hint: 'E — 检修口盖板',
+    onActivate: () => {
+      panelState.wob = 0;
+      audio.sfxAt('clank', -S / 2 - 1.35, -2.56, 0.5, 4);
+      if (panelState.wait <= 0 && panelState.asked < 4) {
+        panelState.asked += 1;      // 永久计数：第四次起那头不再回应
+        if (panelState.asked <= 3) panelState.wait = 3.5;
+      }
+    }
+  });
+
   // ---------- v1.11 门禁 57：缠布之物（工业畸胎感抽象存在） ----------
   // 南墙深处、炉门与阀门之间的一张检修桌：锌盆里躺着一团缠满绷带状
   // 布条的长形之物。**没有任何五官**，头端只是布条收拢（非肖像复刻，

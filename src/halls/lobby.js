@@ -701,6 +701,46 @@ export function build(ctx) {
     hint: 'E — 访客名册（写一句话）',
     onActivate: () => ui.openGuestbook()
   });
+  // v1.14 彩蛋二批（门禁 69）：名册中缝里的钢笔——推一下，它顺着
+  // 斜面滚到黄铜唇边磕一声；1.7s 后名册那边传来一声翻页（没有人翻）。
+  // 永久态：笔从此停在唇边，回不到中缝（世界记得你动过它）。零字幕。
+  const penState = { t: -1, rolled: false };
+  const deskGroup = stand.userData.desk.parent;
+  const rollPen = mergedMesh([
+    xform(new THREE.CylinderGeometry(0.0075, 0.0075, 0.128, 8), 0, 0, 0),
+    xform(new THREE.CylinderGeometry(0.0078, 0.0058, 0.024, 8), 0, 0.074, 0),
+    xform(new THREE.BoxGeometry(0.004, 0.03, 0.003), 0.0075, 0.062, 0)
+  ], new THREE.MeshStandardMaterial({ color: 0x141018, roughness: 0.32, metalness: 0.4 }));
+  rollPen.rotation.z = Math.PI / 2;   // 卧倒（沿台面横放）
+  rollPen.position.set(0.02, 0.075, -0.02); // 名册中缝
+  deskGroup.add(rollPen);
+  updaters.push((dt) => {
+    if (penState.t < 0) return;
+    penState.t += dt;
+    const u = Math.min(1, penState.t / 0.42);
+    const e = u * u; // 顺斜面加速
+    rollPen.position.z = -0.02 + e * 0.235;      // 中缝 → 唇边
+    rollPen.position.y = 0.075 - e * 0.043;      // 出中缝落到板面
+    rollPen.rotation.x = e * 9.4;                // 滚
+    if (u >= 1) {
+      penState.t = -1; // 到唇边磕一声（即时通道），从此停在这里
+      audio.sfxAt('porcelain', -5.3, 9.18, 0.28, 3);
+      // 错拍通道：1.7s 后名册那边一声翻页——没有人
+      setTimeout(() => audio.sfxAt('page', -5.3, 9.18, 0.4, 4), 1700);
+    }
+  });
+  hotspots.add(rollPen, {
+    hint: 'E — 中缝里的钢笔',
+    onActivate: () => {
+      if (!penState.rolled) {
+        penState.rolled = true; // 永久：笔不回中缝
+        penState.t = 0;
+      } else {
+        // 它已经在唇边了——只轻轻一磕，不再有下文
+        audio.sfxAt('porcelain', -5.3, 9.18, 0.16, 3);
+      }
+    }
+  });
 
   // 立柱上的黄铜调光面板 —— 三档：常亮 / 半亮 / 烛暗
   const dimmer = dimmerPlate({ mats: M });

@@ -1319,6 +1319,64 @@ export function build(ctx) {
       }
     }
   });
+  // v1.14 彩蛋二批（门禁 69）：吧台上的一盒火柴——盒里三根。划一根
+  // （strike 即时 + 火苗起），1.4s 后它被谁吹灭（breath 错拍——你没有吹）。
+  // 永久态：火柴划一根少一根，三根用完只剩空盒的木哐。零字幕。
+  const matchbox = new THREE.Group();
+  const matchWood = new THREE.MeshStandardMaterial({ color: 0x9a7b4e, roughness: 0.85 });
+  matchbox.add(mergedMesh([
+    // 外盒（抽开一半的内屉——两个错位薄盒）
+    xform(new THREE.BoxGeometry(0.062, 0.014, 0.044), 0, 0.008, 0),
+    xform(new THREE.BoxGeometry(0.054, 0.01, 0.038), 0.022, 0.016, 0)
+  ], matchWood));
+  const matchSticks = [];
+  const headMat = new THREE.MeshStandardMaterial({
+    color: 0x6a1420, roughness: 0.6, emissive: 0x000000, emissiveIntensity: 0
+  });
+  for (let mi = 0; mi < 3; mi++) {
+    const stick = mergedMesh([
+      xform(new THREE.BoxGeometry(0.0035, 0.0035, 0.042), 0, 0, 0),
+      xform(new THREE.SphereGeometry(0.0042, 6, 5), 0, 0, -0.021)
+    ], mi === 0 ? headMat : headMat.clone());
+    stick.position.set(0.012 + mi * 0.009, 0.023, 0.002 - mi * 0.003);
+    stick.rotation.y = 0.15 - mi * 0.12;
+    matchbox.add(stick);
+    matchSticks.push(stick);
+  }
+  matchbox.position.set(-W / 2 + 1.76, 1.125, 1.15);
+  matchbox.rotation.y = 0.5;
+  bar.add(matchbox);
+  const matchState = { left: 3, t: -1 };
+  updaters.push((dt) => {
+    if (matchState.t < 0) return;
+    matchState.t += dt;
+    const cur = matchSticks[matchState.left]; // 正在烧的那根（left 已减）
+    if (matchState.t < 1.4) {
+      // 火苗只是磷头的自发光呼吸——不加光源（光的礼貌）
+      cur.material.emissiveIntensity = 2.2 + Math.sin(matchState.t * 21) * 0.8;
+      cur.material.emissive.setHex(0xff8c30);
+      cur.position.y = 0.023 + Math.min(1, matchState.t / 0.3) * 0.05; // 举起来
+    } else {
+      // 被谁吹灭了——火柴没了（用掉的不再回来）
+      cur.visible = false;
+      cur.material.emissiveIntensity = 0;
+      matchState.t = -1;
+    }
+  });
+  hotspots.add(matchbox.children[0], {
+    hint: 'E — 吧台上的火柴盒',
+    onActivate: () => {
+      if (matchState.t >= 0) return;          // 有一根正烧着
+      if (matchState.left <= 0) {
+        audio.sfxAt('woodknock', -W / 2 + 1.76, 1.15, 0.2, 3); // 空盒
+        return;
+      }
+      matchState.left -= 1;
+      matchState.t = 0;
+      audio.sfxAt('strike', -W / 2 + 1.76, 1.15, 0.7, 3);
+      setTimeout(() => audio.sfx('breath', 0.5), 1400); // 错拍：谁吹的
+    }
+  });
   group.add(bar);
 
   // 点唱机（西南角；开机 → 氖弧点亮 + 深夜爵士）

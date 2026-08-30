@@ -309,9 +309,63 @@ export function build(ctx) {
       later(() => ui.caption('屑是新的。笔只有一支。', 3400), 1200);
     }
   });
-  desk.position.set(-6.4, 0, -1.4);
-  desk.rotation.y = Math.PI / 2;
-  group.add(desk);
+  // v1.14 彩蛋二批（门禁 69）：桌角一块场记板——打板（clapslap 即时），
+  // 没有人喊开拍；1.2s 后两盏顶灯自己暗了一拍再回来（错拍——棚里
+  // 只有灯记得这个手势该接什么）。零字幕。
+  const slate = new THREE.Group();
+  const slateTex = canvasTexture(64, (g, s) => {
+    g.fillStyle = '#15151a';
+    g.fillRect(0, 0, s, s);
+    // 拍杆黑白斜纹（只画上沿一条）
+    for (let i = 0; i < 7; i++) {
+      g.fillStyle = i % 2 ? '#d9d4c8' : '#15151a';
+      g.save();
+      g.translate(i * (s / 6), 0);
+      g.rotate(0.5);
+      g.fillRect(0, -4, s / 9, 22);
+      g.restore();
+    }
+    // 板面三行手写位（划线，不写字——这块板没派上过用场）
+    g.strokeStyle = 'rgba(217,212,200,0.5)';
+    g.lineWidth = 2;
+    for (const y of [0.45, 0.66, 0.86]) {
+      g.beginPath();
+      g.moveTo(6, s * y);
+      g.lineTo(s - 6, s * y);
+      g.stroke();
+    }
+  });
+  const slateMat = new THREE.MeshStandardMaterial({ map: slateTex, roughness: 0.75 });
+  const slateBody = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.007, 0.21), slateMat);
+  const slateJaw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.007, 0.036), slateMat);
+  const jawPivot = new THREE.Group();
+  jawPivot.position.set(0, 0.006, -0.104); // 铰链在板后缘
+  slateJaw.position.set(0, 0, 0.018);
+  jawPivot.add(slateJaw);
+  slate.add(slateBody, jawPivot);
+  slate.position.set(1.28, 0.909, -0.34); // 桌角（desk 局部系）
+  slate.rotation.y = -0.55;
+  desk.add(slate);
+  const slateState = { t: -1, dip: 0 };
+  updaters.push((dt) => {
+    if (slateState.dip > 0) slateState.dip = Math.max(0, slateState.dip - dt);
+    if (slateState.t < 0) return;
+    slateState.t += dt;
+    const u = slateState.t / 0.5;
+    if (u >= 1) { slateState.t = -1; jawPivot.rotation.x = 0; return; }
+    // 抬起 0.3s → 合上一拍（合上的瞬间已在 onActivate 出声）
+    jawPivot.rotation.x = u < 0.6 ? -(u / 0.6) * 0.62 : -((1 - u) / 0.4) * 0.62;
+  });
+  hotspots.add(slateBody, {
+    hint: 'E — 一块场记板',
+    onActivate: () => {
+      if (slateState.t >= 0) return;
+      slateState.t = 0;
+      later(() => audio.sfxAt('clapslap', -6.4 - 0.34, -1.4 - 1.28, 0.75, 4), 300);
+      // 错拍：1.2s 后顶灯暗一拍再回来——没有人喊开拍
+      later(() => { slateState.dip = 0.9; }, 1500);
+    }
+  });
 
   // v1.10 抛光 P5·件 1：桌旁的字纸篓——车削铁皮篓（内壁回折），
   // 两团揉掉的纸落在篓外的地板上，一团卡在篓沿。写了又不要的
@@ -1077,9 +1131,11 @@ export function build(ctx) {
     ceilBulbs.push({ bulb, light });
   }
   updaters.push(() => {
+    // v1.14 场记板暗拍：在开关档位之上乘一道（合拍后 1.2s 灯自己答一下）
+    const k = 1 - Math.min(1, slateState.dip / 0.9) * 0.82;
     for (const { bulb, light } of ceilBulbs) {
-      light.intensity = 7 * ceilState.on;
-      bulb.material.emissiveIntensity = 2.6 * Math.max(0.03, ceilState.on);
+      light.intensity = 7 * ceilState.on * k;
+      bulb.material.emissiveIntensity = 2.6 * Math.max(0.03, ceilState.on * Math.max(k, 0.12));
     }
   });
   const wallSwitch = new THREE.Mesh(

@@ -67,6 +67,9 @@ const ui = new UI({
     return audio.muted;
   },
   onCycleNarration: () => narration.cycleMode(),
+  // v1.14：访谈摘录低语朗读——非人声 MurmurVoice「读」一条摘录
+  // （气声音节+静电碎语，永远听不清字）；text=null 即收声
+  onMurmurRead: (text) => (text ? narration.murmur.speak(text) : narration.murmur.stop()),
   onToggleQuality: () => {
     autoQ.locked = true; // 玩家手动选择后，自动降档退位
     engine.setQuality(engine.quality === 'high' ? 'low' : 'high');
@@ -151,6 +154,9 @@ async function goTo(id) {
   audio.startAmbience(mod.meta.ambience);
   spaceState.cur = null; // 强制下个采样拍刷新混响空间
   ui.fade(false);
+  // v1.14：厅可携带异步资产（GLB 分包解析）——等它就位再宣布装载
+  // 完成，冒烟的预算/交互普查读到的才是完整场景；8s 兜底不阻塞
+  if (built.ready) await Promise.race([built.ready, sleep(8000)]);
   console.log(`[sv] hall-loaded ${id}`);
 
   // 留白：只在首访、且等你先看一会儿之后，才低声说一句短话
@@ -323,8 +329,12 @@ window.__SV__ = {
   teleport: (x, z, yaw) => controls.teleport(x, z, yaw),
   /** 冒烟/截屏：当前展厅 id（SV_SHOT_PRE 按厅分机位用） */
   hall: () => (current ? current.id : null),
-  /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹） */
-  player: () => ({ x: controls.yawObject.position.x, z: controls.yawObject.position.z }),
+  /** 冒烟/截屏：读回当前机位（诊断瞬移是否被回弹；v1.14 +yaw） */
+  player: () => ({
+    x: controls.yawObject.position.x,
+    z: controls.yawObject.position.z,
+    yaw: controls.yawObject.rotation.y
+  }),
   /**
    * 冒烟（v1.7 门禁 40）：模拟「猛回头」——瞬间转过 rad 弧度。
    * 转身触发器在下一渲染帧会看到这次 yaw 突变（等价于真人
@@ -388,5 +398,5 @@ window.__SV__ = {
     }
     return false;
   },
-  version: '1.13.0'
+  version: '1.14.0'
 };

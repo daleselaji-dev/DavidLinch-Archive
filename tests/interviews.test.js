@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { INTERVIEWS, interviewById } from '../src/data/interviews.js';
 import { QUOTES, DOCENT } from '../src/data/essays.js';
 
-describe('访谈摘录册（v1.13 门禁 64：更多他自己的话，合规且克制）', () => {
-  it('条目 ≥12，id 唯一，四要素齐全（topic/zh/en/source）', () => {
-    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(12);
+describe('访谈摘录册（v1.13 门禁 64 / v1.14 门禁 68：扩容至 ≥20 条）', () => {
+  it('条目 ≥20，id 唯一，四要素齐全（topic/zh/en/source）', () => {
+    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(20);
     const ids = INTERVIEWS.map((v) => v.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const v of INTERVIEWS) {
@@ -110,5 +110,18 @@ describe('访谈摘录接线（源码级审计）', () => {
     const m = overlay.match(/showInterviews\(\) \{[\s\S]*?\n  \}/);
     expect(m).toBeTruthy();
     expect(m[0]).not.toContain('innerHTML');
+  });
+
+  it('低语朗读（v1.14）：逐条 MurmurVoice 非人声朗读 + 收声闭环，面板关闭即收声', () => {
+    // 面板侧：每张卡带低语钮，经 onMurmurRead 回调走 MurmurVoice
+    expect(overlay).toContain('onMurmurRead');
+    expect(overlay).toContain('iv-murmur');
+    expect(overlay).toContain('_stopMurmur');
+    // closeInfo 收声（关面板不留残响）
+    expect(overlay).toMatch(/closeInfo\(\) \{[\s\S]*?_stopMurmur\(\)[\s\S]*?\n  \}/);
+    // 接线侧：main.js 把回调接到 narration.murmur（清晰人声不回来——
+    // 朗读走非人声低语，null 即 stop）
+    const main = readFileSync(join(process.cwd(), 'src', 'main.js'), 'utf-8');
+    expect(main).toMatch(/onMurmurRead: \(text\) => \(text \? narration\.murmur\.speak\(text\) : narration\.murmur\.stop\(\)\)/);
   });
 });

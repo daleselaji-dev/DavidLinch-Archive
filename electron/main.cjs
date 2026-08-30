@@ -56,6 +56,14 @@ function createWindow() {
           "document.getElementById('boot-enter').click()", true
         ).catch(() => {});
       }
+      // v1.14 门禁 67：GLB 资产落厅信号回显（成功/失败都要在冒烟日志可见）
+      if (message.includes('[sv] glb-')) {
+        console.log(`[smoke] ${message}`);
+        if (message.includes('[sv] glb-failed')) {
+          console.error('[smoke] GLB 资产解析失败');
+          app.exit(1);
+        }
+      }
       if (message.includes('[sv] hall-loaded')) {
         const hall = message.split(' ').pop();
         console.log(`[smoke] 展厅装载 OK: ${hall}`);
@@ -101,9 +109,12 @@ function createWindow() {
         // v1.13 七厅彩蛋齐加一遍重锁：普查 19/33/26/21/23/22/27 = 171
         // （碑后白花/趴地书+doughnut 立牌+剪报盒/用剩橡皮/小费罐/倒扣杯/
         // 弱音小号/黏土小像），阈值 = 普查 -1
+        // v1.14 彩蛋二批重锁：七厅又各 +1（中缝钢笔/没关严的抽屉/检修口
+        // 盖板/火柴盒/手板硬币/海报角/场记板）+ twinpeaks GLB 孪生松 +1
+        // → 普查 20/34/27/22/25/23/28 = 179，阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 18, archive: 32, eraserhead: 25, bluevelvet: 20,
-          twinpeaks: 22, mulholland: 21, studio: 26
+          lobby: 19, archive: 33, eraserhead: 26, bluevelvet: 21,
+          twinpeaks: 24, mulholland: 22, studio: 27
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -369,7 +380,7 @@ function createWindow() {
             setTimeout(async () => {
               try {
                 const at = await win.webContents.executeJavaScript(
-                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1); })()', true
+                  '(() => { const p = window.__SV__.player(); return p.x.toFixed(1) + "," + p.z.toFixed(1) + " yaw=" + (p.yaw ?? 0).toFixed(2); })()', true
                 ).catch(() => '?');
                 console.log(`[smoke] 截屏机位 ${hall}: ${at}`);
                 const img = await win.webContents.capturePage();

@@ -178,7 +178,8 @@ export function fluorescentFixture({ len = 2.8, mats } = {}) {
 // ============================================================
 // 档案廊 —— 卡片目录柜（抽屉阵列 + 黄铜拉手与标签框 + 一只可拉抽屉）
 // ============================================================
-export function cardCatalog({ cols = 4, rows = 5, mats } = {}) {
+export function cardCatalog({ cols = 4, rows = 5, mats, skip = [] } = {}) {
+  const skipSet = new Set(skip); // 'r,c' 格位留空（v1.14：没关严的抽屉自备活动面板）
   const M = mats || propMats();
   const g = new THREE.Group();
   const W = cols * 0.24 + 0.08;
@@ -210,6 +211,7 @@ export function cardCatalog({ cols = 4, rows = 5, mats } = {}) {
       const x = -W / 2 + 0.16 + c * 0.24;
       const y = 0.19 + r * 0.19;
       if (r === rows - 2 && c === 1) continue; // 留给可拉抽屉
+      if (skipSet.has(`${r},${c}`)) continue;
       faceGeos.push(xform(faceGeo, x, y, 0.235));
       const worn = wornSet.has(`${r},${c}`);
       (worn ? wornBrassGeos : brassGeos)

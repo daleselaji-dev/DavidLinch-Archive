@@ -51,32 +51,41 @@ if (!/^Blender 4\.1\./.test(version)) {
   process.exit(1);
 }
 
-const tmpBlend = path.join(os.tmpdir(), `sv-blender-check-${Date.now()}.blend`);
-try {
-  console.log('[blender:check] gen(block) …');
-  execFileSync(blender, [
-    '-b', '--factory-startup',
-    '--python', path.join(root, 'scripts', 'blender', 'gen_corner_wraith.py'),
-    '--', '--stage', 'block', '--out', tmpBlend
-  ], { encoding: 'utf-8', timeout: 180000 });
+// v1.14：三件资产的比例架全部过一遍（gen(block) → inspect 断言
+// 对象数与总高——比例架就位即工具链可用）
+const ASSETS = [
+  { gen: 'gen_corner_wraith.py', label: '拐角魅影', meshes: 5, hLo: 2.1, hHi: 2.75 },
+  { gen: 'gen_pine_tree.py', label: '双峰松树', meshes: 3, hLo: 7.5, hHi: 8.2 },
+  { gen: 'gen_library_ladder.py', label: '档案图书梯', meshes: 7, hLo: 4.3, hHi: 4.8 }
+];
 
-  console.log('[blender:check] inspect …');
-  const out = execFileSync(blender, [
-    '-b', tmpBlend,
-    '--python', path.join(root, 'scripts', 'blender', 'inspect_blend.py')
-  ], { encoding: 'utf-8', timeout: 120000 });
+for (const a of ASSETS) {
+  const tmpBlend = path.join(os.tmpdir(), `sv-blender-check-${Date.now()}-${a.gen}.blend`);
+  try {
+    console.log(`[blender:check] ${a.label} gen(block) …`);
+    execFileSync(blender, [
+      '-b', '--factory-startup',
+      '--python', path.join(root, 'scripts', 'blender', a.gen),
+      '--', '--stage', 'block', '--out', tmpBlend
+    ], { encoding: 'utf-8', timeout: 180000 });
 
-  const meshes = /\[inspect\] meshes=(\d+)/.exec(out);
-  const height = /height=([\d.]+)/.exec(out);
-  if (!meshes || Number(meshes[1]) !== 5) {
-    throw new Error(`比例架对象数异常: ${meshes && meshes[1]}（应为 5）`);
+    const out = execFileSync(blender, [
+      '-b', tmpBlend,
+      '--python', path.join(root, 'scripts', 'blender', 'inspect_blend.py')
+    ], { encoding: 'utf-8', timeout: 120000 });
+
+    const meshes = /\[inspect\] meshes=(\d+)/.exec(out);
+    const height = /height=([\d.]+)/.exec(out);
+    if (!meshes || Number(meshes[1]) !== a.meshes) {
+      throw new Error(`${a.label} 比例架对象数异常: ${meshes && meshes[1]}（应为 ${a.meshes}）`);
+    }
+    const h = Number(height && height[1]);
+    if (!(h > a.hLo && h < a.hHi)) {
+      throw new Error(`${a.label} 比例架总高异常: ${h}（应在 ${a.hLo}–${a.hHi}，容差含枢轴旋转的包围盒过估）`);
+    }
+    console.log(`[blender:check] ${a.label} OK — meshes=${a.meshes} height=${h}`);
+  } finally {
+    try { fs.unlinkSync(tmpBlend); } catch { /* 清理尽力而为 */ }
   }
-  const h = Number(height && height[1]);
-  if (!(h > 2.1 && h < 2.75)) {
-    throw new Error(`比例架总高异常: ${h}（应 ≈2.35，容差含枢轴旋转的包围盒过估）`);
-  }
-  console.log(`[blender:check] OK — meshes=5 height=${h}`);
-  console.log('[blender:check] 工具链可用。完整 loop（fine/渲染/GLB）见 scripts/blender/README.md');
-} finally {
-  try { fs.unlinkSync(tmpBlend); } catch { /* 清理尽力而为 */ }
 }
+console.log('[blender:check] 工具链可用。完整 loop（fine/渲染/GLB）见 scripts/blender/README.md');
