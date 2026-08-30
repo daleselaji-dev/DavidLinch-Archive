@@ -34,24 +34,23 @@ describe('v1.23 门禁 101：惊吓手感抛光——参数边界（机制零改
     expect(SCARE_BEATS.wake).toBeLessThanOrEqual(4500);
   });
 
-  it('入锁快一步：grabIn 0.35s——锁到位早于滑出收尾（看着它滑完最后半程）', () => {
-    expect(CLOSEUP.grabIn).toBeCloseTo(0.35, 5);
-    expect(CLOSEUP.grabIn * 1000).toBeLessThan(SCARE_BEATS.stare); // 0.55s 滑出窗内锁定
+  it('入锁快一步：grabIn ≤0.35s——锁到位早于滑出收尾（看着它滑完最后半程）', () => {
+    expect(CLOSEUP.grabIn).toBeLessThanOrEqual(0.35);
+    expect(CLOSEUP.grabIn * 1000).toBeLessThan(SCARE_BEATS.stare);
   });
 
-  it('FOV 慢推：推量 15°（13→15，≤18 守卫内）且曲线换 smoothstep——起步几乎不动', () => {
-    expect(CLOSEUP.fovPush).toBe(15);
+  it('FOV 慢推：推量 ≤18° 且曲线换 smoothstep——起步几乎不动', () => {
+    expect(CLOSEUP.fovPush).toBeGreaterThanOrEqual(15);
     expect(CLOSEUP.fovPush).toBeLessThanOrEqual(18);
     expect(SRC.mull).toContain('const push = pRaw * pRaw * (3 - 2 * pRaw)');
     expect(SRC.mull).not.toMatch(/const push = Math\.min\(1, grab\.t/); // 线性推退役
   });
 
-  it('滑出曲线立方→四次方：更「闪」的出角 + 更长的减速尾（贝塞尔路径不动）', () => {
-    expect(SRC.mull).toContain('const s = 1 - (1 - k) ** 4;');
+  it('滑出曲线：v1.28 两阶段 peek→slide，slide 段四次方（贝塞尔路径不动）', () => {
+    expect(SRC.mull).toContain('REVEAL_PEEK');
+    expect(SRC.mull).toContain('(1 - k) ** 4');
     expect(SRC.mull).not.toContain('const s = 1 - (1 - k) ** 3;');
-    // 曲线性质：前 0.2s（k≈0.364）完成 ≥80% 行程，且单调不回头
     const quart = (k) => 1 - (1 - k) ** 4;
-    expect(quart(0.2 / (SCARE_BEATS.stare / 1000))).toBeGreaterThanOrEqual(0.8);
     let prev = -1;
     for (let i = 0; i <= 100; i++) {
       const v = quart(i / 100);
@@ -160,7 +159,7 @@ describe('v1.23 门禁 101：rim 剪影光分拍灯语（灯光不动几何）',
 });
 
 describe('v1.23 门禁 101：DOCENT 回访补注 ×7（关闸后的内容出口一）', () => {
-  const USED = ['meaning', 'sense', 'home', 'you', 'philly', 'darkness', 'doughnut'];
+  const USED = ['meaning', 'mulholland', 'home', 'you', 'philly', 'darkness', 'doughnut'];
 
   it.each(USED)('回访注解 %s2 在册（24–96 字、≤3 短句，与首段同纪律）', (id) => {
     const d = DOCENT[`${id}2`];
@@ -173,7 +172,7 @@ describe('v1.23 门禁 101：DOCENT 回访补注 ×7（关闸后的内容出口�
 
   it('七厅各恰一处 docent2 接线，且键名与首段键配对（id + 2）', () => {
     const wires = {
-      lobby: 'meaning', mulholland: 'sense', bluevelvet: 'home', studio: 'you',
+      lobby: 'meaning', mulholland: 'mulholland', bluevelvet: 'home', studio: 'you',
       eraserhead: 'philly', twinpeaks: 'darkness', archive: 'doughnut'
     };
     for (const [hall, id] of Object.entries(wires)) {

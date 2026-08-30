@@ -63,6 +63,37 @@
    [`TESTING.md` 耳机验收清单](TESTING.md)的冒烟状态位实录
    逐拍对照（醒来后应 `seen: true`）
 
+**魅影形体目检（(B) 项——不跑游戏也能审）**：
+
+corner_wraith 是 v1.22 按您口径「眼睛很好，其他都要改」回炉
+定稿的网格，其后各轮**零网格改动**。下面四机位静帧由仓库内
+Blender 管线离线渲自**与游戏同一份网格**
+（`assets/blender/corner_wraith.blend`，Cycles CPU 96 采样、
+三点冷背光摄影棚），点直链即看，无需下载运行游戏：
+
+| 机位 | 直链（raw） | 仓库路径 |
+|------|-------------|---------|
+| 正面 | [wraith-front.png](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/wraith-viewcheck-v1270-3602/assets/acceptance/v127/wraith-front.png) | `assets/acceptance/v127/wraith-front.png` |
+| 侧面 | [wraith-side.png](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/wraith-viewcheck-v1270-3602/assets/acceptance/v127/wraith-side.png) | `assets/acceptance/v127/wraith-side.png` |
+| 3/4 | [wraith-three.png](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/wraith-viewcheck-v1270-3602/assets/acceptance/v127/wraith-three.png) | `assets/acceptance/v127/wraith-three.png` |
+| 俯视 | [wraith-top.png](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/wraith-viewcheck-v1270-3602/assets/acceptance/v127/wraith-top.png) | `assets/acceptance/v127/wraith-top.png` |
+
+**请按 v1.22 回炉的三条线指认**（落到哪条线下一轮就修哪条线，
+一句话就够）：
+
+```
+发帘（罩→披：垂帘加长、绺沟加深、下段左右不对称合拢）：
+〔到位 / 还太整齐 / 太碎 / 其他〕________
+垂臂（收拢贴身加长带屈指、左长右短错拍）：
+〔到位 / 还太张 / 指形出戏 / 其他〕________
+眼窝（眼组参数一字未动——您定过「眼睛很好」）：
+〔仍然好 / 变了〕________
+```
+
+本地复核（可选）：装好 Blender 4.1.1 后 `npm run blender:check`
+七件校验，再按 [`scripts/blender/README.md`](scripts/blender/README.md)
+的 `render_views.py` 用法自渲四机位对照。
+
 **反馈模板（填空式——按拍指认，一句话就够）**：
 
 ```

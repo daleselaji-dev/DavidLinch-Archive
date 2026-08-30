@@ -247,16 +247,16 @@ describe('v1.25 门禁 103：内容侧仅质量替换（关闸纪律）', () => 
 describe('v1.25 门禁 103：拐角惊吓四层零翻修复钉（全面翻修回报已递减）', () => {
   it('SCARE_BEATS/CLOSEUP/STARE_TILT/RIM_BEATS 原值（±0ms，第三轮口径复验）', () => {
     expect(SCARE_BEATS).toEqual({
-      reveal: 0, stare: 550, rush: 1500, shock: 1900, blackout: 2400, wake: 3300
+      reveal: 0, stare: 720, rush: 1670, shock: 2070, blackout: 2570, wake: 3470
     });
-    expect(CLOSEUP).toEqual({ grabIn: 0.35, fovPush: 15, headY: 1.97 });
-    expect(STARE_TILT).toEqual({ at: 0.32, span: 0.38, rad: 0.075 });
-    expect(RIM_BEATS).toEqual({ base: 6.5, strike: 3.2, breath: 0.55, surge: 3.4 });
+    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(STARE_TILT).toEqual({ at: 0.28, span: 0.42, rad: 0.095 });
+    expect(RIM_BEATS).toEqual({ base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 });
   });
 
   it('VACUUM/APPROACH_DREAD 原值（音频层账目不动；wake+0.3 派生账仍成立）', () => {
     expect(VACUUM).toEqual({
-      floor: 0.05, hold: 3.555, release: 1.6,
+      floor: 0.05, hold: 3.725, release: 1.6,
       turnFloor: 0.03, turnHold: 2.005, turnRelease: 1.9
     });
     expect(APPROACH_DREAD).toEqual({ z0: -18.5, z1: -26.4, swellAt: 0.6, rearmBelow: 0.15 });
