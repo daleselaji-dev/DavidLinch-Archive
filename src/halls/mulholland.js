@@ -150,7 +150,17 @@ export const VACUUM = {
 // 自己认出这是哪儿，那句话才补刀）。只给拐角惊吓——转身惊吓保持
 // 平视即醒即字：两重 wake 从此不只字幕不同，一个错的是空间（醒姿/
 // 声音都不对），一个错的是时间（转身与看见之间没有间隙）。
-export const WAKE_DAZE = { pitch: -0.36, captionMs: 1150 };
+// v1.25 wake 空间错位下一档（挪的是朝向不是落点）：WAKE_POINT 持平
+// 不动——落点的可辨识性（报箱/铁皮墙/巷口壁灯三地标 + 冒烟位置断言）
+// 是字幕迟到 1.15s 成立的前提，挪落点伤的是「先认出这是哪儿」。挪
+// 朝向：旧 π 面北背巷（安全复位的语言——醒来看到的是马路与来路），
+// 改 yaw 0 面南朝巷——视线顺巷而下依次是将熄壁灯 (z−6)、巷中第二盏
+// (z−19)、雾与黑里的拐角沿 (8.3,−26.7)，离轴仅 atan2(1.4,36.2)≈2.2°：
+// 它把你转过来，让你正对着你刚拐过去的那个拐角；俯冲醒抬头即巷，
+// 那句「有些拐角，不该拐过去。」落下时你看着的就是那个方向。只给
+// 拐角惊吓——转身惊吓照旧 π 背巷（它的错位在时间轴，wake 保持安全
+// 复位语言）：两重 wake 的分家从此三轴（醒姿/字幕时机/朝向）。
+export const WAKE_DAZE = { pitch: -0.36, captionMs: 1150, yaw: 0 };
 // v1.7 转身惊吓（保留为第二重扳机）：武装区 = 暗巷深段 + 剧场背后空地。
 // 区内驻留 armTime 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发。
 export const SCARE_REGION = [
@@ -2098,7 +2108,9 @@ export function build(ctx) {
   // wake 后 0.3s，whisper 走直通总线在无声的世界里独响）。
   const wakeUp = (caption, daze = false) => {
     releaseGrab();
-    teleport(WAKE_POINT.x, WAKE_POINT.z, Math.PI);
+    // v1.25：拐角惊吓面南朝巷醒（WAKE_DAZE.yaw 0——正对你刚拐过去的
+    // 那个拐角方向），转身惊吓照旧 π 背巷（分家第三轴：朝向）
+    teleport(WAKE_POINT.x, WAKE_POINT.z, daze ? WAKE_DAZE.yaw : Math.PI);
     if (daze && pitchObj) pitchObj.rotation.x = WAKE_DAZE.pitch;
     ui.fade(false);
     backLampState.on = 1;
@@ -3340,6 +3352,13 @@ export function build(ctx) {
     // GLB 魅影解析就位信号——main.js 等它再宣布 hall-loaded（普查完整）
     ready: wraithReady,
     eggs: { 'corner-scare': cornerTrig, 'turn-scare': turnTrig, 'alley-dread': dreadTrig },
+    // v1.25 真机验收基建：惊吓状态位只读快照（phase/sub/clock/seen）。
+    // swiftshader 无音频、陈旧帧不可信——冒烟轮询把这份快照实录进日志，
+    // 供 CI 外真机耳机验收时逐拍人工对照（TESTING「耳机验收清单」）。
+    // 只读：返回字面量快照，不外泄 scare 引用。
+    scareProbe: () => ({
+      phase: scare.phase, sub: scare.sub, clock: +scare.clock.toFixed(3), seen: scare.seen
+    }),
     onLeave: () => {
       engine.lynchPass.uniforms.uInvert.value = 0;
       for (const id of timers) clearTimeout(id);

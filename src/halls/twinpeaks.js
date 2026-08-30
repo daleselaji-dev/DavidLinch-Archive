@@ -603,19 +603,48 @@ export function build(ctx) {
   ];
   snag.add(mergedMesh(snagGeos, barkMat));
   const owl = new THREE.Group();
-  const owlBody = new THREE.Mesh(
+  // v1.25 鸮形体精修（用户验收口径「眼睛很好，其他部分可以再改进」——
+  // 眼组原封不动：位置/半径/emissive/眨眼-亮起机制全不碰，改的只有形）：
+  // ① 轮廓 v2：旧 lathe 桶形一撸到底、头身不分——改满胸(0.118@0.16)/
+  //    收颈(0.068@0.302)/圆颅(0.082@0.335) 三段剪影；颈腰收形后眼球
+  //    仍探出体面 ~29mm（眼组不动前提下的收形账，见 v125-eggs）；
+  // ② 合拢双翼 + 垂尾（剪影第二读点，林奇式抽象不做羽毛写实）：
+  //    翼刃贴身把侧影劈出前后脸、翼尖向后下收拢，尾楔垂到栖枝以下——
+  //    背光里「鸮」的读感来自这两条线，不来自细节；
+  // ③ 耳羽簇 v2：旧簇 5cm 近乎「凸起」——主簇加高外张（读得出角羽），
+  //    内侧各加一支前副簇（角→羽的那一点乱）；
+  // ④ 栖枝关系修正：旧账鸮底 y3.12 比落点枝面 ~3.072 悬空 48mm、
+  //    z0.12 偏离枝轴 (z0.06) 60mm——爪下无枝。落座 y3.075 骑回枝轴
+  //    z0.07，四趾锥扣在枝面前沿（悬空/骑轴几何账入测）。
+  // 预算净账 −1：全部形件与身体同料合并单 mesh（旧 3 mesh → 2），
+  // twinpeaks 峰值 244 → 243（250 预算下让回 1 格余量）。
+  const owlMat = new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 });
+  const tuftGeo = new THREE.ConeGeometry(0.02, 0.085, 6);
+  const tuftEchoGeo = new THREE.ConeGeometry(0.012, 0.05, 5);
+  const wingGeo = new THREE.SphereGeometry(0.05, 7, 5);
+  wingGeo.scale(0.55, 2.1, 0.9); // 折翼刃形（贴身长条，不是球）
+  const tailGeo = new THREE.ConeGeometry(0.05, 0.17, 6);
+  tailGeo.scale(1, 1, 0.5);      // 尾楔压扁（板状垂尾）
+  const toeGeo = new THREE.ConeGeometry(0.008, 0.042, 5);
+  const owlBody = mergedMesh([
     new THREE.LatheGeometry([
-      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.09, 0.02), new THREE.Vector2(0.115, 0.12),
-      new THREE.Vector2(0.095, 0.24), new THREE.Vector2(0.07, 0.3), new THREE.Vector2(0.075, 0.34),
-      new THREE.Vector2(0.05, 0.38), new THREE.Vector2(0.001, 0.39)
+      new THREE.Vector2(0.001, 0), new THREE.Vector2(0.075, 0.012), new THREE.Vector2(0.108, 0.09),
+      new THREE.Vector2(0.118, 0.16), new THREE.Vector2(0.1, 0.235), new THREE.Vector2(0.078, 0.285),
+      new THREE.Vector2(0.068, 0.302), new THREE.Vector2(0.082, 0.335), new THREE.Vector2(0.07, 0.365),
+      new THREE.Vector2(0.045, 0.386), new THREE.Vector2(0.001, 0.395)
     ], 12),
-    new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 })
-  );
-  const tuftGeo = new THREE.ConeGeometry(0.018, 0.05, 6);
-  owl.add(owlBody, mergedMesh([
-    xform(tuftGeo, -0.045, 0.4, 0, 0, 0, 0.25),
-    xform(tuftGeo, 0.045, 0.4, 0, 0, 0, -0.25)
-  ], owlBody.material));
+    xform(tuftGeo, -0.052, 0.412, -0.004, 0, 0, 0.5),
+    xform(tuftGeo, 0.052, 0.412, -0.004, 0, 0, -0.5),
+    xform(tuftEchoGeo, -0.038, 0.402, 0.014, 0, 0, 0.3),
+    xform(tuftEchoGeo, 0.038, 0.402, 0.014, 0, 0, -0.3),
+    xform(wingGeo, -0.094, 0.185, -0.01, 0.12, 0, 0.1),
+    xform(wingGeo, 0.094, 0.185, -0.01, 0.12, 0, -0.1),
+    xform(tailGeo, 0, 0.015, -0.085, -2.45, 0, 0),
+    xform(toeGeo, -0.034, 0.01, 0.014, 2.55, 0, 0),
+    xform(toeGeo, -0.012, 0.012, 0.018, 2.6, 0, 0),
+    xform(toeGeo, 0.012, 0.012, 0.018, 2.6, 0, 0),
+    xform(toeGeo, 0.034, 0.01, 0.014, 2.55, 0, 0)
+  ], owlMat);
   const eyeMat = new THREE.MeshStandardMaterial({
     color: 0x050403, emissive: 0xffb45e, emissiveIntensity: 1.15
   });
@@ -623,8 +652,8 @@ export function build(ctx) {
     xform(new THREE.SphereGeometry(0.02, 8, 6), -0.035, 0.315, 0.075),
     xform(new THREE.SphereGeometry(0.02, 8, 6), 0.035, 0.315, 0.075)
   ], eyeMat);
-  owl.add(eyes);
-  owl.position.set(0.62, 3.12, 0.12);
+  owl.add(owlBody, eyes);
+  owl.position.set(0.62, 3.075, 0.07);
   owl.rotation.y = 0.5;
   snag.add(owl);
   snag.position.set(-6.3, 0, 5.7);
@@ -642,7 +671,8 @@ export function build(ctx) {
     if (k >= 3.2) { owlState.t = -1; return; }
     eyeMat.emissiveIntensity = 1.15 + Math.min(k * 6, 1) * 3.6 * Math.max(0, 1 - Math.max(0, k - 2.2));
     // 头（整只）无声转过来对准空地中心，再缓缓转回去
-    const face = Math.atan2(6.3 - 0.62, -5.7 - 0.12);
+    // （v1.25 改钉留账：鸮骑回枝轴 z0.12→0.07，对准角随之重算）
+    const face = Math.atan2(6.3 - 0.62, -5.7 - 0.07);
     const aim = k < 2.2 ? face : 0.5;
     owl.rotation.y += (aim - owl.rotation.y) * Math.min(1, dt * (k < 0.6 ? 10 : 1.4));
   });

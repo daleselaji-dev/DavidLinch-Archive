@@ -250,9 +250,8 @@ describe('v1.24 门禁 102：机制/几何/拍长零改动复钉（本轮纪律�
 });
 
 describe('v1.24 门禁 102：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.24.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v125-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.24.0');
-    expect(read('src/main.js')).toContain("version: '1.24.0'");
+    expect(read('src/main.js')).toContain(`version: '${pkg.version}'`);
   });
 });
