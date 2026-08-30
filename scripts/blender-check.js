@@ -55,12 +55,14 @@ if (!/^Blender 4\.1\./.test(version)) {
 // 对象数与总高——比例架就位即工具链可用）
 // v1.15：+大厅纪念浮雕（第 4 件，门禁 71）
 // v1.16：+橡皮头蒸汽调速器（第 5 件，门禁 76）
+// v1.17：+蓝丝绒酒瓶墙（第 6 件，门禁 81——首件「宽>高」横幅资产）
 const ASSETS = [
   { gen: 'gen_corner_wraith.py', label: '拐角魅影', meshes: 5, hLo: 2.1, hHi: 2.75 },
   { gen: 'gen_pine_tree.py', label: '双峰松树', meshes: 3, hLo: 7.5, hHi: 8.2 },
   { gen: 'gen_library_ladder.py', label: '档案图书梯', meshes: 7, hLo: 4.3, hHi: 4.8 },
   { gen: 'gen_memorial_relief.py', label: '大厅纪念浮雕', meshes: 3, hLo: 1.9, hHi: 2.2 },
-  { gen: 'gen_steam_governor.py', label: '蒸汽调速器', meshes: 5, hLo: 1.5, hHi: 1.8 }
+  { gen: 'gen_steam_governor.py', label: '蒸汽调速器', meshes: 5, hLo: 1.5, hHi: 1.8 },
+  { gen: 'gen_bottle_wall.py', label: '酒瓶墙', meshes: 3, hLo: 0.85, hHi: 1.05 }
 ];
 
 for (const a of ASSETS) {

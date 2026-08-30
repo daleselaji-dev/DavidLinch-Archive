@@ -1232,11 +1232,28 @@ export function build(ctx) {
   );
   saucer.position.set(-6.62, 0.912, -0.3);
   group.add(saucer);
-  const chinaState = { t: -1, step: 0 };
+  // v1.17 彩蛋五批·问第二遍（studio）：三嗒收完后的 6s 回声窗内
+  // **再碰一次**——瓷不嗒、碟不颤，房间另一头停在半拍上的节拍器
+  // 摆针在同一拍无声地点了一下头又停回去（答与动作同拍，凉意跑进
+  // 了拍子里）。metro 正在走时不插话（摆针仍只有 metro 更新器一个
+  // 基准写者，nudge 是注册在其后的加法覆写）。零新增件零音色。
+  const chinaState = { t: -1, step: 0, echo: 0 };
+  const metroNudge = { t: -1 };
   const CHINA_AT = [0, 0.9, 2.1]; // 收缩三嗒：间隔 0.9→1.2s 在拉长
   updaters.push((dt) => {
+    // 摆针点头：注册在 metro 更新器之后——加法覆写当帧生效
+    if (metroNudge.t >= 0) {
+      metroNudge.t += dt;
+      if (metroNudge.t >= 1.1 || metroState.on) {
+        metroNudge.t = -1;
+      } else {
+        metroPend.rotation.z +=
+          Math.sin(metroNudge.t * 9) * 0.16 * (1 - metroNudge.t / 1.1);
+      }
+    }
     if (chinaState.t < 0) {
       if (saucer.rotation.z !== 0) saucer.rotation.set(0, 0, 0);
+      if (chinaState.echo > 0) chinaState.echo -= dt;
       return;
     }
     chinaState.t += dt;
@@ -1249,12 +1266,21 @@ export function build(ctx) {
     const last = CHINA_AT[chinaState.step - 1] ?? 0;
     const e = k - last;
     saucer.rotation.z = e < 0.3 ? Math.sin(e * 44) * 0.05 * (1 - e / 0.3) : 0;
-    if (k >= 3.0) { chinaState.t = -1; chinaState.step = 0; }
+    if (k >= 3.0) {
+      chinaState.t = -1;
+      chinaState.step = 0;
+      chinaState.echo = 6; // 第三嗒还挂在空气里——回声窗开
+    }
   });
   hotspots.add(saucer, {
     hint: 'E — 白瓷小碟',
     onActivate: () => {
       if (chinaState.t >= 0) return;
+      if (chinaState.echo > 0) {
+        chinaState.echo = 0;
+        if (!metroState.on) metroNudge.t = 0; // 这回答的不是瓷，是拍子
+        return;
+      }
       chinaState.t = 0;
       chinaState.step = 0;
     }

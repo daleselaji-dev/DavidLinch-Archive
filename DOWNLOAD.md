@@ -1,47 +1,42 @@
 # DOWNLOAD — Windows 试运行下载
 
-> ## ⬇️ 请下载本轮 **Portable-1.16.0**（旧版 1.15.0 已从本分支移除，勿混用）
+> ## ⬇️ 请下载本轮 **Portable-1.17.0**（旧版 1.16.0 已从本分支移除，勿混用）
 
 | 产物 | 直链（raw） | SHA256 |
 |------|-------------|--------|
-| **便携版（推荐）** `SmokeVelvet-LynchArchive-Portable-1.16.0.exe` ≈96MB | [下载 Portable-1.16.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/smoke-velvet-round4-v1160-a993/release/SmokeVelvet-LynchArchive-Portable-1.16.0.exe) | `fc771b6639624eb4aa6a1c4bd397e29da9615aea81fb441298f236a130a0480f` |
-| 安装版 `SmokeVelvet-LynchArchive-Setup-1.16.0.exe` ≈96MB | [下载 Setup-1.16.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/smoke-velvet-round4-v1160-a993/release/SmokeVelvet-LynchArchive-Setup-1.16.0.exe) | `704e1257c47a2b4f84848738ed1457959ab5034921f83750c336915df53931da` |
+| **便携版（推荐）** `SmokeVelvet-LynchArchive-Portable-1.17.0.exe` ≈96MB | [下载 Portable-1.17.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/velvet-round5-v1170-a993/release/SmokeVelvet-LynchArchive-Portable-1.17.0.exe) | `a6e6d306e49d86fdfafeea2215692ac3398087bb7b8a7a16734b801c06c20974` |
+| 安装版 `SmokeVelvet-LynchArchive-Setup-1.17.0.exe` ≈96MB | [下载 Setup-1.17.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/velvet-round5-v1170-a993/release/SmokeVelvet-LynchArchive-Setup-1.17.0.exe) | `f572d548ca2de243a0dd41d5105da0981a2bef5b50d8c7a76b3d74c792018c0c` |
 
 ## 使用
 
 - **便携版**：下载后双击即运行，免安装（首次自解压需几秒）。
 - **安装版**：一键安装后从开始菜单启动。
-- 校验（PowerShell）：`Get-FileHash .\SmokeVelvet-LynchArchive-Portable-1.16.0.exe -Algorithm SHA256`，
+- 校验（PowerShell）：`Get-FileHash .\SmokeVelvet-LynchArchive-Portable-1.17.0.exe -Algorithm SHA256`，
   与上表/`release/SHA256SUMS.txt` 比对。
-- 版本自检：窗口标题含「Unofficial Fan Tribute」；控制台 `__SV__.version === '1.16.0'`
+- 版本自检：窗口标题含「Unofficial Fan Tribute」；控制台 `__SV__.version === '1.17.0'`
   与 `package.json` 一致。
 
-## 本轮（v1.16.0）看点
+## 本轮（v1.17.0）看点
 
-- **蒸汽调速器（Blender 第 5 件新资产落厅）**：橡皮头厅西墙、大机器
-  与锅炉房门洞之间——离心飞球调速器随整栋楼的转速活着：锭轴转、
-  飞球张、套筒升降、节流杆随动；**拉泄压阀停机，它跟着塌臂垂停**；
-  按 E 它超速呼啸一拍，0.9 秒后大机器自己冲了一拍回敬你
-- **换轴彩蛋七件（远声应答封顶，换三条新轴；全部零字幕、可重复）**：
-  - **光的应答**：大厅长明灯旁的**烛剪**（碰一下，1.5s 后火苗认得
-    那把剪子——压低又缓缓立回）/ 蓝丝绒台口**空话筒**（手背碰一声
-    PA 低闷，1.5s 后整排脚灯呼吸着亮一口——熄灯档也答）
-  - **温度**：橡皮头北墙**结霜的支管**（整栋楼都在冒汽唯独这段
-    冰凉；掌心薄嘶，1.7s 后墙外极远处冰裂一声）/ 双峰咖啡壶
-    **保温座**（掌心贴上是极低的暖哼，1.3s 后蒸汽旺一大口）/
-    录音棚桌角**白瓷小碟**（杯子在冒烟碟子在降温——收缩三嗒，
-    间隔越拉越长）
-  - **时间错位**：档案廊站钟下的**上弦钥匙**（拧一下，垂死在 6 点
-    位的秒针挣出三格——一格比一格迟、一声比一声轻，第三格没站稳
-    滑回去，滑回不响）/ 穆赫兰道路口**路灯铁杆**（敲一记铁管双鸣，
-    灯隔 2.4 秒才「听见」——用光把那记双鸣原样迟放一遍；这条路上
-    声音和光不同步）
-- **幽灵交互普查**：冒烟测试从此逐厅验证每个热点真的挂在场景树上
-  （v1.15 工作桌事故的制度化补漏）
-- **访谈摘录册 28→32 条**：「点子」主题 5→9——钓点子要等 / 接住的
-  一瞬 / 隔壁的拼图 / 小鱼与大鱼（与档案廊立牌那句大鱼是同一段书
-  的上下句）
-- 拐角 + 转身两重惊吓、186→194 件可交互物全部保留；发布产物全冒烟
-  复跑 EXIT=0
+- **酒瓶墙精修件（Blender 第 6 件资产落厅）**：蓝丝绒吧台背柜整面换新——
+  四种剖面（圆肩波尔多/溜肩高瓶/矮墩醒酒瓶/细高笛形）× 三色玻璃 31 支，
+  捻口环、堆唇、跟珠、逐瓶明暗全读得出来；两处空缺位、七对伴瓶，
+  顶排还有一支**横躺的空瓶**——被拿过，又放回去了；
+  「电压不稳」的闪烁还在整面墙上走
+- **问第二遍（彩蛋第五批·七件，全部零新增交互）**：v1.16 那七件彩蛋
+  的应答落定后有个不说破的**回声窗**——窗内再问一遍，**同拍即答**、
+  答在意想不到的通道：
+  - 大厅烛剪→火苗不动，屋子另一头**三对流苏**齐晃；
+  - 档案廊上弦钥匙→钥匙不响秒针不动，**停摆钟的分针**同拍挣一下；
+  - 橡皮头结霜支管→冰不裂，**大机器转速**沉半口（调速器跟着塌臂）；
+  - 蓝丝绒空话筒→脚灯不亮，**酒瓶墙玻璃**泛一口光；
+  - 双峰保温座→汽不旺，**旋转派柜**悄悄转过一格；
+  - 穆赫兰路灯铁杆→**光先声无**（第一遍声先光迟，第二遍因果换位）；
+  - 录音棚白瓷小碟→瓷不嗒，**节拍器摆针**无声点头
+- **共用件并发盯防**：档案廊停摆钟与上弦钥匙同帧双触发实测——
+  两针各自挣扎各自归位，秒针纹丝不动（单写者纪律入单测）
+- **访谈摘录册 32→34 条**：「此生」主题 6→8——过去上的色 / 不退休
+  （「我心里满是幸福，而且我永远不会退休」）
+- 调速器 + 双惊吓 + 194 件可交互物全部保留；发布产物全冒烟复跑 EXIT=0
 
 构建方法与跨平台说明见 [`BUILD.md`](BUILD.md)。

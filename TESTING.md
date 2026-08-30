@@ -3,9 +3,9 @@
 ## 自动化测试
 
 ```bash
-npm test              # vitest 单元测试（552 用例）
+npm test              # vitest 单元测试（589 用例）
 npm run smoke         # 构建冒烟：生产构建 + 产物结构(7分包) + Electron 语法 + 打包配置 + 素材合规扫描
-npm run blender:check # Blender 工具链冒烟（五件资产 block 阶段生成+INSPECT；未装 Blender 跳过不红）
+npm run blender:check # Blender 工具链冒烟（六件资产 block 阶段生成+INSPECT；未装 Blender 跳过不红）
 ```
 
 覆盖范围：
@@ -29,10 +29,11 @@ npm run blender:check # Blender 工具链冒烟（五件资产 block 阶段生�
 | `tests/antiplastic.test.js` | **防塑料全源门禁（P23）**：roughness <0.16 裸材质全厅普查零容忍、水面/玻璃/自发光正当放行入册且钉上限 ≤6 |
 | `tests/v111-eggs.test.js` | **v1.11 七件捏他彩蛋审计**：七件核心机制逐件在源（缠布呼吸/焦球裂纹/耳形衬垫/凝固咖啡双材质/小门三预置位掷点/灯牌齐搏 0.42s 对时/过影 seeded 稀发）；**克制口径**：空间自答五件 onActivate 零字幕断言、带字幕两件 ≤22 字；几何与连锁守卫（过影半径触不可及/opening 未完不来人/灯牌隐藏期挪 y=-60 防隐形网格被 raycast/过影→窃语 12s 连锁窗）；新音色 wetstir/reversecup/deepdrip/dreadswell/fencewomp 引擎实现 + 接线双断言；抛光遍「第二眼」六件源审计（磨痕/余温/镜像淡印/湿痕晕/方位漂移/镜角布光克制钉界）；**v1.12 追加 6 件**：门虚空纵深贴图三层次（底缘渗光/中缝竖隙/楣影）、门后剪影 fired 锁存 + 触发半径 + 开幕点灯前不走、零字幕 + 双脚步克制口径、剪影贴图抽象非肖像审计（头/肩/披落三团块、无面目特征）、衣柜百叶分幅结构守卫（左右两半 ±0.3 + 立梃带 + 红渗光保留，防整条横贯回流）、锯木厂剪影 v2 守卫（顶点色三档/焚炉/坡道/值夜窗恰两粒，防回退平顶盒） |
 | `tests/v113-eggs.test.js` | **v1.13 七厅彩蛋齐加一遍审计（门禁 63，30 用例）**：七件（碑背白花/用剩橡皮/小费罐/倒扣杯/弱音小号/黏土小像/趴地书）逐件断言 机制状态字段 + sfx 接线在同一 onActivate 邻域（双通道）、短句 ≤22 字且 said/closed 一次性锁存；各自克制口径（白花藏碑背 + 光缝借亮连动 / 橡皮 π/2 复位 / 小费罐三枚硬币合并 + 摇晃衰减 / 倒扣杯只杯抬碟不动 + 第二磕更轻 / **小号音色 2.3s > 抬落动画 1.75s 错拍守卫** / 黏土初始 -π/2 朝墙 + dt×1.1 极慢 + 可转回 / **趴地书 closed 永久态**——合上只剩纸声）；新音色 mutetrumpet 引擎实现（鼻音分音配比 + 气声垫）；INTERACTIVE_MIN 七厅上调守卫（18/32/25/20/22/21/26） |
-| `tests/interviews.test.js` | **v1.13 访谈摘录册审计（门禁 64/68/74/79）**：**≥32 条**结构化短引语（v1.16 扩容，「点子」主题 ≥9）——id 唯一、en ≤220 / zh ≤120 字符、context ≤80、出处只标类型（访谈/讲座/著作/播报）、与 QUOTES 零重叠、叙事禁词/角色名/理论词/元叙述扫描（门禁 13/19/33 口径沿用）、interviewById 查找、overlay 面板/年表入口/archive 剪报盒接线审计、**低语朗读闭环（v1.14）**：每卡低语钮/同钮收声/关面板即收声/onMurmurRead 接线 main.js narration.murmur、**主题筛选（v1.15）**：四主题固定每条归且只归一个（每主题 ≥5 条）、筛选片只重排面板内容、换筛即收声 |
+| `tests/interviews.test.js` | **v1.13 访谈摘录册审计（门禁 64/68/74/79/84）**：**≥32 条**结构化短引语（v1.16 扩容「点子」≥9；v1.17 全库 **34** 条、四主题 9/9/8/8 钉在 v117-eggs）——id 唯一、en ≤220 / zh ≤120 字符、context ≤80、出处只标类型（访谈/讲座/著作/播报）、与 QUOTES 零重叠、叙事禁词/角色名/理论词/元叙述扫描（门禁 13/19/33 口径沿用）、interviewById 查找、overlay 面板/年表入口/archive 剪报盒接线审计、**低语朗读闭环（v1.14）**：每卡低语钮/同钮收声/关面板即收声/onMurmurRead 接线 main.js narration.murmur、**主题筛选（v1.15）**：四主题固定每条归且只归一个（每主题 ≥5 条）、筛选片只重排面板内容、换筛即收声 |
 | `tests/v114-eggs.test.js` | **v1.14 彩蛋第二批审计（门禁 69，27 用例）**：七件（中缝钢笔/没关严的抽屉/检修口盖板/火柴盒/手板硬币/海报角/场记板）逐件断言——**块级零字幕**（精确提取 onActivate 块尾防邻域 caption 误伤）、错拍延迟在源（1.7s 翻页/2.6s 滑开/3.5s 回敲/1.4s 吹灭/0.8s 落定/1.8s 夜风/1.2s 灯暗）、永久态字段（penState.rolled/ajar 永不锁/asked≥3 沉默/left 耗尽/coin 立缘/torn/无复位）、火柴磷头自发光**零新增光源**、新音色 papertear/clapslap 引擎实现+接线、INTERACTIVE_MIN 七厅上调守卫（19/33/26/21/24/22/27） |
 | `tests/v115-eggs.test.js` | **v1.15 彩蛋第三批·远声应答谱系审计（门禁 71–73，33 用例）**：六件（通风格栅/对讲管/返听音箱/松果/BACK IN 5/墙角立管）逐件断言——REPLY_DYAD（D3-F3）谱系（replyhum/replytap 必须引用、「这头」动作声不取用）、块级零字幕、游戏时钟错拍在源（2.4/3.0/1.9/2.2/1.6/1.4s）、**无永久态锁存**（本批全部可重复）、零新增光源、**GLB 体积纪律**（单件 ≤300KB 实测文件 + 每厅 ≤1 件导入普查）、corner_wraith/memorial_relief 落厅接线（轴系转 π/ready 承诺/钳制豁免）、贴顶厅先合并（七山合一/滚木端盖合一）、**studio 工作桌回归修复**（门禁 69 误删挂载三行）、INTERACTIVE_MIN 上调守卫（20/34/27/22/25/23/28） |
-| `tests/v116-eggs.test.js` | **v1.16 调速器落厅 + 冒烟盲区补漏 + 彩蛋第四批换轴审计（门禁 76–78，47 用例）**：steam_governor.glb 体积（≤300KB 实测）+ **落厅红线**（第三批只落 era——贴顶厅 tp/mull 源码级禁入）+ ready 承诺/glb-landed 信号/rigGovernor 双路径装配/machineState.run 转速联动/同步代理热区；**auditHotspots 场景归属普查接线**（main.js parent 链上溯 scene + electron 逐厅硬退出 + 事故留名注释）；七件换轴彩蛋表驱审计（状态字段/专属音色/游戏时钟错拍/块级零字幕/无永久态锁存/零新增光源）、**贴顶厅零新增网格**（热点落既有 potBase / userData.pole）、ANSWER_BREATH 共享包络（kit 导出 + lobby/bv 引用）、时间错位轴 TICK_AT 单调渐迟 + CHINA_AT 在源、**mull 应答只走光通道**（彩蛋段落单 sfxAt、零 REPLY_DYAD 音色）；音色第九批九件在引擎且**全部不入 REPLY_DYAD**（换轴对照）+ 温度轴冷高（highpass/bandpass）暖低（lowpass）对照；INTERACTIVE_MIN 上调守卫（21/35/29/23/26/24/29）+ 版本口径一致（package.json 与 `__SV__.version` 均 1.16.0） |
+| `tests/v116-eggs.test.js` | **v1.16 调速器落厅 + 冒烟盲区补漏 + 彩蛋第四批换轴审计（门禁 76–78，47 用例）**：steam_governor.glb 体积（≤300KB 实测）+ **落厅红线**（第三批只落 era——贴顶厅 tp/mull 源码级禁入）+ ready 承诺/glb-landed 信号/rigGovernor 双路径装配/machineState.run 转速联动/同步代理热区；**auditHotspots 场景归属普查接线**（main.js parent 链上溯 scene + electron 逐厅硬退出 + 事故留名注释）；七件换轴彩蛋表驱审计（状态字段/专属音色/游戏时钟错拍/块级零字幕/无永久态锁存/零新增光源）、**贴顶厅零新增网格**（热点落既有 potBase / userData.pole）、ANSWER_BREATH 共享包络（kit 导出 + lobby/bv 引用）、时间错位轴 TICK_AT 单调渐迟 + CHINA_AT 在源、**mull 应答只走光通道**（彩蛋段落单 sfxAt、零 REPLY_DYAD 音色）；音色第九批九件在引擎且**全部不入 REPLY_DYAD**（换轴对照）+ 温度轴冷高（highpass/bandpass）暖低（lowpass）对照；INTERACTIVE_MIN 上调守卫（21/35/29/23/26/24/29）；版本钉 v1.17 起移交最新测试文件 |
+| `tests/v117-eggs.test.js` | **v1.17 酒瓶墙落厅 + 彩蛋第五批问第二遍 + 共用件盯防审计（门禁 81–84，37 用例）**：bottle_wall.glb 体积（≤300KB 实测）+ **落厅红线第四批**（只落 bv/archive/studio——era 每厅 ≤1 件、tp/mull 贴顶源码级禁入）+ bottleWallReady 承诺/glb-landed 信号/装载闭环 + **仅换网格保留程序化动画**（闪烁驱 bottleGlassMats 活登记表、程序化三件退场即兜底、材质运行时整套重设）+ blender:check 六件入列；**问第二遍七件表驱审计**（echo 回声窗字段/游戏时钟自复位/即答分支**不等不响不说**——零 setTimeout 零 sfx 零字幕）、**INTERACTIVE_MIN 逐厅相等**（五轮连涨惯性刹车）、第五批段落**零新增网格/光源/热点**、**零新增音色**（97 持平）、mull replay 不续窗（七件同口径答一次即消耗）、studio 摆针单基准写者（nudge 是 metro 之后的加法覆写）；**共用件盯防**：分针/秒针各只有一个写者、windState k≥3.4 全量归位才开窗、取证句柄（clockMinHand/clockSecHand）在源；访谈 **34 条钉死**（「此生」≥8、四主题 9/9/8/8、新增两条与 QUOTES 零重复）+ 版本口径一致（package.json 与 `__SV__.version` 均 1.17.0） |
 
 ## 运行时冒烟（Electron 自动化，Linux 下用 xvfb + 软件渲染）
 
@@ -46,7 +47,8 @@ xvfb-run -a npx electron . --no-sandbox --smoke
 v1.13 起 mesh 预算 240→250——两厅贴顶 + 七厅彩蛋，PLAN §6 有修订记录；
 v1.14 起 twinpeaks 的统计在 **GLB 孪生松异步落地后**才采——厅返回 ready
 promise、main.js await 后才宣布 hall-loaded，`[sv] glb-ok/glb-fail` 信号回显；
-v1.16 起共四处 glb-landed：relief/governor/pine/wraith）→
+v1.16 起共四处 glb-landed：relief/governor/pine/wraith；v1.17 起**五处**
+——+bottlewall，bv 吧台背柜 GLB 就位、程序化兜底退场）→
 **逐厅交互密度断言 + 热点场景归属普查（v1.16 门禁 77）**：
 `window.__SV__.auditHotspots()` 把每个已登记热点的网格沿 parent 链上溯，
 不落在 engine.scene 上的「幽灵交互」逐厅硬失败（v1.15 studio 工作桌
@@ -348,6 +350,35 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
       接住的一瞬/隔壁的拼图/小鱼与大鱼——最后一条与档案廊立牌
       大鱼句是同一段书的上下句）
 
+### v1.17 新增抽查（酒瓶墙精修件 + 问第二遍 + 共用件盯防 + 三十四条访谈）
+- [ ] **酒瓶墙精修件（GLB）**：bv 吧台背柜整面——四种剖面（圆肩
+      波尔多/溜肩高瓶/矮墩醒酒瓶/细高笛形）× 三色玻璃 31 支；
+      走近看：捻口环/堆唇/跟珠读得出来、逐瓶明暗不均；**两处
+      空缺位**、七对**紧挨着的伴瓶**、顶排**一支横躺的空瓶**；
+      「电压不稳」闪烁仍在整面墙上走（GLB 与程序化兜底同款）
+- [ ] **问第二遍七件（回声窗内二触，同拍即答、零字幕）**：先正常
+      触发 v1.16 那七件彩蛋，等应答落定后**马上再按一次 E**——
+      lobby 烛剪→火苗不动，**三对帷幕流苏**齐晃一拍 /
+      archive 上弦钥匙→钥匙不响秒针不动，**停摆钟分针**同拍挣
+      一格滑回 /
+      era 结霜支管→冰不裂，**大机器转速沉半口**（调速器塌臂
+      跟着走）/
+      bv 空话筒→脚灯不亮，**酒瓶墙玻璃泛一口光**（GLB 与兜底
+      同答）/
+      tp 保温座→汽不旺，**旋转派柜悄悄转过一格** /
+      mull 路灯铁杆→**光先声无**（第一遍声先光迟、第二遍因果
+      换位）/
+      studio 白瓷小碟→瓷不嗒，**节拍器摆针无声点头**（走时不
+      插话）
+- [ ] **回声窗过期**：应答落定后等 6 秒以上再按 E——回到第一遍
+      的完整应答（窗自己关上了）；mull 即时重放**不再续窗**
+      （答一次即消耗）
+- [ ] **共用件并发**：archive 同帧双触发停摆钟+上弦钥匙——分针
+      挣扎归位、秒针挣三格滑回，互不打架；回声窗二拧——分针
+      同拍挣、**秒针纹丝不动**
+- [ ] **访谈 34 条**：「此生」筛选片计数 8（新增：过去上的色 /
+      不退休——「我心里满是幸福，而且我永远不会退休」）
+
 ### 交互密度抽查（v1.8 普查共 123：+穆赫兰道 1「墙角刮痕」）
 - [ ] **大厅（12，v1.7 +2）**：碑文 / **独石光缝**（E→光缝涌亮+石钟低鸣）/ **摸帷幕**（波纹爬上绒面+帷头下坠回弹，两成概率带一声窃语）/
       留声机上发条（爵士起）/ 空白胶片 / 引语立牌（走近显影）/
@@ -400,6 +431,6 @@ UI 交互巡检（年表 / 留言墙 / 合规页 / 帮助 / 影片档案 / 原�
 - [ ] DevTools 模拟 375×667：底部按钮栏换行可点，字母旁白重排不遮挡，虚拟摇杆/右半屏环视/「互动」按钮可用
 
 ### Windows 产物
-- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.15.0.exe` 双击直接运行（免安装）
-- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.15.0.exe` 一键安装后可启动
+- [ ] `release/SmokeVelvet-LynchArchive-Portable-1.17.0.exe` 双击直接运行（免安装）
+- [ ] `release/SmokeVelvet-LynchArchive-Setup-1.17.0.exe` 一键安装后可启动
 - [ ] 窗口标题含「Unofficial Fan Tribute」；四档旁白模式、七厅彩蛋、留言墙持久化正常

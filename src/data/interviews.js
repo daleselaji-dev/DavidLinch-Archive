@@ -12,6 +12,7 @@
 //   5. 与 QUOTES 零重复（id 与英文原句都不重，单测扫描）。
 // v1.15：28 条全部归入四个主题（点子/电影/心境/此生），面板可筛选。
 // v1.16：28 → 32，补「点子」主题（5 → 9 条，四主题分布 9/9/8/6）。
+// v1.17：32 → 34，补「此生」主题（6 → 8 条，四主题分布 9/9/8/8）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -311,6 +312,28 @@ export const INTERVIEWS = [
     zh: '小鱼游在水面，大鱼沉在深处。',
     source: '《Catching the Big Fish》著作 · 2006',
     context: '书名的出处段落，与立牌上那句大鱼互为上下句。'
+  },
+  // ---------- v1.17 扩容（32 → 34）：补「此生」主题（6 → 8），同一纪律 ----------
+  // 防撞记录：QUOTES 与既有条目逐句比对零重复（'retire'/'the past'
+  // 两关键词全库不存在）；「艺术生活」与「自私的权利」同为纪录片
+  // 语源但原句不同段。
+  {
+    id: 'pastcolors',
+    topic: '过去上的色',
+    theme: '此生',
+    en: 'Sometimes the past can conjure those ideas and color them. Even if they\u2019re new ideas, the past colors them.',
+    zh: '有时是过去把点子召来，又给它们上色——哪怕是新点子，过去也会给它上色。',
+    source: '纪录片访谈 · 2016',
+    context: '他回望童年与费城岁月如何渗进后来的一切时说的。'
+  },
+  {
+    id: 'neverretire',
+    topic: '不退休',
+    theme: '此生',
+    en: 'I am filled with happiness, and I will never retire.',
+    zh: '我心里满是幸福，而且我永远不会退休。',
+    source: '公开播报 · 2024',
+    context: '公开确认肺气肿诊断时，他用这句话向公众收尾。'
   }
 ];
 

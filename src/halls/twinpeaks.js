@@ -2017,19 +2017,32 @@ export function build(ctx) {
   // 蒸汽旺一大口 + 保温座回滴一声——这家店的热是从座上来的。
   // 贴顶厅纪律：零新增网格（热点落在既有 potBase 上）、零字幕
   // 零光源；可重复无锁存。与 P19「咖啡永远是热的」共用蒸汽通道。
-  const warmState = { wait: -1 };
+  // v1.17 彩蛋五批·问第二遍（tp）：蒸汽旺过那口后的 6s 回声窗内
+  // **再贴一次掌心**——座不哼、汽不旺，柜台那头的旋转派柜在同一拍
+  // 悄悄转过一格（答与动作同拍，热跑错了电器）。贴顶厅纪律不破：
+  // 零新增网格零音色（复用既有 pcaseState.spin 通道，不带 chime）。
+  const warmState = { wait: -1, echo: 0 };
   updaters.push((dt) => {
-    if (warmState.wait < 0) return;
+    if (warmState.wait < 0) {
+      if (warmState.echo > 0) warmState.echo -= dt;
+      return;
+    }
     warmState.wait -= dt;
     if (warmState.wait < 0) {
       potState.puff = 1.3;
       audio.sfxAt('drip', 30.7, -6.4, 0.34, 4);
+      warmState.echo = 6; // 那口汽还没散——回声窗开
     }
   });
   hotspots.add(potBase, {
     hint: 'E — 保温座',
     onActivate: () => {
       if (warmState.wait >= 0) return;
+      if (warmState.echo > 0) {
+        warmState.echo = 0;
+        pcaseState.spin = 0.55; // 这回答的不是汽，是派柜
+        return;
+      }
       warmState.wait = 1.3;
       audio.sfxAt('warmhum', 30.7, -6.4, 0.65, 4);
     }

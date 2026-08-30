@@ -8,6 +8,10 @@
 // 预留包厢里坐着个东西。
 // ============================================================
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// v1.17 门禁 81：酒瓶墙 GLB（gen_bottle_wall.py 五拍精修定稿，297KB）
+// ——GLB 落厅第四批·剩余三厅（bv/archive/studio）的第一件
+import bottleWallUri from '../assets/bottle_wall.glb?inline';
 import {
   PALETTE, ANSWER_BREATH, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
   neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
@@ -1009,6 +1013,60 @@ export function build(ctx) {
     emissive: bottleTints[k].emissive, emissiveIntensity: 0.5, envMapIntensity: 1.6
   })));
   for (const m of bottleMeshes) bar.add(m);
+  // ---------- v1.17 门禁 81：酒瓶墙精修件（Blender 管线第 6 件·GLB 落厅第四批） ----------
+  // 落厅红线（GOAL_HANDOFF 第 5 轮）：本批只许落 bv / archive / studio
+  // ——era 已有调速器（每厅 ≤1 件），tp/mull 244/250 贴顶禁入。
+  // **仅换网格保留程序化动画**（corner_wraith/governor 同路线）：上面的
+  // 程序化酒瓶三件即兜底，GLB 就位后原位退场（净账 -3+4=+1 mesh）；
+  // 「电压不稳」闪烁不认瓶认材质——bottleGlassMats 登记表活变量，
+  // GLB 落地即换接（材质由运行时整套重设：GLB 只带几何/命名/COLOR_0，
+  // 三色玻璃参数与程序化版逐项一致，玩家只该看见瓶形变真、阵形变乱）。
+  // 布局对齐：锚点 (-W/2+0.74, 1.52, 0.63) + rotation.y=-π/2
+  // （glTF +X → 世界 +Z：12 位 × 0.46 栅距与层板逐位对齐）。
+  let bottleGlassMats = bottleMeshes.map((m) => m.material);
+  const bottleWallReady = new Promise((resolve) => {
+    const b64 = bottleWallUri.slice(bottleWallUri.indexOf(',') + 1);
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    new GLTFLoader().parse(buf.buffer, '', (gltf) => {
+      const nextMats = [];
+      for (const [k, name] of ['blue', 'green', 'amber'].entries()) {
+        const mesh = gltf.scene.getObjectByName(`bottleGlass_${name}`);
+        if (!mesh) continue;
+        const hasCol = !!mesh.geometry.getAttribute('color');
+        mesh.material = new THREE.MeshPhysicalMaterial({
+          color: bottleTints[k].color, roughness: 0.1, metalness: 0.1,
+          transparent: true, opacity: 0.85, emissive: bottleTints[k].emissive,
+          emissiveIntensity: 0.5, envMapIntensity: 1.6, vertexColors: hasCol
+        });
+        nextMats[k] = mesh.material;
+      }
+      const corks = gltf.scene.getObjectByName('bottleCorks');
+      if (corks) {
+        corks.material = new THREE.MeshStandardMaterial({
+          color: 0x6e5233, roughness: 0.85, metalness: 0.05,
+          vertexColors: !!corks.geometry.getAttribute('color')
+        });
+      }
+      gltf.scene.position.set(-W / 2 + 0.74, 1.52, 0.63);
+      gltf.scene.rotation.y = -Math.PI / 2;
+      bar.add(gltf.scene);
+      // 程序化三件原位退场（几何释放；材质随闪烁登记表换接后弃引用）
+      for (const m of bottleMeshes) {
+        bar.remove(m);
+        m.geometry.dispose();
+        m.material.dispose();
+      }
+      if (nextMats.filter(Boolean).length === 3) bottleGlassMats = nextMats;
+      console.log('[sv] glb-landed bluevelvet bottlewall');
+      resolve(gltf.scene);
+    }, (err) => {
+      // 兜底：程序化酒瓶墙 v2 原地留任——闪烁/彩蛋链路不因资产缺席
+      console.warn('[sv] glb-failed bluevelvet bottlewall', err);
+      resolve(null);
+    });
+  });
   // 背光条（v1.4 P1：均匀发光大色块 → 渐变光带，两端与上下缘熄灭，
   // 酒瓶重新有了剪影层次）
   const barGlowTex = canvasTexture(128, (g, s) => {
@@ -1041,12 +1099,14 @@ export function build(ctx) {
   barLight.position.set(-W / 2 + 1.4, 2.1, 0.8);
   bar.add(barLight);
   // v1.6：背光偶发「电压不稳」——整面酒瓶墙暗一口气再回来（钴蓝的静突然塌掉一角）
+  // v1.17 门禁 81：闪烁改驱 bottleGlassMats 登记表——程序化三件与
+  // GLB 三色玻璃共用同一条电压线（换网格不换动画）
   updaters.push((dt, t) => {
     const brown = Math.sin(t * 0.27) * Math.sin(t * 3.1) > 0.985 ? 0.4 : 1;
     barGlow.material.emissiveIntensity = (0.82 + Math.sin(t * 1.9) * 0.16) * brown;
     barLight.intensity = 3.2 * brown;
-    bottleMeshes.forEach((m, k) => {
-      m.material.emissiveIntensity = (0.38 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.13) * brown;
+    bottleGlassMats.forEach((mat, k) => {
+      mat.emissiveIntensity = (0.38 + Math.sin(t * 1.9 + 1 + k * 0.7) * 0.13) * brown;
     });
   });
   // v1.5 减法：吧台悬挂杯架退场——吧台的话已由酒瓶背光与
@@ -1494,7 +1554,12 @@ export function build(ctx) {
   micHit.visible = false;
   micHit.position.set(0, 1.6, -D / 2 + 2.3);
   group.add(micHit);
-  const micState = { wait: -1, breath: 0 };
+  // v1.17 彩蛋五批·问第二遍（bv）：脚灯呼吸落定后的 6s 回声窗内
+  // **再碰一次**——话筒不闷响、脚灯不亮，吧台背柜整面酒瓶墙的玻璃
+  // 在同一拍泛起一口光又落回（答与动作同拍，答在你身后的玻璃上；
+  // GLB 精修件与程序化兜底共用 bottleGlassMats 登记表，换网格不换答）。
+  const micState = { wait: -1, breath: 0, echo: 0 };
+  const glassEcho = { t: -1 };
   updaters.push((dt) => {
     if (micState.wait >= 0) {
       micState.wait -= dt;
@@ -1502,15 +1567,33 @@ export function build(ctx) {
     }
     if (micState.breath > 0) {
       micState.breath = Math.max(0, micState.breath - dt / 1.8);
+      if (micState.breath === 0) micState.echo = 6; // 脚灯落定，回声窗开
       const p = ANSWER_BREATH(1 - micState.breath);
       footWash.intensity += p * 3.2;
       footLights.material.emissiveIntensity += p * 1.9;
+    } else if (micState.echo > 0) {
+      micState.echo -= dt;
+    }
+    // 玻璃的答：注册在「电压不稳」之后——加法覆写当帧生效
+    if (glassEcho.t >= 0) {
+      glassEcho.t += dt;
+      if (glassEcho.t >= 1.4) {
+        glassEcho.t = -1;
+      } else {
+        const p = ANSWER_BREATH(glassEcho.t / 1.4);
+        for (const mat of bottleGlassMats) mat.emissiveIntensity += p * 0.9;
+      }
     }
   });
   hotspots.add(micHit, {
     hint: 'E — 空话筒',
     onActivate: () => {
       if (micState.wait >= 0 || micState.breath > 0) return;
+      if (micState.echo > 0) {
+        micState.echo = 0;
+        glassEcho.t = 0; // 这回答的不是台口，是酒瓶墙
+        return;
+      }
       micState.wait = 1.5;
       audio.sfxAt('micthump', 0, -D / 2 + 2.3, 0.7, 4);
     }
@@ -2332,6 +2415,7 @@ export function build(ctx) {
     bounds: rectBounds(-W / 2 + 1.2, W / 2 - 1.2, -D / 2 + 3.2, D / 2 - 1.3),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
     eggs: { 'closet-side': closetTrig },
+    ready: bottleWallReady, // v1.17：等 GLB 酒瓶墙就位再宣布装载完成
     onLeave: () => {
       for (const id of timers) clearTimeout(id);
       for (const id of closetTimers) clearTimeout(id);

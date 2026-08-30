@@ -817,16 +817,31 @@ export function build(ctx) {
   frostSleeve.rotation.z = Math.PI / 2;
   frostSleeve.position.set(-5.4, 1.2, -S / 2 + 0.35);
   group.add(frostSleeve);
-  const frostState = { wait: -1 };
+  // v1.17 彩蛋五批·问第二遍（era）：远处 icecrack 落定后的 6s 回声窗
+  // 内**再碰一次**——支管不嘶、冰不裂，整间房的转速在同一拍沉下去
+  // 半口（machineState.run 打个嗝，恢复更新器拉回；调速器双球跟着
+  // 塌臂——答与动作同拍，答在房间的转速里）。零音色零新件。
+  const frostState = { wait: -1, echo: 0 };
   updaters.push((dt) => {
-    if (frostState.wait < 0) return;
+    if (frostState.wait < 0) {
+      if (frostState.echo > 0) frostState.echo -= dt;
+      return;
+    }
     frostState.wait -= dt;
-    if (frostState.wait < 0) audio.sfxAt('icecrack', -14, -8.5, 0.55, 8);
+    if (frostState.wait < 0) {
+      audio.sfxAt('icecrack', -14, -8.5, 0.55, 8);
+      frostState.echo = 6; // 裂声未凉——回声窗开
+    }
   });
   hotspots.add(frostSleeve, {
     hint: 'E — 结霜的支管',
     onActivate: () => {
       if (frostState.wait >= 0) return;
+      if (frostState.echo > 0) {
+        frostState.echo = 0;
+        machineState.run = 0.55; // 这回答的不是冰，是转速
+        return;
+      }
       frostState.wait = 1.7;
       audio.sfxAt('coldhiss', -5.4, -8.15, 0.7, 3);
     }

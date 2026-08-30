@@ -1163,7 +1163,13 @@ export function build(ctx) {
   snuffer.rotation.z = 0.62;
   snuffer.position.set(-2.68, 0.02, 3.02);
   group.add(snuffer);
-  const snuffState = { wait: -1, duck: 0 };
+  // ---------- v1.17 彩蛋五批·问第二遍（lobby）：烛剪 ----------
+  // 应答刚落（火苗立回）的 6s 回声窗内**再问一次**：这回不等也
+  // 不出声——火苗纹丝不动，屋子另一头三根立柱上的束带流苏在
+  // 同一拍全部晃起来（答与动作同拍，但答在意想不到的通道）。
+  // 零新增交互/网格/光源/音色；echo 走游戏时钟自复位，无锁存。
+  const snuffState = { wait: -1, duck: 0, echo: 0 };
+  const echoTassels = { fire: null }; // 束带块在下文闭包里挂真身
   updaters.push((dt) => {
     if (snuffState.wait >= 0) {
       snuffState.wait -= dt;
@@ -1171,16 +1177,24 @@ export function build(ctx) {
     }
     if (snuffState.duck > 0) {
       snuffState.duck = Math.max(0, snuffState.duck - dt / 2.2);
+      if (snuffState.duck === 0) snuffState.echo = 6; // 应答落定，回声窗开
       const k = 1 - ANSWER_BREATH(1 - snuffState.duck) * 0.78;
       flamePivot.scale.y *= k;
       flameGlow.intensity *= k;
       flameOuter.material.opacity *= k;
+    } else if (snuffState.echo > 0) {
+      snuffState.echo -= dt;
     }
   });
   hotspots.add(snuffer, {
     hint: 'E — 烛剪',
     onActivate: () => {
       if (snuffState.wait >= 0 || snuffState.duck > 0) return;
+      if (snuffState.echo > 0) {
+        snuffState.echo = 0;
+        if (echoTassels.fire) echoTassels.fire();
+        return;
+      }
       snuffState.wait = 1.5;
       audio.sfxAt('brasstap', -2.68, 3.02, 0.55, 3);
     }
@@ -1241,6 +1255,11 @@ export function build(ctx) {
         tp.pv.rotation.x = Math.sin(t * 3.4 + tp.z) * 0.2 * tp.sway;
       }
     });
+    // v1.17 问第二遍答口（烛剪）：三对流苏同拍晃起
+    // （复用既有 sway 通道，不出声不加件）
+    echoTassels.fire = () => {
+      for (const tp of tasselPivots) tp.sway = Math.max(tp.sway, 0.7);
+    };
   }
 
   // ============================================================
