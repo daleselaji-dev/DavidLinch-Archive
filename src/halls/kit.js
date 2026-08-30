@@ -19,6 +19,12 @@ export const PALETTE = {
   gold: 0xc9a35c
 };
 
+// v1.16 彩蛋第四批·光的应答共享包络：所有「用光作答」的彩蛋同一口
+// 呼吸（0→1→0，鼓点圆、收尾缓）——远声应答有 REPLY_DYAD 定音高，
+// 光的应答有这条曲线定呼吸。u∈[0,1]，域外归零。
+export const ANSWER_BREATH = (u) =>
+  (u <= 0 || u >= 1 ? 0 : Math.pow(Math.sin(u * Math.PI), 1.6));
+
 // ---------- 画布纹理 ----------
 export function canvasTexture(size, draw, repeatX = 1, repeatY = 1) {
   const c = document.createElement('canvas');

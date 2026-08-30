@@ -491,6 +491,58 @@ export function build(ctx) {
     }
   });
 
+  // ---------- v1.16 彩蛋四批·时间错位（archive）：上弦钥匙 ----------
+  // 站钟斜下方一枚黄铜上弦钥匙挂在墙钉上（钟停了，钥匙还在——
+  // 有人一直没死心）。拧一下：ratchet 轻响，随后垂死在 6 点位的
+  // 秒针挣出三格，每格一声 clocktick 干嗒——一格比一格迟、一声
+  // 比一声轻（时间在漏），第三格没站稳，慢慢滑回原位（漏走的
+  // 时间不响）。钥匙自己在钉上晃几下。与「停摆的钟」分针挣扎
+  // 成对：分针是不同意，秒针是走不动。零字幕零光源；可重复。
+  const keyPivot = new THREE.Group(); // 枢轴在钉孔（晃动即挂着的真实感）
+  const windKey = mergedMesh([
+    xform(new THREE.TorusGeometry(0.032, 0.009, 8, 14), 0, -0.032, 0),
+    xform(new THREE.CylinderGeometry(0.008, 0.008, 0.1, 8), 0, -0.11, 0),
+    xform(new THREE.BoxGeometry(0.034, 0.028, 0.008), 0.014, -0.152, 0),
+    xform(new THREE.CylinderGeometry(0.006, 0.009, 0.024, 8), 0, 0, 0.006, Math.PI / 2, 0, 0)
+  ], M.brass);
+  keyPivot.add(windKey);
+  keyPivot.position.set(-W / 2 + 0.075, 2.62, 9.35);
+  keyPivot.rotation.y = Math.PI / 2;
+  group.add(keyPivot);
+  const SEC_REST = Math.PI; // 秒针的 6 点位
+  const windState = { t: -1, step: 0 };
+  const TICK_AT = [0.4, 1.05, 1.9]; // 擒纵间隔 0.4→0.65→0.85s：一格比一格迟
+  updaters.push((dt) => {
+    if (windState.t < 0) return;
+    windState.t += dt;
+    const k = windState.t;
+    windKey.rotation.z = Math.sin(k * 16) * 0.34 * Math.exp(-k * 2.6);
+    if (windState.step < 3 && k >= TICK_AT[windState.step]) {
+      windState.step++;
+      secHand.rotation.z = SEC_REST - windState.step * (Math.PI / 30);
+      audio.sfxAt('clocktick', -W / 2, 8.6, 0.5 - windState.step * 0.09, 3);
+    }
+    if (k >= 3.4) {
+      windState.t = -1;
+      windState.step = 0;
+      secHand.rotation.z = SEC_REST;
+      windKey.rotation.z = 0;
+      return;
+    }
+    if (windState.step === 3 && k >= 2.6) {
+      const u = Math.min(1, (k - 2.6) / 0.8);
+      secHand.rotation.z = SEC_REST - (1 - u) * 3 * (Math.PI / 30);
+    }
+  });
+  hotspots.add(windKey, {
+    hint: 'E — 上弦钥匙',
+    onActivate: () => {
+      if (windState.t >= 0) return;
+      windState.t = 0;
+      audio.sfxAt('ratchet', -W / 2, 9.35, 0.32, 3);
+    }
+  });
+
   // ---------- 档案盒堆（v1.4 §3.1）：牛皮纸档案盒三摞 + 标签图集 + 一只虚掩的盖 ----------
   const kraftMat = new THREE.MeshStandardMaterial({
     map: canvasTexture(128, (g, s) => {

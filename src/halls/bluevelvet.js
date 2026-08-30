@@ -9,7 +9,7 @@
 // ============================================================
 import * as THREE from 'three';
 import {
-  PALETTE, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
+  PALETTE, ANSWER_BREATH, canvasTexture, floorMesh, doorway, curtain, curtainWithValance,
   neonSign, micStand, smokeLayer, dustField, lightCone, lightCone2, quoteStand, quoteStandUpdater, vitrine,
   velvetMaterial, zoneTrigger, rectBounds, darkFigure,
   mergedMesh, xform, roundedBoxMesh, roundedBoxGeo, woodTexture, brushedMetalTexture, weaveTexture,
@@ -1480,6 +1480,39 @@ export function build(ctx) {
       curtainShudder.e = Math.max(curtainShudder.e, 0.25);
       const cap = FOOT_MODES[footMode.idx].cap;
       if (cap) ui.caption(cap, 3400);
+    }
+  });
+
+  // ---------- v1.16 彩蛋四批·光的应答（bv）：空话筒 ----------
+  // 冷光柱里那支空话筒等了一整馆。手背碰一下：micthump PA 低闷
+  // （即时，将啸未啸）；micState.wait = 1.5 游戏时钟错拍后，台口
+  // 整排脚灯呼吸着亮一口再落回——舞台记得每一次有人走近话筒。
+  // 应答走 ANSWER_BREATH 共享包络叠在脚灯更新器之后（光的应答，
+  // 零新增光源、零字幕、可重复无锁存；熄灯档也答——黑着也记得）。
+  const micHit = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.62, 0.2),
+    new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  micHit.visible = false;
+  micHit.position.set(0, 1.6, -D / 2 + 2.3);
+  group.add(micHit);
+  const micState = { wait: -1, breath: 0 };
+  updaters.push((dt) => {
+    if (micState.wait >= 0) {
+      micState.wait -= dt;
+      if (micState.wait < 0) micState.breath = 1;
+    }
+    if (micState.breath > 0) {
+      micState.breath = Math.max(0, micState.breath - dt / 1.8);
+      const p = ANSWER_BREATH(1 - micState.breath);
+      footWash.intensity += p * 3.2;
+      footLights.material.emissiveIntensity += p * 1.9;
+    }
+  });
+  hotspots.add(micHit, {
+    hint: 'E — 空话筒',
+    onActivate: () => {
+      if (micState.wait >= 0 || micState.breath > 0) return;
+      micState.wait = 1.5;
+      audio.sfxAt('micthump', 0, -D / 2 + 2.3, 0.7, 4);
     }
   });
 

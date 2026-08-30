@@ -1214,6 +1214,82 @@ DOCENT 配套）。✅ 全绿。
 
 **验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
 
+### 76. Blender loop 第 5 件·橡皮头蒸汽调速器（v1.16 新增）
+- [x] `gen_steam_governor.py` 三档五拍精修：block 比例架（基座/立柱/
+      锭轴/双臂飞球/套筒 1.66m）→ mid（柱粗球小/带轮套筒撞件/节流
+      杆贴柱三病灶）→ fine（连杆天线化——球顶挂点上移改陡 / S 臂
+      折痕平滑 / 叉口啃轴——止于套筒环外缘）。
+- [x] 定稿 6 mesh / 2480 顶点 / 4320 tris / GLB **112KB ≤300KB**；
+      三视图 + 双阶段诊断图落 `assets/blender/renders/`。
+- [x] `blender:check` 纳入第 5 件（block 5 mesh / 高 1.5–1.8m）。
+
+**验证方式**：`npm run blender:check` 五件全过 + 渲染样张目检。
+
+### 77. GLB 落厅第三批 + 冒烟盲区补漏（v1.16 新增）
+- [x] **落厅红线**：第三批只落 era/bv/archive/studio（tp/mull 244/250
+      贴顶禁入）——steam_governor.glb 落橡皮头厅西墙（机器与锅炉房
+      门洞之间），单测钉死贴顶厅无 governor 导入。
+- [x] **程序化动画直驱**：GLB 与程序化兜底共用 `rigGovernor` 装配
+      （spinPivot 旋转 + armPivots 随 omega 张角 + 套筒升降 + 节流
+      杆杠杆随动）；`machineState.run` 直驱转速——泄压阀停机时
+      调速器同步塌臂垂停。
+- [x] 同步代理热区（不等 GLB）：E → govwhirr 超速一拍、0.9s 错拍后
+      大机器冲一拍回敬；`governorReady` 入 ready 承诺 +
+      `[sv] glb-landed eraserhead governor` 信号。
+- [x] **冒烟盲区补漏（v1.15 工作桌事故制度化）**：`__SV__.
+      auditHotspots()`——每个已登记热点的网格 **parent 链上溯必须到
+      engine.scene**，返回孤儿 hint 列表；electron 冒烟逐厅普查，
+      见孤儿即 `app.exit(1)` 硬失败。交互审计从此**验场景归属**。
+
+**验证方式**：`npx vitest run tests/v116-eggs.test.js` + electron 冒烟
+逐厅「热点场景归属：全部在场景树上」行。
+
+### 78. 彩蛋第四批·换轴（v1.16 新增）
+- [x] **换轴理由入册**：远声应答（REPLY_DYAD）已铺六厅 + 石钟支系，
+      密度到顶——第四批全部换三条新轴，且**九件新音色零件不入
+      REPLY_DYAD**（单测对照钉死）。
+- [x] **光的应答**（共用 kit `ANSWER_BREATH` 包络）：lobby 烛剪
+      （brasstap → 1.5s 后火苗压低又缓缓立回）/ bv 空话筒（micthump
+      → 1.5s 后台口整排脚灯呼吸一口，熄灯档也答）。
+- [x] **温度**（冷高薄、暖低软）：era 结霜支管（coldhiss → 1.7s 后
+      墙外极远 icecrack）/ tp 保温座（warmhum 掌温 → 1.3s 后蒸汽旺
+      一大口 + 回滴）/ studio 白瓷小碟（chinatick 收缩三嗒，间隔
+      0.9→1.2s 拉长——热量走得越来越慢）。
+- [x] **时间错位**：archive 上弦钥匙（秒针挣三格 0.4/1.05/1.9s
+      一格比一格迟、一声比一声轻，第三格滑回 6 点位，滑回不响）/
+      mull 路灯铁杆（poletap 双鸣即刻，灯隔 **2.4s 用光原样迟放**
+      双沉——声与光不同步；应答只走光通道，不加远场重放）。
+- [x] **贴顶厅纪律**：tp/mull 零新增网格（热点落既有 potBase /
+      streetLampV2 `userData.pole`）；全批零字幕/零光源/可重复
+      无锁存；交互 186→**194**（INTERACTIVE_MIN 重锁普查 −1）。
+
+**验证方式**：`npx vitest run tests/v116-eggs.test.js`（47 用例）+
+七件手工触发耳测目测。
+
+### 79. 访谈摘录 28→32 条·补「点子」主题（v1.16 新增）
+- [x] +4 条全部取自《钓大鱼》可查证原文：钓点子要等 / 接住的一瞬 /
+      隔壁的拼图 / 小鱼与大鱼（书名出处段落，与立牌大鱼句互为
+      上下句）；「点子」主题 5→**9**（四主题 9/9/8/6 = 32）。
+- [x] **防撞记录留档**：doughnut 与 beneath the surface 两候选均已是
+      QUOTES 立牌语录——弃用（interviews.js 注释留名）。
+- [x] 同一合规纪律；`interviews.test` 阈值 ≥32 + 点子主题 ≥9。
+
+**验证方式**：`npx vitest run tests/interviews.test.js` + 面板「点子」
+筛选片计数。
+
+### 80. Release 1.16.0（v1.16 新增）
+- [x] 版本 bump 1.16.0（package.json + `__SV__.version` 一致，口径
+      入单测）。
+- [x] CHANGELOG v1.16.0 全节 + WORKLOG v1.16 逐段 + TESTING/README/
+      STYLE_AUDIT §7/GOAL_HANDOFF 第 5 轮交接同步。
+- [x] `npm test`（**552** 全绿）/ `npm run smoke`（5/5）/ electron
+      `--smoke`（EXIT=0，双惊吓保持 + 四 glb-landed + 七厅场景归属
+      普查全过）/ `npm run blender:check`（五件）四连全绿。
+- [x] Windows exe 双目标打包 + SHA256SUMS 重写 + DOWNLOAD.md 直链。
+- [x] 打包后发布产物验证：全冒烟复跑 **EXIT=0**。
+
+**验证方式**：四连命令 + DOWNLOAD.md 直链下载校验。
+
 ---
 
 ## 补充说明：关于「PS5 级别」

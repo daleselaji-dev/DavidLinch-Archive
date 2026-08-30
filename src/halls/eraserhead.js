@@ -5,6 +5,10 @@
 // ============================================================
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// v1.16 门禁 76/77：蒸汽调速器 GLB（gen_steam_governor.py 五拍精修
+// 定稿，6 mesh / 4.3k tris / 112KB ≤300KB）——era 首件 GLB（每厅 ≤1）
+import govGlbUri from '../assets/steam_governor.glb?inline';
 import {
   canvasTexture, noiseCanvasTexture, floorMesh, doorway,
   smokeLayer, dustField, quoteStand, quoteStandUpdater, vitrine, darkFigure,
@@ -667,6 +671,164 @@ export function build(ctx) {
       machineState.run = 0.35; // 打个嗝，随后被恢复更新器拉回 1
       setTimeout(() => audio.sfxAt('creak', -2.9, -5.9, 0.35, 3), 340);
       ui.caption('它听见了，但它不打算停。', 3400);
+    }
+  });
+
+  // ---------- v1.16 门禁 76/77：蒸汽调速器（Blender 管线第 5 件·GLB 落厅第三批） ----------
+  // 大机器 v2 有飞轮/连杆/天轴皮带，一直没有「管转速的那件」——
+  // 离心飞球调速器落西墙下（机器与锅炉房门洞之间）。**仅换网格保留
+  // 程序化动画**（corner_wraith 同路线）：gen 脚本把各件原点设在关节
+  // 上（臂原点在铰点/轴原点在轴底/滑套原点在轴心），运行时装一副
+  // spinPivot + 双 armPivot 直驱。转速跟 machineState.run 走：机器
+  // 打嗝它就垂头收拢，泄压它松一口，转速回来球再张开——传动关系
+  // 用动画说，不用字幕说。材质走厅内既有黄铜/铸铁语言（bronzeMat
+  // 泄压手轮是先例），无钳制豁免、零新增光源。
+  const governor = new THREE.Group();
+  governor.position.set(-7.55, 0, -2.7);
+  group.add(governor);
+  const govAnim = { update: null };
+  const GOV_THETA0 = 0.72; // gen 脚本 THETA0：常速张角（静姿即此角）
+  const governorReady = new Promise((resolve) => {
+    const b64 = govGlbUri.slice(govGlbUri.indexOf(',') + 1);
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    // 关节装配（GLB 与程序化兜底共用同一套 update 口径）
+    const rigGovernor = (spinPivot, armPivots, sleeve, sleeveY, lever) => {
+      govAnim.update = (angle, omega) => {
+        spinPivot.rotation.y = angle;
+        // 张角随转速：怠垂 0.30 → 常速 0.72 → 超速最多 1.02
+        const theta = Math.min(1.02,
+          0.3 + Math.min(1, Math.max(0, omega)) * 0.42 + Math.max(0, omega - 1) * 0.28);
+        const d = theta - GOV_THETA0;
+        for (const { pv, sx } of armPivots) pv.rotation.z = sx * d;
+        // 球张开 = 滑套被拉起（错层几何在 gen 脚本里已留好行程）
+        const lift = (Math.cos(GOV_THETA0) - Math.cos(theta)) * 0.2;
+        if (sleeve) sleeve.position.y = sleeveY + lift;
+        if (lever) lever.rotation.z = -lift * 3.0;
+      };
+    };
+    new GLTFLoader().parse(buf.buffer, '', (gltf) => {
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && o.material) o.material.envMapIntensity = 0.9;
+      });
+      governor.add(gltf.scene);
+      governor.updateMatrixWorld(true);
+      const spinPivot = new THREE.Group();
+      governor.add(spinPivot);
+      spinPivot.updateMatrixWorld(true);
+      // 双臂各套一层铰点枢轴（attach 保世界位形——Y-up 换算由它消化）
+      const armPivots = [];
+      for (const [name, sx] of [['govArm_L', -1], ['govArm_R', 1]]) {
+        const pv = new THREE.Group();
+        pv.position.set(sx * 0.042, 1.6, 0);
+        spinPivot.add(pv);
+        pv.updateMatrixWorld(true);
+        const arm = gltf.scene.getObjectByName(name);
+        if (arm) pv.attach(arm);
+        armPivots.push({ pv, sx });
+      }
+      const spindle = gltf.scene.getObjectByName('govSpindle');
+      if (spindle) spinPivot.attach(spindle);
+      const sleeve = gltf.scene.getObjectByName('govSleeve');
+      if (sleeve) spinPivot.attach(sleeve);
+      rigGovernor(spinPivot, armPivots, sleeve, sleeve ? sleeve.position.y : 1.19,
+        gltf.scene.getObjectByName('govLever'));
+      console.log('[sv] glb-landed eraserhead governor');
+      resolve(gltf.scene);
+    }, (err) => {
+      console.warn('[sv] glb-failed eraserhead governor', err);
+      // 兜底：极简程序化调速器上岗（柱 + 双球臂，同一套关节口径）——
+      // 交互与转速连锁不因资产缺席
+      const fbMat = new THREE.MeshStandardMaterial({ color: 0x24252a, roughness: 0.55, metalness: 0.6 });
+      const fbCol = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 1.06, 12), fbMat);
+      fbCol.position.y = 0.53;
+      const spinPivot = new THREE.Group();
+      const fbShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.62, 8), fbMat);
+      fbShaft.position.y = 1.35;
+      spinPivot.add(fbShaft);
+      const armPivots = [];
+      for (const sx of [-1, 1]) {
+        const pv = new THREE.Group();
+        pv.position.set(sx * 0.042, 1.6, 0);
+        const armGrp = new THREE.Group();
+        armGrp.rotation.z = sx * GOV_THETA0;
+        const fbRod = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.44, 8), fbMat);
+        fbRod.position.y = -0.22;
+        const fbBall = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10),
+          new THREE.MeshStandardMaterial({ color: 0x7a5a30, roughness: 0.4, metalness: 0.9 }));
+        fbBall.position.y = -0.44;
+        armGrp.add(fbRod, fbBall);
+        pv.add(armGrp);
+        spinPivot.add(pv);
+        armPivots.push({ pv, sx });
+      }
+      governor.add(fbCol, spinPivot);
+      rigGovernor(spinPivot, armPivots, null, 0, null);
+      resolve(null);
+    });
+  });
+  // 转速状态机：boost = 交互超速一口（自泄），surge = 游戏时钟错拍——
+  // 调速器松手 0.9s 后大机器冲一拍（恢复更新器再拉回 1）
+  const govState = { omega: 1, angle: 0, boost: 0, surge: -1 };
+  updaters.push((dt) => {
+    if (govState.boost > 0) govState.boost = Math.max(0, govState.boost - dt * 0.4);
+    if (govState.surge >= 0) {
+      govState.surge -= dt;
+      if (govState.surge < 0) {
+        machineState.run = 1.55;
+        audio.sfxAt('steamfar', -4.6, -4.9, 0.5, 6);
+      }
+    }
+    const target = machineState.run * (1 + govState.boost * 1.1);
+    govState.omega += (target - govState.omega) * Math.min(1, dt * 2.4);
+    govState.angle += dt * 6.4 * govState.omega;
+    if (govAnim.update) govAnim.update(govState.angle, govState.omega);
+  });
+  const govHit = new THREE.Mesh(new THREE.BoxGeometry(0.92, 1.75, 0.6),
+    new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  govHit.visible = false;
+  govHit.position.set(0, 0.85, 0);
+  governor.add(govHit);
+  hotspots.add(govHit, {
+    hint: 'E — 蒸汽调速器',
+    onActivate: () => {
+      if (govState.boost > 0) return;
+      govState.boost = 1;
+      govState.surge = 0.9;
+      audio.sfxAt('govwhirr', -7.55, -2.7, 0.8, 4);
+      ui.caption('它攥着整栋楼的转速。', 3600);
+    }
+  });
+
+  // ---------- v1.16 彩蛋四批·温度轴（era）：结霜的支管 ----------
+  // 北墙 y1.2 主汽管上有一小段结着霜——整栋楼都在冒汽，唯独这一段
+  // 冰凉。摸一下：coldhiss 掌心薄嘶（即时），frostState.wait = 1.7
+  // 游戏时钟错拍后，管子更深处（墙外很远的西侧）冰裂一声 icecrack。
+  // 换轴纪律：答的是温度不是音高（冷对高薄、暖对低软，不入
+  // REPLY_DYAD）；可重复无锁存、零字幕、零新增光源。
+  const frostSleeve = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.155, 0.155, 0.85, 14),
+    new THREE.MeshStandardMaterial({
+      color: 0xc9d4dc, roughness: 0.97, metalness: 0,
+      bumpMap: noiseCanvasTexture(64, 128, 90, 3), bumpScale: 0.5
+    })
+  );
+  frostSleeve.rotation.z = Math.PI / 2;
+  frostSleeve.position.set(-5.4, 1.2, -S / 2 + 0.35);
+  group.add(frostSleeve);
+  const frostState = { wait: -1 };
+  updaters.push((dt) => {
+    if (frostState.wait < 0) return;
+    frostState.wait -= dt;
+    if (frostState.wait < 0) audio.sfxAt('icecrack', -14, -8.5, 0.55, 8);
+  });
+  hotspots.add(frostSleeve, {
+    hint: 'E — 结霜的支管',
+    onActivate: () => {
+      if (frostState.wait >= 0) return;
+      frostState.wait = 1.7;
+      audio.sfxAt('coldhiss', -5.4, -8.15, 0.7, 3);
     }
   });
 
@@ -2900,6 +3062,7 @@ export function build(ctx) {
     // 脚步材质分区：锅炉房检修步道=钢格栅；其余=水泥
     surfaceAt: (x, z) => (x >= -S / 2 - 2.4 && x <= -S / 2 - 0.8 && z >= -2.5 && z <= 2.5 ? 'metal' : 'concrete'),
     update: (dt, t) => { for (const u of updaters) u(dt, t); },
+    ready: governorReady, // v1.16：等 GLB 调速器就位再宣布装载完成
     eggs: { 'radiator-stage': radiatorTrig }
   };
 }

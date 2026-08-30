@@ -1217,6 +1217,49 @@ export function build(ctx) {
     }
   });
 
+  // ---------- v1.16 彩蛋四批·温度（studio）：白瓷小碟 ----------
+  // 桌角靠墙放着一只空的白瓷碟——杯子在冒烟，碟子在降温。
+  // 碰一下：chinatick 即刻一记轻嗒（瓷体收缩的那种，杯子自己
+  // 出的声），随后 0.9s、2.1s 又各响一声（间隔在拉长——热量
+  // 走得越来越慢），每声碟身轻轻一颤。零字幕零光源；可重复
+  // 无锁存。与咖啡杯叙事链互不干扰（不进 chain）。
+  const saucer = new THREE.Mesh(
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0.012, 0), new THREE.Vector2(0.05, 0.006),
+      new THREE.Vector2(0.068, 0.02), new THREE.Vector2(0.076, 0.028)
+    ], 18),
+    new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.25 })
+  );
+  saucer.position.set(-6.62, 0.912, -0.3);
+  group.add(saucer);
+  const chinaState = { t: -1, step: 0 };
+  const CHINA_AT = [0, 0.9, 2.1]; // 收缩三嗒：间隔 0.9→1.2s 在拉长
+  updaters.push((dt) => {
+    if (chinaState.t < 0) {
+      if (saucer.rotation.z !== 0) saucer.rotation.set(0, 0, 0);
+      return;
+    }
+    chinaState.t += dt;
+    const k = chinaState.t;
+    if (chinaState.step < 3 && k >= CHINA_AT[chinaState.step]) {
+      chinaState.step++;
+      audio.sfxAt('chinatick', -6.62, -0.3, 0.4 - chinaState.step * 0.06, 3);
+    }
+    // 最近一嗒之后 0.3s 内碟身微颤（衰减正弦）
+    const last = CHINA_AT[chinaState.step - 1] ?? 0;
+    const e = k - last;
+    saucer.rotation.z = e < 0.3 ? Math.sin(e * 44) * 0.05 * (1 - e / 0.3) : 0;
+    if (k >= 3.0) { chinaState.t = -1; chinaState.step = 0; }
+  });
+  hotspots.add(saucer, {
+    hint: 'E — 白瓷小碟',
+    onActivate: () => {
+      if (chinaState.t >= 0) return;
+      chinaState.t = 0;
+      chinaState.step = 0;
+    }
+  });
+
   // 烟灰缸与香烟（交互④：点燃/掐灭）
   const smokeState = { lit: 0 };
   const tray = new THREE.Mesh(

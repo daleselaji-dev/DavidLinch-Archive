@@ -115,9 +115,12 @@ function createWindow() {
         // v1.15 彩蛋三批重锁：lobby 纪念浮雕（门禁 71 落厅）+ 六厅远声
         // 应答各 +1（通风格栅/对讲管/返听音箱/松果/BACK IN 5/节拍器）
         // → 普查 21/35/28/23/26/24/29 = 186，阈值 = 普查 -1
+        // v1.16 彩蛋四批 + 调速器落厅重锁：七厅换轴彩蛋各 +1（烛剪/
+        // 上弦钥匙/结霜支管/空话筒/保温座/路灯铁杆/白瓷小碟）+ era
+        // 蒸汽调速器 → 普查 22/36/30/24/27/25/30 = 194，阈值 = 普查 -1
         const INTERACTIVE_MIN = {
-          lobby: 20, archive: 34, eraserhead: 27, bluevelvet: 22,
-          twinpeaks: 25, mulholland: 23, studio: 28
+          lobby: 21, archive: 35, eraserhead: 29, bluevelvet: 23,
+          twinpeaks: 26, mulholland: 24, studio: 29
         };
         const interactiveCheck = win.webContents.executeJavaScript(
           'window.__SV__.countInteractives()', true
@@ -132,6 +135,24 @@ function createWindow() {
           console.error(`[smoke] 交互检查失败 ${hall}: ${err && err.message}`);
           app.exit(1);
         });
+        // v1.16 门禁 77：冒烟盲区补漏——热点场景归属普查。每个已登记
+        // 热点的网格 parent 链上溯必须到 scene（防第二次「幽灵交互」：
+        // v1.15 studio 工作桌被误删出场景树，交互计数照过、玩家摸不到）
+        const orphanCheck = win.webContents.executeJavaScript(
+          'JSON.stringify(window.__SV__.auditHotspots())', true
+        ).then((s) => {
+          const orphans = JSON.parse(s);
+          if (orphans.length) {
+            console.error(`[smoke] 幽灵交互 ${hall}（热点不在场景树上）: ${orphans.join(' / ')}`);
+            app.exit(1);
+          } else {
+            console.log(`[smoke] 热点场景归属 ${hall}: 全部在场景树上`);
+          }
+        }).catch((err) => {
+          console.error(`[smoke] 场景归属普查失败 ${hall}: ${err && err.message}`);
+          app.exit(1);
+        });
+        const hallChecks = Promise.all([interactiveCheck, orphanCheck]);
         // v1.6 门禁 37 / v1.7 门禁 40 / v1.8 门禁 44：穆赫兰道后巷通路
         // 走通性 + 两重惊吓自然触发断言。
         // ① 拐角惊吓（v1.8 主触发）：walkPath 把真实玩家逐帧走过
@@ -360,7 +381,7 @@ function createWindow() {
         // 合成器数秒，3.5s 默认延迟会拍到全黑首帧（后续厅无预取压力不受影响）
         const firstShotExtra = shotCount === 0 ? 5500 : 0;
         shotCount += 1;
-        interactiveCheck.then(() => {
+        hallChecks.then(() => {
           if (shotDir) {
             // SV_SHOT_PRE: 可选，截屏前在页面执行一段 JS（如先拉帘/开盖，
             // 把交互后的状态摆进镜头；配合 __SV__.activateByHint 使用）

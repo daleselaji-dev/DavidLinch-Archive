@@ -351,6 +351,7 @@ export function build(ctx) {
 
   // 路灯 v2（凹槽柱 + 泪滴灯头；一盏坏了，嗡嗡作响地闪）
   const lampData = [];
+  let poleHit = null; // v1.16：第一盏灯的铁杆（时间错位彩蛋热点靶）
   for (let i = 0; i < 5; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     const z = 14 - i * 6.5;
@@ -358,21 +359,51 @@ export function build(ctx) {
     lamp.position.set(side * 3.9, 0, z);
     lamp.rotation.y = side < 0 ? 0 : Math.PI; // 灯头朝向路面
     group.add(lamp);
+    if (i === 0) poleHit = lamp.userData.pole;
     const headWorldX = side * (3.9 - lamp.userData.headX);
     const cone = lightCone(0.3, 2.1, 4.3, 0xffd9a8, 0.05);
     cone.position.set(headWorldX, 2.15, z);
     group.add(cone);
     lampData.push({ bulbMat: lamp.userData.bulbMat, light: lamp.userData.light, cone, broken: i === 2 });
   }
+  // ---------- v1.16 彩蛋四批·时间错位（mull）：路灯铁杆 ----------
+  // 敲一下路口第一盏路灯的铁杆：poletap 铁管双鸣即刻出声，
+  // 灯却像隔了一条街才听见——2.4s 游戏时钟错拍后，灯光把那记
+  // 双鸣「用光原样迟放一遍」（两次快速下沉再回来）。这条路上
+  // 声音和光不同步。贴顶厅纪律：零新增网格（热点落在既有灯杆
+  // 上）、零字幕零光源（只调制既有灯）；可重复无锁存；不加
+  // 远场重放（远声密度已到上限，应答全走光通道）。
+  const poleEcho = { wait: -1, t: -1 };
   updaters.push((dt, t) => {
+    if (poleEcho.wait >= 0) {
+      poleEcho.wait -= dt;
+      if (poleEcho.wait < 0) poleEcho.t = 0;
+    } else if (poleEcho.t >= 0) {
+      poleEcho.t += dt;
+      if (poleEcho.t > 0.6) poleEcho.t = -1;
+    }
     for (const [i, L] of lampData.entries()) {
       let f = 1;
       if (L.broken) {
         f = Math.sin(t * 23 + i) * Math.sin(t * 7.7) > 0.2 ? (Math.random() < 0.08 ? 0.05 : 0.9) : 0.12;
       }
+      if (i === 0 && poleEcho.t >= 0) {
+        // 迟到的应答：双鸣 → 双沉（0s 与 0.26s 两个半正弦坑）
+        const e = poleEcho.t;
+        const dip = (p) => (e >= p && e < p + 0.16) ? Math.sin(((e - p) / 0.16) * Math.PI) : 0;
+        f *= 1 - 0.9 * Math.max(dip(0), dip(0.26));
+      }
       L.light.intensity = 7 * f;
       L.bulbMat.emissiveIntensity = 3 * f;
       L.cone.material.opacity = 0.05 * f;
+    }
+  });
+  hotspots.add(poleHit, {
+    hint: 'E — 路灯铁杆',
+    onActivate: () => {
+      if (poleEcho.wait >= 0 || poleEcho.t >= 0) return;
+      poleEcho.wait = 2.4;
+      audio.sfxAt('poletap', -3.9, 14, 0.6, 4);
     }
   });
 

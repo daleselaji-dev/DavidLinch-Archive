@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
-  PALETTE, curtainRing, floorMesh, neonSign, doorway,
+  PALETTE, ANSWER_BREATH, curtainRing, floorMesh, neonSign, doorway,
   smokeLayer, dustField, lightCone2, hangingBulb, makeFlicker,
   quoteStand, quoteStandUpdater, vitrine, zoneTrigger, circleBounds,
   column, mergedMesh, xform, brushedMetalTexture,
@@ -1146,6 +1146,43 @@ export function build(ctx) {
       if (flameBow.t < 0) flameBow.t = 0;
       audio.sfxAt('flamegut', -2.9, 2.9, 0.6);
       ui.caption('火从没灭过。也没人来添过油。', 3800);
+    }
+  });
+
+  // ---------- v1.16 彩蛋四批·光的应答（lobby）：烛剪 ----------
+  // 一把黄铜烛剪斜倚在长明灯盏座边——没人来添过油，也没人用过它。
+  // E → brasstap 指背轻碰（即时，这头的动作声不调音）；snuffState.wait
+  // = 1.5 游戏时钟错拍后，火苗认得那把剪子：压低又缓缓立回——应答
+  // 走 ANSWER_BREATH 共享包络，乘在火苗更新器之后（光的应答，
+  // 零新增光源、零字幕、可重复无锁存）。
+  const snuffer = mergedMesh([
+    xform(new THREE.ConeGeometry(0.034, 0.06, 10), 0, 0.03, 0),
+    xform(new THREE.CylinderGeometry(0.006, 0.006, 0.36, 8), 0, 0.24, 0),
+    xform(new THREE.TorusGeometry(0.016, 0.005, 6, 12), 0, 0.435, 0)
+  ], M.brass);
+  snuffer.rotation.z = 0.62;
+  snuffer.position.set(-2.68, 0.02, 3.02);
+  group.add(snuffer);
+  const snuffState = { wait: -1, duck: 0 };
+  updaters.push((dt) => {
+    if (snuffState.wait >= 0) {
+      snuffState.wait -= dt;
+      if (snuffState.wait < 0) snuffState.duck = 1;
+    }
+    if (snuffState.duck > 0) {
+      snuffState.duck = Math.max(0, snuffState.duck - dt / 2.2);
+      const k = 1 - ANSWER_BREATH(1 - snuffState.duck) * 0.78;
+      flamePivot.scale.y *= k;
+      flameGlow.intensity *= k;
+      flameOuter.material.opacity *= k;
+    }
+  });
+  hotspots.add(snuffer, {
+    hint: 'E — 烛剪',
+    onActivate: () => {
+      if (snuffState.wait >= 0 || snuffState.duck > 0) return;
+      snuffState.wait = 1.5;
+      audio.sfxAt('brasstap', -2.68, 3.02, 0.55, 3);
     }
   });
 
