@@ -2332,7 +2332,7 @@ export function build(ctx) {
   q1.rotation.y = 0.35;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.you
+    narration, docent: DOCENT.you, docent2: DOCENT.you2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

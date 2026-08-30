@@ -19,6 +19,8 @@
 //        追加**（absurdity → detectives，见条目处留账）。
 // v1.21：38 持平——质量维护第二轮（negativity → setup，见条目处
 //        留账；每轮 ≤2 条止损线内只换一条即收手）。
+// v1.22：38 → 40 **封顶收官**（四主题 10/10/10/10 齐平；此后
+//        新增永久关闸，只做质量替换）。
 // ============================================================
 
 /** 主题筛选口径（面板筛选片顺序即此顺序） */
@@ -393,6 +395,30 @@ export const INTERVIEWS = [
     zh: '我的童年是雅致的屋子、成排的绿树、送奶人、搭堡垒、嗡嗡掠过的飞机、蓝天、白篱笆、绿草、樱桃树。',
     source: '《Lynch on Lynch》访谈录 · 1997',
     context: '他常这样一口气罗列自己的小城童年；那之后的话才是转折。'
+  },
+  // ---------- v1.22 扩容（38 → 40 封顶）：心境/此生各一（10/10/10/10） ----------
+  // 防撞记录：lightbulb(s)/bliss/Big Boy/shake 语料全库（QUOTES/
+  // INTERVIEWS/DOCENT）零出现；lightbulbs 与 happiness 领地相邻但
+  // 不重（happiness 说快乐在哪，这条说内在状态会照到别人）；
+  // bigboy 是「趣闻」向条目——他讲过无数遍的奶昔日课。封顶后
+  // 转质量维护（v1.20 立的口径：只换不加）。
+  {
+    id: 'lightbulbs',
+    topic: '灯泡',
+    theme: '心境',
+    en: 'We\u2019re like lightbulbs. If bliss is growing inside of you, it\u2019s like a light; it affects the environment.',
+    zh: '我们像灯泡。极乐在你里面生长时，就像一盏灯——会照亮周围的环境。',
+    source: '《Catching the Big Fish》著作 · 2006',
+    context: '他谈冥想带来的变化如何外溢到片场和身边人。'
+  },
+  {
+    id: 'bigboy',
+    topic: '每天两点半',
+    theme: '此生',
+    en: 'I went to Bob\u2019s Big Boy every day for seven years. I\u2019d have a chocolate shake and four, five, six, seven cups of coffee \u2014 with lots of sugar.',
+    zh: '我连着七年天天去 Bob\u2019s Big Boy：一杯巧克力奶昔，再来四五六七杯咖啡——多加糖。',
+    source: '公开访谈（多次讲述）',
+    context: '八十年代他在洛杉矶的固定日课，甜与咖啡因之间等点子。'
   }
 ];
 

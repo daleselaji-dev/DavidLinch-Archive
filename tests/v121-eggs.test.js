@@ -93,14 +93,18 @@ describe('v1.21 门禁 97：转盘病灶修（问诊三件只修一件——工�
 });
 
 describe('v1.21 门禁 98：访谈质量维护第二轮（止损线 ≤2 内只换一条）', () => {
-  it('条数恰 38 持平（替换不追加——涨一条都算破口径）', () => {
-    expect(INTERVIEWS.length).toBe(38);
+  it('条数不超封顶 40（v1.22 改钉：38 → 40 封顶收官，替换纪律由退役条守卫）', () => {
+    expect(INTERVIEWS.length).toBeGreaterThanOrEqual(38);
+    expect(INTERVIEWS.length).toBeLessThanOrEqual(40);
   });
 
-  it('四主题 10/10/9/9 逐格持平（同主题内替换，分布一格不动）', () => {
+  it('四主题分布均衡（v1.22 改钉：10/10/9/9 → 每主题 9..10，封顶终态由 v122 门禁钉死）', () => {
     const dist = INTERVIEW_THEMES.map(
       (t) => INTERVIEWS.filter((v) => v.theme === t).length);
-    expect(dist).toEqual([10, 10, 9, 9]);
+    for (const n of dist) {
+      expect(n).toBeGreaterThanOrEqual(9);
+      expect(n).toBeLessThanOrEqual(10);
+    }
   });
 
   it('弱条目退役：negativity（与 poison 领地重叠、五词口号语义最薄）全库不回流', () => {
@@ -162,9 +166,8 @@ describe('v1.21 门禁 99：维护纪律复钉 + 盘点增量账 + 版本', () =
     expect(SRC.studio).not.toContain('.glb?inline');
   });
 
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.21.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v122-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.21.0');
-    expect(SRC.main).toContain("version: '1.21.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });

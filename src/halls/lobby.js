@@ -747,7 +747,7 @@ export function build(ctx) {
   q1.rotation.y = Math.atan2(5.3, 9.18);
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.meaning
+    narration, docent: DOCENT.meaning, docent2: DOCENT.meaning2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',
