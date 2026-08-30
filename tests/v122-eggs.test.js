@@ -108,10 +108,10 @@ describe('v1.22 门禁 100：corner_wraith 第二轮回炉（资产与契约账�
     expect(SRC.mull).toContain("getObjectByName('arm_R')");
   });
 
-  it('回炉五拍账在源：佝偻场颈上淡出 / 帘幕不对称合拢 / 前垂发绺 / 披领后折', () => {
+  it('回炉五拍账在源：peek 肩不对称 / 帘幕合拢 / 前垂发绺 ×7 / 披领后折', () => {
     expect(SRC.gen).toContain('u>0.80 线性归零');
     expect(SRC.gen).toContain('不对称合拢');
-    expect(SRC.gen).toContain('前垂发绺 ×4');
+    expect(SRC.gen).toContain('前垂发绺 ×7');
     expect(SRC.gen).toContain('前侧领口向后');
   });
 

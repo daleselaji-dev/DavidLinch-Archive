@@ -327,8 +327,8 @@ describe('单拍节奏 SCARE_BEATS：原片的凌厉是砍出来的', () => {
     }
   });
 
-  it('闪出是闪出：滑出窗 ≤700ms（v1.12 的 2.4s 顿挪前奏退役）', () => {
-    expect(SCARE_BEATS.stare - SCARE_BEATS.reveal).toBeLessThanOrEqual(700);
+  it('闪出是闪出：滑出窗 ≤750ms（v1.28 peek+slide 加长；v1.12 的 2.4s 顿挪前奏退役）', () => {
+    expect(SCARE_BEATS.stare - SCARE_BEATS.reveal).toBeLessThanOrEqual(750);
     expect(SCARE_BEATS.stare - SCARE_BEATS.reveal).toBeGreaterThanOrEqual(350); // 也不是瞬移
   });
 

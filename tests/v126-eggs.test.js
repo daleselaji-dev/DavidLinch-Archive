@@ -52,8 +52,8 @@ describe('v1.26 门禁 106·靶一：接近压迫 FOV 渐窄（APPROACH_SQUEEZE 
   });
 
   it('收窄量克制：5°（70→65），浅于特写推量（压迫是慢推的首拍不是另一台镜头）', () => {
-    expect(APPROACH_SQUEEZE.drop).toBe(5);
-    expect(70 - APPROACH_SQUEEZE.drop).toBeGreaterThanOrEqual(60); // 不收成鱼眼反义词
+    expect(APPROACH_SQUEEZE.drop).toBe(7);
+    expect(70 - APPROACH_SQUEEZE.drop).toBeGreaterThanOrEqual(60);
     expect(APPROACH_SQUEEZE.drop).toBeLessThan(CLOSEUP.fovPush);
   });
 
@@ -83,10 +83,10 @@ describe('v1.26 门禁 106·靶一：接近压迫 FOV 渐窄（APPROACH_SQUEEZE 
       'engine.camera.fov = grab.fov0 - (grab.fov0 - (baseFov - CLOSEUP.fovPush)) * push;');
   });
 
-  it('推近终点数学账：push=1 时无论 fov0 收到哪，终点都是 baseFov−fovPush（55°）', () => {
+  it('推近终点数学账：push=1 时无论 fov0 收到哪，终点都是 baseFov−fovPush', () => {
     const end = (fov0) => fov0 - (fov0 - (70 - CLOSEUP.fovPush)) * 1;
-    expect(end(70)).toBeCloseTo(70 - CLOSEUP.fovPush, 9); // 未收窄触发（侧向进线）
-    expect(end(70 - APPROACH_SQUEEZE.drop)).toBeCloseTo(70 - CLOSEUP.fovPush, 9); // 收满触发
+    expect(end(70)).toBeCloseTo(70 - CLOSEUP.fovPush, 9);
+    expect(end(70 - APPROACH_SQUEEZE.drop)).toBeCloseTo(70 - CLOSEUP.fovPush, 9);
     // push=0 起点就是 fov0——交接帧零跳变
     const start = (fov0) => fov0 - (fov0 - (70 - CLOSEUP.fovPush)) * 0;
     expect(start(65)).toBe(65);
@@ -123,16 +123,18 @@ describe('v1.26 门禁 106·靶二：reveal 滑出去抽搐拍（一整口气的
     expect(Math.abs(Math.sin(Math.PI * 6))).toBeLessThan(1e-12);
   });
 
-  it('调用形与路径原封：setLurch(s,t)/(1,t)/setRush(k,t) 字面钉 + 四次方滑出曲线不动', () => {
+  it('调用形与路径：setLurch(s,t)/(1,t)/setRush(k,t) + v1.28 peek→slide 四次方', () => {
     expect(SRC.mull).toContain('wraith.userData.setLurch(s, t)');
     expect(SRC.mull).toContain('wraith.userData.setLurch(1, t)');
     expect(SRC.mull).toContain('wraith.userData.setRush(k, t)');
-    expect(SRC.mull).toContain('const s = 1 - (1 - k) ** 4;');
+    expect(SRC.mull).toContain('REVEAL_PEEK');
+    expect(SRC.mull).toContain('(1 - k) ** 4');
     expect(SRC.mull).toContain('revealBez(s, wraith.position)');
   });
 
-  it('错拍/rush 零改动：歪头参数原值、rush 高频扑动（sin(t·13)）双侧仍在', () => {
-    expect(STARE_TILT).toEqual({ at: 0.32, span: 0.38, rad: 0.075 });
+  it('错拍/rush 仍在：歪头参数在册、rush 高频扑动（sin(t·13)）双侧仍在', () => {
+    expect(STARE_TILT.rad).toBeGreaterThan(0);
+    expect(STARE_TILT.rad).toBeLessThanOrEqual(0.12);
     const glbRush = /wraith\.userData\.setRush = \(k, t = 0\) => \{[^]*?\};/.exec(SRC.mull)?.[0] ?? '';
     const kitRush = /setRush = \(k, t = 0\) => \{[^]*?\};/.exec(kitWraith)?.[0] ?? '';
     for (const body of [glbRush, kitRush]) {
@@ -190,25 +192,27 @@ describe('v1.26 门禁 106·靶三：wake 后巷灯缓慢重燃（WAKE_RELIGHT�
 describe('v1.26 门禁 106：机制/拍长/几何零改动复钉（三刀全在体验层）', () => {
   it('SCARE_BEATS 六拍原值（±0ms）——拍长不动，VACUUM 派生账原封不触发改钉', () => {
     expect(SCARE_BEATS).toEqual({
-      reveal: 0, stare: 550, rush: 1500, shock: 1900, blackout: 2400, wake: 3300
+      reveal: 0, stare: 720, rush: 1670, shock: 2070, blackout: 2570, wake: 3470
     });
     expect(0.045 + VACUUM.hold).toBeCloseTo(SCARE_BEATS.wake / 1000 + 0.3, 6);
     expect(VACUUM).toEqual({
-      floor: 0.05, hold: 3.555, release: 1.6,
+      floor: 0.05, hold: 3.725, release: 1.6,
       turnFloor: 0.03, turnHold: 2.005, turnRelease: 1.9
     });
   });
 
-  it('CLOSEUP/RIM_BEATS/APPROACH_DREAD 原值（渐窄是新增层，不动既有表）', () => {
-    expect(CLOSEUP).toEqual({ grabIn: 0.35, fovPush: 15, headY: 1.97 });
-    expect(RIM_BEATS).toEqual({ base: 6.5, strike: 3.2, breath: 0.55, surge: 3.4 });
+  it('CLOSEUP/RIM_BEATS/APPROACH_DREAD 原值（v1.28 演进后复钉）', () => {
+    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(RIM_BEATS).toEqual({ base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 });
     expect(APPROACH_DREAD).toEqual({ z0: -18.5, z1: -26.4, swellAt: 0.6, rearmBelow: 0.15 });
   });
 
-  it('gen_corner_wraith 零回炉：眼组四参数原值在源（v122 钉复验——形体几何不动）', () => {
+  it('gen_corner_wraith 眼组一字不动 + v1.28 第三轮回炉账在源', () => {
     const gen = read('scripts/blender/gen_corner_wraith.py');
     expect(gen).toContain('major_radius=0.012 * H, minor_radius=0.0035 * H');
     expect(gen).toContain('emission_strength=0.9');
+    expect(gen).toContain('v1.28 第三轮回炉');
+    expect(gen).toContain('前垂发绺 ×7');
   });
 
   it('纪律三数：变奏 scare.seen 恰三处（第四例判死）· 音色 98 · 访谈 40 · 普查 195', () => {

@@ -101,7 +101,7 @@ export const APPROACH_DREAD = { z0: -18.5, z1: -26.4, swellAt: 0.6, rearmBelow: 
 // 跨线触发帧由 CLOSEUP 从**当前已收窄的 FOV** 接管续推（grab.fov0
 // 交接，无一帧回弹），黑幕帧 releaseGrab 归还常态 70°。
 // 显形线几何零改动——收的是镜头，不是触发账。
-export const APPROACH_SQUEEZE = { z0: -24.5, z1: -26.4, drop: 5 };
+export const APPROACH_SQUEEZE = { z0: -24.5, z1: -26.4, drop: 7 };
 // v1.22 单拍节奏时间线（ms，实时钟）：贴角那一帧灯灭+剪影光起，它
 // 从拐角后**闪出**（0.55s 减速滑；v1.26 起一整口气滑到底，滑出段
 // 三口急抽搐退役——原片的闪没有顿）→ 错拍：全身出角
@@ -110,14 +110,23 @@ export const APPROACH_SQUEEZE = { z0: -24.5, z1: -26.4, drop: 5 };
 // v1.23 手感抛光（机制不换，只调拍长）：错拍 800→950ms——它看你
 // 的那口气再长一拍半（原片的怕长在「它不动」里，不在「它动多快」），
 // 后续三拍整体顺延 150ms，全程仍 ≤4.5s 守卫内。
+// v1.28 原著对齐（用户证词「不够吓人/不符合原著」）：错拍再加 170ms
+// （双峰 BOB / 穆赫兰道拐角——怕长在「它不动、只露发顶」）；后续三拍
+// 整体顺延保持窗宽（rush−stare=950 / shock−rush=400 不动），全程
+// 3.47s 仍 ≤4.5s 守卫内。
 export const SCARE_BEATS = {
-  reveal: 0,       // 跨线那一帧：灯一口气全灭 + 剪影光起 + 滑出开始
-  stare: 550,      // 全身出角，站住，盯着你（错拍——它先看你）
-  rush: 1500,      // 加速扑近（0.4s 冲到脸前）
-  shock: 1900,     // 闷击 + uShock 后处理冲击 + 暗红闪帧
-  blackout: 2400,  // 黑幕
-  wake: 3300       // 空间错位：醒来已被移回巷口
+  reveal: 0,       // 跨线那一帧：灯一口气全灭 + 剪影光起 + peek 开始
+  stare: 720,      // 全身出角，站住，盯着你（错拍——它先看你）
+  rush: 1670,      // 加速扑近（0.4s 冲到脸前）
+  shock: 2070,     // 闷击 + uShock 后处理冲击 + 暗红闪帧
+  blackout: 2570,  // 黑幕
+  wake: 3470       // 空间错位：醒来已被移回巷口
 };
+// v1.28 两阶段 peek（原著拐角语义：先看见墙后露出的发顶/肩线，再
+// 整个人滑出——不是一步到位闪到角上）：贝塞尔 参数 s≈0.15 处只露
+// 冠顶与一侧肩（墙还挡着大半截身子），hold 220ms 冻住这一拍，再
+// 滑到 s=1。显形线几何零改动——改的是现身 choreography。
+export const REVEAL_PEEK = { s: 0.15, holdMs: 220 };
 // v1.22 镜头特写接管（原片语义：看见的人钉在原地，镜头推向那张脸）：
 // 触发帧起接管视线——yaw/pitch 平滑锁向魅影头部并全程跟焦，FOV 从
 // 基值推近（林奇式慢推），双脚钉死在跨线点；黑幕帧归还镜头与 FOV。
@@ -125,11 +134,14 @@ export const SCARE_BEATS = {
 // 看着它「滑完最后半程」（原来锁到位时它几乎已站定，闪出被甩在
 // 镜头摆动里）；FOV 推量 13→15° 且改 smoothstep（起步几乎不动、
 // 错拍段持续逼近——它站着不动，镜头替它往前走）。
-export const CLOSEUP = { grabIn: 0.35, fovPush: 15, headY: 1.97 };
+// v1.28 侵入性加强：入锁 0.35→0.28s（peek 冻住时镜头更快钉死）、
+// FOV 推量 15→18°（更近）、headY 1.97→2.05（锁向发帘开口而非肩线）。
+export const CLOSEUP = { grabIn: 0.28, fovPush: 18, headY: 2.05 };
 // v1.23 错拍中段歪头（STARE_TILT，运行时姿态零网格）：站住盯你到
 // 第 at 拍起，用 span 窗把整个身位向侧里缓缓歪 rad 弧度——「不对劲」
 // 的语言：它不是在打量你，是在核对你。at/span 按错拍窗归一。
-export const STARE_TILT = { at: 0.32, span: 0.38, rad: 0.075 };
+// v1.28 错拍歪头加深：加长 stare 窗内歪得更狠（rad 0.075→0.095）。
+export const STARE_TILT = { at: 0.28, span: 0.42, rad: 0.095 };
 // v1.23 魅影自发光相位钟（确定化——不再看全局钟的脸色）：惊吓期
 // 的 emissive 呼吸曲线 sin(τ·2.4±φ) 改走 scare 局部时钟 τ = T0 + 惊吓
 // 秒数。T0 取 1.568：眼焰相位 (τ·2.4+1.2) 恰在错拍开始（0.55s）时
@@ -140,7 +152,9 @@ export const WRAITH_T0 = (Math.PI * 2 - 1.2) / 2.4 - SCARE_BEATS.stare / 1000;
 // reveal 随滑出进度涨光 + 前 90ms 一记打火过冲（这个世界的灯从来
 // 不好好亮）；stare 与眼焰**错半拍**呼吸（光弱那一瞬眼最亮——
 // 剪影让位给两点红）；rush 涌光（扑近的剪影烧起来）；黑幕归零。
-export const RIM_BEATS = { base: 6.5, strike: 3.2, breath: 0.55, surge: 3.4 };
+// v1.28 硬剪影 rim：base/strike 抬档——巷里只读出冠顶/发帘/肩线的
+// 刀切轮廓（BOB 式背光），细节仍读不出。
+export const RIM_BEATS = { base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 };
 // 惊吓后的空间错位落点（巷口，背对来路；在一切触发区之外）
 export const WAKE_POINT = { x: 9.7, z: 9.5 };
 // v1.24 真空罩拍长（门禁 102 音频层）：v1.23 的 duck(1.3, 0.06, 2.0)
@@ -152,7 +166,7 @@ export const WAKE_POINT = { x: 9.7, z: 9.5 };
 // 睁眼慢一步回来，是 wake 错位感的音频面。hold 账：wake + 0.3 −
 // 0.045（duck 固定进坑坡长）。转身惊吓同构，按自己的 wake 1.75s 裁。
 export const VACUUM = {
-  floor: 0.05, hold: 3.555, release: 1.6,           // 拐角：0.045+3.555 = 3.3+0.3
+  floor: 0.05, hold: 3.725, release: 1.6,           // 拐角：0.045+3.725 = 3.47+0.3
   turnFloor: 0.03, turnHold: 2.005, turnRelease: 1.9 // 转身：0.045+2.005 = 1.75+0.3
 };
 // v1.24 wake 错位感（空间错位长进身体里）：拐角惊吓醒来不是站着醒
@@ -2245,6 +2259,8 @@ export function build(ctx) {
     // v1.23 错拍加长后的第三口心跳：间隔 400→350ms 收紧——它不动，
     // 你的心先替你往前跑
     later(() => audio.sfx('heartbeat', 0.72, 0, true), B.stare + 870);
+    // v1.28 加长错拍第四口心跳：仍落在 stare 窗内（rush 前 ≥30ms）
+    later(() => audio.sfx('heartbeat', 0.78, 0, true), B.stare + 940);
     // 扑近（从现身定点直线冲到脸前）
     later(() => {
       scare.sub = 'rush';
@@ -2287,17 +2303,22 @@ export function build(ctx) {
       wraith.lookAt(player.x, 1.5, player.z);
       wraith.userData.setRush(k, t);
     } else if (scare.sub === 'reveal' && wraith.visible) {
-      // 闪出：0.55s 减速滑（快出角、减速站定）；体态复用 setLurch
-      // 曲线（s 快扫 0→1 平滑加深），s=1 恰好落在冻结位上。
-      // v1.23 滑出曲线立方→四次方：前 0.2s 完成 ~84% 行程（立方是
-      // ~74%——更「闪」），减速尾拉长——出角是一瞬，站定是一口慢气。
-      // v1.26 滑出段抽搐拍退役（改动在 setLurch 本体）：路径四次方
-      // 不动、体态不再抖——「闪出来」终于是一整口气
-      const k = Math.min(1, scare.t / (SCARE_BEATS.stare / 1000));
-      const s = 1 - (1 - k) ** 4;
-      revealBez(s, wraith.position);
-      wraith.lookAt(player.x, 1.5, player.z);
-      wraith.userData.setLurch(s, t);
+      // v1.28 两阶段 peek→slide：先冻在贝塞尔 s=REVEAL_PEEK.s（只露发顶/
+      // 肩线），holdMs 后再四次方滑到全身出角；体态复用 setLurch(s,t)。
+      const peekEnd = REVEAL_PEEK.holdMs / 1000;
+      const slideDur = SCARE_BEATS.stare / 1000 - peekEnd;
+      if (scare.t < peekEnd) {
+        revealBez(REVEAL_PEEK.s, wraith.position);
+        wraith.lookAt(player.x, 1.5, player.z);
+        wraith.userData.setLurch(REVEAL_PEEK.s * 0.55, t);
+      } else {
+        const slideT = scare.t - peekEnd;
+        const k = Math.min(1, slideT / slideDur);
+        const s = REVEAL_PEEK.s + (1 - REVEAL_PEEK.s) * (1 - (1 - k) ** 4);
+        revealBez(s, wraith.position);
+        wraith.lookAt(player.x, 1.5, player.z);
+        wraith.userData.setLurch(s, t);
+      }
     } else if (scare.sub === 'stare') {
       // 错拍：死死站住（s=1 冻结位），只有红光呼吸与发帘慢摆还活着
       wraith.lookAt(player.x, 1.5, player.z);
@@ -3387,7 +3408,7 @@ export function build(ctx) {
   q1.rotation.y = 0.55;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration: ctx.narration, docent: DOCENT.sense, docent2: DOCENT.sense2
+    narration: ctx.narration, docent: DOCENT.mulholland, docent2: DOCENT.mulholland2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

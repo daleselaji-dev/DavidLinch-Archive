@@ -231,16 +231,16 @@ describe('v1.24 门禁 102：变奏彩蛋第三例·时序反转（路灯杆—�
 });
 
 describe('v1.24 门禁 102：机制/几何/拍长零改动复钉（本轮纪律——只动声与醒）', () => {
-  it('SCARE_BEATS 六拍原值（±0ms）：0/550/1500/1900/2400/3300', () => {
+  it('SCARE_BEATS 六拍原值（v1.28 演进后复钉）', () => {
     expect(SCARE_BEATS).toEqual({
-      reveal: 0, stare: 550, rush: 1500, shock: 1900, blackout: 2400, wake: 3300
+      reveal: 0, stare: 720, rush: 1670, shock: 2070, blackout: 2570, wake: 3470
     });
   });
 
-  it('CLOSEUP/STARE_TILT/RIM_BEATS 手感参数原值（v1.23 钉复验）', () => {
-    expect(CLOSEUP).toEqual({ grabIn: 0.35, fovPush: 15, headY: 1.97 });
-    expect(STARE_TILT).toEqual({ at: 0.32, span: 0.38, rad: 0.075 });
-    expect(RIM_BEATS).toEqual({ base: 6.5, strike: 3.2, breath: 0.55, surge: 3.4 });
+  it('CLOSEUP/STARE_TILT/RIM_BEATS 手感参数原值（v1.28 钉）', () => {
+    expect(CLOSEUP).toEqual({ grabIn: 0.28, fovPush: 18, headY: 2.05 });
+    expect(STARE_TILT).toEqual({ at: 0.28, span: 0.42, rad: 0.095 });
+    expect(RIM_BEATS).toEqual({ base: 8.2, strike: 4.8, breath: 0.65, surge: 4.0 });
   });
 
   it('electron 惊吓 wake 预算联动检查：拍长未动、40s 预算照旧', () => {
