@@ -181,6 +181,21 @@ export const WAKE_DAZE = { pitch: -0.36, captionMs: 1150, yaw: 0 };
 // 四轴（醒姿/字幕时机/朝向/灯的归来）。WAKE_POINT 挪位三案已否决
 // （STYLE_AUDIT §16）——本轮动的是灯，不是落点。
 export const WAKE_RELIGHT = { dur: 3 };
+// v1.27 劫后远门回声（r6 报告遗留一笔：「醒来加一声远处门关/锁扣」，
+// GOAL_HANDOFF 第 7→8 轮第 3 点论证的 doorfar 复用路径——98 音色
+// 刹车内零新增）：拐角惊吓（daze）醒来 2.0s，拐角那头很远的一扇门
+// 关上——它走了，门在它身后落锁。方位复用 v1.23 变奏应答的同一扇
+// 门（CORNER_EDGE——世界里答话的门只有那一扇）；醒来面南朝巷
+// （WAKE_DAZE.yaw 0），这一声就落在你视线尽头的黑里。
+// 错拍账（声先于灯，与 WAKE_RELIGHT 3s 缓燃错开）：环境音回满在
+// wake+1.9s（VACUUM 0.3+release 1.6——doorfar 是世界的声、挂
+// master 不走直通，须等世界的声回来才响得成）→ 门应一声在 2.0s
+// → 灯燃满在 3.0s（此刻 smoothstep≈0.74，巷子还压在半黑里）。
+// 字幕零新增（1.15s 那句还在屏上，这一声不解释）。可闻性账：
+// WAKE_POINT→CORNER_EDGE 36.2m，vol·att≈0.045——在混音器 0.015
+// 裁声线上留 ~3× 余量，又压在 0.08 之下（仍然是「远」）。
+// **只给拐角惊吓**——转身惊吓不分家此项（v127-eggs 钉边界）。
+export const WAKE_ECHO = { delayMs: 2000, vol: 0.5, ref: 8 };
 // v1.7 转身惊吓（保留为第二重扳机）：武装区 = 暗巷深段 + 剧场背后空地。
 // 区内驻留 armTime 上膛后，甩头式回望（滑动窗累计转角 ≥ minTurn）即触发。
 export const SCARE_REGION = [
@@ -2163,6 +2178,13 @@ export function build(ctx) {
     // 缓慢重燃（WAKE_RELIGHT 更新器接管）；转身惊吓照旧灯随醒瞬回
     if (daze) {
       relight.t = 0;
+      // v1.27 劫后远门回声：2.0s 后拐角那头远远一声关门落锁（声先
+      // 于灯——灯 3s 才燃满；世界的声不走直通）。新惊吓接管时让位
+      // （与 relight 同纪律）。账目全在 WAKE_ECHO 常数注释。
+      later(() => {
+        if (scare.phase !== 0) return;
+        audio.sfxAt('doorfar', CORNER_EDGE.x, CORNER_EDGE.z, 0.5, 8);
+      }, WAKE_ECHO.delayMs);
     } else {
       backLampState.on = 1;
       lampKill.v = 0;

@@ -717,3 +717,27 @@
 | 2026-08-28 20:08 | 2026-08-28 20:13 | V | **四连门禁**：`npm test` **800/800** → `npm run smoke` 5/5 → `xvfb-run electron --smoke` 全队列 **EXIT=0**（87s：七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25·tp 243 / mull 244 / studio 224·拐角惊吓自然触发面南醒 yaw 0 + 转身惊吓背巷醒 yaw π 双朝向档全过·scareProbe 逐拍实录在日志）→ `npm run blender:check` 七件全过（Blender 4.1.1 在环境） | /tmp/electron-smoke-r7.log |
 | 2026-08-28 20:09 | 2026-08-28 20:14 | 9 | **Release 1.26.0**：`npm run dist:win` 完整一次成型 **EXIT=0**（114s，winCodeSign/NSIS 现场下载零事故）+ PE32 校验 ×2 + asar 内版本 1.26.0 提取核对（先 cd /tmp）+ 双 exe 均 <100MiB raw 限（Portable 95.81MiB / Setup 95.99MiB）+ SHA256SUMS 重写 + DOWNLOAD.md 直链换轨本分支（1.25.0 双产物同轮 git rm 防混用） | release/ 双 exe + SHA256SUMS |
 | 2026-08-28 20:14 | 2026-08-28 20:25 | 6/8 | **文档收口（门禁 106）**：CHANGELOG v1.26.0 全节 + 门禁 106 + 本段 + TESTING（800 用例/v126-eggs 覆盖行/耳机验收清单三拍更新至 v1.26 口径）+ README v1.26 三刀看点 + DOWNLOAD「本轮三刀」反馈模板（FOV/闪出/缓燃三空）+ r6 报告两件移入 `assets/acceptance/v125/`（验收取证区纪律）+ GOAL_HANDOFF 第 7→8 轮；发布产物终版冒烟复跑 + 800 复跑全绿收口 | 本条 commit |
+
+## v1.27 第 8 轮 —— 维护巡检 + 劫后远门回声（门禁 107，bump 1.27.0）
+
+> 本轮主题：**先巡检后一声**。无用户证词轮——GOAL_HANDOFF 第 7→8
+> 轮明示改进清单已清空、仅剩 r6 报告遗留一笔已论证的「醒来加一声
+> 远处门关/锁扣」（第 3 点给出 doorfar 复用路径过 98 刹车关）。
+> 四连巡检全绿后只做这一声，v1.26 三刀参数零改动。基线第 7 轮 tip
+> （ac2e6db，origin/cursor/experience-patch-round7-v1260-a993，
+> 非 main），分支 `cursor/doorfar-wake-echo-round8-v1270-a993`。
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 20:27 | 2026-08-28 20:32 | V | **四连维护巡检（改动前基线）**：fetch 第 7 轮 tip 建分支；`npm test` **800/800**（31 文件，1.9s）→ `npm run smoke` 5/5 → `xvfb-run electron --smoke` 全队列 **EXIT=0**（91s：七厅全过·六 glb-landed（relief/catalog/governor/bottlewall/pine/wraith）·普查 195=22/37/30/24/30/27/25·tp 243 / mull 244 / studio 224·拐角面南醒 yaw 0 + 转身背巷醒 yaw π 双朝向档全过）→ `npm run blender:check` 七件全过（Blender 4.1.1 在环境）；封口轴五条随 800 复钉、195/98/40 三数持平、gen_*.py 恰七件、studio 零 GLB——**巡检全绿零病灶** | /tmp/electron-smoke-r8-baseline.log |
+| 2026-08-28 20:32 | 2026-08-28 20:37 | 1 | **劫后远门回声设计与落地（唯一改动）**：先排钉（v126-eggs wakeUp seg 次序钉容得下 daze 块内插行、v123-eggs doorfar 钉是呼叫铃段作用域、audio.test far 族提取器只认字面量——调用必须写数字字面让审计逮得住、v110 callbell 连锁正则 900 字符窗不受影响）；**三个设计决策**：①拍点 2.0s（任务窗 1.5–2.5 取中）——错拍选**声先于灯**：环境音回满 1.9s（VACUUM 0.3+1.6，doorfar 挂 master 不走直通、世界的声回来它才响得成）→ 门 2.0s → 灯 3.0s 燃满（门响时 smoothstep≈0.74 巷子还在半黑），且 2.0s 落迟到字幕驻留窗内零新字幕；②方位复用 v1.23 变奏应答**同一扇门**（CORNER_EDGE——世界里答话的门只有那一扇；醒来面南朝巷，离轴 2.2° pan≈0.03 落视线尽头的黑里）——但 36.2m 处 far 族惯用 vol0.4/ref2.6 算得 vol·att≈0.006 **会被混音器 0.015 裁声线整只裁掉**（先算后写），改 vol0.5/ref8 → ≈0.045（3× 余量且 ≤0.08 仍是「远」）；③只给拐角 daze + 回调内 phase≠0 让位闸（与 relight 同纪律）；WAKE_ECHO {delayMs:2000, vol:0.5, ref:8} 常数入册 + wakeUp daze 分支 later 接线 | mulholland.js（+2 处） |
+| 2026-08-28 20:37 | 2026-08-28 20:39 | T | **v127-eggs 17 用例 + bump 1.27.0**：拍点窗口账/声等世界账（>1.9s + 无 punch 参）/错拍账（<3s + smoothstep∈(0.5,0.9)）/字幕零新增/daze 边界与 later 调度语义/让位闸先于响/同门方位账（CORNER_EDGE toEqual + 变奏句仍在）/可闻性与声像 spatialParams 实算账/far 族纪律/字面=账本恰等钉/三刀零改动七表复钉/纪律三数/版本钉 1.27.0；v126-eggs 版本精确钉移交同值语义——**817/817 首跑全绿**（32 文件）；commit `cbd5333` + push | commit `cbd5333` |
+| 2026-08-28 20:39 | 2026-08-28 20:41 | V | **改动后四连复跑**：`npm run smoke` 5/5 → `xvfb-run electron --smoke` 全队列 **EXIT=0**（97s：七厅全过·双惊吓自然触发双朝向档·彩蛋 corner-scare,turn-scare,alley-dread）→ `blender:check` 七件全过 | /tmp/electron-smoke-r8-patched.log |
+| 2026-08-28 20:41 | 2026-08-28 20:49 | 9 | **Release 1.27.0**：首跑 `dist:win` **EXIT=1**——nsis 载荷 `*-x64.nsis.7z` ENOENT + Portable 只 26MiB 残缺（7za 压缩步被 VM 瞬态进程孵化故障打断——同窗口 shell 也两次 spawn Aborted，资源余量充足排除 OOM）；**半成品全清（Portable/Setup/win-unpacked/latest.yml）后完整重跑一次成型 EXIT=0**（不拆目标单跑，~125s）：PE32 ×2 + asar 从 Portable 提取 `resources/app.asar` 内版本 **1.27.0** 核对（先 cd /tmp，portable 是直包 74 件非嵌套 7z）+ 双 exe Portable 95.82MiB / Setup 95.99MiB 均 <100MiB raw 限 + SHA256SUMS 重写 `sha256sum -c` 自校 + 1.26.0 双产物同轮 git rm 防混用 | release/ 双 exe + SHA256SUMS + /tmp/dist-win-r8b.log |
+| 2026-08-28 20:49 | 2026-08-28 21:10 | 6/8 | **文档收口（门禁 107）**：CHANGELOG v1.27.0 全节 + 门禁 107 + 本段 + TESTING（817 用例/v127-eggs 覆盖行/耳机验收清单加「劫后回声」拍——醒后 2.0s 正前方远关门、转身惊吓没有这一声）+ README v1.27 一句 + DOWNLOAD 直链换轨本分支 +「本轮一声」反馈模板加一空（到位/太响/太轻/方向不对/多余）+ GOAL_HANDOFF 第 8→9 轮交接；发布产物终版冒烟复跑 EXIT=0 + 817 复跑全绿收口 | 本条 commit |
+
+## v1.27 第 9 轮 —— 纯维护巡检（零代码改动，版本维持 1.27.0）
+
+| 起 | 止 | 阶段 | 工作内容 | 产出/证据 |
+|----|----|------|----------|-----------|
+| 2026-08-28 21:06 | 2026-08-28 21:15 | V | **四连巡检全绿零病灶（无证词轮零改动）**：同分支 tip `6078ce4`；`npm test` **817/817** → `npm run smoke` 5/5 → `npm run build` + `xvfb-run electron --smoke` **EXIT=0**（109s：七厅全过·六 glb-landed·普查 195=22/37/30/24/30/27/25·mull 244 / tp 243 / studio 224·双惊吓自然触发双朝向档 + 彩蛋三连）→ `blender:check` 七件全过；封口轴 + 三数 195/98/40 随 817 复钉；途中复证 VM 瞬态 spawn Aborted ×2（拆步重跑即过）；版本维持 1.27.0，改动仅 GOAL_HANDOFF 第 9 轮节 + 本行 | /tmp/electron-smoke.log |

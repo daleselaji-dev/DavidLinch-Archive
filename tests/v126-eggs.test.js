@@ -222,9 +222,8 @@ describe('v1.26 门禁 106：机制/拍长/几何零改动复钉（三刀全在�
 });
 
 describe('v1.26 门禁 106：版本口径', () => {
-  it('package.json 与 __SV__.version 都是 1.26.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（精确钉移交 v127-eggs）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.26.0');
-    expect(SRC.main).toContain("version: '1.26.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });
