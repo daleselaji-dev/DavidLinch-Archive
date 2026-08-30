@@ -42,6 +42,7 @@ export class AudioEngine {
   constructor() {
     this.ctx = null;
     this.master = null;
+    this.punch = null;
     this.muted = false;
     this._amb = null;
     this._ambTimers = [];
@@ -52,14 +53,14 @@ export class AudioEngine {
   /** 注册听者位姿回调：() => ({ x, z, yaw })，供 sfxAt 计算声像与衰减 */
   setListener(fn) { this._listener = fn; }
 
-  /** 位置化音效：按世界坐标计算声像 + 距离衰减后播放 */
-  sfxAt(name, x, z, vol = 1, ref = 3) {
+  /** 位置化音效：按世界坐标计算声像 + 距离衰减后播放（punch=走惊吓直通总线） */
+  sfxAt(name, x, z, vol = 1, ref = 3, punch = false) {
     if (!this.ctx || this.muted) return;
     const L = this._listener && this._listener();
-    if (!L) { this.sfx(name, vol); return; }
+    if (!L) { this.sfx(name, vol, 0, punch); return; }
     const { pan, att } = spatialParams(x - L.x, z - L.z, L.yaw, ref);
     if (vol * att < 0.015) return; // 听不见就不占混音
-    this.sfx(name, vol * att, pan);
+    this.sfx(name, vol * att, pan, punch);
   }
 
   unlock() {
@@ -72,6 +73,14 @@ export class AudioEngine {
       this.master.gain.value = 0.9;
       this.master.connect(comp);
       comp.connect(this.ctx.destination);
+      // v1.24 惊吓直通总线（门禁 102 病灶修复）：duck 的抽真空压的是
+      // master 推子——此前惊吓自己的声（刮擦/心跳/闷击/scare 主体）也
+      // 挂在 master 上，reveal 帧 45ms 内被一并压到 6%：黑影最响的
+      // 一嗓子实际只剩闷影。直通总线绕过 master、仍过总压缩器（响度
+      // 天花板一致）——抽真空抽走的是「世界」的声，不是「它」的声。
+      this.punch = this.ctx.createGain();
+      this.punch.gain.value = 0.9;
+      this.punch.connect(comp);
       // 交互音混响发送总线（程序化 IR，按厅切换空间感）
       this.reverb = this.ctx.createConvolver();
       this.reverbWet = this.ctx.createGain();
@@ -118,6 +127,10 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(t);
     this.master.gain.linearRampToValueAtTime(m ? 0 : 0.9, t + 0.25);
+    if (this.punch) { // 直通总线不吃 duck，但必须吃静音闸
+      this.punch.gain.cancelScheduledValues(t);
+      this.punch.gain.linearRampToValueAtTime(m ? 0 : 0.9, t + 0.25);
+    }
   }
 
   /**
@@ -133,6 +146,47 @@ export class AudioEngine {
     g.linearRampToValueAtTime(floor, t + 0.045);
     g.setValueAtTime(floor, t + 0.045 + holdSec);
     g.linearRampToValueAtTime(0.9, t + 0.045 + holdSec + releaseSec);
+  }
+
+  /**
+   * setDread — v1.24 接近段持续低压层（q ∈ [0,1]，逐帧喂入）。
+   * dreadswell（27Hz 一口升压）的**持续态**：同一副 27Hz 嗓子拉成
+   * sustain——27Hz 正弦 + 65Hz 低通棕噪，增益跟 q²（压强后程才压上来，
+   * 与心跳渐密同曲线族）。不是新音色（非 case 一口拍，是持续压强）；
+   * 挂 master——惊吓 reveal 帧的 duck 抽真空把它一并抽走（世界的
+   * 压强也是世界的声）；换厅 stopAmbience 归零。
+   */
+  setDread(q) {
+    if (!this.ctx || !this.master) return;
+    const v = Math.max(0, Math.min(1, q));
+    if (Math.abs(v - (this._dreadV ?? 0)) < 0.004) return; // 帧间去抖
+    this._dreadV = v;
+    if (!this._dread && v <= 0) return; // 静默时不为零值建节点
+    if (!this._dread) {
+      const g = this.ctx.createGain();
+      g.gain.value = 0;
+      g.connect(this.master);
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = 27;
+      const og = this.ctx.createGain();
+      og.gain.value = 0.6;
+      osc.connect(og); og.connect(g);
+      osc.start();
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._noiseBuffer('brown');
+      src.loop = true;
+      const flt = this.ctx.createBiquadFilter();
+      flt.type = 'lowpass'; flt.frequency.value = 65; flt.Q.value = 0.8;
+      const ng = this.ctx.createGain();
+      ng.gain.value = 0.5;
+      src.connect(flt); flt.connect(ng); ng.connect(g);
+      src.start();
+      this._dread = { g };
+    }
+    const t = this.ctx.currentTime;
+    // 指数趋近（时常数 0.18s）：涨落都不留台阶
+    this._dread.g.gain.setTargetAtTime(0.2 * v * v, t, 0.18);
   }
 
   _noiseBuffer(type) {
@@ -229,6 +283,7 @@ export class AudioEngine {
   stopAmbience() {
     for (const timer of this._ambTimers) clearTimeout(timer);
     this._ambTimers = [];
+    this.setDread(0); // 换厅时接近段低压层随环境一并归零（防跨厅残留）
     if (!this._amb) return;
     const { bus, nodes } = this._amb;
     const t = this.ctx.currentTime;
@@ -241,22 +296,35 @@ export class AudioEngine {
   }
 
   // ---------- 交互音效 ----------
-  sfx(name, vol = 1, pan = 0) {
+  sfx(name, vol = 1, pan = 0, punch = false) {
     if (!this.ctx || this.muted) return;
     const t = this.ctx.currentTime;
+    // punch：走惊吓直通总线（不吃 master 的 duck 抽真空；见 unlock 注）
+    const bus = punch && this.punch ? this.punch : this.master;
     const out = this.ctx.createGain();
     out.gain.value = vol;
     if (pan && this.ctx.createStereoPanner) {
       const p = this.ctx.createStereoPanner();
       p.pan.value = pan;
       out.connect(p);
-      p.connect(this.master);
+      p.connect(bus);
     } else {
-      out.connect(this.master);
+      out.connect(bus);
     }
     if (this.reverb && this.reverb.buffer) out.connect(this.reverb); // 空间感发送
 
-    const tone = (type, f0, f1, dur, peak, delay = 0) => {
+    // spread：单音色内部的立体声分层（-1..1）——针脚各归一翼，与外层
+    // pan（整声定位）独立。v1.24 惊吓音色塑形用（宽度是尺寸的语言）。
+    const wing = (node, spread) => {
+      if (spread && this.ctx.createStereoPanner) {
+        const p = this.ctx.createStereoPanner();
+        p.pan.value = spread;
+        node.connect(p); p.connect(out);
+      } else {
+        node.connect(out);
+      }
+    };
+    const tone = (type, f0, f1, dur, peak, delay = 0, spread = 0) => {
       const o = this.ctx.createOscillator();
       o.type = type;
       o.frequency.setValueAtTime(f0, t + delay);
@@ -265,10 +333,10 @@ export class AudioEngine {
       g.gain.setValueAtTime(0.0001, t + delay);
       g.gain.exponentialRampToValueAtTime(peak, t + delay + 0.012);
       g.gain.exponentialRampToValueAtTime(0.0001, t + delay + dur);
-      o.connect(g); g.connect(out);
+      o.connect(g); wing(g, spread);
       o.start(t + delay); o.stop(t + delay + dur + 0.05);
     };
-    const noise = (type, dur, filterType, freq, q, peak, delay = 0, attack = 0.012) => {
+    const noise = (type, dur, filterType, freq, q, peak, delay = 0, attack = 0.012, spread = 0) => {
       const src = this.ctx.createBufferSource();
       src.buffer = this._noiseBuffer(type);
       const f = this.ctx.createBiquadFilter();
@@ -277,7 +345,7 @@ export class AudioEngine {
       g.gain.setValueAtTime(0.0001, t + delay);
       g.gain.exponentialRampToValueAtTime(peak, t + delay + attack);
       g.gain.exponentialRampToValueAtTime(0.0001, t + delay + dur);
-      src.connect(f); f.connect(g); g.connect(out);
+      src.connect(f); f.connect(g); wing(g, spread);
       src.start(t + delay); src.stop(t + delay + dur + 0.05);
       return f;
     };
@@ -334,6 +402,16 @@ export class AudioEngine {
       case 'thud':
         tone('sine', 62, 36, 0.3, 0.22);
         noise('brown', 0.2, 'lowpass', 200, 1, 0.14);
+        // v1.24 力度分层（98 刹车内改形，非新嗓子）：全馆家具级闷响
+        // （关抽屉/翻座/落定，vol ≤0.8）音色原封；只有惊吓级重击
+        // （vol ≥0.9，现役仅两重惊吓的 shock 拍满格调用）才砸醒深层——
+        // 次声半沉 + 双翼错衰减低噪（宽度是贴脸的语言）+ 高位定位瞬态。
+        if (vol >= 0.9) {
+          tone('sine', 31, 19, 0.62, 0.3);
+          noise('white', 0.02, 'highpass', 1800, 1, 0.06);
+          noise('brown', 0.34, 'lowpass', 140, 1, 0.12, 0.012, 0.01, -0.55);
+          noise('brown', 0.44, 'lowpass', 110, 1, 0.12, 0.02, 0.01, 0.55);
+        }
         break;
       case 'sip':
         noise('pink', 0.3, 'bandpass', 900, 3, 0.09);
@@ -389,20 +467,33 @@ export class AudioEngine {
         break;
       }
       case 'scrape': { // 金属刮擦（v1.8 拐角惊吓）: 宽带擦噪拖行下坠 + 双声高位金属啸 + 尾端石屑
-        const f = noise('pink', 0.9, 'bandpass', 950, 3, 0.16, 0, 0.16);
-        f.frequency.linearRampToValueAtTime(340, t + 0.85);
-        tone('sawtooth', 2140, 1580, 0.5, 0.016, 0.08);
-        tone('sawtooth', 3260, 2380, 0.32, 0.011, 0.18);
-        noise('white', 0.06, 'highpass', 4300, 2, 0.045, 0.76);
+        // v1.24 与滑出窗对时（音画同拍塑形）：v1.23 滑出曲线换四次方后
+        // 前 0.2s 完成 ~84% 行程、0.55s 站定，而旧刮擦 0.9s 线性下坠——
+        // 它人都站定了铁还在响 0.35s（声画各说各话）。改形：主擦噪收进
+        // 0.58s、频率下坠换指数（快落慢收，跟四次方一致），金属啸提前
+        // 收短（0.03/0.1 起、出角最快那一口里叫），石屑挪到 0.48s——
+        // 恰在 0.55s 落定闷响（stare 拍 thud）前半拍蹭出，像刹车尾。
+        const f = noise('pink', 0.58, 'bandpass', 1050, 3, 0.17, 0, 0.03);
+        f.frequency.exponentialRampToValueAtTime(330, t + 0.42);
+        tone('sawtooth', 2140, 1520, 0.3, 0.017, 0.03);
+        tone('sawtooth', 3260, 2300, 0.2, 0.012, 0.1);
+        noise('white', 0.06, 'highpass', 4300, 2, 0.045, 0.48);
         break;
       }
       case 'scare': { // 惊吓主体: 失谐锯齿簇 + 噪声墙 + 次声坠落
-        for (const f of [92, 97, 184, 189, 371]) {
-          tone('sawtooth', f, f * 0.42, 1.15, 0.11);
+        // v1.24 塑形（低频权重/衰减/立体声宽度——扑近那一嗓子要「罩下来」）：
+        // 失谐簇双翼错开（92/184/371 偏左、97/189 偏右，失谐拍频在头中间打）；
+        // 噪声墙劈成两面（白墙偏左快衰、粉墙偏右慢衰——去相关才有墙的宽）；
+        // 低频三层加权：棕噪衰减 1.5→1.9s、34Hz 次声原封、新加 52→27Hz
+        // 半沉一层（坠的不是音量，是地板）。
+        for (const [i, f] of [92, 97, 184, 189, 371].entries()) {
+          tone('sawtooth', f, f * 0.42, 1.15, 0.11, 0, i % 2 === 0 ? -0.4 : 0.4);
         }
-        noise('white', 1.05, 'bandpass', 1500, 0.8, 0.42, 0, 0.02);
-        noise('brown', 1.5, 'lowpass', 130, 1, 0.5, 0, 0.02);
+        noise('white', 0.95, 'bandpass', 1500, 0.8, 0.34, 0, 0.02, -0.6);
+        noise('pink', 1.2, 'bandpass', 1100, 0.9, 0.3, 0.01, 0.03, 0.6);
+        noise('brown', 1.9, 'lowpass', 130, 1, 0.5, 0, 0.02);
         tone('sine', 34, 22, 1.5, 0.4);
+        tone('sine', 52, 27, 1.7, 0.2, 0.02);
         break;
       }
       case 'whisper': // 帷幕后的窃语: 成形滤波噪声一呼一吸
@@ -849,6 +940,16 @@ export class AudioEngine {
         noise('brown', 0.16, 'lowpass', 200, 1, 0.07, 0.5);
         tone('sine', 74, 52, 0.3, 0.05, 0.5);
         tone('sine', 400, 380, 0.06, 0.012, 0.54);
+        break;
+      }
+      case 'drawerstuck': { // archive 卡死的抽屉（v1.18 第 98 种）：滑轨咬死短挫两口 +
+        //                    断座盘铜散响 + 柜腔闷止——它挣了一下，又咬死了。
+        //                    「这头」的动作声纪律：刻意不入 REPLY_DYAD 调音
+        noise('pink', 0.14, 'bandpass', 640, 2.4, 0.024, 0, 0.5);
+        noise('pink', 0.1, 'bandpass', 1050, 3.2, 0.014, 0.06, 0.4);
+        tone('triangle', 1240, 1150, 0.045, 0.009, 0.085);
+        tone('sine', 92, 66, 0.17, 0.028, 0.12);
+        noise('brown', 0.26, 'lowpass', 230, 1, 0.045, 0.13, 0.25);
         break;
       }
       case 'liftbell': { // lobby 电梯到站的一声叮——这栋楼没有电梯

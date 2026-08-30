@@ -1,42 +1,45 @@
 # DOWNLOAD — Windows 试运行下载
 
-> ## ⬇️ 请下载本轮 **Portable-1.17.0**（旧版 1.16.0 已从本分支移除，勿混用）
+> ## ⬇️ 请下载本轮 **Portable-1.24.0**（旧版 1.23.0 已从本分支移除，勿混用）
 
 | 产物 | 直链（raw） | SHA256 |
 |------|-------------|--------|
-| **便携版（推荐）** `SmokeVelvet-LynchArchive-Portable-1.17.0.exe` ≈96MB | [下载 Portable-1.17.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/velvet-round5-v1170-a993/release/SmokeVelvet-LynchArchive-Portable-1.17.0.exe) | `a6e6d306e49d86fdfafeea2215692ac3398087bb7b8a7a16734b801c06c20974` |
-| 安装版 `SmokeVelvet-LynchArchive-Setup-1.17.0.exe` ≈96MB | [下载 Setup-1.17.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/velvet-round5-v1170-a993/release/SmokeVelvet-LynchArchive-Setup-1.17.0.exe) | `f572d548ca2de243a0dd41d5105da0981a2bef5b50d8c7a76b3d74c792018c0c` |
+| **便携版（推荐）** `SmokeVelvet-LynchArchive-Portable-1.24.0.exe` ≈96MB | [下载 Portable-1.24.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/corner-audio-wake-round3-v1240-a993/release/SmokeVelvet-LynchArchive-Portable-1.24.0.exe) | `4bda649d3653e30db6a33068d06f1e1f8dd5a25f14ef6716410842819b30a111` |
+| 安装版 `SmokeVelvet-LynchArchive-Setup-1.24.0.exe` ≈96MB | [下载 Setup-1.24.0](https://raw.githubusercontent.com/daleselaji-dev/DavidLinch-Archive/cursor/corner-audio-wake-round3-v1240-a993/release/SmokeVelvet-LynchArchive-Setup-1.24.0.exe) | `f8686bbf32020be713d15dba8c63819c343165126283e0508f2c12f984d954c4` |
 
 ## 使用
 
 - **便携版**：下载后双击即运行，免安装（首次自解压需几秒）。
 - **安装版**：一键安装后从开始菜单启动。
-- 校验（PowerShell）：`Get-FileHash .\SmokeVelvet-LynchArchive-Portable-1.17.0.exe -Algorithm SHA256`，
+- 校验（PowerShell）：`Get-FileHash .\SmokeVelvet-LynchArchive-Portable-1.24.0.exe -Algorithm SHA256`，
   与上表/`release/SHA256SUMS.txt` 比对。
-- 版本自检：窗口标题含「Unofficial Fan Tribute」；控制台 `__SV__.version === '1.17.0'`
+- 版本自检：窗口标题含「Unofficial Fan Tribute」；控制台 `__SV__.version === '1.24.0'`
   与 `package.json` 一致。
 
-## 本轮（v1.17.0）看点
+## 本轮（v1.24.0）看点（建议戴耳机）
 
-- **酒瓶墙精修件（Blender 第 6 件资产落厅）**：蓝丝绒吧台背柜整面换新——
-  四种剖面（圆肩波尔多/溜肩高瓶/矮墩醒酒瓶/细高笛形）× 三色玻璃 31 支，
-  捻口环、堆唇、跟珠、逐瓶明暗全读得出来；两处空缺位、七对伴瓶，
-  顶排还有一支**横躺的空瓶**——被拿过，又放回去了；
-  「电压不稳」的闪烁还在整面墙上走
-- **问第二遍（彩蛋第五批·七件，全部零新增交互）**：v1.16 那七件彩蛋
-  的应答落定后有个不说破的**回声窗**——窗内再问一遍，**同拍即答**、
-  答在意想不到的通道：
-  - 大厅烛剪→火苗不动，屋子另一头**三对流苏**齐晃；
-  - 档案廊上弦钥匙→钥匙不响秒针不动，**停摆钟的分针**同拍挣一下；
-  - 橡皮头结霜支管→冰不裂，**大机器转速**沉半口（调速器跟着塌臂）；
-  - 蓝丝绒空话筒→脚灯不亮，**酒瓶墙玻璃**泛一口光；
-  - 双峰保温座→汽不旺，**旋转派柜**悄悄转过一格；
-  - 穆赫兰路灯铁杆→**光先声无**（第一遍声先光迟，第二遍因果换位）；
-  - 录音棚白瓷小碟→瓷不嗒，**节拍器摆针**无声点头
-- **共用件并发盯防**：档案廊停摆钟与上弦钥匙同帧双触发实测——
-  两针各自挣扎各自归位，秒针纹丝不动（单写者纪律入单测）
-- **访谈摘录册 32→34 条**：「此生」主题 6→8——过去上的色 / 不退休
-  （「我心里满是幸福，而且我永远不会退休」）
-- 调速器 + 双惊吓 + 194 件可交互物全部保留；发布产物全冒烟复跑 EXIT=0
+- **它的声不再闷**：拐角惊吓那一帧世界骤静（万籁俱寂），但
+  刮擦、错拍三口心跳、扑近那嗓子**满电平在场**——此前它们被
+  自己的静默一并吞掉（最响的一嗓子实际是闷的），本轮修的就是
+  这个病灶：**世界越安静，它越在**
+- **黑幕全程死寂、环境音比睁眼慢一步回来**：黑里醒来先是没有
+  世界的声，只有耳边那声 whisper
+- **扑近那嗓子更沉更宽**：低频往下坠（坠的不是音量是地板）、
+  左右耳不对称
+- **刮擦跟着它站定收住**：它 0.55s 滑出站定，铁声几乎同拍
+  收住——落定闷响前半拍还有一记石屑蹭出
+- **走向拐角的耳底多了一层持续低压**：随接近渐涨，与心跳渐密
+  /巷灯不稳同一口气（离开即退，冷却期全静）
+- **醒来是俯冲醒**：黑幕后在巷口醒来**视线压在脚边地面**，头
+  要自己抬起来；那句「有些拐角，不该拐过去。」迟到一秒多才
+  补刀（转身惊吓仍平视即醒即字——两重 wake 一个错的是空间、
+  一个错的是时间）
+- **路灯杆的问答倒过来了（变奏第三例·时序反转）**：那一夜
+  之后敲杆——手上没声，灯却同帧把双沉答完，你自己那记铁鸣
+  2.4 秒后才从杆里走出来（**答在问前**；与刮痕墙的缺席、
+  呼叫铃的换位构成三例三语法，到此封口）
+- 显形线触发 / 惊吓拍长（3.3s 原值 ±0ms）/ 转身惊吓 / 195 件
+  交互 / 98 音色 / 访谈 40 封顶全部保留；单测 717→**744**；
+  发布产物全冒烟复跑 EXIT=0
 
 构建方法与跨平台说明见 [`BUILD.md`](BUILD.md)。

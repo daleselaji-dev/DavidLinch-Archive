@@ -1133,7 +1133,12 @@ export function build(ctx) {
     group.add(art);
   }
 
-  // 工作台灯 v2（重底座 + 弹簧臂 + 绿铝罩；可开关 — 交互①）
+  // 工作台灯 v3·手作精修（v1.20 门禁 94；可开关 — 交互①）：
+  // GLB 轴 studio 刻意留空，这间屋的精修件在这间屋里做——车削木
+  // 重底座（座肩留车刀痕）/ 手弯铁杆（单管四弯 + 蝶形螺母）/
+  // 手锤黄铜罩（手刷绿漆，clearcoat 退役）/ 布包余线盘在桌面。
+  // 热点（shade）/ 光路（3.4/5.5/1.8）/ hint / 字幕 / 音色全部
+  // 一字不动——精修只动做工；mesh 账 7 → 5（净 −2，227 → 225）。
   const lampState = { on: 1 };
   const lamp = angleLamp({ shadeColor: 0x1c4232, mats: M });
   lamp.position.set(-6.55, 0.905, -2.35);
@@ -1232,11 +1237,12 @@ export function build(ctx) {
   );
   saucer.position.set(-6.62, 0.912, -0.3);
   group.add(saucer);
-  // v1.17 彩蛋五批·问第二遍（studio）：三嗒收完后的 6s 回声窗内
+  // v1.17 彩蛋五批·问第二遍（studio）：三嗒收完后的回声窗内
   // **再碰一次**——瓷不嗒、碟不颤，房间另一头停在半拍上的节拍器
   // 摆针在同一拍无声地点了一下头又停回去（答与动作同拍，凉意跑进
   // 了拍子里）。metro 正在走时不插话（摆针仍只有 metro 更新器一个
   // 基准写者，nudge 是注册在其后的加法覆写）。零新增件零音色。
+  // v1.19 余温总账 9s：三嗒序列 3.0s 落定 → 窗 6.0s（账落老值）。
   const chinaState = { t: -1, step: 0, echo: 0 };
   const metroNudge = { t: -1 };
   const CHINA_AT = [0, 0.9, 2.1]; // 收缩三嗒：间隔 0.9→1.2s 在拉长
@@ -1269,7 +1275,7 @@ export function build(ctx) {
     if (k >= 3.0) {
       chinaState.t = -1;
       chinaState.step = 0;
-      chinaState.echo = 6; // 第三嗒还挂在空气里——回声窗开
+      chinaState.echo = 6; // 余温 9−3.0——第三嗒还挂在空气里
     }
   });
   hotspots.add(saucer, {
@@ -2326,7 +2332,7 @@ export function build(ctx) {
   q1.rotation.y = 0.35;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.you
+    narration, docent: DOCENT.you, docent2: DOCENT.you2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

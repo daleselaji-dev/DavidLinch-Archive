@@ -1554,10 +1554,11 @@ export function build(ctx) {
   micHit.visible = false;
   micHit.position.set(0, 1.6, -D / 2 + 2.3);
   group.add(micHit);
-  // v1.17 彩蛋五批·问第二遍（bv）：脚灯呼吸落定后的 6s 回声窗内
+  // v1.17 彩蛋五批·问第二遍（bv）：脚灯呼吸落定后的回声窗内
   // **再碰一次**——话筒不闷响、脚灯不亮，吧台背柜整面酒瓶墙的玻璃
   // 在同一拍泛起一口光又落回（答与动作同拍，答在你身后的玻璃上；
   // GLB 精修件与程序化兜底共用 bottleGlassMats 登记表，换网格不换答）。
+  // v1.19 余温总账 9s：1.5 错拍 + 1.8 呼吸 = 3.3s 落定 → 窗 5.7s。
   const micState = { wait: -1, breath: 0, echo: 0 };
   const glassEcho = { t: -1 };
   updaters.push((dt) => {
@@ -1567,7 +1568,7 @@ export function build(ctx) {
     }
     if (micState.breath > 0) {
       micState.breath = Math.max(0, micState.breath - dt / 1.8);
-      if (micState.breath === 0) micState.echo = 6; // 脚灯落定，回声窗开
+      if (micState.breath === 0) micState.echo = 5.7; // 余温 9−3.3——回声窗开
       const p = ANSWER_BREATH(1 - micState.breath);
       footWash.intensity += p * 3.2;
       footLights.material.emissiveIntensity += p * 1.9;
@@ -1685,7 +1686,7 @@ export function build(ctx) {
   q1.rotation.y = 1.15;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration, docent: DOCENT.home
+    narration, docent: DOCENT.home, docent2: DOCENT.home2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

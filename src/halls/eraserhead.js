@@ -817,10 +817,11 @@ export function build(ctx) {
   frostSleeve.rotation.z = Math.PI / 2;
   frostSleeve.position.set(-5.4, 1.2, -S / 2 + 0.35);
   group.add(frostSleeve);
-  // v1.17 彩蛋五批·问第二遍（era）：远处 icecrack 落定后的 6s 回声窗
+  // v1.17 彩蛋五批·问第二遍（era）：远处 icecrack 落定后的回声窗
   // 内**再碰一次**——支管不嘶、冰不裂，整间房的转速在同一拍沉下去
   // 半口（machineState.run 打个嗝，恢复更新器拉回；调速器双球跟着
   // 塌臂——答与动作同拍，答在房间的转速里）。零音色零新件。
+  // v1.19 余温总账 9s：1.7 错拍即答（冰裂是一声不是一段）→ 窗 7.3s。
   const frostState = { wait: -1, echo: 0 };
   updaters.push((dt) => {
     if (frostState.wait < 0) {
@@ -830,7 +831,7 @@ export function build(ctx) {
     frostState.wait -= dt;
     if (frostState.wait < 0) {
       audio.sfxAt('icecrack', -14, -8.5, 0.55, 8);
-      frostState.echo = 6; // 裂声未凉——回声窗开
+      frostState.echo = 7.3; // 余温 9−1.7——裂声未凉
     }
   });
   hotspots.add(frostSleeve, {
@@ -2494,7 +2495,7 @@ export function build(ctx) {
   q1.rotation.y = 1.35;
   group.add(q1);
   updaters.push(quoteStandUpdater(q1, player, ui, {
-    narration: ctx.narration, docent: DOCENT.philly
+    narration: ctx.narration, docent: DOCENT.philly, docent2: DOCENT.philly2
   }));
   hotspots.add(q1.userData.board, {
     hint: 'E — 他自己的话',

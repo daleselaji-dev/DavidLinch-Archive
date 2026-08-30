@@ -75,10 +75,10 @@ describe('v1.17 门禁 81：酒瓶墙 GLB 落蓝丝绒厅（Blender 管线第 6 
     expect(seg).toContain("getObjectByName('bottleCorks')");
   });
 
-  it('blender:check 扩到六件（gen_bottle_wall.py 比例架入列）', () => {
+  it('blender:check 扩到六件（gen_bottle_wall.py 比例架入列；件数精确钉移交 v118）', () => {
     expect(SRC.check).toContain("gen: 'gen_bottle_wall.py'");
     expect(SRC.check).toContain('酒瓶墙');
-    expect((SRC.check.match(/\{ gen: 'gen_/g) || []).length).toBe(6);
+    expect((SRC.check.match(/\{ gen: 'gen_/g) || []).length).toBeGreaterThanOrEqual(6);
   });
 });
 
@@ -116,7 +116,7 @@ describe('v1.17 门禁 82：彩蛋第五批「问第二遍」（七件在源，�
     expect(seg, `${hall} 即答零字幕`).not.toContain('ui.caption');
   });
 
-  it('零新增交互：INTERACTIVE_MIN 与 v1.16 口径逐厅相等（五轮连涨惯性刹车）', () => {
+  it('零新增交互：INTERACTIVE_MIN 不回退于 v1.16 口径（惯性刹车钉移交 v118——收官件开一格后由新钉接管）', () => {
     const at = SRC.cjs.indexOf('const INTERACTIVE_MIN');
     const seg = SRC.cjs.slice(at, at + 260);
     const mins = {
@@ -126,7 +126,7 @@ describe('v1.17 门禁 82：彩蛋第五批「问第二遍」（七件在源，�
     for (const [hall, min] of Object.entries(mins)) {
       const m = new RegExp(`${hall}:\\s*(\\d+)`).exec(seg);
       expect(m, `INTERACTIVE_MIN 缺 ${hall}`).toBeTruthy();
-      expect(Number(m[1]), `INTERACTIVE_MIN.${hall} 本轮不许涨也不许跌`).toBe(min);
+      expect(Number(m[1]), `INTERACTIVE_MIN.${hall} 回退`).toBeGreaterThanOrEqual(min);
     }
   });
 
@@ -146,8 +146,8 @@ describe('v1.17 门禁 82：彩蛋第五批「问第二遍」（七件在源，�
     }
   });
 
-  it('第五批零新增音色：engine 合成音保持 97 种（换轴不加声，答全走既有通道）', () => {
-    expect((SRC.engine.match(/case '/g) || []).length).toBe(97);
+  it('第五批零新增音色：engine 合成音 ≥97 种（97 钉移交 v118——收官件带一件新音色后由新钉接管）', () => {
+    expect((SRC.engine.match(/case '/g) || []).length).toBeGreaterThanOrEqual(97);
   });
 
   it('mull 即时重放不续窗（replay 标记——七件同口径：答一次即消耗）', () => {
@@ -190,7 +190,8 @@ describe('v1.17 门禁 83：时间错位轴共用件盯防（archive 单写者�
     expect(seg).toContain('secHand.rotation.z = SEC_REST;');
     expect(seg).toContain('windKey.rotation.z = 0;');
     expect(seg).toContain('windState.step = 0;');
-    expect(seg).toContain('windState.echo = 8;');
+    // 8s 精确钉移交 v119-eggs（余温总账 9s 窗长差异化——最慢落定不再配最长窗）
+    expect(seg).toMatch(/windState\.echo = [\d.]+;/);
   });
 
   it('并发抽查取证句柄在源（冒烟探针按名读针角）', () => {
@@ -224,9 +225,8 @@ describe('v1.17 门禁 84：访谈 32 → 34（补「此生」至 8）', () => {
 });
 
 describe('v1.17 阈值与版本', () => {
-  it('版本口径一致：package.json 与 __SV__.version 都是 1.17.0', () => {
+  it('版本口径一致：package.json 与 __SV__.version 同值（版本钉移交 v118-eggs.test）', () => {
     const pkg = JSON.parse(read('package.json'));
-    expect(pkg.version).toBe('1.17.0');
-    expect(SRC.main).toContain("version: '1.17.0'");
+    expect(SRC.main).toContain(`version: '${pkg.version}'`);
   });
 });
